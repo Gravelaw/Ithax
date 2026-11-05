@@ -4,7 +4,7 @@ Nov 6, 2026 · @Akshay
 
 ## What is here
 
-Seven build specs, one per tab, plus a build guide for coding sessions. Specs 1 to 4 are at version 0.2, with a binding "Detailed specification" section each. Specs 5 to 7 remain at version 0.1. Each ends with acceptance tests that an AI coding tool can be held to. Spec 0, the product brief, is a separate doc.
+Seven build specs, one per tab, plus a build guide for coding sessions. Each spec carries its own version and status line under its title; specs 1 to 4 are at 0.3, spec 0 and specs 5 to 7 at 0.2 after the review of 2026-11-05. The repository copy is the source of truth (owner to confirm); sessions never write to the Claude Docs. Specs 1 to 4 have a binding "Detailed specification" section each. Each ends with acceptance tests that an AI coding tool can be held to. Spec 0, the product brief, is a separate doc.
 
 | Spec | Covers | Phase | Build after |
 | --- | --- | --- | --- |
@@ -37,7 +37,7 @@ You asked for all specs at once, so I made these calls. Each is easy to change n
 | Optimization through Pyomo and HiGHS; Optuna for simulation-based search | Spec 2 | OR-Tools; SciPy |
 | Engine service in Python with FastAPI | Spec 3 | Any local service framework |
 | Interface in React with React Flow, packaged with Tauri | Spec 3 | Electron; a Qt desktop interface in Python |
-| Windows runs engines through a prepared WSL image | Spec 3 | Native Windows builds of each engine |
+| Phase 1 runs natively on Windows (proposed default after review); WSL deferred to Phase 3 | Spec 3 | Service under WSL |
 | Ten Phase 1 templates, listed by name | Spec 4 | Your own priority list |
 | Findings written by fixed rules, not by a language model | Spec 4 | Assistant-written findings |
 | OpenMDAO as the design study layer | Spec 5 | Dakota |
@@ -46,7 +46,7 @@ You asked for all specs at once, so I made these calls. Each is easy to change n
 
 ## Limits of these drafts
 
-- **Only a prototype has been run.** A throwaway prototype ran three example models against the spec 1 format and passed two queueing benchmarks. It covered five of the twelve block types. The API, the MCP tools, the optimization layout and the other seven blocks are specified but have never run. The prototype script is a reference only: it is not the start of the product, must not be copied into it, and is deleted at the end of milestone M3. Only the three example model files are kept.
+- **Only a prototype has been run.** A throwaway prototype ran three example models against the spec 1 format and passed two queueing benchmarks. It covered five of the twelve block types. The API, the MCP tools, the optimization layout and the other seven blocks are specified but have never run. The prototype script and two of the three model files were not retained; their numbers survive in spec 2 as reference values only. `coffee_shop.json` is the one verbatim fixture.
 - **Detail falls with distance.** Specs 1 to 4 are detailed to field level. Specs 5 to 7 set structure only. Detailing them now would mean inventing input formats and behaviours for engines nobody has installed or tested yet, which would create false precision. Each gets its detailed pass after its research items are done.
 - **Engine assignments in spec 7 are a first mapping.** They come from the research and general knowledge of each engine, and none has been tested.
 - **Performance targets are proposals.** Every time and size target is marked as proposed.
