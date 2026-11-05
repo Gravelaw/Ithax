@@ -18,8 +18,14 @@ Python 3.11 or later.
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -e ".[dev]"
-bash scripts/check.sh   # format, lint, types, tests
+bash scripts/check.sh   # format, lint, types, tests with the coverage gate
+pytest tests/model      # the model layer only
+pytest -m benchmark     # benchmarks with known answers
+pytest -m perf          # performance checks, excluded from check.sh
 ```
+
+Research notes live in `docs/research/`, session summaries in `docs/sessions/`.
+The specs in `docs/specs/` are the source of truth and each carries a version line.
 
 ## Licence
 
