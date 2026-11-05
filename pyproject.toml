@@ -17,6 +17,7 @@ dev = [
     "pytest>=9.2",
     "ruff>=0.17.4",
     "mypy>=2.4.1",
+    "pytest-cov>=7.1",
 ]
 
 [tool.hatch.version]
@@ -27,13 +28,22 @@ packages = ["src/lcsim"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+markers = [
+    "benchmark: benchmark with a known answer",
+    "benchmark_coverage: 20-seed coverage run, by hand",
+    "perf: performance measurement",
+    "remote: needs an SSH host",
+    "cluster: needs a Slurm queue",
+]
+# No coverage flags here, so that the subset commands (pytest tests/model,
+# pytest -m benchmark, pytest -m perf) run without failing the coverage threshold.
+addopts = "-ra --strict-markers -m 'not benchmark_coverage and not perf and not remote and not cluster'"
 
 [tool.ruff]
 target-version = "py311"
 line-length = 100
 src = ["src", "tests"]
-# Specs and the guide are verbatim exports; never reformat them.
+# Specs and the guide are prose; ruff must not reformat code blocks inside them.
 extend-exclude = ["docs/specs", "CLAUDE.md"]
 
 [tool.ruff.lint]
