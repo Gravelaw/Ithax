@@ -9,10 +9,12 @@ run (spec 2 "Simultaneous events"): the loop stops when the next event is not be
 end, as ``env.run(until=length)`` does, since nothing scheduled after its call can be due
 before its stop event at that instant.
 
-The loop asks ``should_stop`` every ``STOP_CHECK_EVENTS`` events and returns ``None`` when
-it says yes. Otherwise it returns an ``Outcome``: the rows of the ``replications`` table
-for this replication, ``(metric, value, unit)`` in component order, each type's metrics in
-spec 2 order, then ``model.wip.mean``; and the rows of the ``timeseries`` table,
+The loop asks ``should_stop`` every ``STOP_CHECK_EVENTS`` steps, a step being an event
+run or a sample taken, so that a run sampled densely between events, or after the last one,
+also stops quickly; it returns ``None`` when ``should_stop`` says yes. Otherwise it returns
+an ``Outcome``: the rows of the ``replications`` table for this replication,
+``(metric, value, unit)`` in component order, each type's metrics in spec 2 order, then
+``model.wip.mean``; and the rows of the ``timeseries`` table,
 ``(metric, time_s, value, unit)``.
 
 Time series (spec 2 "Statistic definitions"): ``TimeSeries`` records each block's
@@ -64,7 +66,7 @@ class Outcome(NamedTuple):
     series: list[SeriesRow]
 
 
-#: How many events run between two calls of ``should_stop``.
+#: How many steps (events run and samples taken) between two calls of ``should_stop``.
 STOP_CHECK_EVENTS = 1024
 
 #: The ``unit`` of each kind of measure (spec 1 "Tables for the ``process`` domain").
@@ -167,15 +169,24 @@ def run_replication(
     series = TimeSeries(blocks, context, float(experiment["record_interval"]))
     for block in blocks:
         block.start()
-    events = 0
+    steps = 0  # events run and samples taken
+
+    def stopped() -> bool:
+        nonlocal steps
+        steps += 1
+        return (steps - 1) % STOP_CHECK_EVENTS == 0 and should_stop()
+
     while env.peek() < window.end:
-        if events % STOP_CHECK_EVENTS == 0 and should_stop():
-            return None
         while series.next_time < env.peek():
+            if stopped():
+                return None
             series.advance()
+        if stopped():
+            return None
         env.step()
-        events += 1
     while series.next_time < window.end:
+        if stopped():
+            return None
         series.advance()
     rows: list[Row] = []
     components = engine_input["scenarios"][scenario]["components"]

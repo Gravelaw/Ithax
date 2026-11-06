@@ -9,6 +9,7 @@ random number, so the ``replications`` rows are the same without it.
 
 import threading
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
 import pyarrow as pa
@@ -215,3 +216,42 @@ def test_the_default_interval_gives_200_samples(make_model: ModelMaker, length: 
 def test_a_huge_interval_still_samples_at_zero(make_model: ModelMaker) -> None:
     engine = deterministic(make_model, length="1 s", record_interval="100000 d")
     assert [time for time, _ in series_of(outcome_of(engine))["model.wip"]] == [0.0]
+
+
+def test_should_stop_is_asked_while_sampling_after_the_last_event(
+    make_model: ModelMaker,
+) -> None:
+    """One item at 0 s, then no event for a day with a sample every 10 ms (8.64 million
+    samples): the replication is asked to stop between samples too, so it ends at once
+    (review of PR #18)."""
+    components, connections = line(constant("1 min"), constant("1 s"))
+    components[0]["params"]["max_items"] = 1
+    model = make_model(components, connections, length="1 d", record_interval="0.01 s")
+    calls: list[int] = []
+
+    def stop_on_third_check() -> bool:
+        calls.append(1)
+        return len(calls) == 3
+
+    started = monotonic()
+    assert run_replication(engine_input(model, "e"), 0, 0, stop_on_third_check) is None
+    assert len(calls) == 3
+    assert monotonic() - started < 1.0
+
+
+def test_should_stop_is_asked_while_sampling_between_events(make_model: ModelMaker) -> None:
+    """Arrivals every hour and 1 s of service, a sample every 10 ms: about 360,000 samples
+    fall between the departure at 1 s and the next arrival, and the third check, after
+    2,048 steps, comes among them (review of PR #18)."""
+    components, connections = line(constant("1 h"), constant("1 s"))
+    model = make_model(components, connections, length="2 h", record_interval="0.01 s")
+    calls: list[int] = []
+
+    def stop_on_third_check() -> bool:
+        calls.append(1)
+        return len(calls) == 3
+
+    started = monotonic()
+    assert run_replication(engine_input(model, "e"), 0, 0, stop_on_third_check) is None
+    assert len(calls) == 3
+    assert monotonic() - started < 1.0
