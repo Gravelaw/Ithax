@@ -794,8 +794,9 @@ def test_load_document_reports_the_meaning_pass_and_gives_no_model() -> None:
     del document["connections"][1]
     result = load_document(document)
     assert result.model is None
-    assert codes(list(result.issues)) == [("E131", "/components/1")]
-    assert result.errors == result.issues
+    # The exit is now cut off from the source, which the meaning pass also warns of.
+    assert codes(list(result.issues)) == [("E131", "/components/1"), ("W200", "/components/2")]
+    assert codes(list(result.errors)) == [("E131", "/components/1")]
 
 
 def test_build_document_skips_the_meaning_pass() -> None:

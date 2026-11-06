@@ -42,35 +42,21 @@ def test_spec_1_lists_validation_issue_codes() -> None:
     assert spec_1_issue_codes(), "spec 1 issue table has no schema or meaning rows"
 
 
-# Codes whose fixture arrives with a later M1 ticket, and that ticket. The fixtures folder
-# exists from AKS-87 (E100, E101), which switches the check below on; each later ticket
-# adds its fixtures and removes its codes here. AKS-91 empties this map: its acceptance is
-# that the check passes for every schema and meaning code, and M1 cannot close before.
-# Design: docs/DECISIONS.md, 2026-11-06 · M1, "Issue objects, JSON Schema and the schema
-# pass (AKS-87)".
-FIXTURE_PENDING: dict[str, str] = {
-    "W200": "AKS-91",
-    "W201": "AKS-91",
-    "W202": "AKS-91",
-}
-
-
+# Every schema and meaning code has its fixture from M1 on (spec 1 acceptance table; guide M1
+# "Done when"). The map of codes whose fixture was still pending (AKS-87 to AKS-90) was
+# emptied by AKS-91 and then removed, so a code added to spec 1 later must arrive with its
+# fixture. Design: docs/DECISIONS.md, 2026-11-06 · M1, "Warnings W200, W201 and W202 and
+# the complete fixture set (AKS-91)".
 @pytest.mark.parametrize(("code", "issue_pass"), spec_1_issue_codes())
 def test_every_validation_issue_code_has_a_fixture(code: str, issue_pass: str) -> None:
-    if not ISSUE_FIXTURES.is_dir():
-        pytest.skip("from M1")
+    assert ISSUE_FIXTURES.is_dir(), f"{ISSUE_FIXTURES} is missing; it exists from M1 on"
     matches = list(ISSUE_FIXTURES.glob(f"{code}_*.json"))
-    if code in FIXTURE_PENDING:
-        # A code that has its fixture must leave the pending map, so the map only shrinks.
-        assert not matches, f"{code} has a fixture; remove it from FIXTURE_PENDING"
-        pytest.skip(f"fixture arrives with {FIXTURE_PENDING[code]}")
     assert matches, f"no fixture for {code} ({issue_pass} pass) under {ISSUE_FIXTURES}"
 
 
-def test_pending_fixture_codes_are_spec_1_schema_or_meaning_codes() -> None:
-    codes = {code for code, _ in spec_1_issue_codes()}
-    assert set(FIXTURE_PENDING) <= codes
-    assert set(FIXTURE_PENDING.values()) <= {"AKS-90", "AKS-91"}
+def test_spec_1_lists_the_29_schema_and_meaning_codes() -> None:
+    """AKS-91 acceptance: the fixture check covers all 29 schema and meaning codes."""
+    assert len(spec_1_issue_codes()) == 29
 
 
 def registered_markers() -> set[str]:
