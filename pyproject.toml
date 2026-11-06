@@ -26,6 +26,11 @@ dev = [
     "types-jsonschema>=4.26.0.20261006",
 ]
 
+# Spec 1 "Engine contract": adapters are discovered through this group; the entry-point name
+# is the adapter's name, which run.engine refers to.
+[project.entry-points."lcsim.engines"]
+simpy = "lcsim.engines.process.adapter:ProcessAdapter"
+
 [tool.hatch.version]
 path = "src/lcsim/__init__.py"
 

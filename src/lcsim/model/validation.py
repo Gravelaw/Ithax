@@ -11,7 +11,8 @@ Rule groups, one function each, each returning ``list[Issue]``:
 
 - ``engine_issues``: E102, the installed-adapter lookup of spec 1 "Top-level keys". The
   loader calls it before building, since a model of a domain no engine handles cannot be
-  built.
+  built. The installed engines are passed in: ``lcsim.engines.registry`` discovers them,
+  and the model layer does not import the engines package at module level.
 - ``identifier_issues``: E110 (duplicate), E111 (pattern), E112 (reserved), spec 1
   "Identifiers".
 - ``setting_issues``: E124 (a ``pool`` or ``target`` that names an unknown component or
@@ -64,7 +65,6 @@ from typing import Literal
 
 from lcsim.model.catalogue import (
     DISTRIBUTIONS,
-    DOMAINS,
     MEASURE_KINDS,
     MODEL_METRICS,
     PROCESS_TYPES,
@@ -144,25 +144,24 @@ class InstalledEngine:
 
     ``name`` is ``None`` for a model-layer stand-in: until an adapter exists for a domain
     (M2 for ``process``, M5 for ``optimization``), the model layer stands in for it (spec
-    1 "Validation"). A stand-in has no adapter name, so ``run.engine`` cannot be checked
-    against it and any name is accepted.
+    1 "Top-level keys"). A stand-in has no adapter name, so ``run.engine`` cannot be
+    checked against it and any name is accepted.
     """
 
     name: str | None
     domains: tuple[str, ...]
 
 
-# One stand-in per Phase 1 domain, until the adapters are discovered (M2, spec 1 "Engine
-# contract").
-STAND_IN_ENGINES: tuple[InstalledEngine, ...] = tuple(
-    InstalledEngine(None, (domain,)) for domain in DOMAINS
-)
+# The stand-ins for the Phase 1 domains no adapter covers yet: ``optimization`` until M5.
+# The ``process`` adapter is discovered from M2 (spec 1 "Engine contract");
+# ``lcsim.engines.registry`` adds a stand-in only for a domain no installed adapter handles.
+STAND_IN_ENGINES: tuple[InstalledEngine, ...] = (InstalledEngine(None, ("optimization",)),)
 
 
 def engine_issues(
     domain: str,
     engine: str | None,
-    installed: Sequence[InstalledEngine] = STAND_IN_ENGINES,
+    installed: Sequence[InstalledEngine],
 ) -> list[Issue]:
     """E102 unless exactly one installed engine runs a model of ``domain``.
 
