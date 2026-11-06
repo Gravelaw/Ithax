@@ -11,8 +11,9 @@ to the meaning pass, so that it reports its specific codes.
 
 ``schema_pass`` reports:
 
-- E101 when ``format_version`` is not a version this reader opens (spec 1 "Versioning"). A
-  file of another version may follow another schema, so nothing else is reported for it.
+- E101 when ``format_version`` is not a version this reader opens as it is (spec 1
+  "Versioning"; the version rules and migrations are ``lcsim.model.migration``). A file of
+  another version may follow another schema, so nothing else is reported for it.
 - E100 for each schema problem: a wrong JSON type, a missing required key, an unknown key,
   or a key that belongs to the other domain.
 
@@ -34,15 +35,9 @@ from typing import Any
 from jsonschema import Draft202012Validator, ValidationError
 
 from lcsim.model.issues import Issue, pointer
+from lcsim.model.migration import FORMAT_VERSION, version_issue
 
 __all__ = ["FORMAT_VERSION", "model_schema", "schema_pass"]
-
-# The format version this reader writes and reads (spec 1 "Versioning"): it opens any file
-# with the same major version and a minor version no higher than this one.
-FORMAT_VERSION = "0.1"
-
-# MAJOR.MINOR: two ASCII decimal integers without leading zeros.
-_VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 
 Segment = str | int
 
@@ -170,45 +165,15 @@ def _without_huge_integers(document: object) -> object:
 
 
 def _version_issue(document: Mapping[str, Any]) -> Issue | None:
-    """E101 for a ``format_version`` string this reader cannot open; ``None`` otherwise.
-
-    A missing or non-string ``format_version`` is left to the schema (E100).
+    """E101 for a ``format_version`` string this reader cannot open as it is; ``None``
+    otherwise (``lcsim.model.migration.version_issue``, which says in its hint whether the
+    file can be converted). A missing or non-string ``format_version`` is left to the
+    schema (E100).
     """
     version = document.get("format_version")
     if not isinstance(version, str):
         return None
-    reader_major, reader_minor = FORMAT_VERSION.split(".")
-    match = _VERSION.fullmatch(version)
-    if match is None:
-        message = (
-            f"'format_version' is '{version}', which is not of the form MAJOR.MINOR, "
-            f"such as '{FORMAT_VERSION}'."
-        )
-        hint = (
-            f"Write the format version as two whole numbers with a dot, as in '{FORMAT_VERSION}'."
-        )
-    else:
-        # The parts are compared as digit strings, never converted with int(): Python
-        # refuses to convert a string of more than 4,300 digits. Without leading zeros,
-        # a longer digit string is the larger number.
-        major, minor = match.group(1), match.group(2)
-        if major == reader_major and (len(minor), minor) <= (len(reader_minor), reader_minor):
-            return None
-        message = (
-            f"'format_version' is '{version}', but this program reads format versions "
-            f"{reader_major}.0 to {FORMAT_VERSION}."
-        )
-        if major == reader_major:
-            hint = (
-                "The file was written by a newer version of the program; "
-                "update the program to open it."
-            )
-        else:
-            hint = (
-                "The file uses another major version of the format, which this program "
-                "cannot read or convert. Open it with a version of the program that reads it."
-            )
-    return Issue(code="E101", component=None, path="/format_version", message=message, hint=hint)
+    return version_issue(version)
 
 
 def _issues_from_error(error: ValidationError, document: object) -> list[Issue]:
