@@ -887,3 +887,12 @@ def test_w202_a_normal_with_a_negative_mean_clips_most_samples() -> None:
     document = with_service({"dist": "normal", "mean": "-1 min", "sd": "1 min"})
     (issue,) = clipping_issues(built(document))
     assert "about 84% of its samples are below zero" in issue.message
+
+
+def test_w202_a_clipped_mean_beyond_the_range_of_a_float_is_shown_in_words() -> None:
+    """Review of PR #10: valid fields whose clipped mean overflows a float."""
+    document = with_service({"dist": "normal", "mean": "1.7e308 s", "sd": "1.7e308 s"})
+    (issue,) = clipping_issues(built(document))
+    assert issue.message.endswith("which raises its mean to a very long time.")
+    assert_plain(issue)
+    assert [item.code for item in load_document(document).issues] == ["W202"]

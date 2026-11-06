@@ -2076,12 +2076,14 @@ def clipping_issues(model: Model) -> list[Issue]:
 def _clipping_issue(use: _Use, mean: float, sd: float, case: _Case) -> Issue:
     below = 100 * _normal_below_zero(mean, sd)
     share = f"{below:.0f}" if below >= 10 else f"{below:.2g}"
-    raised = _duration(Fraction(_clipped_normal_mean(mean, sd)), 3)
+    # Not a Fraction: with `mean` and `sd` near the largest float, the clipped mean is
+    # infinite (review of PR #10).
+    raised = _duration(_clipped_normal_mean(mean, sd), 3)
     return _issue(
         "W202",
         use.at,
-        f"The 'normal' distribution in {use.where} has a 'mean' ({_duration(Fraction(mean), 3)}) "
-        f"less than twice its 'sd' ({_duration(Fraction(sd), 3)}){case.text}, so about "
+        f"The 'normal' distribution in {use.where} has a 'mean' ({_duration(mean, 3)}) "
+        f"less than twice its 'sd' ({_duration(sd, 3)}){case.text}, so about "
         f"{share}% of its samples are below zero; they are set to zero, which raises its mean "
         f"to {raised}.",
         "Use a 'mean' of at least twice the 'sd', or a distribution that is never negative, "
@@ -2192,11 +2194,15 @@ def _figures(value: Fraction, digits: int = 4) -> str:
         return "a very large number"
 
 
-def _duration(seconds: Fraction, digits: int = 4) -> str:
+def _duration(seconds: Fraction | float, digits: int = 4) -> str:
     """A time in seconds, to ``digits`` significant figures, in the largest Phase 1 unit
-    it reaches: ``2.5 min``, ``1.53 h``, ``45 s``. Every time a mean is made of is a
-    finite float, so the conversion cannot overflow."""
+    it reaches: ``2.5 min``, ``1.53 h``, ``45 s``; beyond the range of a float (the
+    clipped mean of a normal whose fields are near it), ``a very long time``. A
+    ``Fraction`` here is always a mean of finite floats, so its conversion cannot
+    overflow."""
     value = float(seconds)
+    if not math.isfinite(value):
+        return "a very long time"
     for unit, length in _TIME_UNITS:
         if abs(value) >= length:
             return f"{value / length:.{digits}g} {unit}"
