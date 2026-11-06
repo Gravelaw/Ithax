@@ -126,7 +126,7 @@ def _version_issue(document: Mapping[str, Any]) -> Issue | None:
     version = document.get("format_version")
     if not isinstance(version, str):
         return None
-    reader_major, reader_minor = (int(part) for part in FORMAT_VERSION.split("."))
+    reader_major, reader_minor = FORMAT_VERSION.split(".")
     match = _VERSION.fullmatch(version)
     if match is None:
         message = (
@@ -137,8 +137,11 @@ def _version_issue(document: Mapping[str, Any]) -> Issue | None:
             f"Write the format version as two whole numbers with a dot, as in '{FORMAT_VERSION}'."
         )
     else:
-        major, minor = int(match.group(1)), int(match.group(2))
-        if major == reader_major and minor <= reader_minor:
+        # The parts are compared as digit strings, never converted with int(): Python
+        # refuses to convert a string of more than 4,300 digits. Without leading zeros,
+        # a longer digit string is the larger number.
+        major, minor = match.group(1), match.group(2)
+        if major == reader_major and (len(minor), minor) <= (len(reader_minor), reader_minor):
             return None
         message = (
             f"'format_version' is '{version}', but this program reads format versions "
@@ -151,7 +154,7 @@ def _version_issue(document: Mapping[str, Any]) -> Issue | None:
             )
         else:
             hint = (
-                f"The file uses major version {major} of the format, which this program "
+                "The file uses another major version of the format, which this program "
                 "cannot read or convert. Open it with a version of the program that reads it."
             )
     return Issue(code="E101", component=None, path="/format_version", message=message, hint=hint)
@@ -340,10 +343,20 @@ def _json_kind(value: object) -> str:
     return "a number"
 
 
-def _sort_key(path: str) -> tuple[tuple[int, int | str], ...]:
-    """Sort key for a JSON Pointer: array indexes in numeric order, keys by name."""
+def _sort_key(path: str) -> tuple[tuple[int, int, str, str], ...]:
+    """Sort key for a JSON Pointer: array indexes in numeric order, keys by name.
+
+    A segment of ASCII digits sorts as a number, compared by length and then by text
+    after leading zeros are dropped, so a key of any length needs no int() conversion
+    (Python refuses to convert more than 4,300 digits). Object keys made of digits sort
+    the same way; they never share a parent with an array index.
+    """
     parts = path.split("/")[1:] if path else []
-    # ASCII digits only: str.isdigit accepts digits such as '²' that int() cannot read.
-    # An object key made of digits sorts as a number too; it never shares a parent with
-    # an array index, so the order stays total.
-    return tuple((0, int(part)) if _INDEX.fullmatch(part) else (1, part) for part in parts)
+    key: list[tuple[int, int, str, str]] = []
+    for part in parts:
+        if _INDEX.fullmatch(part):
+            digits = part.lstrip("0") or "0"
+            key.append((0, len(digits), digits, part))
+        else:
+            key.append((1, 0, part, ""))
+    return tuple(key)

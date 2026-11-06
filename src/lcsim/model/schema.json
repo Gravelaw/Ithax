@@ -66,7 +66,7 @@
       "additionalProperties": false,
       "properties": {
         "value": {},
-        "type": {"type": "string"},
+        "type": {},
         "min": {},
         "max": {},
         "description": {"type": "string"}
@@ -136,7 +136,7 @@
       "properties": {
         "id": {"type": "string"},
         "metric": {"type": "string"},
-        "sense": {"type": "string"}
+        "sense": {}
       }
     },
     "metric_constraint": {
@@ -146,7 +146,7 @@
       "properties": {
         "id": {"type": "string"},
         "metric": {"type": "string"},
-        "op": {"type": "string"},
+        "op": {},
         "value": {}
       }
     },
@@ -156,7 +156,7 @@
       "additionalProperties": false,
       "properties": {
         "id": {"type": "string"},
-        "type": {"type": "string"},
+        "type": {},
         "lower": {},
         "upper": {}
       }
@@ -166,7 +166,7 @@
       "required": ["sense", "linear"],
       "additionalProperties": false,
       "properties": {
-        "sense": {"type": "string"},
+        "sense": {},
         "linear": {"type": "object"}
       }
     },
@@ -177,7 +177,7 @@
       "properties": {
         "id": {"type": "string"},
         "linear": {"type": "object"},
-        "op": {"type": "string"},
+        "op": {},
         "rhs": {}
       }
     },
@@ -186,8 +186,8 @@
       "required": ["target", "fidelity"],
       "additionalProperties": false,
       "properties": {
-        "target": {"type": "string"},
-        "fidelity": {"type": "string"},
+        "target": {},
+        "fidelity": {},
         "engine": {"type": "string"}
       }
     }

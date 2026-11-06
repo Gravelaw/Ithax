@@ -230,6 +230,23 @@ def test_values_left_to_the_meaning_pass_take_any_json_value() -> None:
     assert schema_pass(document) == []
 
 
+@pytest.mark.parametrize("value", [5, None, True, [], {}])
+def test_enumerated_words_take_any_json_value(value: object) -> None:
+    # A parameter's `type`, `sense`, `op`, `run.target` and `run.fidelity` are checked by
+    # the meaning pass and the run checks (E152, E172, E173 and others), never as E100.
+    document = coffee()
+    document["parameters"]["tills"]["type"] = value
+    document["objectives"] = [{"id": "w", "metric": "till.wait.mean", "sense": value}]
+    document["constraints"] = [{"id": "u", "metric": "till.utilization", "op": value, "value": 1}]
+    document["run"] = {"target": value, "fidelity": value}
+    assert schema_pass(document) == []
+    document = product_mix()
+    document["variables"][0]["type"] = value
+    document["objective"]["sense"] = value
+    document["constraints"][0]["op"] = value
+    assert schema_pass(document) == []
+
+
 # --- E100: wrong JSON type -----------------------------------------------------------------
 
 
@@ -280,7 +297,7 @@ def test_top_level_value_of_the_wrong_type(
         (("connections", 0, "from"), ["arrivals", "out"], None),
         (("connections", 1), [], "Connection 2 must be an object, not an array."),
         (("parameters", "tills"), 1, "Parameter 'tills' must be an object, not a number."),
-        (("parameters", "tills", "type"), 1, None),
+        (("meta", "template"), [], "'template' in 'meta' must be text, not an array."),
         (("experiments", 0, "id"), 1, "'id' in experiment 1 must be text, not a number."),
         (("experiments", 0, "scenarios"), {}, None),
         (("run", "engine"), 1, "'engine' in 'run' must be text, not a number."),
@@ -742,6 +759,26 @@ def test_unsupported_version_stops_the_schema_pass() -> None:
     assert issue.code == "E101"
 
 
+@pytest.mark.parametrize(
+    ("version", "hint_part"),
+    [
+        ("0." + "1" * 5000, "newer version of the program"),
+        ("1" * 5000 + ".0", "another major version"),
+        ("0." + "0" * 5000, "two whole numbers"),
+        ("0." + "0" * 4999 + "1", "two whole numbers"),
+    ],
+)
+def test_very_long_version_numbers_are_compared_without_overflow(
+    version: str, hint_part: str
+) -> None:
+    # Python refuses int() on more than 4,300 digits; the version is compared as text.
+    document = coffee()
+    document["format_version"] = version
+    issue = only(schema_pass(document))
+    assert (issue.code, issue.path) == ("E101", "/format_version")
+    assert hint_part in issue.hint
+
+
 def test_version_that_is_not_text_is_e100() -> None:
     document = coffee()
     document["format_version"] = 1
@@ -813,3 +850,12 @@ def test_fallback_for_a_path_the_document_does_not_have() -> None:
     issue = only(schema_module._issues_from_error(error, coffee()))
     assert (issue.path, issue.component) == ("/components/7/x", None)
     assert issue.message == "'x' in component 8 does not fit the model format."
+
+
+def test_object_keys_of_many_digits_sort_without_overflow() -> None:
+    # A JSON key may be any string; one of more than 4,300 digits must not break sorting.
+    document = coffee()
+    long_key = "9" * 5000
+    document["components"][0].update({long_key: 1, "10": 1, "9": 1, "010": 1})
+    issues = schema_pass(document)
+    assert [issue.path.rsplit("/", 1)[1] for issue in issues] == ["9", "010", "10", long_key]
