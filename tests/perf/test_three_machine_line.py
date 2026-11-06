@@ -10,23 +10,24 @@ collect and writing the run folder. ``workers`` is the number of cores this proc
 use, as the service gives a run the cores of the active tier (spec 3 "Run queue"); under
 ``taskset -c 0-3`` that is 4, the low tier's cores.
 
-Recorded: the wall time; peak resident memory from ``resource.getrusage`` for this process
-(``RUSAGE_SELF``) and for the largest of its finished children, the worker and the pool
+Recorded: the wall time; peak resident memory from ``resource.getrusage`` (``null`` on
+Windows, which has no ``resource``) for this process (``RUSAGE_SELF``) and for the largest of
+its finished children, the worker and the pool
 processes it started (``RUSAGE_CHILDREN``); the peak resident memory of this process and
 all its descendants together, sampled from ``/proc`` every 0.1 s; core counts, physical
 memory, and the Python and library versions.
 """
 
+import importlib
 import os
 import platform
-import resource
 import sys
 import threading
 import time
 from collections.abc import Callable
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pytest
 
@@ -51,9 +52,17 @@ def usable_cores() -> int:
     return os.cpu_count() or 1
 
 
-def max_rss_bytes(who: int) -> int:
-    """``ru_maxrss`` in bytes: Linux reports KiB, macOS bytes."""
-    value = resource.getrusage(who).ru_maxrss
+def max_rss_bytes(who: Literal["self", "children"]) -> int | None:
+    """Peak resident memory from ``resource.getrusage`` (``RUSAGE_SELF`` or
+    ``RUSAGE_CHILDREN``) in bytes: Linux reports KiB, macOS bytes. ``None`` where the
+    ``resource`` module does not exist (Windows), which is imported here, not at the top,
+    so that the module still loads there (pytest imports it before deselecting ``perf``)."""
+    try:
+        resource = importlib.import_module("resource")
+    except ImportError:
+        return None
+    flag = resource.RUSAGE_SELF if who == "self" else resource.RUSAGE_CHILDREN
+    value: int = resource.getrusage(flag).ru_maxrss
     return value if sys.platform == "darwin" else value * 1024
 
 
@@ -105,8 +114,8 @@ def test_a_30_replication_run_of_the_three_machine_line_finishes_in_under_a_minu
         "wall_s": round(wall_s, 2),
         "target_s": TARGET_S,
         "workers": workers,
-        "peak_rss_self_mib": mib(max_rss_bytes(resource.RUSAGE_SELF)),
-        "peak_rss_children_mib": mib(max_rss_bytes(resource.RUSAGE_CHILDREN)),
+        "peak_rss_self_mib": mib(max_rss_bytes("self")),
+        "peak_rss_children_mib": mib(max_rss_bytes("children")),
         "peak_rss_tree_mib": mib(sampler.peak),
         "cpu_count": os.cpu_count(),
         "affinity_cores": usable_cores(),
