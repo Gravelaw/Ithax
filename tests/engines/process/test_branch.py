@@ -184,6 +184,18 @@ def test_an_unknown_rule_is_refused(make_context: ContextMaker) -> None:
         branch(make_context(0.0, 1.0), ["a"], "attribute")
 
 
+def test_huge_weights_split_by_weight_over_sum(make_context: ContextMaker) -> None:
+    """Weights of 1e308 each are valid, but their plain sum overflows to infinity: the
+    weights are scaled by the largest before summing, so the split stays even (review of
+    PR #18)."""
+    context = make_context(0.0, 1.0)
+    block = branch(context, ["a", "b"], "probability", {"a": 1e308, "b": 1e308})
+    outs = wire(context, block)
+    n = 20_000
+    send(context, block, n)
+    assert abs(len(outs["a"].items) - n / 2) <= 4 * math.sqrt(n / 4)
+
+
 def test_a_branch_looping_to_itself_does_not_recurse(make_model: ModelMaker) -> None:
     """A branch whose route leads straight back to it, weighted 9999 to 1: thousands of
     passes at one instant run one after another, not nested (review of PR #18)."""

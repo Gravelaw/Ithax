@@ -389,12 +389,15 @@ class Branch(Block):
         self.rule = str(settings["rule"])
         if self.rule not in BRANCH_RULES:
             raise ValueError(f"'{self.id}' has rule {self.rule!r}")
-        weights = settings.get("weights") or {}
-        # Running sums of the weights in route order; ``shortest_queue`` ignores them.
+        weights = [float((settings.get("weights") or {}).get(route, 0.0)) for route in self.routes]
+        # Running sums of the weights in route order; ``shortest_queue`` ignores them. The
+        # weights are divided by the largest first, which keeps every ratio, so that the
+        # sum of valid finite weights (two of 1e308) cannot overflow to infinity.
+        largest = max(weights)
         self._sums: list[float] = []
         total = 0.0
-        for route in self.routes:
-            total += float(weights.get(route, 0.0))
+        for weight in weights:
+            total += weight / largest if largest > 0.0 else 0.0
             self._sums.append(total)
 
     def ports(self) -> tuple[str, ...]:
