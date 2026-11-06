@@ -13,11 +13,12 @@ Two parts:
   utilization from 0.75 to 0.85; and the coffee shop against M/M/1 theory. Each run takes
   about 1.5 to 3 s with 4 workers, so the gate stays in ``bash scripts/check.sh``.
 
-The across-replication mean and 95% half-width follow spec 2 "Statistic definitions":
-t(0.975, n - 1) x sample sd / sqrt(n), with t from ``scipy.stats.t.ppf``. The experiment
-manager that will compute them for every run arrives at M3, so they are computed here.
-``MEASURED`` pins the values written in spec 2's table, so the spec and the adapter cannot
-drift apart silently.
+Each example runs through the experiment manager (``lcsim.runs.manager.run_experiment``,
+AKS-102), and the across-replication mean and 95% half-width are the manager's
+(``lcsim.runs.statistics.estimate``): t(0.975, n - 1) x sample sd / sqrt(n), with t from
+``scipy.stats.t.ppf`` (spec 2 "Statistic definitions"). ``MEASURED`` pins the values written
+in spec 2's table, so the spec and the adapter cannot drift apart silently. The warm-up
+check is silent on all three (spec 2; the coffee shop is the AKS-102 acceptance case).
 """
 
 import json
@@ -31,11 +32,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from scipy.stats import t
 
 from lcsim.engines.process.adapter import ProcessAdapter
 from lcsim.model.catalogue import PROCESS_TYPES
 from lcsim.model.loading import load_document
+from lcsim.runs.manager import run_experiment
+from lcsim.runs.statistics import estimate as across
 
 EXAMPLES = Path(__file__).resolve().parents[3] / "examples"
 NAMES = ["coffee_shop.json", "three_machine_line.json", "warehouse.json"]
@@ -92,40 +94,73 @@ def test_each_example_runs_end_to_end(name: str, tmp_path: Path) -> None:
 def mean_and_half_width(
     values: Sequence[float], confidence: float = CONFIDENCE
 ) -> tuple[float, float]:
-    """The mean of the replication values and its half-width, t(1 - (1 - confidence)/2,
-    n - 1) x sample sd / sqrt(n) (spec 2 "Statistic definitions", across replications)."""
-    n = len(values)
-    if n < 2:
-        raise ValueError(f"{n} replication values; a half-width needs 2")
-    quantile = float(t.ppf(1 - (1 - confidence) / 2, n - 1))
-    return statistics.fmean(values), quantile * statistics.stdev(values) / math.sqrt(n)
+    """The manager's mean of the replication values and its half-width (spec 2
+    "Statistic definitions", across replications); every value here is finite."""
+    found = across(values, confidence)
+    assert found.mean is not None and found.half_width is not None and found.n == len(values)
+    return found.mean, found.half_width
 
 
 def standard_error(values: Sequence[float]) -> float:
     return statistics.stdev(values) / math.sqrt(len(values))
 
 
-def run_example(name: str, workdir: Path) -> dict[str, list[float]]:
-    """Runs the example's own first experiment, unchanged, and returns each metric's
-    replication values in replication order."""
+def run_example(name: str, workdir: Path) -> tuple[dict[str, list[float]], dict[str, Any]]:
+    """Runs the example's own first experiment, unchanged, through the experiment manager,
+    and returns each metric's replication values in replication order and the summary."""
     document = json.loads((EXAMPLES / name).read_text(encoding="utf-8"))
     result = load_document(document)
     assert result.issues == ()
     model = result.model
     assert model is not None
-    adapter = ProcessAdapter()
-    adapter.translate(model, model.experiments[0].id, workdir)
-    adapter.run(workdir, lambda progress: None, threading.Event(), WORKERS)
+    outcome = run_experiment(
+        ProcessAdapter(), model, model.experiments[0].id, workdir, workers=WORKERS
+    )
+    assert outcome.state == "done"
+    assert outcome.results is not None and outcome.summary is not None
     values: dict[str, list[float]] = {}
-    for row in adapter.collect(workdir).tables["replications"].to_pylist():
+    for row in outcome.results.tables["replications"].to_pylist():
         values.setdefault(row["metric"], []).append(row["value"])
-    return values
+    return values, outcome.summary
 
 
 @pytest.fixture(scope="module")
-def measured(tmp_path_factory: pytest.TempPathFactory) -> dict[str, dict[str, list[float]]]:
+def runs(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> dict[str, tuple[dict[str, list[float]], dict[str, Any]]]:
     """The three examples, each run once for the whole module."""
     return {name: run_example(name, tmp_path_factory.mktemp(name)) for name in NAMES}
+
+
+@pytest.fixture(scope="module")
+def measured(
+    runs: Mapping[str, tuple[dict[str, list[float]], dict[str, Any]]],
+) -> dict[str, dict[str, list[float]]]:
+    """Each example's replication values by metric."""
+    return {name: values for name, (values, _) in runs.items()}
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_the_warmup_check_is_silent_on_each_example(
+    name: str, runs: Mapping[str, tuple[dict[str, list[float]], dict[str, Any]]]
+) -> None:
+    """No W210 (spec 2 warm-up check; the research note found all three silent at seed
+    12345); for the coffee shop this is an AKS-102 acceptance check."""
+    assert runs[name][1]["warnings"] == []
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_the_summary_holds_the_manager_statistics(
+    name: str, runs: Mapping[str, tuple[dict[str, list[float]], dict[str, Any]]]
+) -> None:
+    values, summary = runs[name]
+    assert summary["fidelity_label"].startswith("Standard: 30 replications of ")
+    metrics = summary["scenarios"]["default"]["metrics"]
+    assert list(metrics) == list(values)
+    for metric, sample in values.items():
+        mean, half_width = mean_and_half_width(sample)
+        assert metrics[metric]["mean"] == mean and metrics[metric]["half_width"] == half_width
+        assert metrics[metric]["n"] == 30
 
 
 def estimate(values: Mapping[str, Sequence[float]], metric: str) -> float:
@@ -233,23 +268,3 @@ def test_the_weld_wait_half_width_is_13_percent_of_its_mean(
     """Spec 2 records it for spec 4's ``not_enough_runs`` (10% threshold), checked at M8."""
     mean, half_width = mean_and_half_width(measured["three_machine_line.json"]["weld.wait.mean"])
     assert round(100 * half_width / mean, 1) == 13.3
-
-
-def test_mean_and_half_width_uses_the_t_quantile() -> None:
-    # 1, 2, 3: mean 2, sample sd 1, n 3; t(0.975, 2) = 4.302652729749464.
-    mean, half_width = mean_and_half_width([1.0, 2.0, 3.0])
-    assert mean == 2.0
-    assert half_width == pytest.approx(4.302652729749464 / math.sqrt(3), rel=1e-12)
-    # 30 replications: t(0.975, 29) = 2.045229642132703.
-    sample = [float(value) for value in range(30)]
-    expected = 2.045229642132703 * statistics.stdev(sample) / math.sqrt(30)
-    assert mean_and_half_width(sample)[1] == pytest.approx(expected, rel=1e-12)
-    # 99%: t(0.995, 2) = 9.924843200918276.
-    assert mean_and_half_width([1.0, 2.0, 3.0], 0.99)[1] == pytest.approx(
-        9.924843200918276 / math.sqrt(3), rel=1e-12
-    )
-
-
-def test_mean_and_half_width_needs_two_values() -> None:
-    with pytest.raises(ValueError, match="a half-width needs 2"):
-        mean_and_half_width([1.0])
