@@ -576,3 +576,30 @@ The verifier confirmed every council change and found six small inconsistencies 
 - **Tested:** `tests/model/test_examples.py` (25 tests). The arithmetic was also recomputed independently in floating point outside the test suite and agrees.
 - **Spec sections updated:** spec 2 "Reference values from the prototype", with a dated line under "Changes in this version". Version number unchanged until M1 closes (guide rule 6).
 - **Dependencies added:** none.
+
+### M1 closed (AKS-94)
+
+- **Decision:**
+  - M1 is closed. Every gate in the guide's M1 "Done when" row and every spec 1 acceptance row tagged M1 passes on the top of the M1 stack (PR #13 plus this change). Evidence is in `docs/sessions/2026-11-06-M1.md`:
+    - the three `examples/*.json` load with zero issues;
+    - each of the 29 schema and meaning codes has a fixture, and `tests/model/test_issues.py` passes with 0 skips;
+    - the migration test passes;
+    - `bash scripts/check.sh` exits 0 on Python 3.13.18 and 3.11.18: 1,140 passed, 0 skipped, line coverage of `src/lcsim` 100%;
+    - `tests/test_docs.py` passes.
+  - The known-gaps row assigned to M1, "Two example files and the prototype were not retained", is closed under the proposed default (AKS-93). The owner still has to confirm it (AKS-74). No other known-gaps row names M1.
+  - Spec versions (guide rule 6). M1 closes with changes to spec 1 and spec 2, so both go from 0.3 to 0.4.
+    - In each, the lines dated 2026-11-06 under "Changes in this version" now sit under a new heading, "2026-11-06, version 0.4, M1 closed (AKS-94)". The version 0.3 block above them is kept as it was.
+    - The trailing "Version number unchanged until M1 closes." is removed from each line, because it is no longer true.
+    - The 2026-11-06 lines from the review of PR #1 and the sync to Claude Docs were also made after 0.3, so they go under 0.4 too.
+    - The overview's version sentence is updated to match.
+  - Specs 0, 3 to 7 and the build guide are unchanged by M1 and keep their versions.
+    - Spec 3 has one 2026-11-06 line, from the review of PR #1, and no M1 line. It is left at 0.3: this ticket bumps only the specs that M1 changed. Its bump is left to the owner or to the close of that review.
+  - `CLAUDE.md` "Current state": M1 is Done, and a row says M2 is ready to start. Only the table below the verbatim guide changes, so `tests/test_docs.py` still finds the guide unchanged.
+- **Reason:** guide rules 6, 8, 9 and 10; the guide's "Session procedure", "Definition of done for any change" and M1 row; the AKS-94 acceptance list.
+- **Alternatives considered:**
+  - Replacing the 0.3 change list with only the 0.4 changes, since the heading says "this version": this would drop the council's record from the file. Git keeps it, but readers of the spec would lose it.
+  - Bumping spec 3 as well: its only new line comes from the review of PR #1, not from M1.
+  - Leaving "Version number unchanged until M1 closes." in each line: it would contradict the new version line.
+- **Spec sections updated:** spec 1 and spec 2 version lines and "Changes in this version" (bumped to 0.4); the overview's "What is here" version sentence. No spec content changed.
+- **Dependencies added:** none.
+  - Every dependency added during M1 is recorded above with name, version, licence and how it was checked: `jsonschema` and `pint` with their dependencies (AKS-85, AKS-86, AKS-87), and `types-jsonschema` (AKS-87). The versions installed on 2026-11-06 still match those entries: jsonschema 4.26.0; pint 0.26.2 on Python 3.13 and 0.25.3 on Python 3.11; types-jsonschema 4.26.0.20261006.

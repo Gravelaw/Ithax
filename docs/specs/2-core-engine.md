@@ -1,6 +1,6 @@
 # Spec 2: Core Engine for Process Simulation and Optimization
 
-> Version 0.3 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.4 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 Two engine adapters, both in Python: discrete-event simulation on SimPy, and optimization on HiGHS; Optuna is a search driver inside the experiment manager, not an adapter. Together with an experiment manager they make Phase 1 a complete product.
 
@@ -275,10 +275,13 @@ Complete these and record the findings, with sources, in a short note in the rep
 - C15 (SIM-19, ARCH-15, TEST-2, PRD-1): prototype rows marked reference only; targets for the two example files written at M1.
 - C16 (ARCH-1, ARCH-2, SIM-7, TEST-7, ARCH-18, PRD-8): optimization `summary.json`; search procedure with baseline, exhaustive path, confirmation stage and result layout; fidelity for process models.
 - C17 (TEST-1, TEST-8, TEST-12, TEST-6): version line, research items tagged, acceptance table.
+
+2026-11-06, version 0.4, M1 closed (AKS-94); the lines below were added after version 0.3, during the review of PR #1 and the M1 build:
+
 - 2026-11-06, sync to Claude Docs: the `<server|queue>` rows of "Statistic definitions" escape the pipe (`\|`) so the table keeps two columns.
 - 2026-11-06, review of PR #1: `model.wip.mean` stops counting an item when it is discarded (by a source or a `queue` with `on_full: discard`) as well as when it reaches a sink, so WIP stays bounded in a stable loss system.
 - 2026-11-06, review of PR #1: `<server>.utilization` caps busy time at available capacity at each instant, so off-shift completion of an item cannot push utilization above 1. M4 adds a schedule test with a service that crosses a shift end.
 - 2026-11-06, review of PR #1: the search's confirmation stage counts the always-confirmed baseline as a feasible candidate, so a search is `infeasible` only when no confirmed candidate, baseline included, meets the constraints.
-- 2026-11-06, model loading (AKS-88), found while building the `process` type catalogue (`src/lcsim/model/catalogue.py`): "Block reference" states the kind of the settings it left open (`first_arrival` and `timeout` are time quantities; `max_items`, `queue_capacity`, queue `capacity`, `size`, the store's stock levels, the pool's `capacity` and a shift's `capacity` are integers), makes a queue's `discipline` optional to match its stated default (`fifo`), and names a branch's output ports by their routes. "Mathematical optimization in the model file" lists `sense` and `op` words (`==` for equality, which the assignment benchmark needs), says bounds are plain numbers and that a missing bound means none. Version number unchanged until M1 closes.
-- 2026-11-06, meaning pass B (AKS-90): "Rules that apply across blocks" gains "Ranges", the smallest value of each number and time setting and the order of a shift's `start`, `end` and `period`, which the meaning pass checks with E123. These were left open by the block table. Version number unchanged until M1 closes.
-- 2026-11-06, example models (AKS-93): "Reference values from the prototype" records the parameters of the two example files written fresh at M1 and reads the warehouse throughput target as the tolerance for the M2 estimate, since a stable model with no loss has a long-run throughput equal to its arrival rate. Version number unchanged until M1 closes.
+- 2026-11-06, model loading (AKS-88), found while building the `process` type catalogue (`src/lcsim/model/catalogue.py`): "Block reference" states the kind of the settings it left open (`first_arrival` and `timeout` are time quantities; `max_items`, `queue_capacity`, queue `capacity`, `size`, the store's stock levels, the pool's `capacity` and a shift's `capacity` are integers), makes a queue's `discipline` optional to match its stated default (`fifo`), and names a branch's output ports by their routes. "Mathematical optimization in the model file" lists `sense` and `op` words (`==` for equality, which the assignment benchmark needs), says bounds are plain numbers and that a missing bound means none.
+- 2026-11-06, meaning pass B (AKS-90): "Rules that apply across blocks" gains "Ranges", the smallest value of each number and time setting and the order of a shift's `start`, `end` and `period`, which the meaning pass checks with E123. These were left open by the block table.
+- 2026-11-06, example models (AKS-93): "Reference values from the prototype" records the parameters of the two example files written fresh at M1 and reads the warehouse throughput target as the tolerance for the M2 estimate, since a stable model with no loss has a long-run throughput equal to its arrival rate.
