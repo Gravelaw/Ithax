@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 
 from lcsim.model.issues import CodedProblem, Issue, pointer
-from lcsim.model.schema import schema_pass
+from lcsim.model.loading import load_document
 from lcsim.model.units import Dimension, QuantityError, parse_quantity, read_number
 
 FIXTURES = Path(__file__).parent / "fixtures" / "issues"
@@ -30,8 +30,10 @@ EXCEPTION_TEXT = re.compile(
 
 
 def issues_for(document: Any) -> list[Issue]:
-    """Every validation issue of ``document``. The meaning pass joins here (AKS-89, AKS-90)."""
-    return schema_pass(document)
+    """Every issue of ``document``: the schema pass, then loading (AKS-88).
+
+    The meaning pass joins here (AKS-89 to AKS-91)."""
+    return list(load_document(document).issues)
 
 
 def segments(path: str) -> list[str]:
