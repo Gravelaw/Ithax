@@ -1,0 +1,37 @@
+[
+  {
+    "metric": "server.wait.mean",
+    "value": 270.0,
+    "method": "three_se",
+    "source": "M/M/1 mean wait E(W) = (rho/mu)/(1 - rho), rho = 0.75, 1/mu = 90 s: 270 s; Adan and Resing, Queueing Systems (2015), section 4.3",
+    "milestone": "M2"
+  },
+  {
+    "metric": "server.queue_length.mean",
+    "value": 2.25,
+    "method": "three_se",
+    "source": "M/M/1 mean queue length E(Lq) = rho^2/(1 - rho), rho = 0.75: 2.25; Adan and Resing, Queueing Systems (2015), section 4.3",
+    "milestone": "M2"
+  },
+  {
+    "metric": "server.utilization",
+    "value": 0.75,
+    "method": "three_se",
+    "source": "Utilization rho = lambda/mu = 90 s / 120 s = 0.75",
+    "milestone": "M2"
+  },
+  {
+    "metric": "exit.cycle_time.mean",
+    "value": 360.0,
+    "method": "three_se",
+    "source": "M/M/1 mean sojourn time E(S) = (1/mu)/(1 - rho) = 90 s / 0.25 = 360 s; Adan and Resing, Queueing Systems (2015), section 4.3",
+    "milestone": "M2"
+  },
+  {
+    "metric": "exit.throughput",
+    "value": 0.008333333333333333,
+    "method": "three_se",
+    "source": "A stable queue with no loss passes its arrival rate: lambda = 1/120 per second (30 per hour)",
+    "milestone": "M2"
+  }
+]
