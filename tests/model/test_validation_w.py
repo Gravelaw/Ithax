@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 
 from lcsim.model.issues import Issue
-from lcsim.model.loading import build_document
+from lcsim.model.loading import build_document, load_document
 from lcsim.model.model import Distribution, Model
 from lcsim.model.units import Dimension, Quantity
 from lcsim.model.validation import (
@@ -34,6 +34,7 @@ ROOT = Path(__file__).resolve().parents[2]
 COFFEE_SHOP: dict[str, Any] = json.loads(
     (ROOT / "examples" / "coffee_shop.json").read_text(encoding="utf-8")
 )
+FIXTURES = Path(__file__).parent / "fixtures" / "issues"
 EXCEPTION_TEXT = ("Traceback", "Exception", "Error")
 
 MINUTE = 60
@@ -139,6 +140,15 @@ GROUPS: list[Callable[[Model], list[Issue]]] = [unreachable_issues, load_issues,
 @pytest.mark.parametrize("group", GROUPS, ids=[group.__name__ for group in GROUPS])
 def test_the_coffee_shop_raises_no_warning(group: Callable[[Model], list[Issue]]) -> None:
     assert group(built(coffee())) == []
+
+
+@pytest.mark.parametrize("code", ["W200", "W201", "W202"])
+def test_a_warning_fixture_loads_with_its_warning_and_no_error(code: str) -> None:
+    """Spec 1 "Validation issues": warnings do not block a run, so the model loads."""
+    (fixture,) = FIXTURES.glob(f"{code}_*.json")
+    result = load_document(json.loads(fixture.read_text(encoding="utf-8")))
+    assert result.model is not None
+    assert [issue.code for issue in result.issues] == [code]
 
 
 def test_the_meaning_pass_runs_the_warnings_last() -> None:
