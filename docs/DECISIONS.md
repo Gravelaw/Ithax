@@ -652,3 +652,64 @@ Not added to `pyproject.toml` in this change; M2's first code change adds them. 
 - **Python 3.11 gets older numpy and scipy.** numpy 2.5.4 and scipy 1.18.1 declare `Requires-Python >=3.12`. The PyPI JSON shows the newest releases for 3.11 are numpy 2.4.6 and scipy 1.17.1, and pip picked them on 3.11.18. CI runs on 3.11 and 3.13, so it tests both pairs. Spec 1 promises a repeat run only on the same versions, so nothing changes. The spec 1 stream for key `42:0:till` gave bit-identical exponential samples on numpy 2.4.6 and 2.5.4; that was observed, not promised.
 - **AGPL-3.0 compatibility.** The FSF licence list says Apache-2.0 is "compatible with version 3 of the GNU GPL", that Expat (MIT) and Modified BSD are "compatible with the GNU GPL", and that LGPLv2.1 "is compatible with GPLv2 and GPLv3". It also says AGPLv3 allows combining "separate modules or source files released under both of those licenses [AGPLv3 and GPLv3] in a single project". The GCC runtime library exception permits use by non-GPL programs. All four packages may therefore be imported into the service process under spec 1's engine licence rule. This is not legal advice; a lawyer confirms before release (spec 1).
 - **Windows.** The PyPI JSON lists `cp311` and `cp313` `win_amd64` wheels for numpy 2.4.6, scipy 1.17.1 and pyarrow 26.0.1, and `cp313` only for numpy 2.5.4 and scipy 1.18.1. simpy is pure Python. This is consistent with spec 3's native-Windows default.
+
+## 2026-11-06 · M9 design before building (AKS-118, ahead of order)
+
+### Design checklist done in parallel with M1
+
+- **Decision:** The session items of spec 3 "Design before building" and the three M9 research notes were done now, alongside M1, instead of after M8.
+- **Reason:** The owner asked for it. The work is documents only: nothing was written under `ui/`, so the rule that interface code waits for the checklist still holds. This departs from the guide's build order ("Build in this order") and rule 2, which would have M1 to M8 pass first; the owner's request authorizes the departure. This session did no M1 work and closes no milestone.
+- **Alternatives considered:** Waiting for M8 (the normal order). Rejected by the owner's request.
+- **Spec sections updated:** Spec 3 "Design before building" (five session boxes ticked; the owner walkthrough box stays open), warning line, "Changes in this version".
+- **Dependencies added:** None.
+
+### Interface framework confirmed: React, React Flow, Tauri 2
+
+- **Decision:** Keep spec 3's interface stack: React with React Flow (`@xyflow/react`), packaged with Tauri 2 at version 2.11.1 or later. Electron is the fallback if WebKitGTK proves unworkable on the low tier.
+- **Reason:** Both Tauri and Electron support Linux and Windows under permissive licences. Tauri uses the system webview, so the product does not ship and update a browser engine on Electron's eight-week major cadence (three majors supported at a time). React Flow provides the node editor with keyboard support. Qt would need its own node editor. Tauri 2.0 to 2.11.0 have advisory GHSA-7gmj-67g7-phm9 (CVE-2026-42184), so 2.11.1 is the minimum. Details: `docs/research/spec-3-framework-check.md`.
+- **Alternatives considered:** Electron 45.2.3 (MIT); Qt 6 through PySide6 6.12.0 (LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only, with some modules GPL-3.0 only) or PyQt6 6.12.0 (GPL-3.0-only).
+- **Spec sections updated:** Spec 3 "Architecture" (Interface row), warning line, acceptance table (`tauri-driver` row), "Changes in this version".
+- **Dependencies added:** None now; no interface code exists. Recorded for M9, to be pinned and re-checked from each package's LICENSE file when added:
+
+| Package | Version seen | Licence | How checked |
+| --- | --- | --- | --- |
+| `tauri` (crate) | 2.12.5 | Apache-2.0 OR MIT | crates.io API, 2026-11-06 |
+| `wry` (crate) | 0.57.1 | Apache-2.0 OR MIT | crates.io API, 2026-11-06 |
+| `tao` (crate) | 0.37.2 | Apache-2.0 | crates.io API, 2026-11-06 |
+| `@tauri-apps/cli`, `@tauri-apps/api` | 2.12.4 | Apache-2.0 OR MIT | npm registry, 2026-11-06 |
+| `@xyflow/react` | 12.12.1 | MIT | npm registry and repository `LICENSE` (webkid GmbH), 2026-11-06 |
+| `react` | 19.3.1 | MIT | npm registry, 2026-11-06 |
+
+AGPL-3.0 compatibility: MIT is permissive; for Apache-2.0 the Apache Software Foundation records that the FSF considers it compatible with GPLv3 (read 2026-11-06), and AGPL-3.0 is in the same version 3 family. WebKitGTK (Linux, LGPL and BSD per webkit.org) and WebView2 (Windows, proprietary) are system components the product loads but does not ship. Not legal advice; the lawyer review before release (spec 0) should confirm the system-library reading for WebView2.
+
+### Design choices where the specs were silent (owner to confirm)
+
+- **Decision:** The design takes these simplest readings. Each is marked "(design choice)" in `docs/design/`.
+  1. Undo and redo store whole models and write them back with `PUT .../model` and `base_revision`; 200 steps are kept (spec 3 asks for at least 100).
+  2. A `model` event from another client reloads the canvas and clears the undo and redo history.
+  3. Blocks without ports (`resource_pool`, `schedule`, `failure`) show their `pool` and `target` settings as dashed reference lines, set only in the side panel.
+  4. An `optimization` model's Canvas screen is a form of variables, objective and constraints.
+  5. Generated ids are `<type>_<n>` with the smallest free `n` from 1; `ui` holds `{x, y}` in canvas pixels.
+  6. No grouping, sub-models, copy and paste or canvas comments in Phase 1.
+  7. Zoom range 20% to 200%; a drag or a burst of arrow-key moves is one undo step.
+  8. While a write is failing, the canvas is read-only and retries every 2 seconds; nothing is queued.
+  9. Run is also disabled while a write or a validation is pending.
+  10. Settings lets the user choose the hardware tier, defaulting to the detected one; theme (System, Light, Dark) and text size (100% to 200%) are settings.
+  11. System fonts only, so nothing is downloaded (spec 0 principle 6).
+  12. Block categories for the palette and stripes: flow (`source`, `sink`, `delay`, `branch`), work (`server`, `queue`, `batch`, `unbatch`, `store`), resource (`resource_pool`, `schedule`, `failure`).
+- **Reason:** Spec 3 defines behaviour but not these details. Each choice is the simplest that meets the spec and the accessibility target (WCAG 2.2 AA).
+- **Alternatives considered:** Inverse edits for undo (rejected: some edits have no inverse); keeping undo history across external edits (rejected: an undo could silently revert another client's change); connecting resource blocks by dragging (rejected: they have no ports in spec 2).
+- **Spec sections updated:** Spec 3 "Screens" item 2 (choice 4), "Canvas behaviour" (choices 1 to 3).
+- **Dependencies added:** None.
+
+### Spec gaps found by the design, closed in spec 3
+
+- **Decision:** (a) `set_path` and `remove_path` also reach `variables` and `objective` in an `optimization` model. (b) A new edit, `set_label` (`id`, `label`; `null` removes it), sets a component's optional `label`.
+- **Reason:** (a) Spec 3 limited `set_path` to `meta`, `run`, `objectives`, `constraints` and `search`, so no edit could change an existing optimization model's variables or objective, and neither the Canvas form nor the MCP `edit_model` tool could edit one. Not changed, and left for M6: no edit sets `domain`, and `POST /v1/projects` without a template creates a `process` model, so an optimization model can only start from a template or a whole-model `PUT`. (b) Spec 1 gives components an optional `label`, but no edit could set it: `add_component` takes `id`, `type`, `params` and `ui`, and `set_setting` works only inside `params`.
+- **Alternatives considered:** For (b), allowing `set_path` on `/components/<n>/label` (rejected: addressing a component by its position breaks when components are added or removed); leaving `label` read-only in the interface (rejected: users could not name blocks in their own words).
+- **Spec sections updated:** Spec 3 "Model edits", "Changes in this version". Spec 4's `edit_model` takes "edits as in spec 3", so it gains both without a change.
+- **Dependencies added:** None.
+
+### Awaiting owner: wireframe walkthrough
+
+The owner's walkthrough with a student and a business user, or its fallback (spec 3 "Design before building"; owner question 7 above), is **not** recorded. M9 interface code may not start until it is, or its fallback is logged here. Tracked in AKS-82.
