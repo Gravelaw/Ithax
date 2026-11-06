@@ -72,6 +72,8 @@ The JSON Schema checks only the top-level keys, the JSON type of each top-level 
 
 Errors name the component and the key, in plain language.
 
+Before the schema pass the file is read as UTF-8 JSON (a leading byte order mark is accepted). Text that is not JSON, `NaN` or `Infinity`, a whole number with more digits than Python reads (4,300 by default), nesting deeper than the JSON reader allows, and a key written more than once in one object are E100, because the file cannot be read unambiguously. A file with a schema issue is not loaded further. Loading then converts every value (see "Units") and reports, with its own code, each value it cannot convert; the checks across the model (identifiers, references, the connection graph, ranges, metric names, warnings) follow on a model that loads.
+
 ## Engine contract
 
 Each engine adapter is a Python class with five methods:
@@ -179,14 +181,14 @@ Unknown keys are an error, except under any `ui` key, which engines ignore. In t
 
 ### Parameters
 
-Each entry has `value` and `type` (both required; `type` is `integer`, `number` or `quantity`), and optional `min`, `max`, `description`. A `{"$param": "id"}` object may appear anywhere a component setting takes a number or quantity.
+Each entry has `value` and `type` (both required; `type` is `integer`, `number` or `quantity`), and optional `min`, `max`, `description`. `value`, `min`, `max` and a scenario's value for the parameter are written as its `type` says: an `integer` is a whole number (`2.0` reads as 2), a `number` a plain number, a `quantity` a time quantity, since time is the only dimension with Phase 1 units. A `{"$param": "id"}` object may appear anywhere a component setting takes a number or quantity, including a distribution's fields and the values inside an object setting; it is exactly that one key with a text id, and any other object is not a reference.
 
 ### Components and ports
 
 Each component has `id`, `type`, `params`, and optional `label` and `ui`. The `ui` object holds canvas position and is never read by an engine.
 
-- Each component type declares its ports. Most have `in` and `out`; a source has only `out`; a sink has only `in`; a branch has one output port per entry of its `routes` setting.
-- A connection is `{"from": "<id>.<port>", "to": "<id>.<port>"}`.
+- Each component type declares its ports. Most have `in` and `out`; a source has only `out`; a sink has only `in`; a branch has one output port per entry of its `routes` setting, named by that entry.
+- A connection is `{"from": "<id>.<port>", "to": "<id>.<port>"}`. Each end is split at its first dot; an end without a dot, or with nothing before or after it, is E130.
 - Every output port connects to exactly one input port. An input port accepts any number of connections.
 
 ### Distributions
@@ -212,8 +214,8 @@ Sampling test (M2, every distribution): 20,000 samples from one stream; the samp
 | `length` | time quantity | required |
 | `warmup` | time quantity, less than `length` | `0 s` |
 | `replications` | integer, at least 2 | 30 |
-| `seed` | integer | chosen at random and recorded in the manifest |
-| `scenarios` | array of `{id, set: {parameter id: value}}`, both keys required | one scenario with the reserved id `default` and an empty `set`; a user scenario may not use that id (E112) |
+| `seed` | integer | chosen at random when the file is loaded (from 0 to 2⁶³ − 1, from the operating system's generator) and recorded in the manifest |
+| `scenarios` | array of `{id, set: {parameter id: value}}`, both keys required | one scenario with the reserved id `default` and an empty `set`, also when the array is empty; a user scenario may not use that id (E112) |
 | `confidence` | number in (0, 1) | 0.95 |
 | `record_interval` | time quantity | `length` / 200 |
 | `search` | object `{objective, budget, variables, replications}` | absent: a plain experiment |
@@ -233,7 +235,7 @@ Each component gets its own random stream in each replication. The stream key is
  "constraints": [{"id": "util", "metric": "till.utilization", "op": "<=", "value": 0.85}]}
 ```
 
-Metrics whose names are defined in spec 2 "Statistic definitions" are the only ones objectives and constraints may name; naming any other is E174. Item attributes, the `attribute` branch rule and priority queue disciplines are deferred to Phase 2 until a block that sets attributes exists (proposed default, owner to confirm; recorded in the Build guide known gaps).
+An objective's `sense` is `minimize` or `maximize`. A constraint's `op` is `<=` or `>=` (an equality on a simulated mean is never met exactly), and its `value` is a plain number, or a time quantity for a metric measured in time. Metrics whose names are defined in spec 2 "Statistic definitions" are the only ones objectives and constraints may name; naming any other is E174. Item attributes, the `attribute` branch rule and priority queue disciplines are deferred to Phase 2 until a block that sets attributes exists (proposed default, owner to confirm; recorded in the Build guide known gaps).
 
 ### Validation issues
 
@@ -259,7 +261,7 @@ Every issue is one object:
 | E120 | meaning | Unknown component type |
 | E121 | meaning | Unknown setting for this component type (an unknown key inside `params`) |
 | E122 | meaning | Required setting missing |
-| E123 | meaning | Setting has a quantity where a number is expected, or the reverse |
+| E123 | meaning | Setting has a quantity where a number is expected, or the reverse; also any value that is not of the kind its place takes: a non-whole number where a whole number is expected, a word outside its list (a parameter's or variable's `type`, `sense`, `op`, `discipline`, `on_full`, `rule`), or a setting that should be text, an array or an object and is not |
 | E124 | meaning | Setting names an unknown component or one of the wrong type (`pool`, `target`) |
 | E125 | meaning | A server or pool is the target of more than one `schedule`, or a server of more than one `failure` |
 | E130 | meaning | Connection names an unknown component or port |
@@ -270,7 +272,7 @@ Every issue is one object:
 | E150 | meaning | Reference to an unknown parameter |
 | E151 | meaning | Parameter value outside its `min` and `max` |
 | E152 | meaning | Parameter type does not fit the setting that references it |
-| E160 | meaning | Distribution fields inconsistent: `min` above `max`; `sd`, `shape`, `scale` or the `mean` of a positive distribution not greater than zero; empty `values` |
+| E160 | meaning | Distribution fields inconsistent: `min` above `max`; `sd`, `shape`, `scale` or the `mean` of a positive distribution not greater than zero; empty `values`. Also a distribution that cannot be read: not an object, no `dist` or an unknown one, a missing or unknown field, both or neither of `values` and `data`, `values` not an array, or `data` not `{file, column}` with text values |
 | E161 | meaning | Connection names a branch route that is not in `routes` |
 | E162 | meaning | Data reference names a file or column not in the project's `data/` folder, or the file's hash has changed |
 | E170 | meaning | Experiment invalid, such as `warmup` not less than `length` or `confidence` outside (0, 1) |
@@ -415,3 +417,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-06, M1 research notes (AKS-85): "Units" confirms pint (was "Proposed library"), declared as `pint>=0.25.3` because pint 0.26 needs Python 3.12, with the grammar checked before pint converts (`docs/research/spec-1-schema-and-units.md`); "Validation" names JSON Schema draft 2020-12, the `jsonschema` package and no `format` keyword; "Quantities" states the exact grammar for the number, the single space and the unit symbol, and which strings are E140 and which E141. Version number unchanged until M1 closes.
 - 2026-11-06, units and quantities (AKS-86): "Quantities" adds what the grammar left open, found while building `src/lcsim/model/units.py`: a unit name with several readings is E140 only when no reading has the expected dimension; a number that is not finite in SI units is E141; `"-0 s"` is stored as 0.0; where a plain number is expected, any value other than a finite JSON number is E123; where a quantity is expected, `true`, `false`, `null`, an array or a non-`$param` object is E141. Version number unchanged until M1 closes.
 - 2026-11-06, issue objects and the schema pass (AKS-87), found while building `src/lcsim/model/schema.json` and `schema.py`: "Validation" says quantities, plain numbers and enumerated words take any JSON value in the schema (it said "plain strings or objects", which would have made `"length": true` E100 instead of the E141 that "Quantities" requires, and `run.target` E100 instead of E172); "Top-level keys" says what the schema pass checks for an unknown `domain`, that `run` needs `target` and `fidelity` when present, and that only a component has `ui`; "Parameters" makes `type` required (spec 3 already rejects a new parameter without `value` and `type`); "Experiments" makes both keys of a scenario and `search.objective` required; "Versioning" says which strings are E101, that a non-string is E100, and that E101 stops the schema pass; "Validation issues" defines `severity`, `path` and `component`. Version number unchanged until M1 closes.
+- 2026-11-06, model loading (AKS-88), found while building `src/lcsim/model/loading.py`, `model.py` and `catalogue.py`: "Validation" says how the file is read before the schema pass (UTF-8 with an optional BOM; non-JSON text, `NaN`, `Infinity`, over-long whole numbers, too-deep nesting and duplicate keys are E100) and that loading reports values it cannot convert; "Parameters" says how `value`, `min`, `max` and scenario values follow the parameter's `type` (a `quantity` parameter is a time in Phase 1; `2.0` is a whole number) and that `$param` also works inside distribution fields and object settings; "Components and ports" names a branch's output ports by their routes and says how a connection end is split; "Experiments" says the missing `seed` is chosen at load, from 0 to 2⁶³ − 1, and that an empty `scenarios` array also gets the `default` scenario; "Metric names" lists the `sense` and `op` words and the kinds of a constraint's `value`; the E123 and E160 rows of "Validation issues" name the further cases loading reports with them. Version number unchanged until M1 closes.

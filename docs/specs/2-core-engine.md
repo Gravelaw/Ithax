@@ -79,15 +79,15 @@ The sections below are binding. Where they differ from the summary above, these 
 
 | Type | Ports | Settings | Behaviour |
 | --- | --- | --- | --- |
-| `source` | `out` | `interarrival` (distribution), optional `first_arrival`, `max_items` | Creates one item, waits one interarrival time, repeats |
-| `server` | `in`, `out` | `capacity` (integer), `service` (distribution), optional `queue_capacity`, `discipline`, `pool` | Items wait in the server's own queue, then hold one unit of capacity for one service time |
+| `source` | `out` | `interarrival` (distribution), optional `first_arrival` (time quantity), `max_items` (integer) | Creates one item, waits one interarrival time, repeats |
+| `server` | `in`, `out` | `capacity` (integer), `service` (distribution), optional `queue_capacity` (integer), `discipline`, `pool` | Items wait in the server's own queue, then hold one unit of capacity for one service time |
 | `delay` | `in`, `out` | `time` (distribution) | Holds each item for the sampled time; no queue, no capacity limit |
-| `branch` | `in`, one output per route | `routes` (array of identifiers, required; one `out` port per entry), `rule` (`probability` or `shortest_queue`), `weights` (object keyed by route, required for `probability`) | Sends each item down one route |
-| `queue` | `in`, `out` | `capacity`, `discipline`, optional `on_full` (`block`, default, or `discard`: the item leaves and is counted in `<queue>.discarded`) | A standalone buffer, for use ahead of a batch or branch |
-| `batch` | `in`, `out` | `size`, optional `timeout` | Collects `size` items and releases them as one |
+| `branch` | `in`, one output per route | `routes` (array of identifiers, required; one output port per entry, named by the entry), `rule` (`probability` or `shortest_queue`), `weights` (object keyed by route, required for `probability`) | Sends each item down one route |
+| `queue` | `in`, `out` | `capacity` (integer), optional `discipline`, optional `on_full` (`block`, default, or `discard`: the item leaves and is counted in `<queue>.discarded`) | A standalone buffer, for use ahead of a batch or branch |
+| `batch` | `in`, `out` | `size` (integer), optional `timeout` (time quantity) | Collects `size` items and releases them as one |
 | `unbatch` | `in`, `out` | none | Splits a batch back into its items |
-| `store` | `in`, `out` | `initial`, `reorder_point`, `order_quantity`, `lead_time` | Each item arriving at `in` takes one unit of stock and leaves by `out` at once. If stock is zero the item waits, first in first out, until a delivery; each such item counts as a stock-out. When stock on hand plus on order falls to `reorder_point`, an order of `order_quantity` is placed and arrives after `lead_time` (a distribution) |
-| `resource_pool` | none | `capacity` | Shared staff or tools; servers name it in their `pool` setting |
+| `store` | `in`, `out` | `initial`, `reorder_point`, `order_quantity` (integers), `lead_time` (distribution) | Each item arriving at `in` takes one unit of stock and leaves by `out` at once. If stock is zero the item waits, first in first out, until a delivery; each such item counts as a stock-out. When stock on hand plus on order falls to `reorder_point`, an order of `order_quantity` is placed and arrives after `lead_time` (a distribution) |
+| `resource_pool` | none | `capacity` (integer) | Shared staff or tools; servers name it in their `pool` setting |
 | `schedule` | none | `target`, `shifts`, optional `period` (time quantity, default 24 h) | Changes the capacity of a server or pool over time |
 | `failure` | none | `target`, `time_to_failure`, `time_to_repair` | Takes a server out of service at random and returns it after repair |
 | `sink` | `in` | none | Removes the item and records its statistics |
@@ -106,7 +106,7 @@ Proposed defaults chosen by the review council, owner to confirm; M4 may correct
 
 - **Source when blocked.** A source whose next block cannot accept the item discards it and counts it in `<source>.discarded`; arrivals are never delayed.
 - **Failure.** `time_to_failure` is sampled from the failure block's stream and runs on calendar time while the unit is not failed, busy and idle alike. A failure takes one unit; an item in service on it is suspended and resumes with its remaining service time after repair (preempt-resume). `time_to_repair` runs from the moment of failure.
-- **Schedule.** `shifts` is a list of `{start, end, capacity}` with `start` and `end` time quantities within `period`; the list repeats every `period`, and outside every listed shift the capacity is 0. A unit busy when scheduled capacity falls finishes its current item, then stops.
+- **Schedule.** `shifts` is a list of `{start, end, capacity}` with `start` and `end` time quantities within `period` and `capacity` an integer; the list repeats every `period`, and outside every listed shift the capacity is 0. A unit busy when scheduled capacity falls finishes its current item, then stops.
 - **Batch timeout.** When `timeout` elapses after a batch's first item arrived, the partial batch is released; an `unbatch` splits whatever it receives. A batch's cycle time is its first item's.
 - **Pool.** A server with `pool` seizes its own capacity first, then one pool unit; service, and therefore the end of the item's wait, begins only when both are held, and both are released after service; pool units are granted first come, first served across servers.
 - **Targets.** A server may be the target of at most one `schedule` and one `failure` (E125).
@@ -207,7 +207,8 @@ A model with `"domain": "optimization"` uses `variables`, `objective` and `const
 }
 ```
 
-- Variable types: `continuous`, `integer`, `binary`.
+- Variable types: `continuous`, `integer`, `binary`. `lower` and `upper` are plain numbers; a bound left out means no bound on that side (write `"lower": 0` for a non-negative variable).
+- `objective.sense` is `minimize` or `maximize`; a constraint's `op` is `<=`, `>=` or `==`; coefficients and `rhs` are plain numbers.
 - Phase 1 supports linear objectives and constraints only.
 - Results report each variable's value, the objective value, and for each constraint whether it is tight.
 - Indexed problems, such as a transport plan over many routes, need sets and tables. That extension is designed when the transport template is built.
@@ -277,3 +278,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-06, review of PR #1: `model.wip.mean` stops counting an item when it is discarded (by a source or a `queue` with `on_full: discard`) as well as when it reaches a sink, so WIP stays bounded in a stable loss system.
 - 2026-11-06, review of PR #1: `<server>.utilization` caps busy time at available capacity at each instant, so off-shift completion of an item cannot push utilization above 1. M4 adds a schedule test with a service that crosses a shift end.
 - 2026-11-06, review of PR #1: the search's confirmation stage counts the always-confirmed baseline as a feasible candidate, so a search is `infeasible` only when no confirmed candidate, baseline included, meets the constraints.
+- 2026-11-06, model loading (AKS-88), found while building the `process` type catalogue (`src/lcsim/model/catalogue.py`): "Block reference" states the kind of the settings it left open (`first_arrival` and `timeout` are time quantities; `max_items`, `queue_capacity`, queue `capacity`, `size`, the store's stock levels, the pool's `capacity` and a shift's `capacity` are integers), makes a queue's `discipline` optional to match its stated default (`fifo`), and names a branch's output ports by their routes. "Mathematical optimization in the model file" lists `sense` and `op` words (`==` for equality, which the assignment benchmark needs), says bounds are plain numbers and that a missing bound means none. Version number unchanged until M1 closes.
