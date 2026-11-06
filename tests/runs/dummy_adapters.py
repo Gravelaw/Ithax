@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import threading
@@ -190,3 +191,14 @@ class BadTablesAdapter(DummyAdapter):
     def collect(self, workdir: Path) -> Results:
         results = super().collect(workdir)
         return Results(tables={"bad_table": results.tables["replications"]}, warnings=[])
+
+
+class TermIgnoringAdapter(DummyAdapter):
+    """Ignores SIGTERM and cancel, and sleeps for 30 s (POSIX)."""
+
+    def work(
+        self, workdir: Path, on_progress: Callable[[Progress], None], cancel: CancelToken
+    ) -> None:
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        on_progress(Progress(0.1, "Ignoring cancel and SIGTERM"))
+        time.sleep(30)

@@ -28,6 +28,7 @@ from dummy_adapters import (
     SlowAdapter,
     SpawningStubbornAdapter,
     StubbornAdapter,
+    TermIgnoringAdapter,
     TranslateFailingAdapter,
 )
 
@@ -353,6 +354,21 @@ def test_a_worker_that_ignores_cancel_is_terminated(tmp_path: Path) -> None:
     thread.join(timeout=30)
     assert run.state == "cancelled"
     assert "terminated" in log_text(run)
+
+
+def test_a_worker_that_ignores_terminate_is_killed(tmp_path: Path) -> None:
+    # Codex review of PR #24: terminate() is SIGTERM on POSIX, which a worker may ignore.
+    local = target(tmp_path, TermIgnoringAdapter(), cancel_grace_s=0.2, kill_grace_s=0.2)
+    run = local.create(file_bytes(coffee_shop()), "base")
+    thread = execute_in_thread(run)
+    wait_for(lambda: read_manifest(run.folder)["fraction"] == 0.1)  # SIGTERM now ignored
+    cancelled_at = time.monotonic()
+    run.cancel()
+    thread.join(timeout=30)
+    assert not thread.is_alive()
+    assert time.monotonic() - cancelled_at < 5
+    assert run.state == "cancelled"
+    assert "killed" in log_text(run)
 
 
 def test_cancel_during_collect_ends_cancelled_without_results(tmp_path: Path) -> None:

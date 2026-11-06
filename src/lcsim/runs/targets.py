@@ -64,6 +64,7 @@ from lcsim.runs.worker import child_main
 
 __all__ = [
     "CANCEL_GRACE_S",
+    "KILL_GRACE_S",
     "LIMIT_GRACE_S",
     "LOG_FILE",
     "MODEL_FILE",
@@ -84,6 +85,9 @@ ENGINE_FOLDER = "engine"
 CANCEL_GRACE_S = 5.0
 #: How long a worker over a limit may take to stop before it is terminated.
 LIMIT_GRACE_S = 2.0
+#: How long a terminated worker may take to end before it is killed (``terminate`` is
+#: SIGTERM on POSIX, which a worker can ignore; ``kill`` is SIGKILL).
+KILL_GRACE_S = 2.0
 #: How often this process looks at the worker, its reports and the time limit.
 POLL_S = 0.1
 #: How often the worker's memory is read.
@@ -191,6 +195,7 @@ class LocalTarget:
         adapters: Mapping[str, EngineAdapter] | None = None,
         cancel_grace_s: float = CANCEL_GRACE_S,
         limit_grace_s: float = LIMIT_GRACE_S,
+        kill_grace_s: float = KILL_GRACE_S,
     ) -> None:
         self.runs_root = runs_root
         self.workers = workers
@@ -200,6 +205,7 @@ class LocalTarget:
         self.adapters = adapters
         self.cancel_grace_s = cancel_grace_s
         self.limit_grace_s = limit_grace_s
+        self.kill_grace_s = kill_grace_s
 
     def create(
         self, model_file: bytes, experiment_id: str, *, seed_source: SeedSource | None = None
@@ -485,7 +491,11 @@ class LocalRun:
         if worker.is_alive():
             started = descendant_ids(pid)  # read first: they lose their parent below
             worker.terminate()
-            worker.join()
+            worker.join(self._target.kill_grace_s)
+            if worker.is_alive():
+                worker.kill()
+                worker.join()
+                self.log("worker killed: it did not end when terminated")
             for child in started:
                 with contextlib.suppress(OSError):  # it may have ended already
                     os.kill(child, _KILL)
