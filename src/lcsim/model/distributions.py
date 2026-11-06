@@ -87,12 +87,12 @@ def sampler_for(
     if distribution.dist == "empirical" and distribution.data is not None:
         raise DataNotYetSupportedError(distribution.data)
     fields = {name: number(scalar) for name, scalar in distribution.fields.items()}
-    values = (
+    listed = (
         [number(scalar) for scalar in distribution.values]
         if distribution.values is not None
         else None
     )
-    return sampler_from_numbers(distribution.dist, fields, values)
+    return sampler_from_numbers(distribution.dist, fields, listed)
 
 
 def sampler_from_numbers(
