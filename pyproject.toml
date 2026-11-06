@@ -14,6 +14,7 @@ dependencies = [
     "jsonschema>=4.26.0",
     "numpy>=2.4.6",
     "pint>=0.25.3",
+    "pyarrow>=26.0.1",
 ]
 
 [project.optional-dependencies]
@@ -24,6 +25,11 @@ dev = [
     "pytest-cov>=7.1",
     "types-jsonschema>=4.26.0.20261006",
 ]
+
+# Spec 1 "Engine contract": adapters are discovered through this group; the entry-point name
+# is the adapter's name, which run.engine refers to.
+[project.entry-points."lcsim.engines"]
+simpy = "lcsim.engines.process.adapter:ProcessAdapter"
 
 [tool.hatch.version]
 path = "src/lcsim/__init__.py"
@@ -61,3 +67,9 @@ select = ["E", "F", "W", "I", "B", "UP", "ANN", "RUF"]
 python_version = "3.11"
 strict = true
 files = ["src", "tests"]
+
+# pyarrow 26.0.1 ships no type information (no py.typed, no stubs); pyarrow-stubs follows
+# pyarrow 20. Its tables are typed as Any (docs/DECISIONS.md, AKS-97).
+[[tool.mypy.overrides]]
+module = ["pyarrow", "pyarrow.*"]
+ignore_missing_imports = true
