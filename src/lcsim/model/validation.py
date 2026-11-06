@@ -1,5 +1,6 @@
-"""The meaning pass, part A: identifiers, engines, settings that name components, and
-connections (spec 1 "Validation", pass 2; AKS-89).
+"""The meaning pass (spec 1 "Validation", pass 2). Part A (AKS-89): identifiers, engines,
+settings that name components, and connections. Part B (AKS-90): parameters, the values of
+settings and distributions, data references, experiments and metric names.
 
 Spec 1 "Validation": the checks across the model follow on a model that loads. Each
 function here takes a ``Model`` that ``lcsim.model.loading`` built without an error, so
@@ -20,20 +21,69 @@ Rule groups, one function each, each returning ``list[Issue]``:
   connected), E132 (output port connected more than once) and E161 (a branch route that
   is not in ``routes``), spec 1 "Components and ports".
 
-``meaning_pass`` runs the last three. E120 to E123 and a connection end that is not
-``<id>.<port>`` (E130) are reported by the loader, because a value of the wrong kind cannot
-be built.
+Part B, the value half (spec 1: "units of the right dimension, parameters within allowed
+ranges"):
+
+- ``parameter_issues``: E151, a parameter's ``value`` or a scenario's value for it outside
+  its ``min`` and ``max``, or a ``min`` above the ``max``.
+- ``reference_issues``: E150 (a ``{"$param": id}`` that names no parameter) and E152 (a
+  parameter whose ``type`` does not fit the setting or field that refers to it).
+- ``range_issues``: E123 for a number or time below the smallest value its setting takes
+  (the catalogue's ``minimum``), a branch with no routes, weights that are all zero, and a
+  shift that does not end after it starts or ends after its ``period``.
+- ``distribution_issues``: E160 for distribution fields that are inconsistent (spec 1
+  "Distributions" and its E160 row).
+- ``data_issues``: E162 for an ``empirical`` ``data`` reference against the project's
+  ``DataIndex`` (``lcsim.model.data``).
+- ``experiment_issues``: E170 (an experiment or its search with a value out of range),
+  E171 (a search that names an unknown objective, a parameter without ``min`` and ``max``,
+  or no parameter at all) and E150 (a search variable that is not a parameter).
+- ``metric_issues``: E174 (an objective or constraint that names a metric spec 2 does not
+  define) and E123 (a constraint ``value`` of the wrong kind for its metric).
+
+A value that comes from a parameter is checked for every value the model gives that
+parameter: its ``value``, its ``min`` and ``max`` (the range a search explores) and each
+scenario's value. A check that fails names the case.
+
+``meaning_pass`` runs every group except ``engine_issues``. E120 to E123, E140, E141, E150
+for a scenario, E160 for a distribution that cannot be read, and a connection end that is
+not ``<id>.<port>`` (E130) are reported by the loader, because a value of the wrong kind
+cannot be built.
 """
 
 from __future__ import annotations
 
+import itertools
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Literal
 
-from lcsim.model.catalogue import DOMAINS, PROCESS_TYPES
+from lcsim.model.catalogue import (
+    DISTRIBUTIONS,
+    DOMAINS,
+    MEASURE_KINDS,
+    MODEL_METRICS,
+    PROCESS_TYPES,
+    FieldKind,
+    MeasureKind,
+    SettingKind,
+    SettingSpec,
+)
+from lcsim.model.data import EMPTY_DATA_INDEX, DataIndex
 from lcsim.model.issues import Issue, pointer
-from lcsim.model.model import Component, Endpoint, Model
+from lcsim.model.model import (
+    Component,
+    Distribution,
+    Endpoint,
+    Experiment,
+    Model,
+    ParameterValue,
+    ParamRef,
+    Scalar,
+    SettingValue,
+)
+from lcsim.model.units import Dimension, Quantity
 
 __all__ = [
     "IDENTIFIER_PATTERN",
@@ -42,9 +92,16 @@ __all__ = [
     "STAND_IN_ENGINES",
     "InstalledEngine",
     "connection_issues",
+    "data_issues",
+    "distribution_issues",
     "engine_issues",
+    "experiment_issues",
     "identifier_issues",
     "meaning_pass",
+    "metric_issues",
+    "parameter_issues",
+    "range_issues",
+    "reference_issues",
     "setting_issues",
 ]
 
@@ -585,15 +642,994 @@ def _end_issue(
     return False
 
 
+# --- part B: values the model gives its parameters ---------------------------------------------
+
+# What a setting or distribution field takes: a whole number, a plain number or a time.
+Expects = Literal["integer", "number", "quantity"]
+
+# The parameter types that fit each, and how a message names it (spec 1 "Parameters": an
+# `integer` is a whole number, a `number` a plain number, a `quantity` a time).
+_FITS: dict[Expects, tuple[str, ...]] = {
+    "integer": ("integer",),
+    "number": ("integer", "number"),
+    "quantity": ("quantity",),
+}
+_TAKES: dict[Expects, str] = {
+    "integer": "a whole number",
+    "number": "a plain number",
+    "quantity": "a time",
+}
+
+
+@dataclass(frozen=True)
+class _Case:
+    """Values of parameters that a check is made with: ``values`` replaces the ``value``
+    of the parameters it names; ``text`` says so in a message ("" for none)."""
+
+    values: Mapping[str, ParameterValue]
+    text: str
+
+
+# Joint cases are made for at most this many parameters at once (2**12 = 4,096 cases);
+# above it, only all at their lowest and all at their highest bound.
+_JOINT_LIMIT = 12
+
+
+def _cases(model: Model, names: Sequence[str]) -> list[_Case]:
+    """Every case in which the parameters ``names`` take a value the model gives them:
+    each at its ``value``; then each scenario that sets any of them; then each at its
+    ``min`` and at its ``max``; then, for two or more parameters, every combination of
+    their bounds, since a search varies them together (spec 2 "Simulation-based
+    optimization"). Without parameters, the one case of the written values.
+
+    The checks that use these cases are linear inequalities in the values (a minimum,
+    an order, an end within a period) or "not all zero" over values that are each at
+    least zero; each fails somewhere in a box of values only if it fails at a corner, so
+    the corners stand for the whole search range. A parameter named twice is one value.
+    """
+    if not names:
+        return [_Case({}, "")]
+    shown = _words(names, last="and")
+    cases = [
+        _Case(
+            {},
+            f" with the parameter {shown} at its 'value'"
+            if len(names) == 1
+            else f" with the parameters {shown} at their 'value'",
+        )
+    ]
+    for experiment in model.experiments:
+        if experiment.default_scenario_added:
+            continue
+        for scenario in experiment.scenarios:
+            changed = {name: scenario.set[name] for name in names if name in scenario.set}
+            if changed:
+                cases.append(
+                    _Case(
+                        changed,
+                        f" in scenario {_quote(scenario.id)} of experiment {_quote(experiment.id)}",
+                    )
+                )
+    for name in names:
+        parameter = model.parameters[name]
+        for bound, value in (("min", parameter.min), ("max", parameter.max)):
+            if value is not None:
+                cases.append(
+                    _Case({name: value}, f" with the parameter {_quote(name)} at its '{bound}'")
+                )
+    if len(names) > 1:
+        cases += _corners(model, names)
+    return cases
+
+
+def _corners(model: Model, names: Sequence[str]) -> list[_Case]:
+    """The cases with every parameter of ``names`` at one of its bounds together; a
+    parameter without a bound stays at its ``value``."""
+    options: list[list[tuple[str, ParameterValue]]] = []
+    for name in names:
+        parameter = model.parameters[name]
+        bounds = [
+            (bound, value)
+            for bound, value in (("min", parameter.min), ("max", parameter.max))
+            if value is not None
+        ]
+        options.append(bounds or [("value", parameter.value)])
+    if len(names) <= _JOINT_LIMIT:
+        combinations = list(itertools.product(*options))
+    else:
+        combinations = [
+            tuple(choice[0] for choice in options),
+            tuple(choice[-1] for choice in options),
+        ]
+    return [
+        _Case(
+            {name: value for name, (_, value) in zip(names, chosen, strict=True)},
+            " with "
+            + _words(
+                [
+                    f"{_quote(name)} at its '{bound}'"
+                    for name, (bound, _) in zip(names, chosen, strict=True)
+                ],
+                quote=False,
+                last="and",
+            ),
+        )
+        for chosen in combinations
+    ]
+
+
+def _magnitude(value: int | float | Quantity) -> int | float:
+    return value.magnitude if isinstance(value, Quantity) else value
+
+
+def _resolve(model: Model, scalar: Scalar, case: _Case) -> int | float:
+    if isinstance(scalar, ParamRef):
+        value = case.values.get(scalar.parameter, model.parameters[scalar.parameter].value)
+        return _magnitude(value)
+    return _magnitude(scalar)
+
+
+def _first_failure(
+    model: Model,
+    scalars: Sequence[Scalar],
+    holds: Callable[[list[int | float]], bool],
+) -> tuple[list[int | float], str] | None:
+    """The values of ``scalars`` and the case's text for the first case in which
+    ``holds`` is false, or ``None`` when it holds in every case."""
+    names = list(
+        dict.fromkeys(scalar.parameter for scalar in scalars if isinstance(scalar, ParamRef))
+    )
+    for case in _cases(model, names):
+        numbers = [_resolve(model, scalar, case) for scalar in scalars]
+        if not holds(numbers):
+            return numbers, case.text
+    return None
+
+
+# --- E151: parameter values within min and max -------------------------------------------------
+
+
+def parameter_issues(model: Model) -> list[Issue]:
+    """E151: a parameter's ``value``, or a scenario's value for it, below its ``min`` or
+    above its ``max`` (spec 1 "Parameters"); a ``min`` above the ``max`` is E151 at the
+    ``min``, and that parameter's values are then not compared with them."""
+    issues: list[Issue] = []
+    usable: set[str] = set()
+    for name, parameter in model.parameters.items():
+        low, high = parameter.min, parameter.max
+        if low is not None and high is not None and _magnitude(low) > _magnitude(high):
+            issues.append(
+                _issue(
+                    "E151",
+                    ("parameters", name, "min"),
+                    f"The 'min' of parameter {_quote(name)} is {_value_text(low)}, which is "
+                    f"above its 'max', {_value_text(high)}.",
+                    "Make 'min' no larger than 'max'.",
+                )
+            )
+            continue
+        usable.add(name)
+        problem = _outside(parameter.value, low, high)
+        if problem:
+            issues.append(
+                _issue(
+                    "E151",
+                    ("parameters", name, "value"),
+                    f"The 'value' of parameter {_quote(name)} is "
+                    f"{_value_text(parameter.value)}, {problem}.",
+                    f"Set the 'value' of {_quote(name)} within its range, or change the range.",
+                )
+            )
+    for index, experiment in enumerate(model.experiments):
+        if experiment.default_scenario_added:
+            continue
+        for number, scenario in enumerate(experiment.scenarios):
+            for name, value in scenario.set.items():
+                parameter = model.parameters[name]
+                problem = _outside(value, parameter.min, parameter.max) if name in usable else ""
+                if problem:
+                    issues.append(
+                        _issue(
+                            "E151",
+                            ("experiments", index, "scenarios", number, "set", name),
+                            f"Scenario {_quote(scenario.id)} of experiment "
+                            f"{_quote(experiment.id)} sets {_quote(name)} to "
+                            f"{_value_text(value)}, {problem}.",
+                            f"Set {_quote(name)} within its range in this scenario, or change "
+                            "the parameter's range.",
+                        )
+                    )
+    return issues
+
+
+def _outside(value: ParameterValue, low: ParameterValue | None, high: ParameterValue | None) -> str:
+    """How ``value`` lies outside ``low`` to ``high``, or "" when it does not."""
+    if low is not None and _magnitude(value) < _magnitude(low):
+        return f"below its 'min', {_value_text(low)}"
+    if high is not None and _magnitude(value) > _magnitude(high):
+        return f"above its 'max', {_value_text(high)}"
+    return ""
+
+
+# --- the numbers and times of component settings -----------------------------------------------
+
+
+@dataclass(frozen=True)
+class _Slot:
+    """One number or time a component's setting or distribution field holds."""
+
+    at: tuple[Segment, ...]
+    where: str  # as in "the 'capacity' setting of 'till'"
+    component: str
+    value: Scalar
+    expects: Expects
+    spec: SettingSpec | None  # the setting, for its minimum; None for a distribution field
+
+
+@dataclass(frozen=True)
+class _Use:
+    """One distribution a component's setting holds."""
+
+    at: tuple[Segment, ...]
+    where: str
+    component: str
+    distribution: Distribution
+    dimension: Dimension
+
+
+def _setting_values(
+    index: int, component: Component
+) -> tuple[
+    list[_Slot], list[_Use], list[tuple[SettingSpec, SettingValue, tuple[Segment, ...], str]]
+]:
+    """The slots and distributions of a component, and every setting value with its spec,
+    path and description (for the checks on arrays and objects)."""
+    slots: list[_Slot] = []
+    uses: list[_Use] = []
+    values: list[tuple[SettingSpec, SettingValue, tuple[Segment, ...], str]] = []
+
+    def walk(
+        spec: SettingSpec, value: SettingValue, at: tuple[Segment, ...], where: str, one: bool
+    ) -> None:
+        values.append((spec, value, at, where))
+        if spec.many and not one:
+            assert isinstance(value, tuple)
+            for number, item in enumerate(value):
+                walk(spec, item, (*at, number), f"item {number + 1} of {where}", True)
+            return
+        if spec.kind is SettingKind.NUMBER or spec.kind is SettingKind.QUANTITY:
+            assert isinstance(value, int | float | Quantity | ParamRef)
+            expects: Expects = (
+                "quantity"
+                if spec.kind is SettingKind.QUANTITY
+                else "integer"
+                if spec.integer
+                else "number"
+            )
+            slots.append(_Slot(at, where, component.id, value, expects, spec))
+        elif spec.kind is SettingKind.DISTRIBUTION:
+            assert isinstance(value, Distribution) and spec.dimension is not None
+            uses.append(_Use(at, where, component.id, value, spec.dimension))
+            slots.extend(_field_slots(at, where, component.id, value, spec.dimension))
+        elif spec.kind is SettingKind.OBJECT:
+            assert isinstance(value, Mapping)
+            if spec.values is not None:
+                for key, item in value.items():
+                    walk(
+                        spec.values,
+                        item,
+                        (*at, key),
+                        f"the {spec.values.name} of {_quote(key)} in {where}",
+                        False,
+                    )
+            else:
+                for field in spec.fields:
+                    if field.name in value:
+                        walk(
+                            field,
+                            value[field.name],
+                            (*at, field.name),
+                            f"the '{field.name}' of {where}",
+                            False,
+                        )
+
+    block = PROCESS_TYPES[component.type]
+    for spec in block.settings:
+        if spec.name in component.settings:
+            walk(
+                spec,
+                component.settings[spec.name],
+                ("components", index, "params", spec.name),
+                f"the '{spec.name}' setting of {_quote(component.id)}",
+                False,
+            )
+    return slots, uses, values
+
+
+def _field_slots(
+    at: tuple[Segment, ...],
+    where: str,
+    component: str,
+    distribution: Distribution,
+    dimension: Dimension,
+) -> Iterator[_Slot]:
+    spec = DISTRIBUTIONS[distribution.dist]
+    kinds = {field.name: field.kind for form in spec.forms for field in form}
+    for name, value in distribution.fields.items():
+        plain = kinds[name] is FieldKind.NUMBER or dimension is Dimension.DIMENSIONLESS
+        yield _Slot(
+            (*at, name),
+            f"the '{name}' field of {where}",
+            component,
+            value,
+            "number" if plain else "quantity",
+            None,
+        )
+    for number, value in enumerate(distribution.values or ()):
+        yield _Slot(
+            (*at, "values", number),
+            f"value {number + 1} of the 'values' field of {where}",
+            component,
+            value,
+            "number" if dimension is Dimension.DIMENSIONLESS else "quantity",
+            None,
+        )
+
+
+def _fits(model: Model, value: Scalar, expects: Expects) -> bool:
+    """False for a reference to an unknown parameter or one of a type that does not fit."""
+    if not isinstance(value, ParamRef):
+        return True
+    parameter = model.parameters.get(value.parameter)
+    return parameter is not None and parameter.type in _FITS[expects]
+
+
+# --- E150, E152: parameter references in components -------------------------------------------
+
+
+def reference_issues(model: Model) -> list[Issue]:
+    """E150 for a ``{"$param": id}`` in a component that names no parameter; E152 for one
+    whose parameter's ``type`` does not fit what the setting or field takes (spec 1
+    "Parameters": an ``integer`` is a whole number, a ``number`` a plain number, a
+    ``quantity`` a time). A whole number fits where a plain number is taken."""
+    issues: list[Issue] = []
+    for index, component in enumerate(model.components):
+        slots, _, _ = _setting_values(index, component)
+        for slot in slots:
+            if not isinstance(slot.value, ParamRef):
+                continue
+            name = slot.value.parameter
+            parameter = model.parameters.get(name)
+            if parameter is None:
+                issues.append(
+                    _issue(
+                        "E150",
+                        slot.at,
+                        f"{_sentence(slot.where)} refers to the parameter {_quote(name)}, "
+                        "which is not in 'parameters'.",
+                        f"Add a parameter {_quote(name)} to 'parameters', or correct the name.",
+                        slot.component,
+                    )
+                )
+            elif parameter.type not in _FITS[slot.expects]:
+                types = _words(_FITS[slot.expects])
+                issues.append(
+                    _issue(
+                        "E152",
+                        slot.at,
+                        f"{_sentence(slot.where)} refers to the parameter {_quote(name)}, "
+                        f"whose 'type' is {_quote(parameter.type)}; this place takes "
+                        f"{_TAKES[slot.expects]}, so the parameter's 'type' must be {types}.",
+                        f"Change the 'type' of {_quote(name)} to {types}, or refer to another "
+                        "parameter.",
+                        slot.component,
+                    )
+                )
+    return issues
+
+
+# --- E123: the smallest values settings take --------------------------------------------------
+
+
+def range_issues(model: Model) -> list[Issue]:
+    """E123 for a setting value outside the range its place takes (spec 1 E123: a value
+    that is not of the kind its place takes; the readings are in the catalogue):
+
+    - a number or time below the setting's ``minimum`` (or not above it, for an exclusive
+      minimum), such as a ``capacity`` of 0;
+    - an array with fewer entries than ``min_items`` (a branch with no ``routes``);
+    - an object keyed by another setting whose values are all zero (``weights``: a route
+      is chosen with probability weight/sum, spec 2 "Branch rules");
+    - a shift that does not end after it starts, or ends after the schedule's ``period``
+      (spec 2 "Schedule": start and end lie within ``period``).
+
+    A value from a parameter is checked for every value the model gives the parameter;
+    a reference with E150 or E152 is skipped.
+    """
+    issues: list[Issue] = []
+    for index, component in enumerate(model.components):
+        slots, _, values = _setting_values(index, component)
+        for slot in slots:
+            spec = slot.spec
+            if spec is None or spec.minimum is None or not _fits(model, slot.value, slot.expects):
+                continue
+            minimum, exclusive = spec.minimum, spec.exclusive_minimum
+            failure = _first_failure(model, [slot.value], _at_least(minimum, exclusive))
+            if failure is not None:
+                shown = _shown(failure[0][0], slot.expects)
+                bound = _shown(minimum, slot.expects)
+                rule = f"above {bound}" if exclusive else f"at least {bound}"
+                issues.append(
+                    _issue(
+                        "E123",
+                        slot.at,
+                        f"{_sentence(slot.where)} is {shown}{failure[1]}; it must be {rule}.",
+                        f"Use a value {rule}.",
+                        slot.component,
+                    )
+                )
+        for spec, value, at, where in values:
+            if spec.many and isinstance(value, tuple) and len(value) < spec.min_items:
+                issues.append(
+                    _issue(
+                        "E123",
+                        at,
+                        f"{_sentence(where)} is empty; it needs at least {spec.min_items} "
+                        f"entr{'y' if spec.min_items == 1 else 'ies'}.",
+                        f"Add an entry to '{spec.name}'.",
+                        component.id,
+                    )
+                )
+            if spec.keyed_by is not None and isinstance(value, Mapping) and value:
+                issues += _all_zero(model, component.id, spec, value, at, where)
+        if component.type == "schedule":
+            issues += _shift_issues(model, index, component)
+    return issues
+
+
+def _at_least(minimum: int | float, exclusive: bool) -> Callable[[list[int | float]], bool]:
+    """A test that one number is at least ``minimum``, or above it when ``exclusive``."""
+    if exclusive:
+        return lambda numbers: numbers[0] > minimum
+    return lambda numbers: numbers[0] >= minimum
+
+
+def _all_zero(
+    model: Model,
+    component: str,
+    spec: SettingSpec,
+    value: Mapping[str, SettingValue],
+    at: tuple[Segment, ...],
+    where: str,
+) -> list[Issue]:
+    weights = list(value.values())
+    if not all(
+        isinstance(item, int | float | ParamRef) and _fits(model, item, "number")
+        for item in weights
+    ):
+        return []
+    scalars = [item for item in weights if isinstance(item, int | float | ParamRef)]
+    # A negative weight has its own issue; this one is about weights that add up to zero.
+    failure = _first_failure(
+        # `any`, not `sum`: a weight may be an integer too large to convert to a float.
+        model,
+        scalars,
+        lambda numbers: any(n < 0 for n in numbers) or any(n > 0 for n in numbers),
+    )
+    if failure is None:
+        return []
+    return [
+        _issue(
+            "E123",
+            at,
+            f"Every value in {where} is 0{failure[1]}; at least one must be above 0, since "
+            f"each of the '{spec.keyed_by}' is chosen in proportion to its "
+            f"{spec.values.name if spec.values else 'value'}.",
+            "Give at least one route a weight above 0.",
+            component,
+        )
+    ]
+
+
+def _shift_issues(model: Model, index: int, component: Component) -> list[Issue]:
+    period_spec = PROCESS_TYPES["schedule"].setting("period")
+    assert period_spec is not None and isinstance(period_spec.default, Quantity)
+    assert period_spec.minimum is not None
+    period = component.settings.get("period", period_spec.default)
+    shifts = component.settings["shifts"]
+    assert isinstance(period, Quantity | ParamRef) and isinstance(shifts, tuple)
+    issues: list[Issue] = []
+    period_bad = _fits(model, period, "quantity") and (
+        _first_failure(
+            model, [period], _at_least(period_spec.minimum, period_spec.exclusive_minimum)
+        )
+        is not None
+    )
+    for number, shift in enumerate(shifts):
+        assert isinstance(shift, Mapping)
+        start, end = shift["start"], shift["end"]
+        assert isinstance(start, Quantity | ParamRef) and isinstance(end, Quantity | ParamRef)
+        if not all(_fits(model, item, "quantity") for item in (start, end, period)):
+            continue
+        at = ("components", index, "params", "shifts", number, "end")
+        where = f"item {number + 1} of the 'shifts' setting of {_quote(component.id)}"
+        failure = _first_failure(model, [start, end], lambda times: times[0] < times[1])
+        if failure is not None:
+            (begin, finish), case = failure
+            issues.append(
+                _issue(
+                    "E123",
+                    at,
+                    f"In {where}, the 'end' ({_time_text(finish)}) is not after the 'start' "
+                    f"({_time_text(begin)}){case}.",
+                    "Make each shift end after it starts; split a shift that runs past the "
+                    "end of the period into two.",
+                    component.id,
+                )
+            )
+            continue
+        if period_bad:
+            continue  # a `period` not above 0 s has its own issue
+        failure = _first_failure(model, [end, period], lambda times: times[0] <= times[1])
+        if failure is not None:
+            (finish, length), case = failure
+            issues.append(
+                _issue(
+                    "E123",
+                    at,
+                    f"In {where}, the 'end' ({_time_text(finish)}) is after the end of the "
+                    f"schedule's 'period' ({_time_text(length)}){case}; a shift lies within "
+                    "the period.",
+                    "End the shift within the period, or lengthen 'period'.",
+                    component.id,
+                )
+            )
+    return issues
+
+
+# --- E160: distribution fields ------------------------------------------------------------------
+
+
+def distribution_issues(model: Model) -> list[Issue]:
+    """E160 for distribution fields that are inconsistent (spec 1 "Distributions" and
+    its E160 row): a field that must be above zero and is not (``sd``, ``shape``,
+    ``scale``, the ``mean`` of an exponential or lognormal), fields out of order (a
+    ``min`` above the ``max``, a triangular ``mode`` outside ``min`` to ``max``), and an
+    empty ``values``. A distribution with a reference that has E150 or E152 is skipped."""
+    issues: list[Issue] = []
+    for index, component in enumerate(model.components):
+        slots, uses, _ = _setting_values(index, component)
+        for use in uses:
+            mine = [slot for slot in slots if slot.at[: len(use.at)] == use.at]
+            if not all(_fits(model, slot.value, slot.expects) for slot in mine):
+                continue
+            issues += _distribution_issues(model, use)
+    return issues
+
+
+def _distribution_issues(model: Model, use: _Use) -> list[Issue]:
+    distribution = use.distribution
+    spec = DISTRIBUTIONS[distribution.dist]
+    fields = distribution.fields
+    plain = {
+        field.name
+        for form in spec.forms
+        for field in form
+        if field.kind is FieldKind.NUMBER or use.dimension is Dimension.DIMENSIONLESS
+    }
+    named = f"the '{spec.name}' distribution in {use.where}"
+    issues: list[Issue] = []
+    for form in spec.forms:
+        for field in form:
+            if not field.positive or field.name not in fields:
+                continue
+            failure = _first_failure(model, [fields[field.name]], lambda numbers: numbers[0] > 0)
+            if failure is not None:
+                shown = _shown(failure[0][0], "number" if field.name in plain else "quantity")
+                issues.append(
+                    _issue(
+                        "E160",
+                        (*use.at, field.name),
+                        f"The '{field.name}' of {named} is {shown}{failure[1]}; it must be "
+                        "greater than zero.",
+                        f"Use a '{field.name}' above zero.",
+                        use.component,
+                    )
+                )
+    ordered = [name for name in spec.ordered if name in fields]
+    failure = _first_failure(
+        model,
+        [fields[name] for name in ordered],
+        lambda numbers: all(a <= b for a, b in itertools.pairwise(numbers)),
+    )
+    if failure is not None:
+        numbers, case = failure
+        text = {
+            name: _shown(number, "number" if name in plain else "quantity")
+            for name, number in zip(ordered, numbers, strict=True)
+        }
+        # The first pair out of order: (min, max), (min, mode) or (mode, max).
+        low, high = next(
+            pair
+            for pair, (first, second) in zip(
+                itertools.pairwise(ordered), itertools.pairwise(numbers), strict=True
+            )
+            if first > second
+        )
+        if high == "mode":
+            key, problem = "mode", f"the 'mode' ({text['mode']}) is below the 'min' ({text['min']})"
+        elif low == "mode":
+            key, problem = "mode", f"the 'mode' ({text['mode']}) is above the 'max' ({text['max']})"
+        else:
+            key, problem = low, f"the '{low}' ({text[low]}) is above the '{high}' ({text[high]})"
+        issues.append(
+            _issue(
+                "E160",
+                (*use.at, key),
+                f"In {named}, {problem}{case}.",
+                "Order the fields so that " + " ≤ ".join(f"'{name}'" for name in ordered) + ".",
+                use.component,
+            )
+        )
+    if distribution.values is not None and not distribution.values:
+        issues.append(
+            _issue(
+                "E160",
+                (*use.at, "values"),
+                f"The 'values' of {named} is empty; an empirical distribution samples from at "
+                "least one value.",
+                "List at least one value, or use 'data' to name a column of an imported file.",
+                use.component,
+            )
+        )
+    return issues
+
+
+# --- E162: data references ----------------------------------------------------------------------
+
+
+def data_issues(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue]:
+    """E162 for an ``empirical`` distribution's ``data`` reference (spec 1
+    "Distributions") that names a file not in the project's ``data/`` folder (not in
+    ``data``, the column index), a file that is now missing from the folder or whose
+    SHA-256 differs from the one recorded at import, or a column the file does not have.
+    ``data`` defaults to an empty index: nothing imported."""
+    issues: list[Issue] = []
+    current: dict[str, str | None] = {}
+    for index, component in enumerate(model.components):
+        _, uses, _ = _setting_values(index, component)
+        for use in uses:
+            reference = use.distribution.data
+            if reference is None:
+                continue
+            at = (*use.at, "data")
+            entry = data.file(reference.file)
+            if entry is None:
+                files = sorted(data.files)
+                issues.append(
+                    _issue(
+                        "E162",
+                        (*at, "file"),
+                        f"In {use.where}, the 'file' of the data reference is "
+                        f"{_quote(reference.file)}, which is not in the project's data/ "
+                        "folder.",
+                        f"Name one of the imported files{_listed(files)}."
+                        if files
+                        else "Import the file into the project first, or list the values "
+                        "with 'values'.",
+                        use.component,
+                    )
+                )
+                continue
+            if reference.file not in current:
+                current[reference.file] = data.current_sha256(reference.file)
+            digest = current[reference.file]
+            if digest != entry.sha256:
+                problem = (
+                    "is listed in the project's data index but is missing from its data/ folder"
+                    if digest is None
+                    else "has changed since it was imported (its SHA-256 differs from the "
+                    "one recorded then)"
+                )
+                issues.append(
+                    _issue(
+                        "E162",
+                        (*at, "file"),
+                        f"In {use.where}, the 'file' of the data reference is "
+                        f"{_quote(reference.file)}, which {problem}.",
+                        "Import the file again, so that its columns are read afresh.",
+                        use.component,
+                    )
+                )
+            if entry.column(reference.column) is None:
+                columns = [column.name for column in entry.columns]
+                issues.append(
+                    _issue(
+                        "E162",
+                        (*at, "column"),
+                        f"In {use.where}, the 'column' of the data reference is "
+                        f"{_quote(reference.column)}, which is not a column of "
+                        f"{_quote(reference.file)}.",
+                        f"Name one of its columns{_listed(columns)}."
+                        if columns
+                        else f"{_quote(reference.file)} has no columns; import a file with "
+                        "the values.",
+                        use.component,
+                    )
+                )
+    return issues
+
+
+# --- E170, E171: experiments ----------------------------------------------------------------------
+
+
+def experiment_issues(model: Model) -> list[Issue]:
+    """Spec 1 "Experiments".
+
+    - E170: ``length`` not above 0 s, ``warmup`` below 0 s or not less than ``length``,
+      ``replications`` below 2, ``confidence`` outside (0, 1), ``record_interval`` not
+      above 0 s, a search ``budget`` below 1 or search ``replications`` below 2.
+    - E171: ``search.objective`` that is not the id of an objective in ``objectives``; a
+      search variable that is a parameter without both ``min`` and ``max``; a search with
+      no variables (none listed, or no parameter with both ``min`` and ``max``).
+    - E150: a search variable that is not a parameter (a reference to an unknown
+      parameter).
+    """
+    issues: list[Issue] = []
+    objectives = [objective.id for objective in model.objectives]
+    for index, experiment in enumerate(model.experiments):
+        issues += _experiment_values(index, experiment)
+        search = experiment.search
+        if search is None:
+            continue
+        name = _quote(experiment.id)
+        search_at = ("experiments", index, "search")
+        if search.objective not in objectives:
+            issues.append(
+                _issue(
+                    "E171",
+                    (*search_at, "objective"),
+                    f"The 'objective' of the search of experiment {name} is "
+                    f"{_quote(search.objective)}, which is not the id of an objective in "
+                    "'objectives'.",
+                    f"Name one of the objectives{_listed(objectives)}."
+                    if objectives
+                    else "Add an objective to 'objectives' and name its id here.",
+                )
+            )
+        if not search.variables:
+            issues.append(
+                _issue(
+                    "E171",
+                    (*search_at, "variables"),
+                    f"The search of experiment {name} has no parameters to vary: its "
+                    "'variables' is empty, or, when it lists none, no parameter has both a "
+                    "'min' and a 'max'.",
+                    "Give a parameter a 'min' and a 'max', and list it in 'variables'.",
+                )
+            )
+        for number, variable in enumerate(search.variables):
+            parameter = model.parameters.get(variable)
+            opening = (
+                f"Variable {number + 1} in the 'variables' of the search of experiment {name} "
+                f"is {_quote(variable)}"
+            )
+            if parameter is None:
+                issues.append(
+                    _issue(
+                        "E150",
+                        (*search_at, "variables", number),
+                        f"{opening}, which is not a parameter.",
+                        f"Add a parameter {_quote(variable)} to 'parameters', or correct the name.",
+                    )
+                )
+            elif parameter.min is None or parameter.max is None:
+                issues.append(
+                    _issue(
+                        "E171",
+                        (*search_at, "variables", number),
+                        f"{opening}, a parameter without both a 'min' and a 'max'; the search "
+                        "varies each variable between the two.",
+                        f"Give {_quote(variable)} a 'min' and a 'max', or remove it from "
+                        "'variables'.",
+                    )
+                )
+    return issues
+
+
+def _experiment_values(index: int, experiment: Experiment) -> list[Issue]:
+    """E170 for the values of one experiment and of its search."""
+    issues: list[Issue] = []
+    at = ("experiments", index)
+    name = _quote(experiment.id)
+
+    def e170(key: str, text: str, hint: str, *, search: bool = False) -> None:
+        path = (*at, "search", key) if search else (*at, key)
+        owner = f"the search of experiment {name}" if search else f"experiment {name}"
+        issues.append(_issue("E170", path, f"The '{key}' of {owner} {text}.", hint))
+
+    length = experiment.length.magnitude
+    warmup = experiment.warmup.magnitude
+    if length <= 0:
+        e170(
+            "length",
+            f"is {_time_text(length)}; it must be above 0 s",
+            "Use a length above 0 s.",
+        )
+    elif warmup < 0:
+        e170(
+            "warmup",
+            f"is {_time_text(warmup)}; it must be at least 0 s",
+            "Use a warm-up of 0 s or more.",
+        )
+    elif warmup >= length:
+        e170(
+            "warmup",
+            f"is {_time_text(warmup)}, which is not less than its 'length', "
+            f"{_time_text(length)}; no time would be observed after the warm-up",
+            "Shorten 'warmup', or lengthen 'length'.",
+        )
+    if length > 0 and experiment.record_interval.magnitude <= 0:
+        e170(
+            "record_interval",
+            f"is {_time_text(experiment.record_interval.magnitude)}; it must be above 0 s",
+            "Use a recording interval above 0 s, or leave it out (default: 'length' / 200).",
+        )
+    if experiment.replications < 2:
+        e170(
+            "replications",
+            f"is {_number_text(experiment.replications)}; it must be at least 2, so that "
+            "a confidence interval can be given",
+            "Use at least 2 replications; the default is 30.",
+        )
+    if not 0 < experiment.confidence < 1:
+        e170(
+            "confidence",
+            f"is {_number_text(experiment.confidence)}; it must lie between 0 and 1, both excluded",
+            "Use a level such as 0.95, the default.",
+        )
+    search = experiment.search
+    if search is None:
+        return issues
+    if search.budget < 1:
+        e170(
+            "budget",
+            f"is {_number_text(search.budget)}; it must be at least 1 candidate",
+            "Use a budget of at least 1; the default is 50.",
+            search=True,
+        )
+    if search.replications < 2:
+        e170(
+            "replications",
+            f"is {_number_text(search.replications)}; it must be at least 2",
+            "Use at least 2 replications per candidate; the default is 10.",
+            search=True,
+        )
+    return issues
+
+
+# --- E174: metric names ---------------------------------------------------------------------------
+
+
+def metric_issues(model: Model) -> list[Issue]:
+    """Spec 1 "Metric names": ``<component id>.<measure>``, or ``model.<measure>`` for the
+    whole model, where the measure is one spec 2 "Statistic definitions" defines for the
+    component's type (``MEASURE_KINDS``).
+
+    - E174: an objective's or constraint's ``metric`` that is not such a name: no dot, an
+      unknown component, or a measure its type does not report.
+    - E123: a constraint's ``value`` of the wrong kind: a time quantity is needed for a
+      metric measured in time, and a plain number for any other (a rate such as
+      throughput is a plain number of items per second; Phase 1 has no rate unit).
+    """
+    issues: list[Issue] = []
+    by_id = _first_by_id(model.components)
+    for index, objective in enumerate(model.objectives):
+        problem = _metric_problem(objective.metric, by_id)
+        if problem is not None:
+            issues.append(
+                _metric_issue(
+                    ("objectives", index), "objective", objective.id, objective.metric, problem
+                )
+            )
+    for index, constraint in enumerate(model.constraints):
+        problem = _metric_problem(constraint.metric, by_id)
+        if problem is not None:
+            issues.append(
+                _metric_issue(
+                    ("constraints", index), "constraint", constraint.id, constraint.metric, problem
+                )
+            )
+            continue
+        kind = MEASURE_KINDS[constraint.metric.partition(".")[2]]
+        is_time = isinstance(constraint.value, Quantity)
+        if is_time == (kind is MeasureKind.TIME):
+            continue
+        measured = {
+            MeasureKind.TIME: "is measured in time, so a time such as '5 min' is expected",
+            MeasureKind.RATE: "is a rate, written as a plain number of items per second "
+            "(Phase 1 has no rate unit)",
+            MeasureKind.NUMBER: "is a plain number, so a plain number is expected",
+        }[kind]
+        given = (
+            f"a time, {_time_text(constraint.value.magnitude)}"
+            if isinstance(constraint.value, Quantity)
+            else f"the plain number {_number_text(constraint.value)}"
+        )
+        issues.append(
+            _issue(
+                "E123",
+                ("constraints", index, "value"),
+                f"The 'value' of constraint {_quote(constraint.id)} is {given}, but "
+                f"{_quote(constraint.metric)} {measured}.",
+                "Write a time with its unit, as in '5 min'."
+                if kind is MeasureKind.TIME
+                else "Write a plain number with no unit.",
+            )
+        )
+    return issues
+
+
+def _metric_problem(metric: str, by_id: Mapping[str, Component]) -> str | None:
+    """Why ``metric`` is not a metric name, or ``None`` when it is one."""
+    prefix, dot, measure = metric.partition(".")
+    if not dot or not prefix or not measure:
+        return (
+            "which is not a metric name: a metric is written as a component id, a dot and a "
+            "measure, as in 'till.wait.mean'"
+        )
+    if prefix == "model":
+        if measure in MODEL_METRICS:
+            return None
+        return f"but the whole model reports only {_words(['model.' + m for m in MODEL_METRICS])}"
+    component = by_id.get(prefix)
+    if component is None:
+        return f"but no component has the id {_quote(prefix)}"
+    metrics = PROCESS_TYPES[component.type].metrics
+    if measure in metrics:
+        return None
+    if not metrics:
+        return f"but {_quote(prefix)} is a {component.type}, which reports no metrics"
+    return (
+        f"but {_quote(prefix)} is a {component.type}, which reports only "
+        f"{_words([f'{prefix}.{m}' for m in metrics])}"
+    )
+
+
+def _metric_issue(
+    at: tuple[Segment, ...], noun: str, identifier: str, metric: str, problem: str
+) -> Issue:
+    return _issue(
+        "E174",
+        (*at, "metric"),
+        f"The 'metric' of {noun} {_quote(identifier)} is {_quote(metric)}, {problem}.",
+        "Name a metric that spec 2 'Statistic definitions' defines for that component's "
+        "type, such as '<server>.wait.mean' or '<sink>.throughput'.",
+    )
+
+
 # --- the pass --------------------------------------------------------------------------------
 
 
-def meaning_pass(model: Model) -> list[Issue]:
-    """Part A of the meaning pass: identifiers, settings that name things, connections.
+def meaning_pass(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue]:
+    """The meaning pass: part A (identifiers, settings that name things, connections),
+    then part B (parameters, references, ranges, distributions, data, experiments,
+    metrics). ``data`` is the project's data index (default: nothing imported).
 
     E102 is not here: the loader checks it before building (``engine_issues``).
     """
-    return [*identifier_issues(model), *setting_issues(model), *connection_issues(model)]
+    return [
+        *identifier_issues(model),
+        *setting_issues(model),
+        *connection_issues(model),
+        *parameter_issues(model),
+        *reference_issues(model),
+        *range_issues(model),
+        *distribution_issues(model),
+        *data_issues(model, data),
+        *experiment_issues(model),
+        *metric_issues(model),
+    ]
 
 
 # --- helpers ---------------------------------------------------------------------------------
@@ -619,12 +1655,57 @@ def _known_ids_hint(ids: Sequence[str]) -> str:
     return f"Correct the id; the model's components are {_words(ids, last='and')}."
 
 
+def _listed(names: Sequence[str]) -> str:
+    """``: 'a' or 'b'`` for a short list; ``, such as 'a', ... or 'l'`` for a long one."""
+    if len(names) > _LISTED_IDS:
+        return f", such as {_words(names[:_LISTED_IDS])}"
+    return f": {_words(names)}"
+
+
 def _text(end: Endpoint) -> str:
     return f"{end.component}.{end.port}"
 
 
 def _quote(text: str) -> str:
     return f"'{text}'"
+
+
+def _sentence(text: str) -> str:
+    """``text`` with its first letter in upper case, to open a sentence."""
+    return text[:1].upper() + text[1:]
+
+
+def _number_text(value: int | float) -> str:
+    """A number as a message shows it: ``3``, ``0.95``; never a long one."""
+    if isinstance(value, int):
+        return "a very large whole number" if value.bit_length() > 64 else str(value)
+    if value.is_integer() and abs(value) < 1e15:
+        return str(int(value))
+    return repr(value)
+
+
+# Phase 1 time units, largest first, with their length in seconds.
+_TIME_UNITS = (("d", 86_400), ("h", 3_600), ("min", 60))
+
+
+def _time_text(seconds: int | float) -> str:
+    """A time in seconds as a message shows it, in the largest unit that holds it
+    exactly: ``8 h``, ``90 s``, ``-5 min``."""
+    for unit, length in _TIME_UNITS:
+        count = seconds / length
+        if abs(seconds) >= length and float(count).is_integer():
+            return f"{_number_text(count)} {unit}"
+    return f"{_number_text(seconds)} s"
+
+
+def _shown(value: int | float, expects: Expects) -> str:
+    return _time_text(value) if expects == "quantity" else _number_text(value)
+
+
+def _value_text(value: ParameterValue) -> str:
+    if isinstance(value, Quantity):
+        return _time_text(value.magnitude)
+    return _number_text(value)
 
 
 def _words(words: Sequence[str], *, quote: bool = True, last: str = "or") -> str:

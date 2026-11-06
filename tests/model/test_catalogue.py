@@ -12,10 +12,12 @@ from lcsim.model.catalogue import (
     DATA_FIELDS,
     DISTRIBUTIONS,
     DOMAINS,
+    MEASURE_KINDS,
     MODEL_METRICS,
     PROCESS_TYPES,
     BlockType,
     FieldKind,
+    MeasureKind,
     SettingKind,
     SettingSpec,
     output_ports,
@@ -182,6 +184,59 @@ def test_counts_and_capacities_are_whole_numbers(type_name: str, setting: str) -
     assert spec(type_name, setting).integer is True
 
 
+# (type, setting, minimum, exclusive) for every number or time setting (AKS-90 readings,
+# docs/DECISIONS.md): a capacity, size, order quantity or `max_items` is at least 1; a
+# queue capacity, stock level, shift capacity or weight at least 0; `first_arrival` and a
+# shift's `start` and `end` at least 0 s; `timeout` and `period` above 0 s.
+MINIMUMS = [
+    ("source", "first_arrival", 0, False),
+    ("source", "max_items", 1, False),
+    ("server", "capacity", 1, False),
+    ("server", "queue_capacity", 0, False),
+    ("queue", "capacity", 1, False),
+    ("batch", "size", 1, False),
+    ("batch", "timeout", 0, True),
+    ("store", "initial", 0, False),
+    ("store", "reorder_point", 0, False),
+    ("store", "order_quantity", 1, False),
+    ("resource_pool", "capacity", 1, False),
+    ("schedule", "period", 0, True),
+]
+
+
+@pytest.mark.parametrize(("type_name", "setting", "minimum", "exclusive"), MINIMUMS)
+def test_number_and_time_settings_state_their_smallest_value(
+    type_name: str, setting: str, minimum: int, exclusive: bool
+) -> None:
+    found = spec(type_name, setting)
+    assert found.minimum == minimum
+    assert found.exclusive_minimum is exclusive
+
+
+def test_every_number_and_time_setting_has_a_minimum() -> None:
+    listed = {(t, s) for t, s, _, _ in MINIMUMS}
+    for block in PROCESS_TYPES.values():
+        for setting in block.settings:
+            if setting.kind in (SettingKind.NUMBER, SettingKind.QUANTITY):
+                assert (block.name, setting.name) in listed, (block.name, setting.name)
+            else:
+                assert setting.minimum is None, (block.name, setting.name)
+
+
+def test_minimums_inside_object_settings() -> None:
+    weight = spec("branch", "weights").values
+    assert weight is not None
+    assert (weight.minimum, weight.exclusive_minimum) == (0, False)
+    fields = {field.name: field for field in spec("schedule", "shifts").fields}
+    for name in ("start", "end", "capacity"):
+        assert (fields[name].minimum, fields[name].exclusive_minimum) == (0, False)
+
+
+def test_a_branch_has_at_least_one_route() -> None:
+    assert spec("branch", "routes").min_items == 1
+    assert spec("schedule", "shifts").min_items == 0
+
+
 def test_word_settings_list_their_choices_and_defaults() -> None:
     # Spec 2 "Discipline": `fifo` (default) or `lifo`; `on_full` `block` (default) or
     # `discard`; branch `rule` `probability` or `shortest_queue`.
@@ -274,6 +329,20 @@ def test_model_metrics() -> None:
     assert MODEL_METRICS == ("wip.mean",)
 
 
+def test_every_measure_has_a_kind() -> None:
+    measures = {metric for block in PROCESS_TYPES.values() for metric in block.metrics}
+    assert set(MEASURE_KINDS) == measures | set(MODEL_METRICS)
+
+
+def test_measure_kinds() -> None:
+    # Spec 2 "Statistic definitions": waits and cycle times are times; throughput,
+    # orders and discards are "divided by the period", so rates; the rest plain numbers.
+    times = {name for name, kind in MEASURE_KINDS.items() if kind is MeasureKind.TIME}
+    rates = {name for name, kind in MEASURE_KINDS.items() if kind is MeasureKind.RATE}
+    assert times == {"wait.mean", "cycle_time.mean"}
+    assert rates == {"throughput", "orders", "discarded"}
+
+
 # --- distributions (spec 1 "Distributions") -----------------------------------------------
 
 
@@ -320,6 +389,32 @@ def test_the_eight_distributions_in_spec_order() -> None:
 )
 def test_distribution_fields(dist: str, forms: list[list[tuple[str, FieldKind, bool]]]) -> None:
     assert fields_of(dist) == forms
+
+
+@pytest.mark.parametrize(
+    ("dist", "positive"),
+    [
+        # Spec 1 E160: `sd`, `shape`, `scale` or the `mean` of a positive distribution
+        # (exponential, lognormal, weibull) must be greater than zero.
+        ("constant", set()),
+        ("exponential", {"mean"}),
+        ("uniform", set()),
+        ("triangular", set()),
+        ("normal", {"sd"}),
+        ("lognormal", {"mean", "sd"}),
+        ("weibull", {"shape", "scale"}),
+        ("empirical", set()),
+    ],
+)
+def test_fields_that_must_be_above_zero(dist: str, positive: set[str]) -> None:
+    found = {field.name for form in DISTRIBUTIONS[dist].forms for field in form if field.positive}
+    assert found == positive
+
+
+def test_fields_in_order() -> None:
+    # Spec 1 E160: `min` above `max`; a triangular `mode` lies from `min` to `max`.
+    ordered = {name: spec.ordered for name, spec in DISTRIBUTIONS.items() if spec.ordered}
+    assert ordered == {"uniform": ("min", "max"), "triangular": ("min", "mode", "max")}
 
 
 def test_field_names_of_a_distribution() -> None:

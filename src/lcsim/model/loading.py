@@ -12,7 +12,8 @@ Order of work:
    every ``{"$param": "id"}`` kept as a ``ParamRef``, every distribution checked against
    spec 1 "Distributions", every component's ``params`` against the ``process`` catalogue,
    and every experiment default of spec 1 "Experiments" filled in.
-4. On a model that builds, it runs the meaning pass (``lcsim.model.validation``).
+4. On a model that builds, it runs the meaning pass (``lcsim.model.validation``), with
+   the project's data index (``lcsim.model.data``) for ``empirical`` ``data`` references.
    ``build_document`` stops after step 3.
 
 Building reports, with its spec 1 code, every problem that stops a value from being
@@ -22,8 +23,9 @@ E122 (required setting missing), E123 (a value of the wrong kind), E130 (a conne
 that is not ``<id>.<port>``), E140 and E141 (quantities), E150 (a scenario setting an
 unknown parameter, whose value cannot be typed without it) and E160 (a distribution that is
 not one of spec 1's). Checks across the model are the meaning pass's: identifiers,
-settings that name components, and the connection graph (AKS-89); ranges, consistency of
-distribution fields, metric names and warnings follow (AKS-90, AKS-91).
+settings that name components, and the connection graph (AKS-89); parameters, ranges,
+consistency of distribution fields, data references, experiments and metric names
+(AKS-90); warnings follow (AKS-91).
 
 A file with any error issue gives no model. Building lists its issues in document order;
 the meaning pass's follow, grouped by rule.
@@ -50,6 +52,7 @@ from lcsim.model.catalogue import (
     SettingKind,
     SettingSpec,
 )
+from lcsim.model.data import EMPTY_DATA_INDEX, DataIndex
 from lcsim.model.issues import Issue, pointer
 from lcsim.model.model import (
     Component,
@@ -145,21 +148,33 @@ class ModelLoadError(Exception):
         super().__init__(f"the model file has {len(self.issues)} issue(s): {summary}")
 
 
-def load_model(path: str | Path, *, seed_source: SeedSource | None = None) -> Model:
+def load_model(
+    path: str | Path,
+    *,
+    seed_source: SeedSource | None = None,
+    data: DataIndex = EMPTY_DATA_INDEX,
+) -> Model:
     """Load the model file at ``path``.
 
     Raises ``ModelLoadError`` carrying every issue when any issue is an error. A file that
     cannot be opened raises ``OSError``, as from ``open``: the caller chose the path.
     ``seed_source`` gives the seed of an experiment that has none (default: a random
-    integer from 0 to ``SEED_LIMIT`` - 1 from the operating system's generator).
+    integer from 0 to ``SEED_LIMIT`` - 1 from the operating system's generator). ``data``
+    is the project's data index (default: nothing imported; the import endpoint builds
+    one at M6).
     """
-    result = load_text(Path(path).read_bytes(), seed_source=seed_source)
+    result = load_text(Path(path).read_bytes(), seed_source=seed_source, data=data)
     if result.model is None:
         raise ModelLoadError(result.issues)
     return result.model
 
 
-def load_text(text: str | bytes, *, seed_source: SeedSource | None = None) -> LoadResult:
+def load_text(
+    text: str | bytes,
+    *,
+    seed_source: SeedSource | None = None,
+    data: DataIndex = EMPTY_DATA_INDEX,
+) -> LoadResult:
     """Load a model from JSON text; bytes are read as UTF-8, with or without a BOM."""
     if isinstance(text, bytes):
         try:
@@ -210,12 +225,18 @@ def load_text(text: str | bytes, *, seed_source: SeedSource | None = None) -> Lo
     # duplicate key is in the document, so a duplicate always yields an issue here.
     if duplicates and (issues := _duplicate_key_issues(document, duplicates)):
         return LoadResult(None, tuple(issues))
-    return load_document(document, seed_source=seed_source)
+    return load_document(document, seed_source=seed_source, data=data)
 
 
-def load_document(document: object, *, seed_source: SeedSource | None = None) -> LoadResult:
+def load_document(
+    document: object,
+    *,
+    seed_source: SeedSource | None = None,
+    data: DataIndex = EMPTY_DATA_INDEX,
+) -> LoadResult:
     """Load a model from a parsed JSON document: the schema pass, building, then the
-    meaning pass (``lcsim.model.validation``) on a model that builds.
+    meaning pass (``lcsim.model.validation``) on a model that builds, with ``data`` as
+    the project's data index (default: nothing imported).
 
     ``document`` is not changed. The model may share the JSON values of a component's
     ``ui`` and of ``run.target`` and ``run.fidelity`` with it.
@@ -223,7 +244,7 @@ def load_document(document: object, *, seed_source: SeedSource | None = None) ->
     built = build_document(document, seed_source=seed_source)
     if built.model is None:
         return built
-    issues = (*built.issues, *meaning_pass(built.model))
+    issues = (*built.issues, *meaning_pass(built.model, data))
     if any(issue.severity == "error" for issue in issues):
         return LoadResult(None, issues)
     return LoadResult(built.model, issues)
