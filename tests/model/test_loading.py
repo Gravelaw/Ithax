@@ -17,6 +17,7 @@ from lcsim.model.loading import (
     SEED_LIMIT,
     LoadResult,
     ModelLoadError,
+    build_document,
     load_document,
     load_model,
     load_text,
@@ -79,22 +80,28 @@ def coffee() -> dict[str, Any]:
     return copy.deepcopy(COFFEE_SHOP)
 
 
+# Building is tested on fragments of a model (a component added and left unconnected), so
+# these helpers stop before the meaning pass (``build_document``); the tests below that
+# need the whole load call ``load_document``, and tests/model/test_validation.py checks
+# the meaning pass.
+
+
 def model_of(document: object) -> Model:
-    result = load_document(document, seed_source=lambda: 7)
+    result = build_document(document, seed_source=lambda: 7)
     assert result.issues == (), [issue.as_dict() for issue in result.issues]
     assert result.model is not None
     return result.model
 
 
 def only_issue(document: object) -> Issue:
-    result = load_document(document, seed_source=lambda: 7)
+    result = build_document(document, seed_source=lambda: 7)
     assert result.model is None
     assert len(result.issues) == 1, [issue.as_dict() for issue in result.issues]
     return result.issues[0]
 
 
 def with_component(component: dict[str, Any]) -> dict[str, Any]:
-    """The coffee shop with one more component (not connected; graph checks are AKS-89)."""
+    """The coffee shop with one more component, not connected (see ``model_of``)."""
     document = coffee()
     document["components"].append(component)
     return document
@@ -160,6 +167,7 @@ def test_coffee_shop_experiment_in_si_with_defaults_filled() -> None:
         seed=12345,
         seed_chosen=False,
         scenarios=(Scenario(id="default", set={}),),
+        default_scenario_added=True,
         confidence=0.95,
         record_interval=hours(1),  # length / 200
         search=None,

@@ -12,17 +12,21 @@ Order of work:
    every ``{"$param": "id"}`` kept as a ``ParamRef``, every distribution checked against
    spec 1 "Distributions", every component's ``params`` against the ``process`` catalogue,
    and every experiment default of spec 1 "Experiments" filled in.
+4. On a model that builds, it runs the meaning pass (``lcsim.model.validation``).
+   ``build_document`` stops after step 3.
 
 Building reports, with its spec 1 code, every problem that stops a value from being
-converted: E102 (a ``domain`` with no engine), E120 (unknown type), E121 (unknown setting),
+converted: E102 (no single engine for the ``domain``, checked first with
+``lcsim.model.validation.engine_issues``), E120 (unknown type), E121 (unknown setting),
 E122 (required setting missing), E123 (a value of the wrong kind), E130 (a connection end
 that is not ``<id>.<port>``), E140 and E141 (quantities), E150 (a scenario setting an
 unknown parameter, whose value cannot be typed without it) and E160 (a distribution that is
-not one of spec 1's). Checks across the model (identifiers, references between components,
-the connection graph, ranges, consistency of distribution fields, metric names, warnings)
-are the meaning pass's (AKS-89 to AKS-91), which runs on a model that loads.
+not one of spec 1's). Checks across the model are the meaning pass's: identifiers,
+settings that name components, and the connection graph (AKS-89); ranges, consistency of
+distribution fields, metric names and warnings follow (AKS-90, AKS-91).
 
-A file with any error issue gives no model. Issues are listed in document order.
+A file with any error issue gives no model. Building lists its issues in document order;
+the meaning pass's follow, grouped by rule.
 """
 
 from __future__ import annotations
@@ -39,7 +43,6 @@ from typing import Any, TypeVar
 from lcsim.model.catalogue import (
     DATA_FIELDS,
     DISTRIBUTIONS,
-    DOMAINS,
     PROCESS_TYPES,
     BlockType,
     FieldKind,
@@ -74,8 +77,17 @@ from lcsim.model.model import (
 )
 from lcsim.model.schema import schema_pass
 from lcsim.model.units import Dimension, Quantity, QuantityError, read_number, read_quantity
+from lcsim.model.validation import engine_issues, meaning_pass
 
-__all__ = ["SEED_LIMIT", "LoadResult", "ModelLoadError", "load_document", "load_model", "load_text"]
+__all__ = [
+    "SEED_LIMIT",
+    "LoadResult",
+    "ModelLoadError",
+    "build_document",
+    "load_document",
+    "load_model",
+    "load_text",
+]
 
 # A seed the file leaves out is drawn from 0 to SEED_LIMIT - 1 (spec 1 "Experiments": chosen
 # at random and recorded in the manifest), so that it fits a signed 64-bit integer.
@@ -202,10 +214,27 @@ def load_text(text: str | bytes, *, seed_source: SeedSource | None = None) -> Lo
 
 
 def load_document(document: object, *, seed_source: SeedSource | None = None) -> LoadResult:
-    """Load a model from a parsed JSON document (the schema pass, then building).
+    """Load a model from a parsed JSON document: the schema pass, building, then the
+    meaning pass (``lcsim.model.validation``) on a model that builds.
 
     ``document`` is not changed. The model may share the JSON values of a component's
     ``ui`` and of ``run.target`` and ``run.fidelity`` with it.
+    """
+    built = build_document(document, seed_source=seed_source)
+    if built.model is None:
+        return built
+    issues = (*built.issues, *meaning_pass(built.model))
+    if any(issue.severity == "error" for issue in issues):
+        return LoadResult(None, issues)
+    return LoadResult(built.model, issues)
+
+
+def build_document(document: object, *, seed_source: SeedSource | None = None) -> LoadResult:
+    """The schema pass and building only, without the meaning pass.
+
+    The model it returns has every value converted but is not checked across the model
+    (identifiers, references, connections): use ``load_document`` for a model to run.
+    This step exists on its own so that building can be tested on fragments of a model.
     """
     schema_issues = schema_pass(document)
     if schema_issues:
@@ -419,15 +448,12 @@ class _Builder:
 
     def build(self) -> Model | None:
         document = self.document
-        domain = document["domain"]
-        if domain not in DOMAINS:
-            self.issue(
-                "E102",
-                ("domain",),
-                f"The model's 'domain' is {_show(domain)}, and no engine in this version "
-                "handles it.",
-                f"Set 'domain' to {_words(DOMAINS)}.",
-            )
+        domain: str = document["domain"]
+        engine: str | None = document.get("run", {}).get("engine")
+        engine_problems = engine_issues(domain, engine)
+        if engine_problems:
+            # A model of a domain no engine runs cannot be built: its keys are not known.
+            self.issues += engine_problems
             return None
         meta = document["meta"]
         self.load_parameters()
@@ -960,6 +986,7 @@ class _Builder:
             seed=seed,
             seed_chosen=seed_chosen,
             scenarios=scenarios,
+            default_scenario_added=not raw.get("scenarios"),
             confidence=confidence,
             record_interval=record_interval,
             search=search,

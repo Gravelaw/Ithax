@@ -176,7 +176,9 @@ class Experiment:
     """An experiment with every default of spec 1 "Experiments" filled in.
 
     ``seed_chosen`` is true when the file gave no ``seed`` and the loader chose one at
-    random; the manifest records the seed either way.
+    random; the manifest records the seed either way. ``default_scenario_added`` is true
+    when the file listed no scenarios and the loader added the one ``default`` scenario
+    (spec 1 "Experiments"); a ``default`` scenario the file lists itself is E112.
     """
 
     id: str
@@ -186,6 +188,7 @@ class Experiment:
     seed: int
     seed_chosen: bool
     scenarios: tuple[Scenario, ...]
+    default_scenario_added: bool
     confidence: float
     record_interval: Quantity
     search: Search | None
