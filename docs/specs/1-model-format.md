@@ -68,7 +68,7 @@ Two passes, both run before any engine starts:
 1. **Schema:** structure, types and required keys, checked against the JSON Schema (draft 2020-12, validated with the `jsonschema` package; the schema uses no `format` keyword).
 2. **Meaning:** no dangling connections, no unknown component types, units of the right dimension, parameters within allowed ranges.
 
-The JSON Schema checks only the top-level keys, the JSON type of each top-level value, and that every component, connection, parameter and experiment entry is an object with its required keys of the right JSON type. Identifiers, quantities and component settings are typed as plain strings or objects in the schema, with no patterns and no per-type required lists, so that the meaning-pass codes in the table below (E102, E110 to E171, E174, W200 to W202) are reported with their specific codes. Component type descriptions (settings, ports) come from the adapter's `Capabilities`; until the process adapter exists (M2) the model layer carries the `process` type catalogue from spec 2's block reference, and at M2 the adapter's `capabilities()` must equal it (tested). Flow rates for W201 are propagated from sources: a probability branch multiplies by weight/total, a batch divides by `size`, an unbatch multiplies by it, merges add; where a rate cannot be propagated (shortest-queue branches, stores, timeouts, schedules, failures, and loss points: a `queue` with `on_full: discard`, or a source whose next block has a finite capacity, since either admits less than the offered rate) the check is skipped for every server downstream.
+The JSON Schema checks only the top-level keys, the JSON type of each top-level value, and that every component, connection, parameter and experiment entry is an object with its required keys of the right JSON type. Identifiers are typed as plain strings and component settings (`params`) as a plain object, with no patterns and no per-type required lists; quantities, plain numbers and enumerated words (such as a parameter's `type`, `sense`, `op`, `run.target` and `run.fidelity`) may be any JSON value in the schema. This is so that the meaning-pass codes in the table below (E102, E110 to E171, E174, W200 to W202) and the run codes E172 and E173 are reported with their specific codes. The schema is `src/lcsim/model/schema.json`; `GET /v1/schema` serves it (spec 3). Component type descriptions (settings, ports) come from the adapter's `Capabilities`; until the process adapter exists (M2) the model layer carries the `process` type catalogue from spec 2's block reference, and at M2 the adapter's `capabilities()` must equal it (tested). Flow rates for W201 are propagated from sources: a probability branch multiplies by weight/total, a batch divides by `size`, an unbatch multiplies by it, merges add; where a rate cannot be propagated (shortest-queue branches, stores, timeouts, schedules, failures, and loss points: a `queue` with `on_full: discard`, or a source whose next block has a finite capacity, since either admits less than the offered rate) the check is skipped for every server downstream.
 
 Errors name the component and the key, in plain language.
 
@@ -122,7 +122,7 @@ A run is reproducible from the run folder: the model, its manifest and any copie
 
 ## Versioning
 
-`format_version` is `MAJOR.MINOR` as a string. A minor increase is additive: a reader accepts any file with its own major and a minor no higher than its own, filling defaults in memory. A major increase ships a migration that rewrites the file after asking the user. E101 is raised for an unknown major or a minor above the reader's. Each new major version ships a migration that upgrades older files. The app never opens a file it cannot migrate without saying so.
+`format_version` is `MAJOR.MINOR` as a string. A minor increase is additive: a reader accepts any file with its own major and a minor no higher than its own, filling defaults in memory. A major increase ships a migration that rewrites the file after asking the user. E101 is raised for an unknown major or a minor above the reader's, and for a string that is not two ASCII decimal integers without leading zeros joined by a dot (`"0.1.0"`, `"v0.1"`, `"0.01"`); a `format_version` that is not a string is E100. A file with E101 gets no other schema issue, because it may follow another version's schema. This reader is version 0.1, so it opens 0.0 and 0.1. Each new major version ships a migration that upgrades older files. The app never opens a file it cannot migrate without saying so.
 
 ## Detailed specification
 
@@ -159,11 +159,11 @@ Running three example models against the first draft of the format forced four c
 | `constraints` | `process`: array of `{id, metric, op, value}`; `optimization`: array of `{id, linear, op, rhs}` | no | empty |
 | `variables` | array of `{id, type, lower?, upper?}` | yes for `optimization`; not allowed for `process` |  |
 | `objective` | object `{sense, linear}` | yes for `optimization`; not allowed for `process` |  |
-| `run` | object with `target`, `fidelity` and optional `engine` (adapter name) | no | `local`, `standard` |
+| `run` | object with `target` and `fidelity` (both required when `run` is present) and optional `engine` (adapter name) | no | `local`, `standard` |
 
-Which keys are required, and the shape of `constraints`, depend on `domain`. A key that belongs to the other domain is an E100 error. Phase 1 process and optimization engines accept only `fidelity: standard`; the fidelity ladder of spec 6 applies to physics domains. Another value is E173. The service selects the one installed adapter whose capabilities include the model's `domain`; if there are several and `run.engine` is absent, or none, the issue is E102.
+Which keys are required, and the shape of `constraints`, depend on `domain`. A key that belongs to the other domain is an E100 error. When `domain` is not one of the Phase 1 values, the schema pass checks every key as above but requires and forbids no domain-specific key; the meaning pass reports E102. Phase 1 process and optimization engines accept only `fidelity: standard`; the fidelity ladder of spec 6 applies to physics domains. Another value is E173. The service selects the one installed adapter whose capabilities include the model's `domain`; if there are several and `run.engine` is absent, or none, the issue is E102.
 
-Unknown keys are an error, except under any `ui` key, which engines ignore.
+Unknown keys are an error, except under any `ui` key, which engines ignore. In this version only a component has a `ui` key; a top-level `ui` is an unknown key.
 
 ### Quantities
 
@@ -179,7 +179,7 @@ Unknown keys are an error, except under any `ui` key, which engines ignore.
 
 ### Parameters
 
-Each entry has `value` (required), `type` (`integer`, `number` or `quantity`), and optional `min`, `max`, `description`. A `{"$param": "id"}` object may appear anywhere a component setting takes a number or quantity.
+Each entry has `value` and `type` (both required; `type` is `integer`, `number` or `quantity`), and optional `min`, `max`, `description`. A `{"$param": "id"}` object may appear anywhere a component setting takes a number or quantity.
 
 ### Components and ports
 
@@ -213,12 +213,12 @@ Sampling test (M2, every distribution): 20,000 samples from one stream; the samp
 | `warmup` | time quantity, less than `length` | `0 s` |
 | `replications` | integer, at least 2 | 30 |
 | `seed` | integer | chosen at random and recorded in the manifest |
-| `scenarios` | array of `{id, set: {parameter id: value}}` | one scenario with the reserved id `default` and an empty `set`; a user scenario may not use that id (E112) |
+| `scenarios` | array of `{id, set: {parameter id: value}}`, both keys required | one scenario with the reserved id `default` and an empty `set`; a user scenario may not use that id (E112) |
 | `confidence` | number in (0, 1) | 0.95 |
 | `record_interval` | time quantity | `length` / 200 |
 | `search` | object `{objective, budget, variables, replications}` | absent: a plain experiment |
 
-`search.objective` names an id in top-level `objectives` (exactly one in Phase 1); `search.budget` is an integer at least 1, default 50; `search.variables` is an array of parameter ids, default every parameter with both `min` and `max`; `search.replications` (integer at least 2, default 10) is the replications per candidate during the search, while the experiment's own `replications` is used for the confirmation stage of spec 2. E171 covers a `search` that names an unknown objective or a parameter without `min` and `max`. Running an experiment that has `search` runs the simulation-based search of spec 2; the run id, states and events are those of any run. Proposed; verified at M5.
+`search.objective` (required) names an id in top-level `objectives` (exactly one in Phase 1); `search.budget` is an integer at least 1, default 50; `search.variables` is an array of parameter ids, default every parameter with both `min` and `max`; `search.replications` (integer at least 2, default 10) is the replications per candidate during the search, while the experiment's own `replications` is used for the confirmation stage of spec 2. E171 covers a `search` that names an unknown objective or a parameter without `min` and `max`. Running an experiment that has `search` runs the simulation-based search of spec 2; the run id, states and events are those of any run. Proposed; verified at M5.
 
 ### Random streams
 
@@ -246,7 +246,7 @@ Every issue is one object:
  "hint": "Connect it to another block or to a sink."}
 ```
 
-`severity` is `error` or `warning`.
+`severity` is `error` or `warning`: `error` for an E code, `warning` for a W code. `path` is a JSON Pointer (RFC 6901) to the key or value concerned; for a missing key it is where the key belongs, and `""` is the whole file. `component` is the id of the component the path lies in, or `null`.
 
 | Code | Pass | Meaning |
 | --- | --- | --- |
@@ -414,3 +414,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-06, review of PR #1: W201 rate propagation stops at loss points (a discarding `queue`, or a source feeding a finite-capacity block), so a stable server downstream of a loss system is not flagged.
 - 2026-11-06, M1 research notes (AKS-85): "Units" confirms pint (was "Proposed library"), declared as `pint>=0.25.3` because pint 0.26 needs Python 3.12, with the grammar checked before pint converts (`docs/research/spec-1-schema-and-units.md`); "Validation" names JSON Schema draft 2020-12, the `jsonschema` package and no `format` keyword; "Quantities" states the exact grammar for the number, the single space and the unit symbol, and which strings are E140 and which E141. Version number unchanged until M1 closes.
 - 2026-11-06, units and quantities (AKS-86): "Quantities" adds what the grammar left open, found while building `src/lcsim/model/units.py`: a unit name with several readings is E140 only when no reading has the expected dimension; a number that is not finite in SI units is E141; `"-0 s"` is stored as 0.0; where a plain number is expected, any value other than a finite JSON number is E123; where a quantity is expected, `true`, `false`, `null`, an array or a non-`$param` object is E141. Version number unchanged until M1 closes.
+- 2026-11-06, issue objects and the schema pass (AKS-87), found while building `src/lcsim/model/schema.json` and `schema.py`: "Validation" says quantities, plain numbers and enumerated words take any JSON value in the schema (it said "plain strings or objects", which would have made `"length": true` E100 instead of the E141 that "Quantities" requires, and `run.target` E100 instead of E172); "Top-level keys" says what the schema pass checks for an unknown `domain`, that `run` needs `target` and `fidelity` when present, and that only a component has `ui`; "Parameters" makes `type` required (spec 3 already rejects a new parameter without `value` and `type`); "Experiments" makes both keys of a scenario and `search.objective` required; "Versioning" says which strings are E101, that a non-string is E100, and that E101 stops the schema pass; "Validation issues" defines `severity`, `path` and `component`. Version number unchanged until M1 closes.
