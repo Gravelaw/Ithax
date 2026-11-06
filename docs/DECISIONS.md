@@ -290,3 +290,44 @@ The verifier confirmed every council change and found six small inconsistencies 
 - **Verified:** actionlint 1.7.12 with shellcheck 0.11.0 reports no errors. The workflow parses with PyYAML. The title script was run on 14 titles: the 3 valid ones pass, the 11 invalid ones fail. The detection step was run on the current tree (skips) and on a mock M2 tree (runs).
 - **Spec sections updated:** none.
 - **Dependencies added:** none. actionlint and shellcheck were used once for checking, in a scratch environment, not added to the project.
+
+## 2026-11-06 · M1
+
+### M1 research notes: JSON Schema draft, validator and units library (AKS-85)
+
+- **Decision:**
+  - The schema pass uses JSON Schema draft 2020-12 and the `jsonschema` package, with no extras. The schema uses no `format` keyword.
+  - pint is confirmed as the units library (spec 1 had it as "Proposed"). It will be declared as `pint>=0.25.3`.
+  - The loader checks the spec 1 quantity grammar before pint converts. The grammar is now exact: a JSON-grammar number, exactly one space, and a Phase 1 unit symbol written exactly (`s`, `min`, `h`, `d`). A unit pint knows with the wrong dimension is E140; any other string that breaks the grammar is E141.
+  - Notes: `docs/research/spec-1-existing-model-formats.md`, `docs/research/spec-1-how-tools-save-models.md`, `docs/research/spec-1-schema-and-units.md`. The first two change nothing in the specs.
+- **Reason:**
+  - 2020-12 is the current published JSON Schema version (json-schema.org, read 2026-11-06). The next release will make `format` validate by default, so a schema without `format` keeps its meaning.
+  - jsonschema supports 2020-12, reports every error with its path, and is pure Python apart from `rpds-py`, which ships Windows wheels for CPython 3.11 to 3.15.
+  - pint parses the four Phase 1 symbols correctly, and its `DimensionalityError` separates E140 from E141. A plain table of four units could not do that, and the physics phases need a full unit system.
+  - Testing showed that pint alone accepts far more than spec 1's grammar allows: `2min`, `2 minutes`, `2 * min`, `nan s`, and `2 Min`, which it reads as 2 megainch. Hence the grammar check first. The exact grammar is the simplest reading of "a number, one space, a unit" with the Phase 1 unit list. It was taken without the owner (guide rule 5) and is flagged for the owner in the PR.
+  - pint 0.26 dropped Python 3.11, and the project supports 3.11. With `>=0.25.3`, Python 3.11 gets 0.25.3 and newer Pythons get 0.26.x. 8,036 test conversions gave the same floats on both versions.
+- **Alternatives considered:**
+  - jsonschema-rs (MIT; supports 2020-12): faster, but a compiled dependency that small model files do not need.
+  - fastjsonschema (BSD-3-Clause): reads no draft newer than 07.
+  - unyt (BSD-3-Clause): needs numpy and sympy in the model layer.
+  - astropy units (BSD-3-Clause): a large astronomy package.
+  - A hand-written table of the four time units: cannot separate E140 from E141.
+  - Raising the minimum Python to 3.12 to get one pint version everywhere: departs from the guide's "Python 3.11 or later" for no gain the tests showed.
+- **Spec sections updated:** spec 1 "Units", "Validation" and "Quantities". A dated line is under spec 1 "Changes in this version". The version number is unchanged until M1 closes (guide rule 6).
+- **Dependencies added:** none to `pyproject.toml` in this change. The first M1 code change adds them. Pre-recorded here with licences:
+
+  | Package | Version seen | Licence | How checked |
+  | --- | --- | --- | --- |
+  | jsonschema | 4.26.0 | MIT | PyPI metadata `License-Expression` 2026-11-06; `COPYING` in the installed wheel and on GitHub read |
+  | attrs | 26.1.0 | MIT | PyPI metadata; `LICENSE` in the installed wheel read |
+  | jsonschema-specifications | 2025.9.1 | MIT | PyPI metadata; `COPYING` in the installed wheel read |
+  | referencing | 0.37.0 | MIT | PyPI metadata; `COPYING` in the installed wheel read |
+  | rpds-py | 2026.9.1 | MIT | PyPI metadata; `LICENSE` in the installed wheel read; Windows wheels in the PyPI file list |
+  | pint | 0.26.2 (Python 3.12 or later), 0.25.3 (Python 3.11) | BSD-3-Clause | PyPI metadata; `LICENSE` in both installed wheels read (identical files) and on GitHub |
+  | flexcache | 0.3 | BSD 3-clause text | PyPI classifier "BSD License"; `LICENSE` in the installed wheel read |
+  | flexparser | 0.4 | BSD-3-Clause | PyPI metadata; `LICENSE` in the installed wheel read |
+  | platformdirs | 4.14.5 | MIT | PyPI metadata; `LICENSE` in the installed wheel read |
+  | typing-extensions | 4.16.0 | PSF-2.0 | PyPI metadata; `LICENSE` in the installed wheel read |
+
+  - **AGPL-3.0 compatibility:** all of these are MIT, BSD 3-clause or PSF licences. The FSF licence list (read 2026-11-06) calls the Expat (MIT) licence, the modified BSD licence and the licence of Python 2.0.1 and later "compatible with the GNU GPL". Each may therefore be combined into the AGPL-3.0 product and imported in-process. Not legal advice; the spec 1 engine licence rule still applies.
+  - **Avoided:** jsonschema's `format` extra pulls in `rfc3987` 1.3.8 (GPL-3.0-or-later per PyPI). That licence could still be combined with AGPL-3.0, but the extra is not needed.

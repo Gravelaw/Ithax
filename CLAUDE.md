@@ -157,7 +157,7 @@ Updated at the end of every session.
 | --- | --- |
 | M0 Repository skeleton, checks, licence, specs exported | Done 2026-11-05: `bash scripts/check.sh` passes |
 | Spec review council (before M1) | Done 2026-11-05: specs 1 to 4 at 0.3, spec 0 and 5 to 7 at 0.2; owner questions listed in `docs/DECISIONS.md` |
-| M1 Model schema, loading, units, validation | Ready to start. `coffee_shop.json` is in `examples/`; the other two files are written fresh at M1 under the proposed default in `docs/DECISIONS.md` 2026-11-05 unless the owner supplies the originals first. |
+| M1 Model schema, loading, units, validation | In progress. Research notes done 2026-11-06 (AKS-85): JSON Schema 2020-12 with `jsonschema`, pint confirmed (`pint>=0.25.3`), quantity grammar made exact in spec 1; no product code yet. `coffee_shop.json` is in `examples/`; the other two files are written fresh at M1 under the proposed default in `docs/DECISIONS.md` 2026-11-05 unless the owner supplies the originals first. |
 
 Specs are in `docs/specs/`. Run the checks with `bash scripts/check.sh` after
 `pip install -e ".[dev]"`.
