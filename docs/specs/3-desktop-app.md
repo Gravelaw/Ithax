@@ -4,7 +4,7 @@
 
 The app is two programs: an engine service that does all the work, and an interface that talks to it only through an API. That split is what lets a Windows interface drive Linux engines.
 
-> **Warning: untested, and design is missing.** Nothing in this spec has been built. The frameworks named were not re-checked, and the performance targets are proposals. This spec defines behaviour only: user flows, wireframes and the design system do not exist yet, and interface code must not start until the "Design before building" checklist is complete. See "Known gaps" in the Build guide.
+> **Warning: untested.** Nothing in this spec has been built. The interface frameworks were re-checked on 2026-11-06 (`docs/research/spec-3-framework-check.md`); the service framework is re-checked at M6. The performance targets are proposals. This spec defines behaviour; the user flows, wireframes, canvas rules, design system and accessibility check are in `docs/design/` (2026-11-06), but the owner's walkthrough is outstanding, and interface code must not start until the "Design before building" checklist is complete. See "Known gaps" in the Build guide.
 
 ## Scope
 
@@ -17,7 +17,7 @@ The app is two programs: an engine service that does all the work, and an interf
 | --- | --- | --- |
 | Engine service | Validates models, schedules runs, hosts engine adapters, serves results | Python with FastAPI, on Linux |
 | API | The only way in: HTTP for requests, WebSocket for live progress | Local address only by default |
-| Interface | Canvas, forms, charts | React with React Flow, packaged as a desktop app with Tauri |
+| Interface | Canvas, forms, charts | React with React Flow (`@xyflow/react`), packaged as a desktop app with Tauri 2, version 2.11.1 or later (confirmed 2026-11-06; licences in `docs/DECISIONS.md`) |
 | Storage | One folder per project: model file, imported data, runs | Files, plus SQLite as a run index |
 
 On Linux both parts run natively. On Windows, Phase 1 runs both parts natively (proposed default from the review, owner to confirm): every Phase 1 dependency ships Windows wheels or is pure Python (highspy, numpy, scipy, pyarrow, pyomo, simpy, optuna, pint, fastapi; PyPI file lists read on 2026-11-05), while WSL costs an administrator install, a restart and by default half the memory of a low-tier machine. A WSL path is added in Phase 3 for engines without Windows builds. Until the owner decides, service code must stay platform-neutral (no fork-only process code, no Linux-only paths).
@@ -39,7 +39,7 @@ The interface uses no private channel. Anything it can do, a script or an assist
 ## Screens
 
 1. **Home:** recent projects, template gallery, Learn or Build entry (Build mode form as in spec 4).
-2. **Canvas:** drag blocks from a palette, connect them, edit properties in a side panel. Validation errors appear on the offending block.
+2. **Canvas:** drag blocks from a palette, connect them, edit properties in a side panel. Validation errors appear on the offending block. For an `optimization` model, which has no components, the screen shows a form of variables, objective and constraints in place of the graph.
 3. **Data:** import CSV or Excel, map columns, fit a distribution to a column.
 4. **Experiment:** run length, replications, scenarios, optimization setup.
 5. **Run monitor:** progress, live key numbers, cancel.
@@ -133,9 +133,10 @@ An edit is rejected only when it cannot be applied: unknown or duplicate compone
 | `remove_experiment` | `id` |
 | `set_scenario` | `experiment_id`, `id`, `set` |
 | `remove_scenario` | `experiment_id`, `id` |
-| `set_path` | `path`, `value`; JSON Pointer on the whole model, for `meta`, `run`, `objectives`, `constraints`, `search` |
+| `set_path` | `path`, `value`; JSON Pointer on the whole model, for `meta`, `run`, `objectives`, `constraints`, `search`, and in an `optimization` model `variables` and `objective` |
 | `remove_path` | `path`; JSON Pointer on the whole model, as `set_path` |
 | `set_ui` | `id`, `ui` |
+| `set_label` | `id`, `label`; a `label` of `null` removes it |
 
 ### Status codes and errors
 
@@ -184,12 +185,13 @@ These are functional rules. Visual design is covered by the checklist below.
 - **Add.** Dragging a block from the palette adds a component with a generated id, such as `server_2`, and default settings.
 - **Connect.** Dragging from an output port to an input port sends `connect`. Dragging from an output port that is already connected replaces its connection.
 - **Delete.** Removes the selection and its connections.
-- **Undo and redo.** At least 100 steps, covering every model edit.
+- **Undo and redo.** At least 100 steps, covering every model edit. Each step stores the model as it was; undo and redo write the stored model with `PUT .../model` and `base_revision`, because some edits (such as `set_setting` creating a new key) have no inverse edit.
 - **Save.** Automatic after every edit. There is no save button.
 - **Validate.** Runs half a second after the last edit. Issues appear as a marker on the block and in a list; selecting a list entry selects the block.
 - **Run.** Disabled while errors exist, with the reason shown.
 - **Rename.** Changing a component's id updates its connections and any references to its metrics.
-- **External edits.** The canvas sends `base_revision` on every write and, on a `model` event whose revision it did not produce, reloads the model and shows a one-line notice naming the client.
+- **External edits.** The canvas sends `base_revision` on every write and, on a `model` event whose revision it did not produce, reloads the model and shows a one-line notice naming the client. The reload clears the undo and redo history, so an undo cannot silently revert another client's change.
+- **References.** Blocks without ports (`resource_pool`, `schedule`, `failure`) are placed like any block. Their `pool` and `target` settings are drawn as dashed reference lines, which are not connections; they are set in the side panel with `set_setting`.
 
 ### Performance targets
 
@@ -206,11 +208,11 @@ This spec lists the screens and what each must do. It does not contain their vis
 
 Produced by a session:
 
-- [ ] User flows for Learn mode and Build mode, from first launch to first result: `docs/design/flows.md`.
-- [ ] Wireframes for the seven screens, the canvas first: `docs/design/wireframes/`.
-- [ ] Interaction rules for the canvas: adding, connecting, selecting, undo, zoom, error display: `docs/design/canvas-interactions.md`.
-- [ ] A small design system: colours, type, spacing, block and port styles, light and dark themes: `docs/design/design-system.md`.
-- [ ] A check against accessibility guidelines: keyboard use, contrast, text size: `docs/design/accessibility.md`.
+- [x] User flows for Learn mode and Build mode, from first launch to first result: `docs/design/flows.md`.
+- [x] Wireframes for the seven screens, the canvas first: `docs/design/wireframes/`.
+- [x] Interaction rules for the canvas: adding, connecting, selecting, undo, zoom, error display: `docs/design/canvas-interactions.md`.
+- [x] A small design system: colours, type, spacing, block and port styles, light and dark themes: `docs/design/design-system.md`.
+- [x] A check against accessibility guidelines: keyboard use, contrast, text size: `docs/design/accessibility.md`.
 
 Done by the owner:
 
@@ -232,7 +234,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 
 | Test | Milestone | Checked by | Evidence |
 | --- | --- | --- | --- |
-| A pointer-only end-to-end test (Playwright or tauri-driver; availability on Linux unverified) builds, runs and views the coffee shop; the saved model equals `examples/coffee_shop.json` except `ui`; `till.wait.mean` is within 3 standard errors of 270 s at the seed fixed in the test (the spec 2 pass rule) | M9 | agent; the owner repeats it by hand once before release |  |
+| A pointer-only end-to-end test (Playwright or tauri-driver; Tauri's documentation lists `tauri-driver` for Linux and Windows, read 2026-11-06, not yet run) builds, runs and views the coffee shop; the saved model equals `examples/coffee_shop.json` except `ui`; `till.wait.mean` is within 3 standard errors of 270 s at the seed fixed in the test (the spec 2 pass rule) | M9 | agent; the owner repeats it by hand once before release |  |
 | Every interface action is reproducible by API: the end-to-end request log contains only documented `/v1` routes | M9 | agent |  |
 | Route table test | M6 | agent | `tests/service/test_routes.py` |
 | A run survives a client disconnect | M6 | agent |  |
@@ -254,3 +256,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - C23 (TEST-9, PRD-10, TEST-1, TEST-8, TEST-12, PRD-2): version line, design checklist split with owner fallback, research items tagged, acceptance table.
 - Verifier follow-up: the M9 end-to-end test uses the spec 2 pass rule (3 × standard error at a fixed seed).
 - 2026-11-06, review of PR #1: `set_parameter` and `set_experiment` create the parameter or experiment when `id` is new, so a project started without a template can gain parameters and experiments through edits (and so through the MCP `edit_model` tool).
+- 2026-11-06, M9 design (AKS-118, ahead of the milestone order at the owner's request): the five session items of "Design before building" are done in `docs/design/`; the owner walkthrough stays open. Framework check: React, React Flow and Tauri 2 confirmed, Tauri at 2.11.1 or later for advisory GHSA-7gmj-67g7-phm9; warning line updated. Gaps the design found, each closed by the simplest reading: the Canvas screen of an `optimization` model is a form; `set_path` and `remove_path` reach `variables` and `objective`, which no edit could change before; new `set_label` edit, since no edit could set a component's `label`; undo and redo write stored models with `PUT .../model`; an external reload clears the undo history; new "References" rule for blocks without ports. The end-to-end test row notes that `tauri-driver` is documented for Linux.
