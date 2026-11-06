@@ -1,13 +1,28 @@
 name: checks
 
+# Design and action pins: docs/DECISIONS.md, 2026-11-06 · M0, "CI workflow (AKS-73)".
+
 on:
-  push:
+  # Default pull_request types (opened, synchronize, reopened). Title edits are handled by
+  # pr-title.yml, so a title edit never publishes a skipped, and so passing, code check.
   pull_request:
+  push:
+    branches: [main]
+
+# Least privilege: jobs only read the repository.
+permissions:
+  contents: read
+
+# One run per ref; a newer run cancels the older one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   checks:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.11", "3.13"]
     steps:
@@ -15,5 +30,37 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - run: python -m pip install -e ".[dev]"
+      # The single gate (guide "Test subsets"); CI runs it unchanged.
       - run: bash scripts/check.sh
+
+  benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect benchmarks
+        id: detect
+        run: |
+          shopt -s nullglob
+          models=(benchmarks/*/model.json)
+          if (( ${#models[@]} > 0 )) && [[ -f tests/benchmarks/test_benchmarks.py ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "Found ${#models[@]} benchmark case(s)."
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No benchmarks yet (benchmarks/*/model.json and tests/benchmarks/test_benchmarks.py arrive at M2); skipping."
+          fi
+      - if: steps.detect.outputs.present == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - if: steps.detect.outputs.present == 'true'
+        run: python -m pip install -e ".[dev]"
+      # Benchmarks are gates (guide rule 8). perf is never run in CI.
+      - if: steps.detect.outputs.present == 'true'
+        run: pytest -m benchmark
+
