@@ -10,10 +10,10 @@ floats, distributions as objects of SI floats, and the catalogue's defaults fill
 "Components and ports"), so changing them leaves the file byte-equal. The JSON is written
 with a fixed key order and Python's shortest round-trip float text.
 
-The adapter runs ``source``, ``server`` and ``sink`` (``BLOCK_TYPES``). Any other type, a
-server's ``queue_capacity`` (AKS-99) and its ``pool`` (M4) raise ``NotImplementedError``
-until they are built; an ``empirical`` with ``data`` raises ``DataNotYetSupportedError``
-(E162) until M6, which validation reports before any run.
+The adapter runs ``source``, ``server``, ``delay``, ``branch`` and ``sink``
+(``BLOCK_TYPES``). Any other type and a server's ``pool`` (M4) raise
+``NotImplementedError`` until they are built; an ``empirical`` with ``data`` raises
+``DataNotYetSupportedError`` (E162) until M6, which validation reports before any run.
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ INPUT_VERSION = 1
 
 # Settings the adapter does not run yet, by component type, with the work that adds them.
 _NOT_YET_SETTINGS: Mapping[str, Mapping[str, str]] = {
-    "server": {"queue_capacity": "AKS-99 (M2)", "pool": "M4"},
+    "server": {"pool": "M4"},
 }
 
 
@@ -112,8 +112,7 @@ def _check_supported(component: Component) -> None:
     if component.type not in BLOCK_TYPES:
         raise NotImplementedError(
             f"the process adapter does not run '{component.type}' blocks yet "
-            f"(component '{component.id}'): 'delay' and 'branch' arrive in AKS-99 (M2), "
-            "the other blocks in M4"
+            f"(component '{component.id}'); it arrives in M4"
         )
     for name, work in _NOT_YET_SETTINGS.get(component.type, {}).items():
         if name in component.settings:
