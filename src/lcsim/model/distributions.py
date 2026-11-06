@@ -7,6 +7,9 @@ units. Parameter references are resolved when the sampler is made, as
 ``set``) replaces the ``value`` of the parameters it names. The model has been validated,
 so the fields agree (E160) and every reference names a parameter (E150).
 
+``sampler_from_numbers`` makes the same sampler from fields already resolved to SI floats,
+as an engine's own input holds them (the process adapter's ``engine/input.json``).
+
 Every distribution setting in Phase 1 is a time, and every sample below 0 s is set to 0 s,
 whatever the distribution (spec 1 "Distributions", proposed default, owner to confirm).
 
@@ -26,7 +29,7 @@ import numpy
 from lcsim.model.model import DataRef, Distribution, Model, ParameterValue, ParamRef, Scalar
 from lcsim.model.units import Quantity
 
-__all__ = ["DataNotYetSupportedError", "Sampler", "sampler_for"]
+__all__ = ["DataNotYetSupportedError", "Sampler", "sampler_for", "sampler_from_numbers"]
 
 # One sample from the generator given, in SI units, never below 0.
 Sampler: TypeAlias = Callable[[numpy.random.Generator], float]
@@ -81,15 +84,35 @@ def sampler_for(
             )
         return _magnitude(scalar)
 
+    if distribution.dist == "empirical" and distribution.data is not None:
+        raise DataNotYetSupportedError(distribution.data)
     fields = {name: number(scalar) for name, scalar in distribution.fields.items()}
-    name = distribution.dist
-    if name == "empirical":
-        if distribution.data is not None:
-            raise DataNotYetSupportedError(distribution.data)
-        return _empirical([number(scalar) for scalar in distribution.values or ()])
-    maker = _MAKERS.get(name)
+    values = (
+        [number(scalar) for scalar in distribution.values]
+        if distribution.values is not None
+        else None
+    )
+    return sampler_from_numbers(distribution.dist, fields, values)
+
+
+def sampler_from_numbers(
+    dist: str,
+    fields: Mapping[str, float],
+    values: Sequence[float] | None = None,
+) -> Sampler:
+    """The sampler of distribution ``dist`` whose named ``fields`` (and, for an
+    ``empirical``, ``values``) are already SI floats, with no parameter reference.
+
+    Raises ``ValueError`` for a ``dist`` spec 1 does not list, and for an ``empirical``
+    without ``values``.
+    """
+    if dist == "empirical":
+        if not values:
+            raise ValueError("an 'empirical' distribution needs at least one value")
+        return _empirical(values)
+    maker = _MAKERS.get(dist)
     if maker is None:
-        raise ValueError(f"no sampler for distribution {name!r}")
+        raise ValueError(f"no sampler for distribution {dist!r}")
     return maker(fields)
 
 
