@@ -134,7 +134,7 @@ The prototype exercised `source`, `server`, `delay`, `branch` with the `probabil
 | `<source>.created` | Items created after warm-up |
 | `<sink>.count` | Items reaching the sink after warm-up |
 | `<source>.discarded`, `<queue>.discarded` | Items discarded after warm-up, divided by the period: a rate, like throughput (proposed; confirmed at M4) |
-| `model.wip.mean` | Time-weighted items created and not yet at a sink |
+| `model.wip.mean` | Time-weighted number of items in the system: created and not yet at a sink or discarded |
 
 - The observed period runs from the end of warm-up to the end of the run.
 - Items still in the system at the end are not counted in waits or cycle times.
@@ -274,3 +274,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - C16 (ARCH-1, ARCH-2, SIM-7, TEST-7, ARCH-18, PRD-8): optimization `summary.json`; search procedure with baseline, exhaustive path, confirmation stage and result layout; fidelity for process models.
 - C17 (TEST-1, TEST-8, TEST-12, TEST-6): version line, research items tagged, acceptance table.
 - 2026-11-06, sync to Claude Docs: the `<server|queue>` rows of "Statistic definitions" escape the pipe (`\|`) so the table keeps two columns.
+- 2026-11-06, review of PR #1: `model.wip.mean` stops counting an item when it is discarded (by a source or a `queue` with `on_full: discard`) as well as when it reaches a sink, so WIP stays bounded in a stable loss system.
