@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "lcsim model file, format version 0.1",
+  "description": "Spec 1 'Validation': checks only the top-level keys, the JSON type of each top-level value, and that every component, connection, parameter and experiment entry is an object with its required keys of the right JSON type. Unknown keys are an error except inside a component's 'ui' object. Identifiers are plain strings; quantities, plain numbers and enumerated values (such as 'type', 'sense', 'op', 'target' and 'fidelity') take any JSON value here, so that the meaning pass reports them with their specific codes. Component settings ('params') are a plain object.",
+  "type": "object",
+  "required": ["format_version", "meta", "domain"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": {"type": "string"},
+    "meta": {"$ref": "#/$defs/meta"},
+    "domain": {"type": "string"},
+    "parameters": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/parameter"}
+    },
+    "components": {"type": "array", "items": {"$ref": "#/$defs/component"}},
+    "connections": {"type": "array", "items": {"$ref": "#/$defs/connection"}},
+    "experiments": {"type": "array", "items": {"$ref": "#/$defs/experiment"}},
+    "objectives": {"type": "array", "items": {"$ref": "#/$defs/metric_objective"}},
+    "constraints": {"type": "array"},
+    "variables": {"type": "array", "items": {"$ref": "#/$defs/variable"}},
+    "objective": {"$ref": "#/$defs/linear_objective"},
+    "run": {"$ref": "#/$defs/run"}
+  },
+  "allOf": [
+    {
+      "if": {"required": ["domain"], "properties": {"domain": {"const": "process"}}},
+      "then": {
+        "required": ["components", "connections", "experiments"],
+        "properties": {
+          "constraints": {"items": {"$ref": "#/$defs/metric_constraint"}},
+          "variables": {"not": {}},
+          "objective": {"not": {}}
+        }
+      }
+    },
+    {
+      "if": {"required": ["domain"], "properties": {"domain": {"const": "optimization"}}},
+      "then": {
+        "required": ["variables", "objective"],
+        "properties": {
+          "constraints": {"items": {"$ref": "#/$defs/linear_constraint"}},
+          "components": {"not": {}},
+          "connections": {"not": {}},
+          "experiments": {"not": {}},
+          "objectives": {"not": {}}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "meta": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "author": {"type": "string"},
+        "template": {"type": "string"}
+      }
+    },
+    "parameter": {
+      "type": "object",
+      "required": ["value", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "value": {},
+        "type": {},
+        "min": {},
+        "max": {},
+        "description": {"type": "string"}
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": ["id", "type", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "type": {"type": "string"},
+        "params": {"type": "object"},
+        "label": {"type": "string"},
+        "ui": {"type": "object"}
+      }
+    },
+    "connection": {
+      "type": "object",
+      "required": ["from", "to"],
+      "additionalProperties": false,
+      "properties": {
+        "from": {"type": "string"},
+        "to": {"type": "string"}
+      }
+    },
+    "experiment": {
+      "type": "object",
+      "required": ["id", "length"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "length": {},
+        "warmup": {},
+        "replications": {},
+        "seed": {},
+        "scenarios": {"type": "array", "items": {"$ref": "#/$defs/scenario"}},
+        "confidence": {},
+        "record_interval": {},
+        "search": {"$ref": "#/$defs/search"}
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "required": ["id", "set"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "set": {"type": "object"}
+      }
+    },
+    "search": {
+      "type": "object",
+      "required": ["objective"],
+      "additionalProperties": false,
+      "properties": {
+        "objective": {"type": "string"},
+        "budget": {},
+        "variables": {"type": "array", "items": {"type": "string"}},
+        "replications": {}
+      }
+    },
+    "metric_objective": {
+      "type": "object",
+      "required": ["id", "metric", "sense"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "metric": {"type": "string"},
+        "sense": {}
+      }
+    },
+    "metric_constraint": {
+      "type": "object",
+      "required": ["id", "metric", "op", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "metric": {"type": "string"},
+        "op": {},
+        "value": {}
+      }
+    },
+    "variable": {
+      "type": "object",
+      "required": ["id", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "type": {},
+        "lower": {},
+        "upper": {}
+      }
+    },
+    "linear_objective": {
+      "type": "object",
+      "required": ["sense", "linear"],
+      "additionalProperties": false,
+      "properties": {
+        "sense": {},
+        "linear": {"type": "object"}
+      }
+    },
+    "linear_constraint": {
+      "type": "object",
+      "required": ["id", "linear", "op", "rhs"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "linear": {"type": "object"},
+        "op": {},
+        "rhs": {}
+      }
+    },
+    "run": {
+      "type": "object",
+      "required": ["target", "fidelity"],
+      "additionalProperties": false,
+      "properties": {
+        "target": {},
+        "fidelity": {},
+        "engine": {"type": "string"}
+      }
+    }
+  }
+}
