@@ -54,65 +54,65 @@ Computed by `python scripts/contrast.py` from `tokens.json`, with the WCAG 2.2 f
 | Theme | Foreground | Background | Used for | Ratio | Needed | Criterion | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | light | `text` | `surface` | Body text on panels and blocks | 16.56:1 | 4.5:1 | 1.4.3 | pass |
-| light | `text` | `surface-alt` | Text on the nav rail, table headers, hovered rows | 14.51:1 | 4.5:1 | 1.4.3 | pass |
+| light | `text` | `surface-alt` | Text on the nav rail, table headers, hovered rows | 14.50:1 | 4.5:1 | 1.4.3 | pass |
 | light | `text` | `canvas` | Text placed on the canvas (notices, empty-canvas hint) | 15.18:1 | 4.5:1 | 1.4.3 | pass |
 | light | `text-muted` | `surface` | Secondary text: block type line, hints, footer | 7.19:1 | 4.5:1 | 1.4.3 | pass |
-| light | `text-muted` | `surface-alt` | Secondary text on the nav rail and table headers | 6.30:1 | 4.5:1 | 1.4.3 | pass |
+| light | `text-muted` | `surface-alt` | Secondary text on the nav rail and table headers | 6.29:1 | 4.5:1 | 1.4.3 | pass |
 | light | `text-muted` | `canvas` | Secondary text on the canvas | 6.59:1 | 4.5:1 | 1.4.3 | pass |
 | light | `accent` | `surface` | Links and accent text | 6.36:1 | 4.5:1 | 1.4.3 | pass |
 | light | `on-accent` | `accent` | Text on primary buttons (Run, Continue) | 6.36:1 | 4.5:1 | 1.4.3 | pass |
-| light | `error` | `surface` | Error text and inline field errors | 6.54:1 | 4.5:1 | 1.4.3 | pass |
-| light | `error` | `error-bg` | Error text in the problems list and banners | 5.55:1 | 4.5:1 | 1.4.3 | pass |
-| light | `warning` | `surface` | Warning text | 6.33:1 | 4.5:1 | 1.4.3 | pass |
-| light | `warning` | `warning-bg` | Warning text in the problems list and banners | 5.74:1 | 4.5:1 | 1.4.3 | pass |
+| light | `error` | `surface` | Error text and inline field errors | 6.53:1 | 4.5:1 | 1.4.3 | pass |
+| light | `error` | `error-bg` | Error text in the problems list and banners | 5.54:1 | 4.5:1 | 1.4.3 | pass |
+| light | `warning` | `surface` | Warning text | 6.32:1 | 4.5:1 | 1.4.3 | pass |
+| light | `warning` | `warning-bg` | Warning text in the problems list and banners | 5.73:1 | 4.5:1 | 1.4.3 | pass |
 | light | `success` | `surface` | Run done, saved state | 5.92:1 | 4.5:1 | 1.4.3 | pass |
 | light | `success` | `success-bg` | Success banner text | 5.19:1 | 4.5:1 | 1.4.3 | pass |
-| light | `learn` | `surface` | Learn-mode step label | 6.03:1 | 4.5:1 | 1.4.3 | pass |
-| light | `border-strong` | `surface` | Input, checkbox and block outlines | 4.59:1 | 3.0:1 | 1.4.11 | pass |
-| light | `border-strong` | `canvas` | Block outline against the canvas | 4.21:1 | 3.0:1 | 1.4.11 | pass |
+| light | `learn` | `surface` | Learn-mode step label | 6.02:1 | 4.5:1 | 1.4.3 | pass |
+| light | `border-strong` | `surface` | Input, checkbox and block outlines | 4.58:1 | 3.0:1 | 1.4.11 | pass |
+| light | `border-strong` | `canvas` | Block outline against the canvas | 4.20:1 | 3.0:1 | 1.4.11 | pass |
 | light | `focus` | `surface` | Focus ring on panels | 6.36:1 | 3.0:1 | 1.4.11 | pass |
 | light | `focus` | `canvas` | Focus ring and selection outline on the canvas | 5.83:1 | 3.0:1 | 1.4.11 | pass |
-| light | `edge` | `canvas` | Connection lines and ports | 5.24:1 | 3.0:1 | 1.4.11 | pass |
-| light | `edge` | `surface` | Port circles on a block | 5.72:1 | 3.0:1 | 1.4.11 | pass |
+| light | `edge` | `canvas` | Connection lines and ports | 5.23:1 | 3.0:1 | 1.4.11 | pass |
+| light | `edge` | `surface` | Port circles on a block | 5.71:1 | 3.0:1 | 1.4.11 | pass |
 | light | `error` | `canvas` | Error marker on the canvas | 5.99:1 | 3.0:1 | 1.4.11 | pass |
 | light | `warning` | `canvas` | Warning marker on the canvas | 5.80:1 | 3.0:1 | 1.4.11 | pass |
-| light | `learn` | `canvas` | Learn-mode highlight ring | 5.53:1 | 3.0:1 | 1.4.11 | pass |
+| light | `learn` | `canvas` | Learn-mode highlight ring | 5.52:1 | 3.0:1 | 1.4.11 | pass |
 | light | `cat-flow` | `surface` | Category stripe and icon: flow blocks | 5.56:1 | 3.0:1 | 1.4.11 | pass |
 | light | `cat-work` | `surface` | Category stripe and icon: work blocks | 7.18:1 | 3.0:1 | 1.4.11 | pass |
-| light | `cat-resource` | `surface` | Category stripe and icon: resource blocks | 6.19:1 | 3.0:1 | 1.4.11 | pass |
+| light | `cat-resource` | `surface` | Category stripe and icon: resource blocks | 6.18:1 | 3.0:1 | 1.4.11 | pass |
 | light | `accent` | `surface` | Selected nav item marker, toggle on | 6.36:1 | 3.0:1 | 1.4.11 | pass |
-| dark | `text` | `surface` | Body text on panels and blocks | 13.54:1 | 4.5:1 | 1.4.3 | pass |
+| dark | `text` | `surface` | Body text on panels and blocks | 13.53:1 | 4.5:1 | 1.4.3 | pass |
 | dark | `text` | `surface-alt` | Text on the nav rail, table headers, hovered rows | 11.79:1 | 4.5:1 | 1.4.3 | pass |
 | dark | `text` | `canvas` | Text placed on the canvas (notices, empty-canvas hint) | 15.17:1 | 4.5:1 | 1.4.3 | pass |
 | dark | `text-muted` | `surface` | Secondary text: block type line, hints, footer | 7.63:1 | 4.5:1 | 1.4.3 | pass |
-| dark | `text-muted` | `surface-alt` | Secondary text on the nav rail and table headers | 6.65:1 | 4.5:1 | 1.4.3 | pass |
+| dark | `text-muted` | `surface-alt` | Secondary text on the nav rail and table headers | 6.64:1 | 4.5:1 | 1.4.3 | pass |
 | dark | `text-muted` | `canvas` | Secondary text on the canvas | 8.55:1 | 4.5:1 | 1.4.3 | pass |
 | dark | `accent` | `surface` | Links and accent text | 7.42:1 | 4.5:1 | 1.4.3 | pass |
 | dark | `on-accent` | `accent` | Text on primary buttons (Run, Continue) | 8.59:1 | 4.5:1 | 1.4.3 | pass |
 | dark | `error` | `surface` | Error text and inline field errors | 7.41:1 | 4.5:1 | 1.4.3 | pass |
-| dark | `error` | `error-bg` | Error text in the problems list and banners | 6.95:1 | 4.5:1 | 1.4.3 | pass |
+| dark | `error` | `error-bg` | Error text in the problems list and banners | 6.94:1 | 4.5:1 | 1.4.3 | pass |
 | dark | `warning` | `surface` | Warning text | 9.72:1 | 4.5:1 | 1.4.3 | pass |
-| dark | `warning` | `warning-bg` | Warning text in the problems list and banners | 8.08:1 | 4.5:1 | 1.4.3 | pass |
+| dark | `warning` | `warning-bg` | Warning text in the problems list and banners | 8.07:1 | 4.5:1 | 1.4.3 | pass |
 | dark | `success` | `surface` | Run done, saved state | 8.81:1 | 4.5:1 | 1.4.3 | pass |
 | dark | `success` | `success-bg` | Success banner text | 7.47:1 | 4.5:1 | 1.4.3 | pass |
 | dark | `learn` | `surface` | Learn-mode step label | 7.68:1 | 4.5:1 | 1.4.3 | pass |
-| dark | `border-strong` | `surface` | Input, checkbox and block outlines | 5.33:1 | 3.0:1 | 1.4.11 | pass |
-| dark | `border-strong` | `canvas` | Block outline against the canvas | 5.97:1 | 3.0:1 | 1.4.11 | pass |
+| dark | `border-strong` | `surface` | Input, checkbox and block outlines | 5.32:1 | 3.0:1 | 1.4.11 | pass |
+| dark | `border-strong` | `canvas` | Block outline against the canvas | 5.96:1 | 3.0:1 | 1.4.11 | pass |
 | dark | `focus` | `surface` | Focus ring on panels | 7.42:1 | 3.0:1 | 1.4.11 | pass |
-| dark | `focus` | `canvas` | Focus ring and selection outline on the canvas | 8.32:1 | 3.0:1 | 1.4.11 | pass |
-| dark | `edge` | `canvas` | Connection lines and ports | 7.18:1 | 3.0:1 | 1.4.11 | pass |
+| dark | `focus` | `canvas` | Focus ring and selection outline on the canvas | 8.31:1 | 3.0:1 | 1.4.11 | pass |
+| dark | `edge` | `canvas` | Connection lines and ports | 7.17:1 | 3.0:1 | 1.4.11 | pass |
 | dark | `edge` | `surface` | Port circles on a block | 6.40:1 | 3.0:1 | 1.4.11 | pass |
 | dark | `error` | `canvas` | Error marker on the canvas | 8.30:1 | 3.0:1 | 1.4.11 | pass |
 | dark | `warning` | `canvas` | Warning marker on the canvas | 10.89:1 | 3.0:1 | 1.4.11 | pass |
-| dark | `learn` | `canvas` | Learn-mode highlight ring | 8.61:1 | 3.0:1 | 1.4.11 | pass |
-| dark | `cat-flow` | `surface` | Category stripe and icon: flow blocks | 7.95:1 | 3.0:1 | 1.4.11 | pass |
+| dark | `learn` | `canvas` | Learn-mode highlight ring | 8.60:1 | 3.0:1 | 1.4.11 | pass |
+| dark | `cat-flow` | `surface` | Category stripe and icon: flow blocks | 7.94:1 | 3.0:1 | 1.4.11 | pass |
 | dark | `cat-work` | `surface` | Category stripe and icon: work blocks | 6.91:1 | 3.0:1 | 1.4.11 | pass |
 | dark | `cat-resource` | `surface` | Category stripe and icon: resource blocks | 7.57:1 | 3.0:1 | 1.4.11 | pass |
 | dark | `accent` | `surface` | Selected nav item marker, toggle on | 7.42:1 | 3.0:1 | 1.4.11 | pass |
 
 <!-- contrast:end -->
 
-The lowest text pair is 5.19:1 (light `success` on `success-bg`); the lowest non-text pair is 4.21:1 (light `border-strong` against `canvas`). No pair relies on the large-text exception.
+The lowest text pair is 5.19:1 (light `success` on `success-bg`); the lowest non-text pair is 4.20:1 (light `border-strong` against `canvas`). No pair relies on the large-text exception.
 
 ## Type
 

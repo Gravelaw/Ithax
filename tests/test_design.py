@@ -1,5 +1,6 @@
 """Checks on docs/design: wireframes are well-formed and indexed; colour contrast holds."""
 
+import importlib.util
 import json
 import re
 import subprocess
@@ -67,6 +68,18 @@ def contrast_output(*args: str) -> subprocess.CompletedProcess[str]:
 def test_every_colour_pair_meets_its_wcag_threshold() -> None:
     result = contrast_output("--check")
     assert result.returncode == 0, result.stderr
+
+
+def test_a_pair_just_below_the_threshold_fails() -> None:
+    # #647A86 on white is about 4.4969:1. Rounding to two decimals first would pass it.
+    spec = importlib.util.spec_from_file_location("contrast", CONTRAST_SCRIPT)
+    assert spec is not None and spec.loader is not None
+    contrast = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(contrast)
+    r = contrast.ratio("#647A86", "#FFFFFF")
+    assert 4.49 < r < 4.5
+    assert not r >= contrast.THRESHOLDS["text"]
+    assert contrast.shown(r) == "4.49"
 
 
 def test_contrast_table_in_design_system_is_current() -> None:

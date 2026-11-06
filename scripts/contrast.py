@@ -10,6 +10,7 @@ Formulas: WCAG 2.2, section 6 (Glossary), "relative luminance" and "contrast rat
 """
 
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -45,10 +46,16 @@ def rows() -> list[tuple[str, str, str, str, float, float, bool]]:
     out = []
     for theme, colours in data["themes"].items():
         for pair in data["pairs"]:
-            r = round(ratio(colours[pair["fg"]], colours[pair["bg"]]), 2)
+            # Compared at full precision: WCAG does not allow rounding up to a threshold.
+            r = ratio(colours[pair["fg"]], colours[pair["bg"]])
             need = THRESHOLDS[pair["kind"]]
             out.append((theme, pair["fg"], pair["bg"], pair["use"], r, need, r >= need))
     return out
+
+
+def shown(r: float) -> str:
+    """A ratio cut (never rounded up) to two decimals, so a failing 4.497 shows as 4.49."""
+    return f"{math.floor(r * 100) / 100:.2f}"
 
 
 def table() -> str:
@@ -62,9 +69,8 @@ def table() -> str:
     for theme, fg, bg, use, r, need, ok in rows():
         crit = CRITERION[kinds[(fg, bg, use)]]
         verdict = "pass" if ok else "FAIL"
-        lines.append(
-            f"| {theme} | `{fg}` | `{bg}` | {use} | {r:.2f}:1 | {need:.1f}:1 | {crit} | {verdict} |"
-        )
+        cells = [theme, f"`{fg}`", f"`{bg}`", use, f"{shown(r)}:1", f"{need:.1f}:1", crit, verdict]
+        lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
 
@@ -73,7 +79,9 @@ def main(argv: list[str]) -> int:
     if "--check" in argv:
         failures = [row for row in rows() if not row[6]]
         for theme, fg, bg, _use, r, need, _ok in failures:
-            print(f"FAIL {theme}: {fg} on {bg} is {r:.2f}:1, needs {need:.1f}:1", file=sys.stderr)
+            print(
+                f"FAIL {theme}: {fg} on {bg} is {shown(r)}:1, needs {need:.1f}:1", file=sys.stderr
+            )
         return 1 if failures else 0
     return 0
 

@@ -15,7 +15,7 @@ Numbers and titles are from the WCAG 2.2 Recommendation (https://www.w3.org/TR/W
 | 1.4.3 Contrast (Minimum) | AA | Every text pair is at least 4.5:1 in both themes; lowest 5.19:1 | "Contrast" below |
 | 1.4.4 Resize Text | AA | Text-size setting from 100% to 200%; all sizes in `rem` | "Text size" below |
 | 1.4.10 Reflow | AA | Panels collapse below 1024 px; the side panel becomes an overlay. The canvas is a diagram, which falls under the criterion's exception for content that needs a two-dimensional layout; its text alternative (the blocks table, "Screen readers" below) reflows | `design-system.md` "Spacing and layout" |
-| 1.4.11 Non-text Contrast | AA | Outlines, ports, connections, focus rings, markers and category stripes are at least 3:1 against what is next to them; lowest 4.21:1 | "Contrast" below |
+| 1.4.11 Non-text Contrast | AA | Outlines, ports, connections, focus rings, markers and category stripes are at least 3:1 against what is next to them; lowest 4.20:1 | "Contrast" below |
 | 1.4.12 Text Spacing | AA | No fixed-height text boxes; text wraps | All screens |
 | 1.4.13 Content on Hover or Focus | AA | Tooltips appear on hover and on keyboard focus, stay while the pointer is over them, close with Escape, and never hold the only copy of information (issue text is also in the problems list and side panel) | `canvas-interactions.md` |
 | 2.1.1 Keyboard | A | Every canvas action has a keyboard path ("Keyboard map" below); the pointer-only paths have keyboard equivalents | "Keyboard map" |
@@ -106,8 +106,8 @@ Summary of the 2026-11-06 computation (28 pairs per theme, 56 in all):
 
 | Theme | Text pairs (need 4.5:1) | Lowest text pair | Non-text pairs (need 3:1) | Lowest non-text pair |
 | --- | --- | --- | --- | --- |
-| Light | 15 of 15 pass | 5.19:1, `success` on `success-bg` | 13 of 13 pass | 4.21:1, `border-strong` on `canvas` |
-| Dark | 15 of 15 pass | 6.65:1, `text-muted` on `surface-alt` | 13 of 13 pass | 5.33:1, `border-strong` on `surface` |
+| Light | 15 of 15 pass | 5.19:1, `success` on `success-bg` | 13 of 13 pass | 4.20:1, `border-strong` on `canvas` |
+| Dark | 15 of 15 pass | 6.64:1, `text-muted` on `surface-alt` | 13 of 13 pass | 5.32:1, `border-strong` on `surface` |
 
 Contrast while dimmed: no block or text is ever dimmed by opacity. Learn mode highlights one block with a ring instead of fading the others.
 
