@@ -82,3 +82,8 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["scipy", "scipy.*"]
 ignore_missing_imports = true
+
+[tool.coverage.report]
+# `python -m lcsim.runs.worker` runs its guarded line only as a script; main() itself is
+# tested in process, and the module is run as a real subprocess (tests/runs/test_worker.py).
+exclude_also = ['if __name__ == "__main__":']
