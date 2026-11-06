@@ -257,3 +257,14 @@ The verifier confirmed every council change and found six small inconsistencies 
 - Spec 1: the list of codes in the meaning pass is now exact.
 - Spec 3: the M9 end-to-end test uses the spec 2 pass rule.
 - Spec 4: in the summary, data import in Build mode is optional.
+
+## 2026-11-06 · Specs synced back to Claude Docs (owner request)
+
+- **Decision:** The owner asked for the repository specs to be copied back to the Claude Docs, so all ten tabs were replaced with the repository files. The same request overrides guide rule 6, "Sessions never write to the owner's Claude Docs", for this sync only.
+- **What was kept:** The title and byline blocks of "Spec 0: Product Brief" and the "Overview" tab were left as they were, because they hold a date chip and an @-mention.
+- **Precondition:** Before the sync, no tab had changed since the 2026-11-05 export: a `sinceRev` read returned no changes. Nothing the owner wrote in the Docs was lost.
+- **Verification:** Each tab was exported again as Markdown and compared byte for byte with its repository file.
+  - Seven tabs match exactly.
+  - Build guide, spec 1, spec 2 and spec 4 differ only where the exporter puts a backslash before `<`, `[`, `]`, `_` or `|` in plain text. The stored text is the same.
+- **Defect found:** The sync found one real fault in the repository. Spec 2's "Statistic definitions" table had an unescaped `|` inside a code span, which splits the cell in GitHub Markdown. The repository file now writes it as `\|`, and the fix is logged in spec 2's change list.
+- **Source of truth:** The repository is still the source of truth (owner question 8).

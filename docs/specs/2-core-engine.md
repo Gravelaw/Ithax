@@ -123,8 +123,8 @@ The prototype exercised `source`, `server`, `delay`, `branch` with the `probabil
 | `<sink>.cycle_time.mean` | Mean time from creation to sink, over items reaching the sink after warm-up |
 | `<server>.availability` | Time at least one unit is not failed, over the period; 1 without a failure (proposed; confirmed at M4) |
 | `<server>.scheduled_fraction` | Integral of scheduled capacity over nominal capacity times the period; 1 without a schedule (proposed; confirmed at M4) |
-| `<server|queue>.queue_length.mean` | Time-weighted average number waiting, not in service |
-| `<server|queue>.queue_length.max` | Largest number waiting at any instant in the observed period |
+| `<server\|queue>.queue_length.mean` | Time-weighted average number waiting, not in service |
+| `<server\|queue>.queue_length.max` | Largest number waiting at any instant in the observed period |
 | `<queue>.wait.mean` | Mean time an item spends in the queue, over items leaving it after warm-up (proposed; confirmed at M4) |
 | `<batch>.wait.mean` | Arrival at the batch to its release (proposed; confirmed at M4) |
 | `<pool>.utilization` | As a server, over the pool's units (proposed; confirmed at M4) |
@@ -273,3 +273,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - C15 (SIM-19, ARCH-15, TEST-2, PRD-1): prototype rows marked reference only; targets for the two example files written at M1.
 - C16 (ARCH-1, ARCH-2, SIM-7, TEST-7, ARCH-18, PRD-8): optimization `summary.json`; search procedure with baseline, exhaustive path, confirmation stage and result layout; fidelity for process models.
 - C17 (TEST-1, TEST-8, TEST-12, TEST-6): version line, research items tagged, acceptance table.
+- 2026-11-06, sync to Claude Docs: the `<server|queue>` rows of "Statistic definitions" escape the pipe (`\|`) so the table keeps two columns.
