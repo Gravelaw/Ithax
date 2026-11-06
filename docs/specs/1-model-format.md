@@ -1,6 +1,6 @@
 # Spec 1: Model Format and Engine Contract
 
-> Version 0.4 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.5 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 A model is one JSON file that passes a published schema. Every engine is a plugin that implements the same five functions. The interface, the engines and any AI assistant all work through these two contracts.
 
@@ -445,7 +445,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-06, warnings W200 to W202 (AKS-91), found while building them in `src/lcsim/model/validation.py`: "Validation" details the W201 propagation (a source's rate with `max_items`, which blocks have a finite capacity, that a schedule or failure stops the rate at the server it changes and skips that server, how an unbatch undoes one level of batching, that loops and values that cannot be read stop the rate, that an unreached block has rate zero, which connections carry items, the clipped mean of a `normal`, exact comparison) and says that W201 and W202 are checked at each parameter's `value` and each scenario's value, not at `min` and `max`; "Parameters" says its bounds rule is for errors; the W200 row says which connections count.
 - 2026-11-06, format versioning and the test-only migration (AKS-92), found while building `src/lcsim/model/migration.py`: "Versioning" says how a migration is registered and chained, that a newer minor of the reader's major is never migrated, that a file of a major with a migration is still E101 when loaded (with a hint that it can be converted) because the model layer never migrates on its own, that the caller asks the user before the rewritten file is saved, and that format 0 ships no migration.
 
-Since version 0.4 (to be numbered when the next review or milestone closes):
+2026-11-06, version 0.5, M2 closed (AKS-101); the lines below were added after version 0.4, during the M2 research notes and the M2 build:
 
 - 2026-11-06, M2 research note `docs/research/spec-1-plugin-mechanisms.md`: entry points in `lcsim.engines` confirmed; the entry-point name is the adapter name, a plugin that fails to import is left out and logged, duplicate names are left out (E102 if no single engine remains), and the group is renamed with the placeholder package. pyarrow's Apache-2.0 licence confirmed from the wheel's `LICENSE.txt`.
 - 2026-11-06, random streams and distribution sampling (AKS-96), a rule-5 reading of M1 owner item 9: "Distributions" says every sampled time below 0 s is set to 0 s for every distribution, not only the `normal`, with no new issue code (owner to confirm); that W201 keeps the written mean except for the `normal`; and that an `empirical` with `data` cannot be sampled until M6, which raises a condition with code E162.

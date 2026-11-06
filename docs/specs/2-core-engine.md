@@ -1,6 +1,6 @@
 # Spec 2: Core Engine for Process Simulation and Optimization
 
-> Version 0.4 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.5 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 Two engine adapters, both in Python: discrete-event simulation on SimPy, and optimization on HiGHS; Optuna is a search driver inside the experiment manager, not an adapter. Together with an experiment manager they make Phase 1 a complete product.
 
@@ -300,7 +300,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-06, meaning pass B (AKS-90): "Rules that apply across blocks" gains "Ranges", the smallest value of each number and time setting and the order of a shift's `start`, `end` and `period`, which the meaning pass checks with E123. These were left open by the block table.
 - 2026-11-06, example models (AKS-93): "Reference values from the prototype" records the parameters of the two example files written fresh at M1 and reads the warehouse throughput target as the tolerance for the M2 estimate, since a stable model with no loss has a long-run throughput equal to its arrival rate.
 
-Since version 0.4 (to be numbered when the next review or milestone closes):
+2026-11-06, version 0.5, M2 closed (AKS-101); the lines below were added after version 0.4, during the M2 research notes and the M2 build:
 
 - 2026-11-06, M2 research note `docs/research/spec-2-simulation-library.md`: SimPy confirmed as the process engine over salabim and Ciw; "Simultaneous events" now states SimPy's tested ordering (a process start or an interrupt runs first at its instant; nothing runs at the end time). The M2 benchmark answers were recomputed from closed-form formulas in `docs/research/spec-2-benchmark-sources.md` and all match.
 - 2026-11-06, SimPy adapter core (AKS-98), found while building `src/lcsim/engines/process/`: "Block reference" says a source's first item is created at `first_arrival`, 0 s when absent, and that it stops after `max_items` items (owner to confirm); "Statistic definitions" says an event at exactly the end of warm-up belongs to the observed period, that time-weighted statistics count only the part of the period after warm-up, what `queue_length.max` takes, and that a mean over no items is NaN (owner to confirm).
