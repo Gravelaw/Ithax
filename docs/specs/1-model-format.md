@@ -171,10 +171,11 @@ Unknown keys are an error, except under any `ui` key, which engines ignore.
   - The number follows the JSON number grammar, `-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?`; `nan`, `inf`, `+2` and `.5` are not numbers.
   - Exactly one space (U+0020) separates number and unit, with nothing before or after.
   - The unit is one of the Phase 1 units below, written exactly as listed; case matters.
-  - A unit that the units library knows, but whose dimension differs from the one the setting expects (`"5 m"` for a time), is E140. Any other string that breaks these rules (`"2min"`, `"2 minutes"`, `"2 ms"`, `"nan s"`) is E141.
-- Phase 1 time units: `s`, `min`, `h`, `d`. Internal time is seconds, as a float.
+  - A unit that the units library knows, but whose dimension differs from the one the setting expects (`"5 m"` for a time), is E140. Any other string that breaks these rules (`"2min"`, `"2 minutes"`, `"2 ms"`, `"nan s"`) is E141. A unit name with several readings is E140 only when no reading has the expected dimension: `"2 cd"` (candela, or centi-day) for a time is E141.
+  - A number whose value in SI units is not a finite float (`"1e400 s"`, `"1e308 d"`) is E141.
+- Phase 1 time units: `s`, `min`, `h`, `d`. Internal time is seconds, as a float; `"-0 s"` is stored as 0.0.
 - Counts, probabilities and capacities are plain JSON numbers with no unit.
-- A quantity where a plain number is expected, or the reverse, is an error.
+- A quantity where a plain number is expected, or the reverse, is an error (E123). Where a plain number is expected, any value other than a finite JSON number (a quantity, any other string, `true`, `false`, `null`, an array or an object) is E123. Where a quantity is expected, a value that is neither a string nor a number (`true`, `false`, `null`, an array, or an object other than a `{"$param": "id"}` reference) is E141.
 
 ### Parameters
 
@@ -412,3 +413,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-06, review of PR #1: an `empirical` `data` snapshot is named `data/<component id>.<setting>.parquet`, so a component with two data-driven distributions (such as a `failure` block) keeps both; the manifest records file, column and hash per reference. The duplicate `Results(...)` signature left by the previous change is removed.
 - 2026-11-06, review of PR #1: W201 rate propagation stops at loss points (a discarding `queue`, or a source feeding a finite-capacity block), so a stable server downstream of a loss system is not flagged.
 - 2026-11-06, M1 research notes (AKS-85): "Units" confirms pint (was "Proposed library"), declared as `pint>=0.25.3` because pint 0.26 needs Python 3.12, with the grammar checked before pint converts (`docs/research/spec-1-schema-and-units.md`); "Validation" names JSON Schema draft 2020-12, the `jsonschema` package and no `format` keyword; "Quantities" states the exact grammar for the number, the single space and the unit symbol, and which strings are E140 and which E141. Version number unchanged until M1 closes.
+- 2026-11-06, units and quantities (AKS-86): "Quantities" adds what the grammar left open, found while building `src/lcsim/model/units.py`: a unit name with several readings is E140 only when no reading has the expected dimension; a number that is not finite in SI units is E141; `"-0 s"` is stored as 0.0; where a plain number is expected, any value other than a finite JSON number is E123; where a quantity is expected, `true`, `false`, `null`, an array or a non-`$param` object is E141. Version number unchanged until M1 closes.
