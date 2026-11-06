@@ -30,9 +30,8 @@ EXCEPTION_TEXT = re.compile(
 
 
 def issues_for(document: Any) -> list[Issue]:
-    """Every issue of ``document``: the schema pass, then loading (AKS-88).
-
-    The meaning pass joins here (AKS-89 to AKS-91)."""
+    """Every issue of ``document``: the schema pass, loading (AKS-88) and the meaning
+    pass (AKS-89 onwards), all run by ``load_document``."""
     return list(load_document(document).issues)
 
 
@@ -65,7 +64,12 @@ def test_fixture_yields_its_code_as_the_only_issue_of_its_severity(fixture: Path
         assert issue.path, issue
         parts = segments(issue.path)
         keys = [part for part in parts if not part.isdigit()]
-        assert f"'{keys[-1]}'" in issue.message, issue
+        whole_component = parts[0] == "components" and len(parts) == 2
+        if not whole_component:
+            # An issue about a whole component (E131, as spec 1 shows it, at
+            # "/components/1") names the component id, checked below; any other names
+            # its key.
+            assert f"'{keys[-1]}'" in issue.message, issue
         if parts[0] == "components" and len(parts) > 1:
             component = document["components"][int(parts[1])]
             assert issue.component == component["id"], issue
