@@ -9,6 +9,7 @@ branch until space frees.
 
 import math
 from collections.abc import Generator, Mapping, Sequence
+from time import monotonic
 from typing import Any
 
 import pytest
@@ -228,3 +229,39 @@ def test_a_branch_looping_to_itself_does_not_recurse(make_model: ModelMaker) -> 
     # Every item leaves at the instant it arrives: ten items, 0 to 540 s.
     assert metrics["exit.count"] == 10.0
     assert metrics["exit.cycle_time.mean"] == 0.0
+
+
+def test_an_endless_zero_time_loop_can_still_be_stopped(make_model: ModelMaker) -> None:
+    """A ``shortest_queue`` branch whose first route leads back to itself: the branch and
+    the sink both count 0 waiting items, so the tie always takes the loop and the item
+    never leaves that instant. The transfers ask ``should_stop`` as events do, so the
+    replication still stops when asked (review of PR #18)."""
+    components = [
+        {
+            "id": "arrivals",
+            "type": "source",
+            "params": {"interarrival": {"dist": "constant", "value": "1 min"}},
+        },
+        {
+            "id": "check",
+            "type": "branch",
+            "params": {"routes": ["again", "out"], "rule": "shortest_queue"},
+        },
+        {"id": "exit", "type": "sink", "params": {}},
+    ]
+    connections = [
+        ("arrivals.out", "check.in"),
+        ("check.again", "check.in"),
+        ("check.out", "exit.in"),
+    ]
+    engine = engine_input(make_model(components, connections, length="10 min"), "e")
+    calls: list[int] = []
+
+    def stop_on_third_check() -> bool:
+        calls.append(1)
+        return len(calls) == 3
+
+    started = monotonic()
+    assert run_replication(engine, 0, 0, stop_on_third_check) is None
+    assert len(calls) == 3
+    assert monotonic() - started < 1.0

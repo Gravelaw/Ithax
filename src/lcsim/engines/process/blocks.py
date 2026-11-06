@@ -51,6 +51,7 @@ from lcsim.model.distributions import Sampler, sampler_from_numbers
 
 __all__ = [
     "BLOCK_TYPES",
+    "TRANSFER_CHECK_STEPS",
     "Block",
     "Branch",
     "Context",
@@ -59,6 +60,7 @@ __all__ = [
     "Server",
     "Sink",
     "Source",
+    "Stopped",
     "Transfers",
     "sampler_from_json",
 ]
@@ -72,13 +74,31 @@ class Item:
     arrived: float
 
 
+#: How many transfer steps run between two calls of a ``Transfers``' ``should_stop``.
+TRANSFER_CHECK_STEPS = 1024
+
+
+class Stopped(Exception):
+    """Raised out of a ``Transfers`` whose ``should_stop`` said yes."""
+
+
+def _never() -> bool:
+    return False
+
+
 class Transfers:
     """Same-instant steps of moving items, run one after another in the order they are
-    asked for, rather than nested."""
+    asked for, rather than nested.
 
-    def __init__(self) -> None:
+    Items can circle blocks that take no time (a branch routed back to itself) for very
+    long, or forever, within one SimPy event, so ``should_stop`` is asked every
+    ``TRANSFER_CHECK_STEPS`` steps here too; when it says yes, ``Stopped`` is raised."""
+
+    def __init__(self, should_stop: Callable[[], bool] = _never) -> None:
+        self._should_stop = should_stop
         self._pending: deque[Callable[[], None]] = deque()
         self._running = False
+        self._steps = 0
 
     def run(self, step: Callable[[], None]) -> None:
         """Runs ``step`` now, or after the steps already asked for when called from one."""
@@ -88,6 +108,9 @@ class Transfers:
         self._running = True
         try:
             while self._pending:
+                self._steps += 1
+                if self._steps % TRANSFER_CHECK_STEPS == 0 and self._should_stop():
+                    raise Stopped
                 self._pending.popleft()()
         finally:
             self._running = False

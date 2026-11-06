@@ -11,7 +11,9 @@ before its stop event at that instant.
 
 The loop asks ``should_stop`` every ``STOP_CHECK_EVENTS`` steps, a step being an event
 run or a sample taken, so that a run sampled densely between events, or after the last one,
-also stops quickly; it returns ``None`` when ``should_stop`` says yes. Otherwise it returns
+also stops quickly; the item transfers inside one event ask it too (``Transfers``), so a
+run whose items circle zero-time blocks stops as well. It returns ``None`` when
+``should_stop`` says yes. Otherwise it returns
 an ``Outcome``: the rows of the ``replications`` table for this replication,
 ``(metric, value, unit)`` in component order, each type's metrics in spec 2 order, then
 ``model.wip.mean``; and the rows of the ``timeseries`` table,
@@ -35,7 +37,7 @@ from typing import Any, NamedTuple, TypeAlias
 
 import simpy
 
-from lcsim.engines.process.blocks import BLOCK_TYPES, Block, Context
+from lcsim.engines.process.blocks import BLOCK_TYPES, Block, Context, Stopped, Transfers
 from lcsim.engines.process.statistics import TimeWeighted, Window
 from lcsim.model.catalogue import MEASURE_KINDS, PROCESS_TYPES, MeasureKind
 from lcsim.model.streams import generator_for
@@ -158,7 +160,9 @@ def run_replication(
     experiment = engine_input["experiment"]
     window = Window(warmup=float(experiment["warmup"]), end=float(experiment["length"]))
     env = simpy.Environment()
-    context = Context(env=env, window=window, wip=TimeWeighted(window))
+    context = Context(
+        env=env, window=window, wip=TimeWeighted(window), transfers=Transfers(should_stop)
+    )
     blocks = build_blocks(
         engine_input["scenarios"][scenario],
         engine_input["connections"],
@@ -183,7 +187,10 @@ def run_replication(
             series.advance()
         if stopped():
             return None
-        env.step()
+        try:
+            env.step()
+        except Stopped:  # items circling blocks that take no time; see ``Transfers``
+            return None
     while series.next_time < window.end:
         if stopped():
             return None
