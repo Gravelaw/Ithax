@@ -268,3 +268,25 @@ The verifier confirmed every council change and found six small inconsistencies 
   - Build guide, spec 1, spec 2 and spec 4 differ only where the exporter puts a backslash before `<`, `[`, `]`, `_` or `|` in plain text. The stored text is the same.
 - **Defect found:** The sync found one real fault in the repository. Spec 2's "Statistic definitions" table had an unescaped `|` inside a code span, which splits the cell in GitHub Markdown. The repository file now writes it as `\|`, and the fix is logged in spec 2's change list.
 - **Source of truth:** The repository is still the source of truth (owner question 8).
+
+## 2026-11-06 · M0
+
+### CI workflow (AKS-73)
+
+- **Decision:** `.github/workflows/checks.yml` now has three jobs.
+  - `checks` runs `bash scripts/check.sh` unchanged on Python 3.11 and 3.13. It stays the single gate.
+  - `benchmarks` runs `pytest -m benchmark` on Python 3.11. A first step looks for `benchmarks/*/model.json` and `tests/benchmarks/test_benchmarks.py`. While either is missing (until M2) the job passes with a notice and runs nothing else. `pytest -m perf` is never run in CI.
+  - `pr-title` runs on pull requests only. It fails unless the title matches `^AKS-[0-9]+(, AKS-[0-9]+)*: [^ ]`.
+- **Hardening:** workflow `permissions: contents: read`, plus `pull-requests: read` on `pr-title` only. Triggers are `pull_request` and pushes to `main`, not every push. A `concurrency` group per workflow and ref cancels the older run. `actions/setup-python` caches pip, keyed on `pyproject.toml`. The matrix no longer stops the other version when one fails (`fail-fast: false`).
+- **Title edits:** `pull_request` also listens for `edited`, so a corrected title re-runs `pr-title`. On an edit that does not change the base branch, `checks` and `benchmarks` are skipped. Such an edit gets its own concurrency group, so it never cancels the code checks of the same PR.
+- **Reason:** The ticket asks for CI to be the gate the guide describes (rule 8, "Test subsets"), with least privilege and a title that lets Linear link the PR.
+- **Departure from the ticket:** AKS-73 names the pattern `^AKS-[0-9]+: `. That pattern rejects a PR that closes several issues, such as PR #1 ("AKS-71, AKS-72: ..."). The pattern used here also accepts a list of identifiers separated by ", ". It also requires a non-space character after ": ", so an empty summary fails.
+- **Security:** The title reaches the script through an environment variable, never through `${{ }}` inside the script, so a crafted title cannot inject shell commands.
+- **Alternatives considered:**
+  - A third-party title-check action: not needed for one regular expression, and it would add a dependency.
+  - A job-level `if: hashFiles(...)` guard for benchmarks: `hashFiles` is not available in a job-level `if`, so a step does the check.
+  - Running benchmarks on both versions: `check.sh` already runs them on both once they exist; the separate job makes the gate visible.
+- **Actions pinned:** to a major version, as before. `actions/checkout@v4` and `actions/setup-python@v5` (both MIT, github.com/actions; already used since the M0 skeleton, so no new action). The tags were checked with `git ls-remote` on 2026-11-06. Newer majors exist (v5 to v7 for both). They were not adopted here, to keep the known-good versions; moving up is a separate change.
+- **Verified:** actionlint 1.7.12 with shellcheck 0.11.0 reports no errors. The workflow parses with PyYAML. The title script was run on 14 titles: the 3 valid ones pass, the 11 invalid ones fail. The detection step was run on the current tree (skips) and on a mock M2 tree (runs).
+- **Spec sections updated:** none.
+- **Dependencies added:** none. actionlint and shellcheck were used once for checking, in a scratch environment, not added to the project.
