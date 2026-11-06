@@ -2,8 +2,8 @@
 
 Its name and version, its engine-specific checks (none yet: codes E300 to E399 are
 reserved for them), and ``translate``, ``run`` and ``collect`` end to end: the coffee shop
-in a temporary workdir, the ``replications`` table of spec 1, nothing written outside
-``workdir``, and nothing written by a cancelled run.
+in a temporary workdir, the ``replications`` and ``timeseries`` tables of spec 1, nothing
+written outside ``workdir``, and nothing written by a cancelled run.
 """
 
 import copy
@@ -19,7 +19,7 @@ import pytest
 
 import lcsim
 from lcsim.engines.adapter import Progress
-from lcsim.engines.process.adapter import REPLICATIONS_FILE, ProcessAdapter
+from lcsim.engines.process.adapter import REPLICATIONS_FILE, TIMESERIES_FILE, ProcessAdapter
 from lcsim.model.loading import load_document
 from lcsim.model.model import Model
 
@@ -60,7 +60,7 @@ def test_the_coffee_shop_runs_end_to_end(tmp_path: Path) -> None:
     adapter.run(workdir, reports.append, threading.Event(), 2)
     results = adapter.collect(workdir)
 
-    assert list(results.tables) == ["replications"]
+    assert list(results.tables) == ["replications", "timeseries"]
     assert results.warnings == []
     assert results.solution is None
     table = results.tables["replications"]
@@ -96,6 +96,16 @@ def test_the_coffee_shop_runs_end_to_end(tmp_path: Path) -> None:
     assert units["till.utilization"] == "1"
     assert all(math.isfinite(row["value"]) for row in rows)
 
+    series = results.tables["timeseries"]
+    assert series.schema.names == ["scenario", "replication", "metric", "time_s", "value", "unit"]
+    assert series.num_rows == 30 * 3 * 200
+    assert sorted(set(series["metric"].to_pylist())) == [
+        "model.wip",
+        "till.queue_length",
+        "till.utilization",
+    ]
+    assert sorted(set(series["time_s"].to_pylist())) == [3600.0 * k for k in range(200)]
+
     files = sorted(str(path.relative_to(tmp_path)) for path in tmp_path.rglob("*"))
     assert files == [
         "runs",
@@ -104,6 +114,7 @@ def test_the_coffee_shop_runs_end_to_end(tmp_path: Path) -> None:
         "runs/r1/engine/input.json",
         "runs/r1/engine/output",
         "runs/r1/engine/output/replications.parquet",
+        "runs/r1/engine/output/timeseries.parquet",
     ]
 
 
@@ -118,18 +129,22 @@ def short_run(tmp_path: Path) -> tuple[ProcessAdapter, Path]:
 def test_a_repeat_run_gives_an_equal_table(tmp_path: Path) -> None:
     adapter, workdir = short_run(tmp_path)
     adapter.run(workdir, lambda progress: None, threading.Event(), 1)
-    first = adapter.collect(workdir).tables["replications"]
+    first = adapter.collect(workdir).tables
     adapter.run(workdir, lambda progress: None, threading.Event(), 1)
-    assert adapter.collect(workdir).tables["replications"].equals(first)
+    second = adapter.collect(workdir).tables
+    assert second["replications"].equals(first["replications"])
+    assert second["timeseries"].equals(first["timeseries"])
 
 
 def test_a_cancelled_run_leaves_no_table(tmp_path: Path) -> None:
     adapter, workdir = short_run(tmp_path)
     adapter.run(workdir, lambda progress: None, threading.Event(), 1)
-    assert (workdir / REPLICATIONS_FILE).is_file()
+    assert (workdir / REPLICATIONS_FILE).is_file() and (workdir / TIMESERIES_FILE).is_file()
     cancel = threading.Event()
     cancel.set()
     adapter.run(workdir, lambda progress: None, cancel, 1)
-    assert not (workdir / REPLICATIONS_FILE).exists()  # the earlier table is gone too
+    # The earlier tables are gone too.
+    assert not (workdir / REPLICATIONS_FILE).exists()
+    assert not (workdir / TIMESERIES_FILE).exists()
     with pytest.raises(FileNotFoundError):
         adapter.collect(workdir)
