@@ -57,3 +57,7 @@ def test_a_sink_has_no_output(make_context: ContextMaker) -> None:
     context = make_context(0.0, 1.0)
     with pytest.raises(ValueError, match="'exit' has no output port 'out'"):
         sink(context).connect("out", recorder(context))
+
+
+def test_a_block_type_without_metrics_reports_none(make_context: ContextMaker) -> None:
+    assert recorder(make_context(0.0, 1.0)).metrics() == {}
