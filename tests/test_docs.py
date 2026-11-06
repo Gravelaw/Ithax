@@ -49,14 +49,9 @@ def test_spec_1_lists_validation_issue_codes() -> None:
 # Design: docs/DECISIONS.md, 2026-11-06 · M1, "Issue objects, JSON Schema and the schema
 # pass (AKS-87)".
 FIXTURE_PENDING: dict[str, str] = {
-    "E102": "AKS-89",
     "E110": "AKS-89",
     "E111": "AKS-89",
     "E112": "AKS-89",
-    "E120": "AKS-89",
-    "E121": "AKS-89",
-    "E122": "AKS-89",
-    "E123": "AKS-89",
     "E124": "AKS-89",
     "E125": "AKS-89",
     "E130": "AKS-89",
