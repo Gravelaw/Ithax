@@ -369,15 +369,25 @@ Results are stored in SI units with the unit named. The interface chooses displa
    "default": {
      "set": {},
      "metrics": {
-       "till.wait.mean":   {"mean": 273.3, "half_width": 13.0, "unit": "s"},
-       "till.utilization": {"mean": 0.752, "half_width": 0.006, "unit": "1"}
+       "till.wait.mean":   {"mean": 273.3, "half_width": 13.0, "unit": "s", "n": 30},
+       "till.utilization": {"mean": 0.752, "half_width": 0.006, "unit": "1", "n": 30}
      }
    }
  },
+ "differences": [],
  "warnings": []}
 ```
 
 `fidelity_label` is the text the interface shows (principle 4). A search run adds a `search` object, defined in spec 2.
+
+How the experiment manager fills `summary.json` for a process run (AKS-102, proposed default, owner to confirm):
+
+- **Metrics.** Each scenario's `metrics` holds every metric of the `replications` table, in its row order, as `{mean, half_width, unit, n}`: the mean and half-width across replications of spec 2 "Statistic definitions", the table's `unit`, and `n`, the number of replication values they are over (a NaN value is left out, spec 2). An undefined `mean` or `half_width` is `null`, since JSON has no NaN.
+- **Scenarios.** `scenarios` follows the experiment's scenario order. A scenario's `set` gives each parameter value in SI units: a `quantity` parameter as seconds.
+- **Differences.** `differences` holds the paired scenario differences of spec 2 "Between scenarios": one entry for each pair of scenarios, in the experiment's order (the first with the second, the first with the third and so on, then the second with the third), written `{"scenario": <later id>, "against": <earlier id>, "metrics": {<metric>: {mean, half_width, unit, n, separated}}}`. Each difference is `scenario` minus `against`; `separated` is `true` when the interval excludes zero. With one scenario, `differences` is empty.
+- **Warnings.** `warnings` holds issue objects: the adapter's `validate` warnings, then those `collect` returned, then the manager's W210.
+- **Fidelity label.** "<fidelity, capitalised>: <replications> replications of <length>, <confidence × 100>% confidence". The length is written as a whole number in the largest Phase 1 time unit that gives one (`d`, `h`, `min`, `s`), and otherwise in seconds; `200 h` is "200 h" and `48 h` is "2 d". The percentage drops a trailing `.0` ("95%", "97.5%").
+- **Optimization.** For an optimization run, `summary.json` is `model` (the model's name), then the adapter's `solution`, then `fidelity_label` (the fidelity capitalised, "Standard", since nothing is replicated) and `warnings`.
 
 Job states and allowed moves: `queued` to `running`; `running` to `done`, `failed` or `cancelled`; `queued` to `cancelled`. No other moves.
 
@@ -453,3 +463,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-06, SimPy adapter core (AKS-98), found while building `src/lcsim/engines/process/`: "Random streams" says a component draws all its samples from its one stream in event order, and when a source and a server draw (owner to confirm); "Tables for the `process` domain" names the `unit` of times (`s`), rates (`1/s`) and the rest (`1`), fixes the row order, and writes a mean over no items as NaN (owner to confirm); "Division of labour" describes the process adapter's `engine/input.json` (no `ui`, `label` or `meta`), its worker processes, and `engine/output/replications.parquet` (owner to confirm).
 - 2026-11-06, SimPy adapter delay, branch, blocking and time series (AKS-99), found while building the `timeseries` table: "Tables for the `process` domain" names the time-series metrics, their unit (`1`) and the row order, pointing to spec 2 for the sample times (owner to confirm); "Division of labour" adds `engine/output/timeseries.parquet` and says `collect` returns both tables.
 - 2026-11-06, M2 close (AKS-101): the warning line says that `weibull` and `empirical` with `values` passed the sampling test at M2 (`tests/model/test_distributions.py`), closing that known gap of the Build guide; `empirical` with `data` still waits for M6.
+
+Since version 0.5 (to be numbered when the next review or milestone closes):
+
+- 2026-11-06, experiment manager (AKS-102), found while building `src/lcsim/runs/`: "Run folder and results" says how the manager fills `summary.json` for a process run, which the example left open: each metric adds `n`, the number of replication values its mean is over, and an undefined mean or half-width is `null`; `differences` holds the paired scenario differences, one entry per pair in scenario order with `scenario`, `against` and per-metric `separated`; a scenario's `set` is in SI units; the order of `warnings`; the wording of `fidelity_label`; and the layout for an optimization run (owner to confirm).
