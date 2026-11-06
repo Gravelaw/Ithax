@@ -356,6 +356,21 @@ def test_a_worker_that_ignores_cancel_is_terminated(tmp_path: Path) -> None:
     assert "terminated" in log_text(run)
 
 
+def test_cancelling_again_does_not_postpone_the_forced_stop(tmp_path: Path) -> None:
+    # Codex review of PR #24: the grace counts from the first cancel, not the latest.
+    local = target(tmp_path, StubbornAdapter(), cancel_grace_s=0.5)
+    run = local.create(file_bytes(coffee_shop()), "base")
+    thread = execute_in_thread(run)
+    wait_for(lambda: (run.engine_folder / RUN_RECORD).exists())
+    first = time.monotonic()
+    while thread.is_alive() and time.monotonic() - first < 6:
+        run.cancel()  # every 0.1 s, closer together than the grace
+        thread.join(timeout=0.1)
+    assert not thread.is_alive()
+    assert time.monotonic() - first < 3
+    assert run.state == "cancelled"
+
+
 def test_a_worker_that_ignores_terminate_is_killed(tmp_path: Path) -> None:
     # Codex review of PR #24: terminate() is SIGTERM on POSIX, which a worker may ignore.
     local = target(tmp_path, TermIgnoringAdapter(), cancel_grace_s=0.2, kill_grace_s=0.2)

@@ -336,7 +336,8 @@ class LocalRun:
             if self.state == "queued":
                 self._cancel.set()
                 self.move("cancelled")
-            elif self.state == "running":
+            elif self.state == "running" and self._cancelled_at is None:
+                # Only the first cancel starts the grace: a repeat must not postpone it.
                 self._cancelled_at = time.monotonic()
                 self._cancel.set()
                 self.log("cancel requested")
