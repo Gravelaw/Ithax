@@ -13,9 +13,11 @@ from typing import Any
 
 import pytest
 import simpy
-from conftest import ContextMaker, Recorder, recorder
+from conftest import ContextMaker, ModelMaker, Recorder, recorder
 
 from lcsim.engines.process.blocks import BLOCK_TYPES, Block, Branch, Context, Item, Server
+from lcsim.engines.process.replication import run_replication
+from lcsim.engines.process.translate import engine_input
 from lcsim.model.catalogue import PROCESS_TYPES
 from lcsim.model.streams import generator_for
 
@@ -180,3 +182,37 @@ def test_a_refused_item_waits_at_the_branch(make_context: ContextMaker) -> None:
 def test_an_unknown_rule_is_refused(make_context: ContextMaker) -> None:
     with pytest.raises(ValueError, match="'check' has rule 'attribute'"):
         branch(make_context(0.0, 1.0), ["a"], "attribute")
+
+
+def test_a_branch_looping_to_itself_does_not_recurse(make_model: ModelMaker) -> None:
+    """A branch whose route leads straight back to it, weighted 9999 to 1: thousands of
+    passes at one instant run one after another, not nested (review of PR #18)."""
+    components = [
+        {
+            "id": "arrivals",
+            "type": "source",
+            "params": {"interarrival": {"dist": "constant", "value": "1 min"}},
+        },
+        {
+            "id": "check",
+            "type": "branch",
+            "params": {
+                "routes": ["again", "out"],
+                "rule": "probability",
+                "weights": {"again": 9999, "out": 1},
+            },
+        },
+        {"id": "exit", "type": "sink", "params": {}},
+    ]
+    connections = [
+        ("arrivals.out", "check.in"),
+        ("check.again", "check.in"),
+        ("check.out", "exit.in"),
+    ]
+    engine = engine_input(make_model(components, connections, length="10 min"), "e")
+    outcome = run_replication(engine, 0, 0, lambda: False)
+    assert outcome is not None
+    metrics = {metric: value for metric, value, _ in outcome.rows}
+    # Every item leaves at the instant it arrives: ten items, 0 to 540 s.
+    assert metrics["exit.count"] == 10.0
+    assert metrics["exit.cycle_time.mean"] == 0.0

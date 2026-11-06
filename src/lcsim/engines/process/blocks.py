@@ -13,11 +13,17 @@ more subclass in ``BLOCK_TYPES``.
 
 Blocking (spec 2 "Blocking"): only a server with ``queue_capacity`` refuses an item. A
 block passes an item on with ``send(item, target, then)``: when ``target`` accepts, it
-receives the item and ``then()`` runs at once; otherwise the move waits in the target's
-``blocked`` line, first in, first out, and runs as soon as the target calls
+receives the item and ``then()`` runs at the same instant; otherwise the move waits in the
+target's ``blocked`` line, first in, first out, and runs as soon as the target calls
 ``space_freed()``, at that same instant. A server's ``then`` releases its unit, so a unit
 holding a refused item stays busy; a delay and a branch have nothing to release. A source
 does not send: it discards an item its next block refuses (spec 2 "Source when blocked").
+
+Offers and ``then`` steps go through the replication's ``Transfers``, which runs them one
+after another, first in, first out, instead of nested: a branch routed back to itself, or a
+long line of blocked servers freeing at one instant, would otherwise nest one call per pass
+and overflow Python's stack. A move out of ``blocked`` takes its item at once, so the
+target's ``accepts()`` is always read against what it holds.
 
 Random numbers come only from the component's own stream (spec 1 "Random streams"): a
 source draws each interarrival time after creating an item, a server draws each service
@@ -33,7 +39,7 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Callable, Generator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, ClassVar
 
@@ -53,6 +59,7 @@ __all__ = [
     "Server",
     "Sink",
     "Source",
+    "Transfers",
     "sampler_from_json",
 ]
 
@@ -65,14 +72,36 @@ class Item:
     arrived: float
 
 
+class Transfers:
+    """Same-instant steps of moving items, run one after another in the order they are
+    asked for, rather than nested."""
+
+    def __init__(self) -> None:
+        self._pending: deque[Callable[[], None]] = deque()
+        self._running = False
+
+    def run(self, step: Callable[[], None]) -> None:
+        """Runs ``step`` now, or after the steps already asked for when called from one."""
+        self._pending.append(step)
+        if self._running:
+            return
+        self._running = True
+        try:
+            while self._pending:
+                self._pending.popleft()()
+        finally:
+            self._running = False
+
+
 @dataclass(frozen=True)
 class Context:
     """What every block of one replication shares: the SimPy environment, the observed
-    period, and the model's work in progress (``model.wip.mean``)."""
+    period, the model's work in progress (``model.wip.mean``) and the item transfers."""
 
     env: simpy.Environment
     window: Window
     wip: TimeWeighted
+    transfers: Transfers = field(default_factory=Transfers)
 
 
 # The keys of a distribution object that are not named fields.
@@ -155,16 +184,19 @@ class Block:
     def send(self, item: Item, target: Block, then: Callable[[], None]) -> None:
         """Moves ``item`` to ``target`` and runs ``then``, now if ``target`` accepts it,
         otherwise as soon as ``target`` frees space (spec 2 "Blocking")."""
-        if target.accepts():
+        transfers = self.context.transfers
+
+        def move() -> None:
             target.receive(item)
-            then()
-        else:
+            transfers.run(then)
 
-            def move() -> None:
-                target.receive(item)
-                then()
+        def offer() -> None:
+            if target.accepts():
+                move()
+            else:
+                target.blocked.append(move)
 
-            target.blocked.append(move)
+        transfers.run(offer)
 
     def space_freed(self) -> None:
         """Moves the items this block refused, oldest first, while it accepts."""

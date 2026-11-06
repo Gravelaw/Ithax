@@ -9,6 +9,7 @@ hand, event by event, with constant times.
 """
 
 from collections.abc import Generator, Sequence
+from itertools import pairwise
 from typing import Any
 
 import numpy
@@ -299,3 +300,24 @@ def test_a_branch_keeps_a_refused_item_so_its_source_never_discards(
         length="300 s",
     )
     assert direct["arrivals.discarded"] == 3 / 300  # items at 50, 150 and 250 s
+
+
+def test_a_long_blocked_line_frees_without_recursing(make_model: ModelMaker) -> None:
+    """400 servers in a line, each ``queue_capacity`` 0 and 1 s of service, the last
+    10,000 s; arrivals every second. Item 0 reaches the last server at 399 s and leaves at
+    10,399 s; by then every server holds a blocked item, and that one departure moves an
+    item through all 400 at one instant, one after another rather than nested (review of
+    PR #18)."""
+    count = 400
+    components: list[dict[str, Any]] = [source("1 s")]
+    for i in range(count):
+        service = "10000 s" if i == count - 1 else "1 s"
+        components.append(server(f"s{i}", service, queue_capacity=0))
+    components.append(sink())
+    names = ["arrivals", *(f"s{i}" for i in range(count)), "exit"]
+    connections = [(f"{a}.out", f"{b}.in") for a, b in pairwise(names)]
+    metrics = metrics_of(make_model, components, connections, length="20000 s")
+    assert metrics["exit.count"] == 1.0
+    assert metrics[f"s{count - 1}.utilization"] == (20000 - 399) / 20000
+    # Every server upstream is busy, serving or holding, from its first item to the end.
+    assert metrics["s0.utilization"] == 1.0
