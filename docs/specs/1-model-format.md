@@ -212,6 +212,10 @@ Each component has `id`, `type`, `params`, and optional `label` and `ui`. The `u
 
 Fields that must agree (E160): `sd`, `shape`, `scale`, and the `mean` of the positive distributions (`exponential` and `lognormal`) are greater than zero; a `min` is not above its `max`, and a triangular `mode` lies from `min` to `max`. A `min` equal to the `max` is allowed. A `normal` `mean` may be zero or negative; W202 warns when it clips.
 
+Negative times are clipped (proposed default, owner to confirm): every distribution setting in Phase 1 is a time, and every sampled time below 0 s is set to 0 s, whatever the distribution, as the `normal` row already says. So a `constant` of `-1 min` always gives 0 s, a `uniform` from `-1 min` to `1 min` gives 0 s about half the time, and an `empirical` value below 0 s gives 0 s when drawn. No issue code reports a distribution that reaches below 0 s; only the `normal` has a warning (W202). W201 still uses the theoretical mean of the written distribution, with the clipped mean only for the `normal`, so it underestimates the load of a server whose service distribution reaches below 0 s.
+
+Until the import endpoint (M6), an `empirical` with `data` cannot be sampled: asking for its sampler raises a condition with code E162 that names M6, which the adapter reports as an issue object. Validation already reports every `data` reference as E162 before then, so a run never reaches it.
+
 A `data` reference is checked against the column index of the project's `data/` folder (spec 3 "Project folder"), which records each imported file's name, its columns with the declared unit of each, and the SHA-256 of the file at import. E162 is raised for a `file` not in the index, a file in the index that is now missing from the folder or whose SHA-256 differs, and a `column` the file does not have. Until the import endpoint writes the index (M6), the index is empty, so every `data` reference is E162. The model layer reads no values and checks no declared unit; M6 does both.
 
 
@@ -442,3 +446,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 Since version 0.4 (to be numbered when the next review or milestone closes):
 
 - 2026-11-06, M2 research note `docs/research/spec-1-plugin-mechanisms.md`: entry points in `lcsim.engines` confirmed; the entry-point name is the adapter name, a plugin that fails to import is left out and logged, duplicate names are left out (E102 if no single engine remains), and the group is renamed with the placeholder package. pyarrow's Apache-2.0 licence confirmed from the wheel's `LICENSE.txt`.
+- 2026-11-06, random streams and distribution sampling (AKS-96), a rule-5 reading of M1 owner item 9: "Distributions" says every sampled time below 0 s is set to 0 s for every distribution, not only the `normal`, with no new issue code (owner to confirm); that W201 keeps the written mean except for the `normal`; and that an `empirical` with `data` cannot be sampled until M6, which raises a condition with code E162.
