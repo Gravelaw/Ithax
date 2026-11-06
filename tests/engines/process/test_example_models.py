@@ -167,9 +167,10 @@ def test_warehouse_meets_its_spec_2_targets(
 # The coffee shop against M/M/1 theory (arrivals mean 2 min, service mean 1.5 min), in SI
 # units, with the spec 2 benchmark pass rule: |estimate - theory| <= 3 standard errors.
 # The other two files are compared with their theory in spec 2's table and in
-# docs/DECISIONS.md (AKS-101), but not gated on it: their targets are the gate, and with
-# 20 such checks at 30 replications one is expected to pass 3 standard errors now and then
-# (the line's paint wait does at seed 12345; seeds 1, 2 and 7 do not).
+# docs/DECISIONS.md (AKS-101), but not gated on it: their targets are the gate, and of
+# their 14 such checks at 30 replications at least one falls beyond 3 standard errors in 7%
+# of runs of a correct engine (the line's paint wait does at seed 12345; seeds 1, 2 and 7
+# do not).
 COFFEE_SHOP_THEORY: dict[str, Fraction] = {
     "till.wait.mean": Fraction(270),
     "till.utilization": Fraction(3, 4),
