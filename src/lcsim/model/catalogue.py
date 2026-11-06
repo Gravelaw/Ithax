@@ -15,12 +15,18 @@ Sources, all binding text:
   output port per entry of `routes`;
 - spec 1 "Distributions": the eight distributions and their fields;
 - spec 2 "Statistic definitions": the metrics each type reports (spec 1 "Metric names",
-  E174).
+  E174), and what each is measured in (a time, a rate per second, or a plain number);
+- the smallest value each number or time setting takes, and the distribution fields that
+  must be above zero or in order (spec 1 "Distributions", E160), read by the meaning pass.
 
 Where spec 2 leaves a setting's kind open, the simplest reading is taken and recorded in
 ``docs/DECISIONS.md`` (2026-11-06 · M1, AKS-88): counts, capacities and stock levels are
 whole numbers; `first_arrival` and `timeout` are time quantities; a branch's output port
-is named by its route.
+is named by its route. The smallest values are readings of the same kind (AKS-90): a
+capacity, size, order quantity or `max_items` is at least 1, since a smaller one never
+passes an item; a `queue_capacity`, stock level or shift capacity is at least 0; a weight
+is at least 0; `first_arrival` is at least 0 s; `timeout` and `period` are above 0 s; a
+branch has at least one route.
 """
 
 from __future__ import annotations
@@ -36,12 +42,14 @@ __all__ = [
     "DATA_FIELDS",
     "DISTRIBUTIONS",
     "DOMAINS",
+    "MEASURE_KINDS",
     "MODEL_METRICS",
     "PROCESS_TYPES",
     "BlockType",
     "DistributionSpec",
     "FieldKind",
     "FieldSpec",
+    "MeasureKind",
     "SettingKind",
     "SettingSpec",
     "output_ports",
@@ -88,6 +96,12 @@ class SettingSpec:
     # Not required in general, but required when the setting named first holds the word
     # named second (`weights` when `rule` is `probability`).
     required_when: tuple[str, str] | None = None
+    # NUMBER and QUANTITY: the smallest value allowed (in SI units for a quantity), or
+    # None; with `exclusive_minimum`, the value must be above it.
+    minimum: int | float | None = None
+    exclusive_minimum: bool = False
+    # `many`: the fewest entries allowed.
+    min_items: int = 0
     # The default the spec states for an optional setting, if any; the loader leaves an
     # absent setting absent, and the engine applies this.
     default: str | Quantity | None = None
@@ -123,13 +137,27 @@ def output_ports(block: BlockType, routes: Sequence[str]) -> tuple[str, ...]:
     return block.outputs
 
 
-def _number(name: str, *, required: bool = True, integer: bool = True) -> SettingSpec:
-    return SettingSpec(name, SettingKind.NUMBER, required, integer=integer)
+def _number(
+    name: str, *, required: bool = True, integer: bool = True, minimum: int = 0
+) -> SettingSpec:
+    return SettingSpec(name, SettingKind.NUMBER, required, integer=integer, minimum=minimum)
 
 
-def _time(name: str, *, required: bool = True, default: Quantity | None = None) -> SettingSpec:
+def _time(
+    name: str,
+    *,
+    required: bool = True,
+    default: Quantity | None = None,
+    above_zero: bool = False,
+) -> SettingSpec:
     return SettingSpec(
-        name, SettingKind.QUANTITY, required, dimension=Dimension.TIME, default=default
+        name,
+        SettingKind.QUANTITY,
+        required,
+        dimension=Dimension.TIME,
+        default=default,
+        minimum=0,
+        exclusive_minimum=above_zero,
     )
 
 
@@ -170,7 +198,7 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                 settings=(
                     _distribution("interarrival"),
                     _time("first_arrival", required=False),
-                    _number("max_items", required=False),
+                    _number("max_items", required=False, minimum=1),
                 ),
                 metrics=("created", "discarded"),
             ),
@@ -180,7 +208,7 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                 outputs=("out",),
                 outputs_from=None,
                 settings=(
-                    _number("capacity"),
+                    _number("capacity", minimum=1),
                     _distribution("service"),
                     # Absent: the server's queue is unlimited (spec 2 "Server queue").
                     _number("queue_capacity", required=False),
@@ -203,7 +231,7 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                 outputs=(),
                 outputs_from="routes",
                 settings=(
-                    SettingSpec("routes", SettingKind.IDENTIFIER, True, many=True),
+                    SettingSpec("routes", SettingKind.IDENTIFIER, True, many=True, min_items=1),
                     _word("rule", ("probability", "shortest_queue"), None),
                     SettingSpec(
                         "weights",
@@ -222,7 +250,7 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                 outputs=("out",),
                 outputs_from=None,
                 settings=(
-                    _number("capacity"),
+                    _number("capacity", minimum=1),
                     _word("discipline", _DISCIPLINE, "fifo"),
                     _word("on_full", ("block", "discard"), "block"),
                 ),
@@ -233,7 +261,10 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                 inputs=("in",),
                 outputs=("out",),
                 outputs_from=None,
-                settings=(_number("size"), _time("timeout", required=False)),
+                settings=(
+                    _number("size", minimum=1),
+                    _time("timeout", required=False, above_zero=True),
+                ),
                 metrics=("wait.mean",),
             ),
             BlockType(
@@ -252,7 +283,7 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                 settings=(
                     _number("initial"),
                     _number("reorder_point"),
-                    _number("order_quantity"),
+                    _number("order_quantity", minimum=1),
                     _distribution("lead_time"),
                 ),
                 metrics=("stock.mean", "stockouts", "orders"),
@@ -262,7 +293,7 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                 inputs=(),
                 outputs=(),
                 outputs_from=None,
-                settings=(_number("capacity"),),
+                settings=(_number("capacity", minimum=1),),
                 metrics=("utilization",),
             ),
             BlockType(
@@ -279,7 +310,12 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                         many=True,
                         fields=(_time("start"), _time("end"), _number("capacity")),
                     ),
-                    _time("period", required=False, default=Quantity(86_400.0, Dimension.TIME)),
+                    _time(
+                        "period",
+                        required=False,
+                        default=Quantity(86_400.0, Dimension.TIME),
+                        above_zero=True,
+                    ),
                 ),
                 metrics=(),
             ),
@@ -311,6 +347,40 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
 MODEL_METRICS: tuple[str, ...] = ("wip.mean",)
 
 
+class MeasureKind(Enum):
+    """What a metric is measured in (spec 2 "Statistic definitions"; spec 1 "Metric
+    names": a constraint's `value` is a time quantity for a metric measured in time)."""
+
+    TIME = "time"  # a time, in seconds
+    RATE = "rate"  # items per unit of time, in SI units: per second
+    NUMBER = "number"  # a fraction, a count or a number of items
+
+
+# Spec 2 "Statistic definitions": every measure (a metric name after `<component id>.`)
+# and what it is measured in. Throughput, orders and discards are "divided by the
+# period", so they are rates; Phase 1 has no rate unit, so a constraint on one is a plain
+# number of items per second (AKS-90, owner to confirm).
+MEASURE_KINDS: Mapping[str, MeasureKind] = MappingProxyType(
+    {
+        "wait.mean": MeasureKind.TIME,
+        "cycle_time.mean": MeasureKind.TIME,
+        "throughput": MeasureKind.RATE,
+        "orders": MeasureKind.RATE,
+        "discarded": MeasureKind.RATE,
+        "utilization": MeasureKind.NUMBER,
+        "availability": MeasureKind.NUMBER,
+        "scheduled_fraction": MeasureKind.NUMBER,
+        "queue_length.mean": MeasureKind.NUMBER,
+        "queue_length.max": MeasureKind.NUMBER,
+        "stock.mean": MeasureKind.NUMBER,
+        "stockouts": MeasureKind.NUMBER,
+        "created": MeasureKind.NUMBER,
+        "count": MeasureKind.NUMBER,
+        "wip.mean": MeasureKind.NUMBER,
+    }
+)
+
+
 class FieldKind(Enum):
     """What a field of a distribution takes (spec 1 "Distributions")."""
 
@@ -321,11 +391,16 @@ class FieldKind(Enum):
 
 @dataclass(frozen=True)
 class FieldSpec:
-    """One field of a distribution; ``many`` for an array of values."""
+    """One field of a distribution; ``many`` for an array of values (at least one).
+
+    ``positive``: the field must be above zero (spec 1 E160: "``sd``, ``shape``,
+    ``scale`` or the ``mean`` of a positive distribution not greater than zero").
+    """
 
     name: str
     kind: FieldKind
     many: bool = False
+    positive: bool = False
 
 
 @dataclass(frozen=True)
@@ -335,14 +410,17 @@ class DistributionSpec:
 
     name: str
     forms: tuple[tuple[FieldSpec, ...], ...]
+    # Fields whose values must not decrease in this order (E160: `min` above `max`, or
+    # a triangular `mode` outside `min` to `max`).
+    ordered: tuple[str, ...] = ()
 
     def field_names(self) -> tuple[str, ...]:
         """Every field name of every form, in spec order."""
         return tuple(field.name for form in self.forms for field in form)
 
 
-def _quantities(*names: str) -> tuple[FieldSpec, ...]:
-    return tuple(FieldSpec(name, FieldKind.QUANTITY) for name in names)
+def _quantities(*names: str, positive: tuple[str, ...] = ()) -> tuple[FieldSpec, ...]:
+    return tuple(FieldSpec(name, FieldKind.QUANTITY, positive=name in positive) for name in names)
 
 
 DISTRIBUTIONS: Mapping[str, DistributionSpec] = MappingProxyType(
@@ -350,14 +428,24 @@ DISTRIBUTIONS: Mapping[str, DistributionSpec] = MappingProxyType(
         spec.name: spec
         for spec in (
             DistributionSpec("constant", (_quantities("value"),)),
-            DistributionSpec("exponential", (_quantities("mean"),)),
-            DistributionSpec("uniform", (_quantities("min", "max"),)),
-            DistributionSpec("triangular", (_quantities("min", "mode", "max"),)),
-            DistributionSpec("normal", (_quantities("mean", "sd"),)),
-            DistributionSpec("lognormal", (_quantities("mean", "sd"),)),
+            # The positive distributions: exponential, lognormal and weibull.
+            DistributionSpec("exponential", (_quantities("mean", positive=("mean",)),)),
+            DistributionSpec("uniform", (_quantities("min", "max"),), ordered=("min", "max")),
+            DistributionSpec(
+                "triangular",
+                (_quantities("min", "mode", "max"),),
+                ordered=("min", "mode", "max"),
+            ),
+            DistributionSpec("normal", (_quantities("mean", "sd", positive=("sd",)),)),
+            DistributionSpec("lognormal", (_quantities("mean", "sd", positive=("mean", "sd")),)),
             DistributionSpec(
                 "weibull",
-                ((FieldSpec("shape", FieldKind.NUMBER), FieldSpec("scale", FieldKind.QUANTITY)),),
+                (
+                    (
+                        FieldSpec("shape", FieldKind.NUMBER, positive=True),
+                        FieldSpec("scale", FieldKind.QUANTITY, positive=True),
+                    ),
+                ),
             ),
             DistributionSpec(
                 "empirical",
