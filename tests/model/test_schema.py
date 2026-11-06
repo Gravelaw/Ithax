@@ -910,3 +910,19 @@ def test_very_large_integer_as_the_whole_file(document: object) -> None:
 def test_document_without_large_integers_is_validated_as_it_is() -> None:
     document = coffee()
     assert schema_module._without_huge_integers(document) is document
+
+
+def test_many_broken_entries_give_one_issue_per_problem() -> None:
+    # jsonschema reports a `required` failure once per missing key, each naming every
+    # missing key; the schema pass keeps one issue per problem (linear, found in review).
+    document = coffee()
+    document["components"] = [{} for _ in range(2000)]
+    issues = schema_pass(document)
+    assert len(issues) == 6000
+    assert len(set(issues)) == 6000
+    assert summary(issues[:3]) == [
+        ("E100", "/components/0/id"),
+        ("E100", "/components/0/params"),
+        ("E100", "/components/0/type"),
+    ]
+    assert issues[-1].path == "/components/1999/type"

@@ -107,14 +107,14 @@ def schema_pass(document: object) -> list[Issue]:
     errors = list(_validator().iter_errors(_without_huge_integers(document)))
     # A key of the other domain is reported once; what is inside it is not judged.
     misplaced = [list(error.absolute_path) for error in errors if error.validator == "not"]
-    issues: list[Issue] = []
+    # A dict keeps one of each issue (jsonschema reports a `required` failure once per
+    # missing key, each naming all of them) in linear time; issues are frozen and hashable.
+    issues: dict[Issue, None] = {}
     for error in errors:
         at = list(error.absolute_path)
         if any(len(at) > len(key) and at[: len(key)] == key for key in misplaced):
             continue
-        for issue in _issues_from_error(error, document):
-            if issue not in issues:
-                issues.append(issue)
+        issues.update(dict.fromkeys(_issues_from_error(error, document)))
     return sorted(issues, key=lambda issue: _sort_key(issue.path))
 
 
