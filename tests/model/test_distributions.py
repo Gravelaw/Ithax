@@ -160,6 +160,27 @@ def test_lognormal_uses_the_mean_and_sd_of_the_variable() -> None:
     assert [sampler(rng) for _ in range(5)] == pytest.approx(expected, rel=1e-12)
 
 
+@pytest.mark.parametrize(
+    ("mean", "sd", "sigma2"),
+    [
+        (1e-200, 1e-200, math.log(2)),  # sd² and mean² underflow to 0 if squared
+        (1e200, 1e200, math.log(2)),  # sd² and mean² overflow to inf if squared
+        (1e-200, 1e200, 800 * math.log(10)),  # sd/mean = 1e400 overflows a float
+        (1e200, 1e-200, 0.0),  # σ² = ln(1 + 1e-800) is 0 to double precision
+    ],
+)
+def test_lognormal_parameters_hold_at_extreme_magnitudes(
+    mean: float, sd: float, sigma2: float
+) -> None:
+    """Any positive finite mean and sd pass E160, so the conversion must not break down
+    (review of PR #15)."""
+    rng, reference = generator_for(SEED, 0, "x"), generator_for(SEED, 0, "x")
+    sampler = sampler_for(MODEL, dist("lognormal", mean=seconds(mean), sd=seconds(sd)))
+    mu = math.log(mean) - sigma2 / 2
+    expected = reference.lognormal(mu, math.sqrt(sigma2), 3).tolist()
+    assert [sampler(rng) for _ in range(3)] == pytest.approx(expected, rel=1e-9)
+
+
 def test_weibull_shape_is_a_plain_number_and_scale_a_time() -> None:
     rng, reference = generator_for(SEED, 0, "x"), generator_for(SEED, 0, "x")
     sampler = sampler_for(MODEL, dist("weibull", shape=2, scale=seconds(60)))

@@ -121,10 +121,20 @@ def _normal(fields: Mapping[str, float]) -> Sampler:
     return lambda rng: _clip(rng.normal(mean, sd))
 
 
+def _log1p_square(log_ratio: float) -> float:
+    """ln(1 + r²) for r = exp(``log_ratio``), without forming r² when it would overflow."""
+    if log_ratio <= 0:
+        return math.log1p(math.exp(2 * log_ratio))
+    return 2 * log_ratio + math.log1p(math.exp(-2 * log_ratio))
+
+
 def _lognormal(fields: Mapping[str, float]) -> Sampler:
     # The mean and sd of the variable itself: σ² = ln(1 + sd²/mean²), μ = ln(mean) - σ²/2.
+    # Computed from ln(sd/mean) so that no square or ratio underflows or overflows for any
+    # positive finite mean and sd: with r = sd/mean, ln(1 + r²) = log1p(r²) for r ≤ 1 and
+    # 2·ln r + log1p(1/r²) for r > 1.
     mean, sd = fields["mean"], fields["sd"]
-    sigma2 = math.log1p(sd * sd / (mean * mean))
+    sigma2 = _log1p_square(math.log(sd) - math.log(mean))
     mu = math.log(mean) - sigma2 / 2
     sigma = math.sqrt(sigma2)
     return lambda rng: _clip(rng.lognormal(mu, sigma))
