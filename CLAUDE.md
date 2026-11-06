@@ -158,6 +158,7 @@ Updated at the end of every session.
 | M0 Repository skeleton, checks, licence, specs exported | Done 2026-11-05: `bash scripts/check.sh` passes |
 | Spec review council (before M1) | Done 2026-11-05: specs 1 to 4 at 0.3, spec 0 and 5 to 7 at 0.2; owner questions listed in `docs/DECISIONS.md` |
 | M1 Model schema, loading, units, validation | Ready to start. `coffee_shop.json` is in `examples/`; the other two files are written fresh at M1 under the proposed default in `docs/DECISIONS.md` 2026-11-05 unless the owner supplies the originals first. |
+| M9 design before building (AKS-118, ahead of order at the owner's request) | Session items done 2026-11-06: `docs/design/` and the three M9 research notes; interface framework confirmed in spec 3. Awaiting the owner's walkthrough or its fallback before any `ui/` code. |
 
 Specs are in `docs/specs/`. Run the checks with `bash scripts/check.sh` after
 `pip install -e ".[dev]"`.
