@@ -1,10 +1,10 @@
 # Spec 2: Core Engine for Process Simulation and Optimization
 
-> Version 0.4 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.5 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 Two engine adapters, both in Python: discrete-event simulation on SimPy, and optimization on HiGHS; Optuna is a search driver inside the experiment manager, not an adapter. Together with an experiment manager they make Phase 1 a complete product.
 
-> **Warning: partly tested.** Five block types ran in a prototype. The other seven, the optimization layout in the model file, and simulation-based optimization have never run. Performance targets are proposals. Verify each at its milestone and update this spec. See "Known gaps" in the Build guide.
+> **Warning: partly tested.** Five block types ran in a prototype and, from M2, in the SimPy adapter and its benchmarks. The other seven, the optimization layout in the model file, and simulation-based optimization have never run. Performance targets are proposals. Verify each at its milestone and update this spec. See "Known gaps" in the Build guide.
 
 ## Scope
 
@@ -112,7 +112,7 @@ Proposed defaults chosen by the review council, owner to confirm; M4 may correct
 - **Pool.** A server with `pool` seizes its own capacity first, then one pool unit; service, and therefore the end of the item's wait, begins only when both are held, and both are released after service; pool units are granted first come, first served across servers.
 - **Targets.** A server may be the target of at most one `schedule` and one `failure` (E125).
 
-The prototype exercised `source`, `server`, `delay`, `branch` with the `probability` rule, and `sink`. The other blocks are specified but untested.
+The prototype exercised `source`, `server`, `delay`, `branch` with the `probability` rule, and `sink`. M2 built these five, with `shortest_queue` and `queue_capacity` (AKS-98, AKS-99), and runs them in the M2 benchmarks. The other blocks are specified but untested.
 
 ### Statistic definitions
 
@@ -188,16 +188,18 @@ Every number above was recomputed by the council on 2026-11-05 and re-derived in
 
 A throwaway translator produced these. Only `coffee_shop.json` survives verbatim; the three-machine line and warehouse files and the script were not retained, so their rows are indicative and unverified. At M1 both models are written fresh with M2 blocks only, to these targets (proposed default, owner to confirm): three-machine line, weld utilization 0.85 to 0.92 and the other stations below 0.70; warehouse, throughput within 1% of 60 per hour and pack utilization 0.75 to 0.85. The exact parameters are the M1 session's choice; note that with exponential arrivals and service a station at utilization 0.90 has a mean wait of nine service times (ρ/(1 − ρ)), so the prototype's 17.3 minutes would need a weld service time near 2 minutes or a lower-variance service distribution; reproducing it is not required. M2 re-measures both and replaces the rows. Written at M1 (AKS-93, proposed default, owner to confirm): `examples/three_machine_line.json` has arrivals 30 per hour into cut, weld and paint, single exponential servers with means 1.2, 1.8 and 1 min (utilizations 0.60, 0.90 and 0.50), and a constant 2 min transfer before paint; `examples/warehouse.json` has arrivals 60 per hour into pick (three exponential servers, mean 2 min, utilization 0.667), a probability branch sending one order in five through a constant 5 min inspection, and pack (one exponential server, mean 0.8 min, utilization 0.80). No block in either loses items, so each throughput equals its arrival rate; "within 1% of 60 per hour" is the tolerance for the estimate M2 measures. Each file's `meta.description` gives the queueing arithmetic.
 
+M2 re-measured both (AKS-101): the three-machine line and warehouse rows below are the process adapter's, not the prototype's. Each is the mean of the 30 replication means at the file's own experiment (seed 12345, 30 replications; the line 100 h with 20 h of warm-up, the warehouse 200 h with 10 h), plus or minus the 95% half-width t(0.975, 29) × sd / √30 of "Statistic definitions" (t from `scipy.stats.t.ppf`, 2.0452). `tests/engines/process/test_example_models.py` reproduces every value. The M/M/1 and M/M/2 rows keep the prototype's numbers, with the M2 benchmark's result beside them (100 replications at the benchmark seed; the deviation is in standard errors, as in "Benchmarks").
+
 | Check | Result |
 | --- | --- |
-| M/M/1 mean wait | 4.555 min, plus or minus 0.217; theory 4.500 lies inside |
-| M/M/2 mean wait | 1.946 min, plus or minus 0.087; theory 1.929 lies inside |
-| Three-machine line | Weld station utilization 0.90, mean wait 17.3 min; the other two stations below 0.67 |
-| Small warehouse | Throughput 59.9 per hour against 60 arriving; pack station utilization 0.83 |
+| M/M/1 mean wait | Prototype: 4.555 min, plus or minus 0.217; theory 4.500 lies inside. M2 benchmark `mm1` (seed 1001): 4.449 min, plus or minus 0.112, −0.90 standard errors from 4.500 |
+| M/M/2 mean wait | Prototype: 1.946 min, plus or minus 0.087; theory 1.929 lies inside. M2 benchmark `mm2` (seed 1002): 1.937 min, plus or minus 0.039, +0.42 standard errors from 1.929 |
+| Three-machine line | Measured at M2: weld utilization 0.901 plus or minus 0.011 (target 0.85 to 0.92); cut 0.600 plus or minus 0.007 and paint 0.495 plus or minus 0.006 (target below 0.70); weld mean wait 15.69 min plus or minus 2.09 (13.3% of the mean; theory 16.2); paint mean wait 0.951 min plus or minus 0.030 (theory 1.0, 3.3 standard errors below; seeds 1, 2 and 7 give +0.9, −0.4 and +0.7, so a reroll, not a bias); cycle time 24.48 min plus or minus 2.11 (theory 25.0); throughput 30.01 per hour plus or minus 0.25 (theory 30). The prototype's row was weld 0.90, wait 17.3 min, the other two stations below 0.67 |
+| Small warehouse | Measured at M2: throughput 59.99 per hour plus or minus 0.20, 0.02% below 60 (target within 1%); pack utilization 0.799 plus or minus 0.004 (target 0.75 to 0.85); pick utilization 0.666 plus or minus 0.003 (theory 2/3); pack mean wait 3.17 min plus or minus 0.15 (theory 3.2); pick mean wait 0.875 min plus or minus 0.026 (theory 0.889); cycle time 7.84 min plus or minus 0.16 (theory 7.889). The prototype's row was throughput 59.9 per hour, pack 0.83 |
 | Repeat run with the same seed | Identical results |
 | Run time | Under 14 seconds for everything above, on one core of a cloud machine |
 
-The weld station's wait has a wide interval, 17.3 plus or minus 4.4 min. That is a real case for the "not enough runs" finding in spec 4.
+The weld station's wait has a wide interval: 15.69 plus or minus 2.09 min at M2, a half-width of 13.3% of the mean (the prototype's was 17.3 plus or minus 4.4 min). That is above spec 4's 10%, so it is still a real case for the "not enough runs" finding; M8 checks the finding on this file.
 
 ### Mathematical optimization in the model file
 
@@ -269,9 +271,9 @@ Complete these and record the findings, with sources, in a short note in the rep
 
 | Test | Milestone | Checked by | Evidence |
 | --- | --- | --- | --- |
-| Every block has a unit test and appears in a benchmark | M2 for the five prototype blocks, M4 for the rest | agent |  |
+| Every block has a unit test and appears in a benchmark | M2 for the five prototype blocks, M4 for the rest | agent | M2: `tests/engines/process/test_source.py`, `test_server.py`, `test_delay.py`, `test_branch.py`, `test_sink.py`; `benchmarks/mm1` (source, server, sink), `delay`, `branch`; `test_every_m2_block_appears_in_an_m2_benchmark` in `tests/benchmarks/test_benchmarks.py` |
 | All benchmarks tagged at or before the current milestone pass on every build | M2 onward | agent | `tests/benchmarks` |
-| The three example models run end to end | M2 | agent |  |
+| The three example models run end to end | M2 | agent | `tests/engines/process/test_example_models.py` |
 | A 30-replication run of the three-machine line finishes in under one minute (proposed target; measured per the Build guide protocol, confirmed by the owner) | M3 measured, owner confirms | agent + owner | `docs/research/perf-M3.md` |
 | Mathematical optimization benchmarks pass | M5 | agent |  |
 | The machine-count test finds `tills` = 2 and equals the enumerated best | M5 | agent | `tests/runs/test_search.py` |
@@ -298,9 +300,10 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-06, meaning pass B (AKS-90): "Rules that apply across blocks" gains "Ranges", the smallest value of each number and time setting and the order of a shift's `start`, `end` and `period`, which the meaning pass checks with E123. These were left open by the block table.
 - 2026-11-06, example models (AKS-93): "Reference values from the prototype" records the parameters of the two example files written fresh at M1 and reads the warehouse throughput target as the tolerance for the M2 estimate, since a stable model with no loss has a long-run throughput equal to its arrival rate.
 
-Since version 0.4 (to be numbered when the next review or milestone closes):
+2026-11-06, version 0.5, M2 closed (AKS-101); the lines below were added after version 0.4, during the M2 research notes and the M2 build:
 
 - 2026-11-06, M2 research note `docs/research/spec-2-simulation-library.md`: SimPy confirmed as the process engine over salabim and Ciw; "Simultaneous events" now states SimPy's tested ordering (a process start or an interrupt runs first at its instant; nothing runs at the end time). The M2 benchmark answers were recomputed from closed-form formulas in `docs/research/spec-2-benchmark-sources.md` and all match.
 - 2026-11-06, SimPy adapter core (AKS-98), found while building `src/lcsim/engines/process/`: "Block reference" says a source's first item is created at `first_arrival`, 0 s when absent, and that it stops after `max_items` items (owner to confirm); "Statistic definitions" says an event at exactly the end of warm-up belongs to the observed period, that time-weighted statistics count only the part of the period after warm-up, what `queue_length.max` takes, and that a mean over no items is NaN (owner to confirm).
 - 2026-11-06, SimPy adapter delay, branch, blocking and time series (AKS-99), found while building `src/lcsim/engines/process/`: "Rules that apply across blocks" says which M2 block can refuse an item (a server with `queue_capacity`, when no unit is free and `queue_capacity` items wait), that a blocked server unit stays busy and counts in `utilization`, that a delay holds and a branch keeps a refused item, that blocked items move as soon as space frees in the order they were refused, and that a source feeding a branch never discards; "Branch rules" says when the route is chosen, how `probability` maps its one draw per item to a route, and that `shortest_queue` draws nothing and ignores `weights`; "Statistic definitions" names the time-series metrics (`<server>.queue_length`, `<server>.utilization`, `model.wip`), when samples are taken (from 0 s, through warm-up, none at the end) and that a sample is the value after the events of its instant (owner to confirm).
 - 2026-11-06, benchmark harness (AKS-100), found while writing `benchmarks/` and `tests/benchmarks/test_benchmarks.py`: "Benchmark definitions" says how the M2 benchmark files read the table: every M2 arrival, service and delay time is exponential (the tandem, delay and branch rows gave only means or a rate), the branch case's routes and sinks, the metric each known answer names, that `value` is the exact closed form in the adapter's SI units, how the estimate and its standard error come from the replication values (a missing metric or NaN fails), when an `exact` check passes, and what the coverage run counts as a pass (owner to confirm).
+- 2026-11-06, M2 close (AKS-101), measured with `tests/engines/process/test_example_models.py`: "Reference values from the prototype" replaces the three-machine line and warehouse rows with the adapter's values at each file's own seed and replication count (mean plus or minus the 95% t half-width); both files meet their targets, so no parameter changed. The weld wait half-width is 13.3% of its mean (the prototype's 17.3 plus or minus 4.4 min is superseded). The M/M/1 and M/M/2 rows keep the prototype's numbers with the M2 benchmark results beside them. The acceptance table names its M2 evidence, and the warning line and "Block reference" say that the five prototype blocks now run in the adapter.
