@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="title desc">
+  <title id="title">Wireframe 02: Home</title>
+  <desc id="desc">Home screen. Two large entries, Learn and Build. Below, the template gallery of the ten Phase 1 templates with audience and estimated minutes, and the list of recent projects with links to create an empty project or open a folder.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5F6773"/>
+    </marker>
+    <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#C3C8D0"/>
+    </pattern>
+  </defs>
+  <rect x="0" y="0" width="1280" height="800" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1"/>
+  <!-- Navigation rail: the seven screens of spec 3 -->
+  <rect x="0" y="0" width="72" height="800" rx="0" fill="#EEF0F3" stroke="none" stroke-width="1"/>
+  <line x1="72" y1="0" x2="72" y2="800" stroke="#D4D8DE" stroke-width="1"/>
+  <rect x="0" y="56" width="72" height="56" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1"/>
+  <rect x="0" y="56" width="3" height="56" rx="0" fill="#1D5BBF" stroke="none" stroke-width="1"/>
+  <rect x="26" y="64" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="102" font-family="sans-serif" font-size="12" font-weight="600" fill="#1B1F24" text-anchor="middle">Home</text>
+  <rect x="26" y="128" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="166" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Canvas</text>
+  <rect x="26" y="192" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="230" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Data</text>
+  <rect x="26" y="256" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="294" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Experiment</text>
+  <rect x="26" y="320" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="358" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Run monitor</text>
+  <rect x="26" y="384" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="422" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Results</text>
+  <rect x="26" y="448" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="486" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Settings</text>
+  <!-- Top bar: project, save state, undo/redo, experiment, Run with its reason -->
+  <rect x="72" y="0" width="1208" height="48" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1"/>
+  <line x1="72" y1="48" x2="1280" y2="48" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="92" y="30" font-family="sans-serif" font-size="16" font-weight="600" fill="#1B1F24" text-anchor="start">Home</text>
+  <text x="104" y="96" font-family="sans-serif" font-size="24" font-weight="600" fill="#1B1F24" text-anchor="start">What would you like to do?</text>
+  <rect x="104" y="116" width="376" height="120" rx="8" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <text x="124" y="152" font-family="sans-serif" font-size="20" font-weight="600" fill="#1B1F24" text-anchor="start">Learn</text>
+  <text x="124" y="176" font-family="sans-serif" font-size="14" font-weight="400" fill="#4F5866" text-anchor="start">Start from a worked example</text>
+  <text x="124" y="204" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">A guided lesson explains each block, then asks you</text>
+  <text x="124" y="222" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">to change something and predict.</text>
+  <rect x="496" y="116" width="376" height="120" rx="8" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <text x="516" y="152" font-family="sans-serif" font-size="20" font-weight="600" fill="#1B1F24" text-anchor="start">Build</text>
+  <text x="516" y="176" font-family="sans-serif" font-size="14" font-weight="400" fill="#4F5866" text-anchor="start">Answer a question of your own</text>
+  <text x="516" y="204" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">Two questions pick the closest template; your data</text>
+  <text x="516" y="222" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">is optional.</text>
+  <text x="104" y="280" font-family="sans-serif" font-size="20" font-weight="600" fill="#1B1F24" text-anchor="start">Templates</text>
+  <rect x="104" y="296" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="116" y="322" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Coffee shop queue</text>
+  <text x="116" y="366" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Students</text>
+  <text x="116" y="386" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
+  <rect x="260" y="296" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="272" y="322" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Three-machine</text>
+  <text x="272" y="340" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">production line</text>
+  <text x="272" y="366" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Both</text>
+  <text x="272" y="386" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
+  <rect x="416" y="296" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="428" y="322" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Machine</text>
+  <text x="428" y="340" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">breakdowns</text>
+  <text x="428" y="366" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Both</text>
+  <text x="428" y="386" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
+  <rect x="572" y="296" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="584" y="322" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Clinic patient</text>
+  <text x="584" y="340" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">flow</text>
+  <text x="584" y="366" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Both</text>
+  <text x="584" y="386" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
+  <rect x="728" y="296" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="740" y="322" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Warehouse pick</text>
+  <text x="740" y="340" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">and pack</text>
+  <text x="740" y="366" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Business</text>
+  <text x="740" y="386" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
+  <rect x="104" y="412" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="116" y="438" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Inventory reorder</text>
+  <text x="116" y="456" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">point</text>
+  <text x="116" y="482" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Business</text>
+  <text x="116" y="502" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
+  <rect x="260" y="412" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="272" y="438" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Product mix</text>
+  <text x="272" y="482" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Students</text>
+  <text x="272" y="502" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
+  <rect x="416" y="412" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="428" y="438" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Transport plan</text>
+  <text x="428" y="482" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Business</text>
+  <text x="428" y="502" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
+  <rect x="572" y="412" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="584" y="438" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Staff rota</text>
+  <text x="584" y="482" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Business</text>
+  <text x="584" y="502" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
+  <rect x="728" y="412" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="740" y="438" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">How many</text>
+  <text x="740" y="456" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">machines?</text>
+  <text x="740" y="482" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Both</text>
+  <text x="740" y="502" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
+  <!-- Recent projects (GET /v1/projects) -->
+  <rect x="912" y="96" width="344" height="680" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="928" y="128" font-family="sans-serif" font-size="20" font-weight="600" fill="#1B1F24" text-anchor="start">Recent projects</text>
+  <rect x="928" y="148" width="312" height="48" rx="4" fill="#EEF0F3" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="940" y="169" font-family="sans-serif" font-size="14" font-weight="600" fill="#1B1F24" text-anchor="start">Coffee shop</text>
+  <text x="940" y="187" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Edited today</text>
+  <rect x="928" y="204" width="312" height="48" rx="4" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="940" y="225" font-family="sans-serif" font-size="14" font-weight="600" fill="#1B1F24" text-anchor="start">Three-machine line</text>
+  <text x="940" y="243" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Edited yesterday · run in progress</text>
+  <rect x="928" y="260" width="312" height="48" rx="4" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="940" y="281" font-family="sans-serif" font-size="14" font-weight="600" fill="#1B1F24" text-anchor="start">Packing study</text>
+  <text x="940" y="299" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Edited 3 Nov</text>
+  <text x="928" y="340" font-family="sans-serif" font-size="14" font-weight="400" fill="#1D5BBF" text-anchor="start">New empty project</text>
+  <text x="928" y="368" font-family="sans-serif" font-size="14" font-weight="400" fill="#1D5BBF" text-anchor="start">Open a project folder</text>
+  <text x="104" y="560" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Template minutes come from each template.json (spec 4); the ten templates are named in spec 4 but not written yet.</text>
+</svg>

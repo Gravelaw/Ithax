@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="title desc">
+  <title id="title">Wireframe 03: Data</title>
+  <desc id="desc">Data screen. Imported files on the left with an Import button. In the centre, the selected file's columns with types and a preview. On the right, the distribution fit for the chosen column: candidates with fitted fields and fit score, and a Use for picker that sets a block setting. Values are examples.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5F6773"/>
+    </marker>
+    <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#C3C8D0"/>
+    </pattern>
+  </defs>
+  <rect x="0" y="0" width="1280" height="800" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1"/>
+  <!-- Navigation rail: the seven screens of spec 3 -->
+  <rect x="0" y="0" width="72" height="800" rx="0" fill="#EEF0F3" stroke="none" stroke-width="1"/>
+  <line x1="72" y1="0" x2="72" y2="800" stroke="#D4D8DE" stroke-width="1"/>
+  <rect x="26" y="64" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="102" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Home</text>
+  <rect x="26" y="128" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="166" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Canvas</text>
+  <rect x="0" y="184" width="72" height="56" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1"/>
+  <rect x="0" y="184" width="3" height="56" rx="0" fill="#1D5BBF" stroke="none" stroke-width="1"/>
+  <rect x="26" y="192" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="230" font-family="sans-serif" font-size="12" font-weight="600" fill="#1B1F24" text-anchor="middle">Data</text>
+  <rect x="26" y="256" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="294" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Experiment</text>
+  <rect x="26" y="320" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="358" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Run monitor</text>
+  <rect x="26" y="384" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="422" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Results</text>
+  <rect x="26" y="448" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="486" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Settings</text>
+  <!-- Top bar: project, save state, undo/redo, experiment, Run with its reason -->
+  <rect x="72" y="0" width="1208" height="48" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1"/>
+  <line x1="72" y1="48" x2="1280" y2="48" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="92" y="30" font-family="sans-serif" font-size="16" font-weight="600" fill="#1B1F24" text-anchor="start">Coffee shop</text>
+  <circle cx="262" cy="25" r="5" fill="#1B7332" stroke="none" stroke-width="1"/>
+  <text x="274" y="30" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B7332" text-anchor="start">Saved</text>
+  <rect x="360" y="10" width="64" height="28" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <text x="392" y="29" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="middle">Undo</text>
+  <rect x="432" y="10" width="64" height="28" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <text x="464" y="29" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="middle">Redo</text>
+  <text x="796" y="30" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Experiment</text>
+  <rect x="866" y="10" width="120" height="28" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <text x="876" y="29" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">base</text>
+  <text x="974" y="29" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">v</text>
+  <rect x="1000" y="8" width="80" height="32" rx="4" fill="#1D5BBF" stroke="none" stroke-width="1"/>
+  <text x="1040" y="29" font-family="sans-serif" font-size="14" font-weight="600" fill="#FFFFFF" text-anchor="middle">Run</text>
+  <rect x="72" y="48" width="240" height="752" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1"/>
+  <line x1="312" y1="48" x2="312" y2="800" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="88" y="80" font-family="sans-serif" font-size="16" font-weight="600" fill="#1B1F24" text-anchor="start">Files</text>
+  <rect x="88" y="96" width="208" height="32" rx="4" fill="#1D5BBF" stroke="none" stroke-width="1"/>
+  <text x="192.0" y="117.0" font-family="sans-serif" font-size="14" font-weight="600" fill="#FFFFFF" text-anchor="middle">Import CSV or Excel</text>
+  <rect x="88" y="140" width="208" height="48" rx="4" fill="#EEF0F3" stroke="#D4D8DE" stroke-width="1"/>
+  <rect x="88" y="140" width="3" height="48" rx="0" fill="#1D5BBF" stroke="none" stroke-width="1"/>
+  <text x="100" y="161" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">arrivals_march.csv</text>
+  <text x="100" y="179" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">2 columns · 1,204 rows</text>
+  <rect x="88" y="196" width="208" height="48" rx="4" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="100" y="217" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">service_log.xlsx</text>
+  <text x="100" y="235" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">3 columns · 410 rows</text>
+  <text x="88" y="280" font-family="sans-serif" font-size="13" font-weight="400" fill="#1D5BBF" text-anchor="start">Remove file</text>
+  <text x="328" y="80" font-family="monospace" font-size="20" font-weight="600" fill="#1B1F24" text-anchor="start">arrivals_march.csv</text>
+  <text x="328" y="104" font-family="sans-serif" font-size="16" font-weight="600" fill="#1B1F24" text-anchor="start">Columns</text>
+  <rect x="328" y="116" width="456" height="32" rx="0" fill="#EEF0F3" stroke="none" stroke-width="1"/>
+  <text x="340" y="137" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Column</text>
+  <text x="500" y="137" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Type and unit</text>
+  <text x="680" y="137" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Select</text>
+  <rect x="328" y="148" width="456" height="32" rx="0" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="340" y="169" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">time</text>
+  <text x="500" y="169" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">time of day</text>
+  <circle cx="690" cy="164" r="7" fill="#FFFFFF" stroke="#6E7682" stroke-width="2"/>
+  <rect x="328" y="180" width="456" height="32" rx="0" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="340" y="201" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">gap_min</text>
+  <text x="500" y="201" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">number, minutes</text>
+  <circle cx="690" cy="196" r="7" fill="#FFFFFF" stroke="#6E7682" stroke-width="2"/>
+  <circle cx="690" cy="196" r="4" fill="#1D5BBF" stroke="none" stroke-width="1"/>
+  <text x="328" y="248" font-family="sans-serif" font-size="16" font-weight="600" fill="#1B1F24" text-anchor="start">Preview (first rows)</text>
+  <rect x="328" y="260" width="456" height="32" rx="0" fill="#EEF0F3" stroke="none" stroke-width="1"/>
+  <text x="340" y="281" font-family="monospace" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">time</text>
+  <text x="500" y="281" font-family="monospace" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">gap_min</text>
+  <rect x="328" y="292" width="456" height="30" rx="0" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="340" y="312" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">08:00:12</text>
+  <text x="500" y="312" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">1.8</text>
+  <rect x="328" y="322" width="456" height="30" rx="0" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="340" y="342" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">08:02:40</text>
+  <text x="500" y="342" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">2.5</text>
+  <rect x="328" y="352" width="456" height="30" rx="0" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="340" y="372" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">08:03:05</text>
+  <text x="500" y="372" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">0.4</text>
+  <rect x="328" y="382" width="456" height="30" rx="0" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="340" y="402" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">08:06:51</text>
+  <text x="500" y="402" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">3.8</text>
+  <rect x="328" y="412" width="456" height="30" rx="0" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="340" y="432" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">08:07:30</text>
+  <text x="500" y="432" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">0.7</text>
+  <!-- Fit panel: POST /data/{file}/fit {column} -->
+  <rect x="800" y="64" width="456" height="712" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="816" y="96" font-family="sans-serif" font-size="20" font-weight="600" fill="#1B1F24" text-anchor="start">Fit a distribution to gap_min</text>
+  <rect x="816" y="112" width="160" height="32" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <text x="896.0" y="133.0" font-family="sans-serif" font-size="14" font-weight="400" fill="#1B1F24" text-anchor="middle">Fit distribution</text>
+  <rect x="816" y="160" width="424" height="32" rx="0" fill="#EEF0F3" stroke="none" stroke-width="1"/>
+  <text x="828" y="181" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Distribution</text>
+  <text x="968" y="181" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Fitted fields</text>
+  <text x="1150" y="181" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Fit score</text>
+  <rect x="816" y="192" width="424" height="36" rx="0" fill="#EEF0F3" stroke="#D4D8DE" stroke-width="1"/>
+  <rect x="816" y="192" width="3" height="36" rx="0" fill="#1D5BBF" stroke="none" stroke-width="1"/>
+  <text x="828" y="215" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">exponential</text>
+  <text x="968" y="215" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">mean 2.0 min</text>
+  <text x="1150" y="215" font-family="sans-serif" font-size="13" font-weight="400" fill="#4F5866" text-anchor="start">{score} (best)</text>
+  <rect x="816" y="228" width="424" height="36" rx="0" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="828" y="251" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">weibull</text>
+  <text x="968" y="251" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">shape 1.1, scale 2.1 min</text>
+  <text x="1150" y="251" font-family="sans-serif" font-size="13" font-weight="400" fill="#4F5866" text-anchor="start">{score}</text>
+  <rect x="816" y="264" width="424" height="36" rx="0" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="828" y="287" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">lognormal</text>
+  <text x="968" y="287" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">mean 2.0 min, sd 2.3 min</text>
+  <text x="1150" y="287" font-family="sans-serif" font-size="13" font-weight="400" fill="#4F5866" text-anchor="start">{score}</text>
+  <text x="816" y="330" font-family="sans-serif" font-size="16" font-weight="600" fill="#1B1F24" text-anchor="start">Use for</text>
+  <text x="816" y="352" font-family="sans-serif" font-size="12" font-weight="600" fill="#4F5866" text-anchor="start">Block setting</text>
+  <rect x="816" y="358" width="424" height="30" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <text x="824" y="378" font-family="monospace" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">arrivals · interarrival</text>
+  <circle cx="824" cy="424" r="7" fill="#FFFFFF" stroke="#6E7682" stroke-width="2"/>
+  <circle cx="824" cy="424" r="4" fill="#1D5BBF" stroke="none" stroke-width="1"/>
+  <text x="840" y="429" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">Use the fitted distribution (exponential, mean 2.0 min)</text>
+  <circle cx="824" cy="452" r="7" fill="#FFFFFF" stroke="#6E7682" stroke-width="2"/>
+  <text x="840" y="457" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">Use the data as it is (empirical, from this column)</text>
+  <rect x="816" y="480" width="160" height="32" rx="4" fill="#1D5BBF" stroke="none" stroke-width="1"/>
+  <text x="896.0" y="501.0" font-family="sans-serif" font-size="14" font-weight="600" fill="#FFFFFF" text-anchor="middle">Apply</text>
+  <text x="992" y="501" font-family="sans-serif" font-size="13" font-weight="400" fill="#1D5BBF" text-anchor="start">Go to the canvas</text>
+  <text x="816" y="560" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Candidates come from the spec 1 distribution list; the fit</text>
+  <text x="816" y="578" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">library and score are chosen at M6. Values are examples.</text>
+</svg>

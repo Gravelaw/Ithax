@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="title desc">
+  <title id="title">Wireframe 02b: Build mode form</title>
+  <desc id="desc">The fixed Build mode form of spec 4. Step 1 asks what the user wants to find out, with six answers and the template each opens; the optimization answer asks a second question. Step 2 asks whether the user has data. A project name field and Continue.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5F6773"/>
+    </marker>
+    <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#C3C8D0"/>
+    </pattern>
+  </defs>
+  <rect x="0" y="0" width="1280" height="800" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1"/>
+  <!-- Navigation rail: the seven screens of spec 3 -->
+  <rect x="0" y="0" width="72" height="800" rx="0" fill="#EEF0F3" stroke="none" stroke-width="1"/>
+  <line x1="72" y1="0" x2="72" y2="800" stroke="#D4D8DE" stroke-width="1"/>
+  <rect x="0" y="56" width="72" height="56" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1"/>
+  <rect x="0" y="56" width="3" height="56" rx="0" fill="#1D5BBF" stroke="none" stroke-width="1"/>
+  <rect x="26" y="64" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="102" font-family="sans-serif" font-size="12" font-weight="600" fill="#1B1F24" text-anchor="middle">Home</text>
+  <rect x="26" y="128" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="166" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Canvas</text>
+  <rect x="26" y="192" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="230" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Data</text>
+  <rect x="26" y="256" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="294" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Experiment</text>
+  <rect x="26" y="320" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="358" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Run monitor</text>
+  <rect x="26" y="384" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="422" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Results</text>
+  <rect x="26" y="448" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
+  <text x="36" y="486" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Settings</text>
+  <!-- Top bar: project, save state, undo/redo, experiment, Run with its reason -->
+  <rect x="72" y="0" width="1208" height="48" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1"/>
+  <line x1="72" y1="48" x2="1280" y2="48" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="92" y="30" font-family="sans-serif" font-size="16" font-weight="600" fill="#1B1F24" text-anchor="start">Build a model</text>
+  <text x="104" y="96" font-family="sans-serif" font-size="24" font-weight="600" fill="#1B1F24" text-anchor="start">Step 1 of 2: What do you want to find out?</text>
+  <rect x="104" y="120" width="600" height="40" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <circle cx="124" cy="140" r="7" fill="#FFFFFF" stroke="#6E7682" stroke-width="2"/>
+  <text x="142" y="145" font-family="sans-serif" font-size="14" font-weight="400" fill="#1B1F24" text-anchor="start">How long will people or items wait?</text>
+  <text x="688" y="145" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="end">Coffee shop queue</text>
+  <rect x="104" y="168" width="600" height="40" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <circle cx="124" cy="188" r="7" fill="#FFFFFF" stroke="#6E7682" stroke-width="2"/>
+  <text x="142" y="193" font-family="sans-serif" font-size="14" font-weight="400" fill="#1B1F24" text-anchor="start">Where is the bottleneck?</text>
+  <text x="688" y="193" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="end">Three-machine production line</text>
+  <rect x="104" y="216" width="600" height="40" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <circle cx="124" cy="236" r="7" fill="#FFFFFF" stroke="#6E7682" stroke-width="2"/>
+  <text x="142" y="241" font-family="sans-serif" font-size="14" font-weight="400" fill="#1B1F24" text-anchor="start">How much does downtime cost?</text>
+  <text x="688" y="241" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="end">Machine breakdowns</text>
+  <rect x="104" y="264" width="600" height="40" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <circle cx="124" cy="284" r="7" fill="#FFFFFF" stroke="#6E7682" stroke-width="2"/>
+  <text x="142" y="289" font-family="sans-serif" font-size="14" font-weight="400" fill="#1B1F24" text-anchor="start">How many staff or machines do I need?</text>
+  <text x="688" y="289" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="end">How many machines?</text>
+  <rect x="104" y="312" width="600" height="40" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <circle cx="124" cy="332" r="7" fill="#FFFFFF" stroke="#6E7682" stroke-width="2"/>
+  <text x="142" y="337" font-family="sans-serif" font-size="14" font-weight="400" fill="#1B1F24" text-anchor="start">How much stock should I hold?</text>
+  <text x="688" y="337" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="end">Inventory reorder point</text>
+  <rect x="104" y="360" width="600" height="40" rx="4" fill="#EEF0F3" stroke="#1D5BBF" stroke-width="2"/>
+  <circle cx="124" cy="380" r="7" fill="#FFFFFF" stroke="#6E7682" stroke-width="2"/>
+  <circle cx="124" cy="380" r="4" fill="#1D5BBF" stroke="none" stroke-width="1"/>
+  <text x="142" y="385" font-family="sans-serif" font-size="14" font-weight="400" fill="#1B1F24" text-anchor="start">What mix, plan or rota is best?</text>
+  <text x="688" y="385" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="end">Asks one more question</text>
+  <text x="104" y="432" font-family="sans-serif" font-size="16" font-weight="600" fill="#1B1F24" text-anchor="start">Which of these?</text>
+  <rect x="104" y="444" width="600" height="36" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <circle cx="124" cy="462" r="7" fill="#FFFFFF" stroke="#6E7682" stroke-width="2"/>
+  <circle cx="124" cy="462" r="4" fill="#1D5BBF" stroke="none" stroke-width="1"/>
+  <text x="142" y="467" font-family="sans-serif" font-size="14" font-weight="400" fill="#1B1F24" text-anchor="start">A product mix</text>
+  <text x="688" y="467" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="end">Product mix</text>
+  <rect x="104" y="488" width="600" height="36" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <circle cx="124" cy="506" r="7" fill="#FFFFFF" stroke="#6E7682" stroke-width="2"/>
+  <text x="142" y="511" font-family="sans-serif" font-size="14" font-weight="400" fill="#1B1F24" text-anchor="start">A transport plan</text>
+  <text x="688" y="511" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="end">Transport plan</text>
+  <rect x="104" y="532" width="600" height="36" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <circle cx="124" cy="550" r="7" fill="#FFFFFF" stroke="#6E7682" stroke-width="2"/>
+  <text x="142" y="555" font-family="sans-serif" font-size="14" font-weight="400" fill="#1B1F24" text-anchor="start">A staff rota</text>
+  <text x="688" y="555" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="end">Staff rota</text>
+  <!-- Step 2 shown on the same page once step 1 is answered -->
+  <rect x="760" y="96" width="496" height="420" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
+  <text x="780" y="132" font-family="sans-serif" font-size="20" font-weight="600" fill="#1B1F24" text-anchor="start">Step 2 of 2: Do you have data?</text>
+  <rect x="780" y="152" width="456" height="52" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <circle cx="800" cy="178" r="7" fill="#FFFFFF" stroke="#6E7682" stroke-width="2"/>
+  <text x="818" y="175" font-family="sans-serif" font-size="14" font-weight="600" fill="#1B1F24" text-anchor="start">Yes, import a file</text>
+  <text x="818" y="193" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Opens the Data screen (CSV or Excel)</text>
+  <rect x="780" y="216" width="456" height="52" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <circle cx="800" cy="242" r="7" fill="#FFFFFF" stroke="#6E7682" stroke-width="2"/>
+  <circle cx="800" cy="242" r="4" fill="#1D5BBF" stroke="none" stroke-width="1"/>
+  <text x="818" y="239" font-family="sans-serif" font-size="14" font-weight="600" fill="#1B1F24" text-anchor="start">No, I will estimate</text>
+  <text x="818" y="257" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Opens the canvas with the parameters</text>
+  <text x="780" y="310" font-family="sans-serif" font-size="12" font-weight="600" fill="#4F5866" text-anchor="start">Project name</text>
+  <rect x="780" y="316" width="456" height="30" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <text x="788" y="336" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">Product mix</text>
+  <rect x="780" y="380" width="120" height="32" rx="4" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
+  <text x="840.0" y="401.0" font-family="sans-serif" font-size="14" font-weight="400" fill="#1B1F24" text-anchor="middle">Back</text>
+  <rect x="1116" y="380" width="120" height="32" rx="4" fill="#1D5BBF" stroke="none" stroke-width="1"/>
+  <text x="1176.0" y="401.0" font-family="sans-serif" font-size="14" font-weight="600" fill="#FFFFFF" text-anchor="middle">Continue</text>
+  <text x="780" y="450" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Build mode never requires a data file (spec 4).</text>
+</svg>
