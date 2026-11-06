@@ -923,3 +923,24 @@ The owner's walkthrough with a student and a business user, or its fallback (spe
 - **Alternatives considered:** Editing the known-gaps row in the guide to say "closed": the guide is copied verbatim into `CLAUDE.md` and is the owner's text; M1 closed its row the same way, through DECISIONS.
 - **Spec sections updated:** spec 1 and spec 2 version lines and "Changes in this version" (bumped to 0.5); the overview's "What is here" version sentence.
 - **Dependencies added:** none beyond scipy (previous entry). Every dependency added during M2 is recorded with its licence: `numpy>=2.4.6` (AKS-96), `pyarrow>=26.0.1` (AKS-97), `simpy>=4.1.2` (AKS-98), all citing "Libraries for M2, confirmed from their licence files", and `scipy>=1.17.1` (dev, AKS-101). Installed on 2026-11-06: numpy 2.5.4, pyarrow 26.0.1, simpy 4.1.2, scipy 1.18.1 on Python 3.13.18; numpy 2.4.6, pyarrow 26.0.1, simpy 4.1.2, scipy 1.17.1 on 3.11.18.
+
+## 2026-11-06 · M3
+
+### Warm-up check kept and made precise (AKS-129)
+
+- **Decision:** spec 2's paired-halves warm-up check stays, with its 99% level and 5% threshold, in preference to MSER-5 and Welch's method (`docs/research/spec-2-output-analysis.md`). Spec 2 "Statistic definitions" now states it precisely for the experiment manager (AKS-102). Simplest readings of the proposal, each marked owner to confirm in spec 2:
+  - It reads the `timeseries` samples as they are (a sample mean), not a time-weighted integral of the path, and the observed samples are those with `time_s` at or after `warmup`, the boundary every other statistic uses.
+  - The halves are by sample count: the first and last ⌊J/2⌋ of the J observed samples, the middle one dropped when J is odd; a metric with J < 2 is skipped.
+  - The "mean" in the 5% threshold is the mean over replications of each replication's mean of all J observed samples; both comparisons are strict, so a constant series never fires.
+  - The level is 99% whatever the experiment's `confidence` (the proposal fixed 99%; `confidence` sets the reported intervals).
+  - One W210 per run, not one per metric, listing each changed metric with its scenario and the change as a whole percentage of its mean, `component` null, `path` `/experiments/<index>/warmup`, hint "Lengthen 'warmup' and run again.". One issue keeps `summary.json` short when several series drift together (a server's queue length and `model.wip` move as one), and matches spec 4's one `not_enough_runs` finding per run.
+  - Only a plain experiment is checked; a search's candidates are decided at M5, where the search layout is built.
+- **Reason:** guide rules 3, 5, 6 and 7; spec 2 "Research before building" (M3) and the warm-up bullet's "may replace it with MSER-5 or Welch and must say why". The check tests the question W210 asks with a false-alarm rate set by its level, since replications are independent; MSER-5 estimates a truncation point with no significance level and, on M2 output, returned non-zero points on the shipped warehouse and three-machine line; Welch's method needs a person to read a plot. Tested on the M2 adapter (the note's "Tested"): the coffee shop is silent at seed 12345 and at 40 of 40 other seeds; a slowly filling model with no warm-up fires at every seed; at 99% the shipped warehouse fires at 0 of 40 seeds and the line at 2 of 40 (utilization changes of 5.6% and 7.0% at seeds 33 and 24, false alarms on a stationary station).
+- **Alternatives considered:**
+  - MSER-5 as the trigger (fire when its truncation point exceeds the warm-up, or exceeds a fraction of the series): no published threshold; noisy on the shipped examples.
+  - Welch's method: graphical, not automatable.
+  - The same check at 95%: it fires more often on a server at utilization 0.95 with no warm-up over 20 h (33 of 40 seeds against 24 of 40 at 99%), but also on 2 to 4 of 40 correct runs of each shipped example.
+  - One W210 per metric: more precise but repetitive; the message lists the metrics instead.
+- **Known limit:** the check fires only on bias the 30 replications can tell apart from their noise. A single server at utilization 0.95 with no warm-up fires at 24 of 40 seeds over 20 h (not at seed 12345) and at 0 of 40 over 200 h, where a 50 h warm-up leaves the estimate unchanged, so the shortfall there is imprecision rather than warm-up; spec 4's `not_enough_runs` fires on the server's wait in both (half-width 32.5% and 11.8% of the mean). Recorded in the note; the 99% level and 5% threshold are revisited with the finding thresholds at M8 and M10.
+- **Spec sections updated:** spec 2 "Statistic definitions" (the warm-up bullet) and "Changes in this version" › "Since version 0.5". Spec 1's W210 row ("Results were still changing after warm-up; lengthen `warmup`") still fits and is unchanged.
+- **Dependencies added:** none.
