@@ -117,7 +117,7 @@ Notes on the rows:
 
 ### Model edits
 
-An edit is rejected only when it cannot be applied: unknown or duplicate component id, unknown type, unknown parameter or experiment, a `path` whose parent does not exist. Rejections are issue objects with code E180 and `path` `/edits/<n>`; the batch is then not applied and the response is 400. A batch that applies is saved even if validation then reports errors; the response is 200 with the model, its revision and the issues. `PUT .../model` follows the same principle: the file is saved when it passes the schema pass, and the response carries the meaning-pass issues; a schema failure (E100, E101) returns 400 with those issues and saves nothing. 422 is returned only by `POST .../runs`. The interface and the MCP server both use this one mechanism.
+An edit is rejected only when it cannot be applied: unknown or duplicate component id, unknown type, an unknown parameter or experiment named by `remove_parameter`, `remove_experiment`, `set_scenario` or `remove_scenario`, a new parameter without `value` and `type`, a `path` whose parent does not exist. Rejections are issue objects with code E180 and `path` `/edits/<n>`; the batch is then not applied and the response is 400. A batch that applies is saved even if validation then reports errors; the response is 200 with the model, its revision and the issues. `PUT .../model` follows the same principle: the file is saved when it passes the schema pass, and the response carries the meaning-pass issues; a schema failure (E100, E101) returns 400 with those issues and saves nothing. 422 is returned only by `POST .../runs`. The interface and the MCP server both use this one mechanism.
 
 | Edit | Fields |
 | --- | --- |
@@ -127,9 +127,9 @@ An edit is rejected only when it cannot be applied: unknown or duplicate compone
 | `set_setting` | `id`, `path`, `value`; `path` is a JSON Pointer relative to the component's `params`, for example `/service/mean`; the last segment may be new, every earlier one must exist |
 | `connect` | `from`, `to`; if `from` is already connected, the old connection is replaced |
 | `disconnect` | `from` |
-| `set_parameter` | `id` and any of `value`, `type`, `min`, `max` |
+| `set_parameter` | `id` and any of `value`, `type`, `min`, `max`; a new `id` creates the parameter and then needs `value` and `type` |
 | `remove_parameter` | `id`; E180 if referenced |
-| `set_experiment` | `id` and any experiment fields |
+| `set_experiment` | `id` and any experiment fields; a new `id` creates the experiment, and fields not given take the values of the `base` experiment of a new project (`length` 8 h, `warmup` 0 s, `replications` 30) |
 | `remove_experiment` | `id` |
 | `set_scenario` | `experiment_id`, `id`, `set` |
 | `remove_scenario` | `experiment_id`, `id` |
@@ -253,3 +253,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - C22 (ARCH-5, ARCH-12, ARCH-6, ARCH-17, PRD-12, PRD-11, PRD-13, PRD-7): scenario in events, reconnect semantics, `project.json` fields, external edits, results footer.
 - C23 (TEST-9, PRD-10, TEST-1, TEST-8, TEST-12, PRD-2): version line, design checklist split with owner fallback, research items tagged, acceptance table.
 - Verifier follow-up: the M9 end-to-end test uses the spec 2 pass rule (3 × standard error at a fixed seed).
+- 2026-11-06, review of PR #1: `set_parameter` and `set_experiment` create the parameter or experiment when `id` is new, so a project started without a template can gain parameters and experiments through edits (and so through the MCP `edit_model` tool).
