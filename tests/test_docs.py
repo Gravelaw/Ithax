@@ -49,15 +49,6 @@ def test_spec_1_lists_validation_issue_codes() -> None:
 # Design: docs/DECISIONS.md, 2026-11-06 · M1, "Issue objects, JSON Schema and the schema
 # pass (AKS-87)".
 FIXTURE_PENDING: dict[str, str] = {
-    "E110": "AKS-89",
-    "E111": "AKS-89",
-    "E112": "AKS-89",
-    "E124": "AKS-89",
-    "E125": "AKS-89",
-    "E130": "AKS-89",
-    "E131": "AKS-89",
-    "E132": "AKS-89",
-    "E161": "AKS-89",
     "E140": "AKS-90",
     "E141": "AKS-90",
     "E150": "AKS-90",
@@ -89,7 +80,7 @@ def test_every_validation_issue_code_has_a_fixture(code: str, issue_pass: str) -
 def test_pending_fixture_codes_are_spec_1_schema_or_meaning_codes() -> None:
     codes = {code for code, _ in spec_1_issue_codes()}
     assert set(FIXTURE_PENDING) <= codes
-    assert set(FIXTURE_PENDING.values()) <= {"AKS-89", "AKS-90", "AKS-91"}
+    assert set(FIXTURE_PENDING.values()) <= {"AKS-90", "AKS-91"}
 
 
 def registered_markers() -> set[str]:

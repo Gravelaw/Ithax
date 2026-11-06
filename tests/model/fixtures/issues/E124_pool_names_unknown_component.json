@@ -1,0 +1,69 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Coffee shop"
+  },
+  "domain": "process",
+  "parameters": {
+    "tills": {
+      "value": 1,
+      "type": "integer",
+      "min": 1,
+      "max": 5
+    }
+  },
+  "components": [
+    {
+      "id": "arrivals",
+      "type": "source",
+      "params": {
+        "interarrival": {
+          "dist": "exponential",
+          "mean": "2 min"
+        }
+      }
+    },
+    {
+      "id": "till",
+      "type": "server",
+      "params": {
+        "capacity": {
+          "$param": "tills"
+        },
+        "service": {
+          "dist": "exponential",
+          "mean": "1.5 min"
+        },
+        "pool": "staff"
+      }
+    },
+    {
+      "id": "exit",
+      "type": "sink",
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": "arrivals.out",
+      "to": "till.in"
+    },
+    {
+      "from": "till.out",
+      "to": "exit.in"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "base",
+      "length": "200 h",
+      "warmup": "10 h",
+      "replications": 30,
+      "seed": 12345
+    }
+  ],
+  "run": {
+    "target": "local",
+    "fidelity": "standard"
+  }
+}
