@@ -1015,3 +1015,63 @@ The owner's walkthrough with a student and a business user, or its fallback (spe
   - Also covered: a failure while writing the results (a table spec 1 does not name) is E190.
 - **Spec sections updated:** spec 1 "Run targets" (the worker entry point), "Run folder and results" (the job-state moves and "How the `local` target runs a run"; the `warnings` bullet; after review, the cancel bullet and a new "Watching and stopping the worker" bullet) and "Changes in this version" › "Since version 0.5".
 - **Dependencies added:** none (standard library only: `multiprocessing`, `secrets`, `fcntl`/`msvcrt`, `mmap`, `socket`).
+
+### Identical repeat runs and cross-process reproducibility (AKS-104)
+
+- **Decision:**
+  - **The repeat test.** `tests/runs/test_repeat.py` runs the coffee shop (20 h after 2 h of warm-up, 3 replications, two scenarios so that `differences` is filled, written with an indent of 3 so that `model.json` is checked as the file's bytes) twice at seed 12345 on the local target, each `execute` in its own spawned worker, and finds them identical as spec 1 defines it: the `summary.json` metrics equal as parsed JSON (exact float equality; the whole summary, `differences`, `warnings` and `fidelity_label` included, is equal too), both tables equal row for row, `model.json` byte-equal and equal to the file given, and the manifests differing only in fields of `run_id`, `created`, `started`, `ended`, `host` (here `run_id`, `created`, `started` and `ended`). A third run with `workers=2` is identical to the first. A run at seed 12346 has the same table schemas and row counts but other values, other metrics, another `model.json` and another manifest `seed`, so the comparison is not vacuous.
+  - **How tables are compared (rule 5, owner to confirm).** As Arrow tables read from `tables/`, not as file bytes (the council dropped byte-identical Parquet as a property of the writer). pyarrow 26.0.1's `Table.equals` returns `False` for two tables holding NaN in the same cell (tested), and a `replications` table holds NaN for a mean over no items (AKS-98), so `tests/runs/run_comparison.py` compares the schemas (names, types, order) and then every row, each float cell by `float.hex`: equal to the last bit, NaN equal to NaN in the same place, 0.0 apart from −0.0. A second model (customers every 20 h on average, 3 h with 1 h of warm-up, 4 replications) puts NaN in `till.wait.mean`; its two runs are identical by this rule while `Table.equals` says they differ. Spec 1 "Identical runs" now states the rule.
+  - **The cross-process test.** `tests/runs/test_cross_process.py` prepares two run folders from the same file (6 replications of 50 h, two scenarios) and starts `python -m lcsim.runs.worker` twice at the same time as separate operating-system processes, with `--workers 1` and `--workers 2`, from different working directories and with `PYTHONHASHSEED` 1 and 2 (spec 1 forbids the salted `hash()`). Their `replications` tables are equal row for row, their `timeseries` tables too, and both equal the `tables/replications.parquet` of a run made through `LocalTarget.execute`. Spec 1 "Identical runs" now says the results do not depend on `workers` or on which process runs a replication (spec 1 "Division of labour" already said so for `workers`).
+  - **No product code changed.** Both tests passed on their first run against the AKS-103 build (guide rule 4: the tests were written first; nothing failed, so nothing was implemented). Five further runs of both files passed, as did both Python versions in `bash scripts/check.sh`.
+- **Reason:** spec 1 "Identical runs", "Random streams" and the two M3 acceptance rows; guide M3 "Done when" ("a repeat with the same seed is identical as spec 1 defines, also across processes"); the AKS-104 acceptance list and Agent notes.
+- **Alternatives considered:**
+  - `Table.equals` alone: wrong for NaN cells, which spec 1 requires to be written.
+  - Replacing NaN with a sentinel before `Table.equals`: a sentinel could collide with a real value.
+  - Comparing the Parquet bytes: dropped by the council; the writer may change its bytes between versions without the rows changing.
+  - Comparing floats with `==`: treats 0.0 and −0.0 as equal, which "full precision" does not need to allow.
+  - The cross-process row through two `LocalTarget.execute` calls only: each is a separate spawned process, but both are children of one interpreter with one hash seed; the standalone worker shows the result with nothing shared.
+- **Spec sections updated:** spec 1 "Identical runs" (how tables are compared; results independent of `workers` and of the process), the acceptance table's Evidence for the cross-process row, and a dated line under "Changes in this version".
+- **Dependencies added:** none.
+
+### Performance measured at M3 (AKS-104)
+
+- **Decision:**
+  - Spec 2's row "A 30-replication run of the three-machine line finishes in under one minute" is **measured**, not confirmed. `tests/perf/test_three_machine_line.py` (marker `perf`, already registered in `pyproject.toml` and excluded from `check.sh` by `addopts`) runs `examples/three_machine_line.json` unchanged (30 replications of 100 h after 20 h of warm-up, seed 12345) through `LocalTarget.create` and `execute`, and records the measurements, which `tests/perf/conftest.py` prints at the end of the session. With `source .venv/bin/activate && taskset -c 0-3 pytest -m perf` it took 1.52, 1.64 and 1.55 s on Python 3.13.18 and 1.68, 1.79 and 1.58 s on 3.11.18, with 4 workers; 2.65 s under `taskset -c 0` with 1 worker. Peak resident memory: about 219 MiB for the driving pytest process (`RUSAGE_SELF`), 151 to 154 MiB for the largest finished child, the run's worker (`RUSAGE_CHILDREN`), and 549 to 560 MiB for the whole process tree at once (sampled from `/proc` every 0.1 s). Machine: a cloud container with 4 CPUs (Intel Xeon at 2.10 GHz), `os.cpu_count()` 4, affinity set 4 under the protocol, 15.71 GiB of memory. Details and library versions are in `docs/research/perf-M3.md`.
+  - **Not the low tier.** This container is not the owner's machine and is not capped to 8 GB; the guide calls a target "confirmed" only when the owner runs the same command on a machine capped to 4 cores and 8 GB (AKS-82). The margin (about 58 s) and the memory (0.56 GiB of 8 GB) make a miss there unlikely, but that is for the owner to record.
+  - **`workers` for the measurement (rule 5, owner to confirm).** Spec 3 gives a run "`workers` = cores of the active tier", and tiers do not exist before M6. The check uses the cores the process may use (`os.sched_getaffinity`, else `os.cpu_count()`), which is 4 under the protocol's `taskset -c 0-3`, the low tier's core count.
+  - **What is timed.** From `create` to the end of `execute` (loading, validate, the run folder, translate, the spawned worker, collect, the statistics and the Parquet files), since a user waits for all of it.
+  - **The known-gaps row** "Performance targets are proposals" says "Measured at M3, M6, M9; confirmed by the owner before M11". The M3 measurement is recorded here and in the session summary; the guide's table is the owner's text and is not edited, as at M1 and M2.
+  - `tests/perf/` is a package (`__init__.py`), like `tests/benchmarks/`, so that its `conftest.py` does not clash with the bare `conftest` module of `tests/engines/process` under mypy.
+- **Reason:** guide "Performance measurement protocol" and M3 "Done when"; spec 2 acceptance table; spec 3 "Run queue" and "Hardware tiers".
+- **Alternatives considered:**
+  - Timing `execute` alone: leaves out loading and translate, which the user also waits for.
+  - A fixed `workers=4`: on a machine with fewer cores the run would oversubscribe them, and the protocol already fixes the cores with `taskset`.
+  - Printing with `-s`: the protocol's command has no `-s`, so the measurements are printed by a terminal-summary hook instead.
+- **Spec sections updated:** spec 2 acceptance table (Evidence of the perf row) and a dated line under "Changes in this version".
+- **Dependencies added:** none.
+
+### `reference/prototype/` deletion: nothing to delete (AKS-104)
+
+- **Decision:** the guide's "Starting material" deletes `reference/prototype/` at the end of M3 if the prototype was ever supplied. It was not (owner decision 1, AKS-74, still open): `ls reference/prototype` reports no such directory and `git ls-files reference` lists nothing on this branch. The deletion is a no-op, recorded here.
+- **Reason:** guide "Starting material"; the AKS-104 acceptance list.
+- **Alternatives considered:** none.
+- **Spec sections updated:** none.
+- **Dependencies added:** none.
+
+### M3 closed (AKS-104)
+
+- **Decision:**
+  - M3 is closed. Every gate in the guide's M3 "Done when" row and every spec acceptance row tagged M3 passes on the top of the M3 stack (PRs #21, #22 and #24 plus this change). Evidence is in `docs/sessions/2026-11-06-M3.md`:
+    - a run writes the full run folder (`tests/runs/test_local_target.py::test_a_run_writes_the_full_run_folder`, AKS-103);
+    - a repeat with the same seed is identical as spec 1 defines, also across processes (`tests/runs/test_repeat.py`, `tests/runs/test_cross_process.py`);
+    - a dummy adapter passes through all five methods on the local target (`tests/runs/test_dummy_adapter.py`, AKS-103);
+    - `docs/research/perf-M3.md` exists, and the target is measured (previous entries);
+    - `bash scripts/check.sh` exits 0 on Python 3.13.18 and 3.11.18 with 1,687 passed and 6 deselected (5 `benchmark_coverage`, 1 `perf`) and line coverage of `src/lcsim` 100% (3,850 statements); `pytest -m benchmark` passes (5 cases); `tests/test_docs.py` passes.
+  - The M3 research item (spec 2 "Output analysis methods") has its note (AKS-129). The known-gaps row "Performance targets are proposals" has its M3 measurement; no other known-gaps row is assigned to M3. The prototype deletion is a no-op (previous entry).
+  - Spec versions (guide rule 6). M3 closes with changes to spec 1 and spec 2, so both go from 0.5 to 0.6, as M2 did for 0.5: the "Since version 0.5" lines sit under a new heading, "2026-11-06, version 0.6, M3 closed (AKS-104)", and the overview's version sentence follows. Specs 0 and 3 to 7 and the build guide are unchanged by M3 (`git diff d060ded -- docs/specs/` touches only specs 1 and 2) and keep their versions.
+  - `CURRENT_MILESTONE` in `tests/benchmarks/conftest.py` stays `M3`, as set at AKS-102; M4 bumps it when it starts.
+  - `CLAUDE.md` "Current state": M3 is Done, and a row says M4 is ready to start. Only the M3 row and a new M4 row change; the "M9 design before building" row is kept as it is. `tests/test_docs.py` still finds the guide unchanged.
+- **Reason:** guide rules 6, 8, 9 and 10; the guide's "Session procedure", "Definition of done for any change" and M3 row; the AKS-104 acceptance list.
+- **Alternatives considered:** editing the known-gaps row in the guide: it is the owner's verbatim text; M1 and M2 closed their rows through DECISIONS.
+- **Spec sections updated:** spec 1 and spec 2 version lines and "Changes in this version" (bumped to 0.6); the overview's "What is here" version sentence.
+- **Dependencies added:** none during AKS-104. M3 added no new dependency; `scipy>=1.17.1` moved from the dev dependencies to `[project] dependencies` at AKS-102, with its licence row in "Libraries for M2, confirmed from their licence files". Installed on 2026-11-06: numpy 2.5.4, scipy 1.18.1, pyarrow 26.0.1, simpy 4.1.2, pint 0.26.2, jsonschema 4.26.0 on Python 3.13.18; numpy 2.4.6, scipy 1.17.1, pyarrow 26.0.1, simpy 4.1.2, pint 0.25.3, jsonschema 4.26.0 on 3.11.18.
