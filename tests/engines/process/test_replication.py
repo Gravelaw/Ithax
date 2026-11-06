@@ -28,9 +28,9 @@ def never() -> bool:
 
 
 def metrics_of(engine: dict[str, Any], scenario: int = 0, replication: int = 0) -> dict[str, float]:
-    rows = run_replication(engine, scenario, replication, never)
-    assert rows is not None
-    return {metric: value for metric, value, _ in rows}
+    outcome = run_replication(engine, scenario, replication, never)
+    assert outcome is not None
+    return {metric: value for metric, value, _ in outcome.rows}
 
 
 def deterministic(
@@ -46,8 +46,9 @@ def overlap(start: float, stop: float, low: float, high: float) -> float:
 
 
 def test_rows_name_every_metric_in_order_with_its_unit(make_model: ModelMaker) -> None:
-    rows = run_replication(deterministic(make_model, "2 min", "1 min"), 0, 0, never)
-    assert rows is not None
+    outcome = run_replication(deterministic(make_model, "2 min", "1 min"), 0, 0, never)
+    assert outcome is not None
+    rows = outcome.rows
     assert [(metric, unit) for metric, _, unit in rows] == [
         ("arrivals.created", "1"),
         ("arrivals.discarded", "1/s"),

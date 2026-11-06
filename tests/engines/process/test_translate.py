@@ -193,22 +193,52 @@ def test_an_unknown_experiment_is_refused() -> None:
 
 def test_block_types_not_built_yet_are_refused(make_model: ModelMaker) -> None:
     components, connections = line(constant("1 min"), constant("30 s"))
-    components.insert(2, {"id": "walk", "type": "delay", "params": {"time": constant("1 min")}})
-    connections = [("arrivals.out", "till.in"), ("till.out", "walk.in"), ("walk.out", "exit.in")]
-    with pytest.raises(NotImplementedError, match=r"'delay' blocks yet \(component 'walk'\)"):
+    components.insert(2, {"id": "buffer", "type": "queue", "params": {"capacity": 3}})
+    connections = [
+        ("arrivals.out", "till.in"),
+        ("till.out", "buffer.in"),
+        ("buffer.out", "exit.in"),
+    ]
+    with pytest.raises(NotImplementedError, match=r"'queue' blocks yet \(component 'buffer'\).*M4"):
         engine_input(make_model(components, connections), "e")
 
 
-@pytest.mark.parametrize(
-    ("setting", "value", "work"), [("queue_capacity", 2, "AKS-99"), ("pool", "staff", "M4")]
-)
-def test_server_settings_not_built_yet_are_refused(
-    make_model: ModelMaker, setting: str, value: object, work: str
-) -> None:
+def test_the_m2_block_types_and_queue_capacity_translate(make_model: ModelMaker) -> None:
+    """``delay``, ``branch`` and a server's ``queue_capacity`` run since AKS-99."""
     components, connections = line(constant("1 min"), constant("30 s"))
-    components[1]["params"][setting] = value
+    components[1]["params"]["queue_capacity"] = 0
+    components[2:2] = [
+        {"id": "walk", "type": "delay", "params": {"time": constant("1 min")}},
+        {
+            "id": "check",
+            "type": "branch",
+            "params": {"routes": ["a", "b"], "rule": "shortest_queue"},
+        },
+        {"id": "side", "type": "sink", "params": {}},
+    ]
+    connections = [
+        ("arrivals.out", "till.in"),
+        ("till.out", "walk.in"),
+        ("walk.out", "check.in"),
+        ("check.a", "exit.in"),
+        ("check.b", "side.in"),
+    ]
+    settings = {
+        component["id"]: component["settings"]
+        for component in engine_input(make_model(components, connections), "e")["scenarios"][0][
+            "components"
+        ]
+    }
+    assert settings["till"]["queue_capacity"] == 0
+    assert settings["walk"] == {"time": {"dist": "constant", "value": 60.0}}
+    assert settings["check"] == {"routes": ["a", "b"], "rule": "shortest_queue"}
+
+
+def test_a_server_s_pool_is_refused_until_m4(make_model: ModelMaker) -> None:
+    components, connections = line(constant("1 min"), constant("30 s"))
+    components[1]["params"]["pool"] = "staff"
     components.append({"id": "staff", "type": "resource_pool", "params": {"capacity": 1}})
-    with pytest.raises(NotImplementedError, match=rf"'{setting}' setting yet.*{work}"):
+    with pytest.raises(NotImplementedError, match=r"'pool' setting yet.*M4"):
         engine_input(make_model(components, connections), "e")
 
 

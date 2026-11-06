@@ -8,9 +8,8 @@ to equal, and SimPy's licence (MIT) and invocation (imported, ``in-process``; sp
 
 ``translate`` writes ``workdir/input.json`` (``lcsim.engines.process.translate``); ``run``
 runs every scenario and replication from it (``lcsim.engines.process.runner``) and writes
-``workdir/output/replications.parquet`` once all have finished, nothing when cancelled;
-``collect`` reads that table into ``Results``. The ``timeseries`` table is not written
-yet (AKS-99), so ``Results.tables`` holds ``replications`` only.
+``workdir/output/replications.parquet`` and ``workdir/output/timeseries.parquet`` once all
+have finished, nothing when cancelled; ``collect`` reads both tables into ``Results``.
 """
 
 from __future__ import annotations
@@ -24,8 +23,10 @@ import lcsim
 from lcsim.engines.adapter import CancelToken, Capabilities, Progress, Results
 from lcsim.engines.process.runner import (
     REPLICATIONS_SCHEMA,
+    TIMESERIES_SCHEMA,
     replications_table,
     run_all,
+    timeseries_table,
     write_table,
 )
 from lcsim.engines.process.translate import read_input, write_input
@@ -33,10 +34,12 @@ from lcsim.model.catalogue import PROCESS_TYPES
 from lcsim.model.issues import Issue
 from lcsim.model.model import Model
 
-__all__ = ["REPLICATIONS_FILE", "ProcessAdapter"]
+__all__ = ["REPLICATIONS_FILE", "TIMESERIES_FILE", "ProcessAdapter"]
 
 #: Where ``run`` writes the ``replications`` table, relative to ``workdir``.
 REPLICATIONS_FILE = Path("output") / "replications.parquet"
+#: Where ``run`` writes the ``timeseries`` table, relative to ``workdir``.
+TIMESERIES_FILE = Path("output") / "timeseries.parquet"
 
 
 class ProcessAdapter:
@@ -75,16 +78,19 @@ class ProcessAdapter:
         workers: int,
     ) -> None:
         """Runs every scenario and replication with up to ``workers`` processes, then
-        writes the ``replications`` table; writes nothing when ``cancel`` is set."""
+        writes the ``replications`` and ``timeseries`` tables; writes nothing when
+        ``cancel`` is set."""
         engine_input = read_input(workdir)
-        output = workdir / REPLICATIONS_FILE
-        output.unlink(missing_ok=True)
+        for output in (REPLICATIONS_FILE, TIMESERIES_FILE):
+            (workdir / output).unlink(missing_ok=True)
         done = run_all(workdir, engine_input, on_progress, cancel, workers)
         if done is not None:
-            write_table(replications_table(engine_input, done), output)
+            write_table(timeseries_table(engine_input, done), workdir / TIMESERIES_FILE)
+            write_table(replications_table(engine_input, done), workdir / REPLICATIONS_FILE)
 
     def collect(self, workdir: Path) -> Results:
-        """The ``replications`` table ``run`` wrote; ``FileNotFoundError`` when ``run``
-        did not finish."""
-        table = pq.read_table(workdir / REPLICATIONS_FILE, schema=REPLICATIONS_SCHEMA)
-        return Results(tables={"replications": table}, warnings=[])
+        """The ``replications`` and ``timeseries`` tables ``run`` wrote;
+        ``FileNotFoundError`` when ``run`` did not finish."""
+        replications = pq.read_table(workdir / REPLICATIONS_FILE, schema=REPLICATIONS_SCHEMA)
+        timeseries = pq.read_table(workdir / TIMESERIES_FILE, schema=TIMESERIES_SCHEMA)
+        return Results(tables={"replications": replications, "timeseries": timeseries}, warnings=[])

@@ -1,6 +1,6 @@
 """Every scenario and replication of a run, in this process or in worker processes, and the
-``replications`` table they make (spec 1 "Division of labour" and "Tables for the
-``process`` domain").
+``replications`` and ``timeseries`` tables they make (spec 1 "Division of labour" and
+"Tables for the ``process`` domain").
 
 ``run_all`` runs each (scenario, replication) pair once. With ``workers`` 1 it runs them
 one after another in this process; otherwise in up to ``workers`` separately started
@@ -30,17 +30,19 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from lcsim.engines.adapter import CancelToken, Progress, Table
-from lcsim.engines.process.replication import Row, run_replication
+from lcsim.engines.process.replication import Outcome, run_replication
 from lcsim.engines.process.translate import read_input
 
 __all__ = [
     "POLL_SECONDS",
     "REPLICATIONS_SCHEMA",
+    "TIMESERIES_SCHEMA",
     "Task",
     "init_worker",
     "replications_table",
     "run_all",
     "run_task",
+    "timeseries_table",
     "write_table",
 ]
 
@@ -61,6 +63,18 @@ REPLICATIONS_SCHEMA = pa.schema(
     ]
 )
 
+#: Spec 1 "Tables for the ``process`` domain".
+TIMESERIES_SCHEMA = pa.schema(
+    [
+        ("scenario", pa.string()),
+        ("replication", pa.int64()),
+        ("metric", pa.string()),
+        ("time_s", pa.float64()),
+        ("value", pa.float64()),
+        ("unit", pa.string()),
+    ]
+)
+
 # A worker process's engine input and stop event, set by ``init_worker``.
 _worker_input: dict[str, Any] = {}
 _worker_stop: list[ProcessEvent] = []
@@ -73,7 +87,7 @@ def init_worker(workdir: str, stop: ProcessEvent) -> None:
     _worker_stop[:] = [stop]
 
 
-def run_task(scenario: int, replication: int) -> list[Row] | None:
+def run_task(scenario: int, replication: int) -> Outcome | None:
     """Runs one pair in a worker process that ``init_worker`` prepared."""
     return run_replication(_worker_input, scenario, replication, _worker_stop[0].is_set)
 
@@ -91,26 +105,26 @@ def run_all(
     on_progress: Callable[[Progress], None],
     cancel: CancelToken,
     workers: int,
-) -> dict[Task, list[Row]] | None:
-    """The rows of every pair, or ``None`` when ``cancel`` was set."""
+) -> dict[Task, Outcome] | None:
+    """The outcome of every pair, or ``None`` when ``cancel`` was set."""
     if workers < 1:
         raise ValueError(f"workers {workers!r} is below 1")
     scenarios = len(engine_input["scenarios"])
     replications = int(engine_input["experiment"]["replications"])
     tasks = [(scenario, rep) for scenario in range(scenarios) for rep in range(replications)]
-    done: dict[Task, list[Row]] = {}
+    done: dict[Task, Outcome] = {}
 
-    def record(task: Task, rows: list[Row]) -> None:
-        done[task] = rows
+    def record(task: Task, outcome: Outcome) -> None:
+        done[task] = outcome
         fraction = len(done) / len(tasks)
         on_progress(Progress(fraction, _message(task, scenarios, replications)))
 
     if workers == 1:
         for task in tasks:
-            rows = run_replication(engine_input, *task, cancel.is_set)
-            if rows is None or cancel.is_set():
+            outcome = run_replication(engine_input, *task, cancel.is_set)
+            if outcome is None or cancel.is_set():
                 return None
-            record(task, rows)
+            record(task, outcome)
         return done
 
     if cancel.is_set():  # no worker is started for a run cancelled already
@@ -123,7 +137,7 @@ def run_all(
         initializer=init_worker,
         initargs=(str(workdir), stop),
     ) as pool:
-        futures: dict[Future[list[Row] | None], Task] = {
+        futures: dict[Future[Outcome | None], Task] = {
             pool.submit(run_task, *task): task for task in tasks
         }
         pending = set(futures)
@@ -135,24 +149,38 @@ def run_all(
                 return None  # leaving the block waits for the running pairs to stop
             finished, pending = wait(pending, timeout=POLL_SECONDS, return_when=FIRST_COMPLETED)
             for future in sorted(finished, key=futures.__getitem__):
-                rows = future.result()
-                assert rows is not None  # only a set stop event gives None
-                record(futures[future], rows)
+                outcome = future.result()
+                assert outcome is not None  # only a set stop event gives None
+                record(futures[future], outcome)
     return done
 
 
-def replications_table(engine_input: Mapping[str, Any], done: Mapping[Task, list[Row]]) -> Table:
-    """The ``replications`` table, in scenario and replication order."""
-    columns: dict[str, list[Any]] = {name: [] for name in REPLICATIONS_SCHEMA.names}
+def _table(
+    engine_input: Mapping[str, Any],
+    done: Mapping[Task, Outcome],
+    schema: pa.Schema,
+    rows_of: Callable[[Outcome], list[Any]],
+) -> Table:
+    """A table of rows from every pair, each row prefixed with its scenario id and
+    replication, in scenario and replication order."""
+    columns: dict[str, list[Any]] = {name: [] for name in schema.names}
     for task in sorted(done):
         scenario_id = engine_input["scenarios"][task[0]]["id"]
-        for metric, value, unit in done[task]:
-            columns["scenario"].append(scenario_id)
-            columns["replication"].append(task[1])
-            columns["metric"].append(metric)
-            columns["value"].append(value)
-            columns["unit"].append(unit)
-    return pa.table(columns, schema=REPLICATIONS_SCHEMA)
+        for row in rows_of(done[task]):
+            for name, value in zip(schema.names, (scenario_id, task[1], *row), strict=True):
+                columns[name].append(value)
+    return pa.table(columns, schema=schema)
+
+
+def replications_table(engine_input: Mapping[str, Any], done: Mapping[Task, Outcome]) -> Table:
+    """The ``replications`` table, in scenario and replication order."""
+    return _table(engine_input, done, REPLICATIONS_SCHEMA, lambda outcome: outcome.rows)
+
+
+def timeseries_table(engine_input: Mapping[str, Any], done: Mapping[Task, Outcome]) -> Table:
+    """The ``timeseries`` table, in scenario and replication order, then by metric and
+    time."""
+    return _table(engine_input, done, TIMESERIES_SCHEMA, lambda outcome: outcome.series)
 
 
 def write_table(table: Table, path: Path) -> None:

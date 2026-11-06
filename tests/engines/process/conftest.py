@@ -27,6 +27,7 @@ def model_document(
     seed: int = 1,
     scenarios: Sequence[Mapping[str, Any]] | None = None,
     parameters: Mapping[str, Any] | None = None,
+    record_interval: str | None = None,
 ) -> dict[str, Any]:
     experiment: dict[str, Any] = {
         "id": "e",
@@ -35,6 +36,8 @@ def model_document(
         "replications": replications,
         "seed": seed,
     }
+    if record_interval is not None:
+        experiment["record_interval"] = record_interval
     if scenarios is not None:
         experiment["scenarios"] = list(scenarios)
     return {
@@ -99,20 +102,27 @@ def make_context() -> ContextMaker:
 
 
 class Recorder(Block):
-    """A test block: records each item and when it arrived; refuses items when closed."""
+    """A test block: records each item and when it arrived; refuses items when closed, and
+    reports ``queued`` waiting items (AKS-99)."""
 
     def configure(self, settings: Mapping[str, Any]) -> None:
         self.open = bool(settings.get("open", True))
+        self.queued = int(settings.get("queued", 0))
         self.items: list[Item] = []
         self.times: list[float] = []
 
     def accepts(self) -> bool:
         return self.open
 
+    def waiting_items(self) -> int:
+        return self.queued
+
     def receive(self, item: Item) -> None:
         self.items.append(item)
         self.times.append(self.now)
 
 
-def recorder(context: Context, *, open: bool = True) -> Recorder:
-    return Recorder("recorder", {"open": open}, context, generator_for(0, 0, "recorder"))
+def recorder(
+    context: Context, *, open: bool = True, queued: int = 0, name: str = "recorder"
+) -> Recorder:
+    return Recorder(name, {"open": open, "queued": queued}, context, generator_for(0, 0, name))

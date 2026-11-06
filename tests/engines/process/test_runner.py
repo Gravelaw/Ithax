@@ -22,6 +22,7 @@ from lcsim.engines.process.runner import (
     replications_table,
     run_all,
     run_task,
+    timeseries_table,
     write_table,
 )
 from lcsim.engines.process.translate import read_input, write_input
@@ -57,6 +58,7 @@ def test_results_do_not_depend_on_workers(make_model: ModelMaker, tmp_path: Path
     assert serial == parallel
     assert sorted(serial) == [(s, r) for s in range(2) for r in range(3)]
     assert replications_table(engine, serial).equals(replications_table(engine, parallel))
+    assert timeseries_table(engine, serial).equals(timeseries_table(engine, parallel))
 
 
 @pytest.mark.parametrize("workers", [1, 2])
