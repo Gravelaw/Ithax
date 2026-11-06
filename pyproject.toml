@@ -14,6 +14,7 @@ dependencies = [
     "jsonschema>=4.26.0",
     "numpy>=2.4.6",
     "pint>=0.25.3",
+    "pyarrow>=26.0.1",
 ]
 
 [project.optional-dependencies]
@@ -61,3 +62,9 @@ select = ["E", "F", "W", "I", "B", "UP", "ANN", "RUF"]
 python_version = "3.11"
 strict = true
 files = ["src", "tests"]
+
+# pyarrow 26.0.1 ships no type information (no py.typed, no stubs); pyarrow-stubs follows
+# pyarrow 20. Its tables are typed as Any (docs/DECISIONS.md, AKS-97).
+[[tool.mypy.overrides]]
+module = ["pyarrow", "pyarrow.*"]
+ignore_missing_imports = true
