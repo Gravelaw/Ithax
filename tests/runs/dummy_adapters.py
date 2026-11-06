@@ -14,6 +14,9 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
+import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -40,6 +43,7 @@ class DummyAdapter:
         self.calls: list[tuple[str, int]] = []
         self.issues: list[Issue] = []
         self.on_translate: Callable[[], None] | None = None
+        self.on_collect: Callable[[], None] | None = None
 
     def capabilities(self) -> Capabilities:
         self.calls.append(("capabilities", os.getpid()))
@@ -85,6 +89,8 @@ class DummyAdapter:
 
     def collect(self, workdir: Path) -> Results:
         self.calls.append(("collect", os.getpid()))
+        if self.on_collect is not None:
+            self.on_collect()
         values = json.loads((workdir / OUTPUT_FILE).read_text(encoding="utf-8"))
         table = pa.table(
             {
@@ -150,3 +156,37 @@ class CollectFailingAdapter(DummyAdapter):
 
     def collect(self, workdir: Path) -> Results:
         raise KeyError("collect detail 42")
+
+
+GRANDCHILD_RECORD = "grandchild.json"
+
+
+class SpawningStubbornAdapter(DummyAdapter):
+    """Starts a child process of its own (recorded in ``grandchild.json``), then ignores
+    cancel and sleeps for 30 s."""
+
+    def work(
+        self, workdir: Path, on_progress: Callable[[Progress], None], cancel: CancelToken
+    ) -> None:
+        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+        (workdir / GRANDCHILD_RECORD).write_text(json.dumps(child.pid), encoding="utf-8")
+        on_progress(Progress(0.1, "Ignoring cancel"))
+        time.sleep(30)
+
+
+class LingeringAdapter(DummyAdapter):
+    """Returns at once but leaves a non-daemon thread sleeping for 30 s, so its process
+    reports, closes its pipe and then does not end."""
+
+    def work(
+        self, workdir: Path, on_progress: Callable[[Progress], None], cancel: CancelToken
+    ) -> None:
+        threading.Thread(target=time.sleep, args=(30,), daemon=False).start()
+
+
+class BadTablesAdapter(DummyAdapter):
+    """``collect`` returns a table spec 1 does not name, which writing refuses."""
+
+    def collect(self, workdir: Path) -> Results:
+        results = super().collect(workdir)
+        return Results(tables={"bad_table": results.tables["replications"]}, warnings=[])

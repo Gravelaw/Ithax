@@ -17,12 +17,16 @@ from typing import Any
 import pyarrow.parquet as pq
 import pytest
 from dummy_adapters import (
+    GRANDCHILD_RECORD,
     RUN_RECORD,
+    BadTablesAdapter,
     CollectFailingAdapter,
     CrashingAdapter,
     DummyAdapter,
     FailingAdapter,
+    LingeringAdapter,
     SlowAdapter,
+    SpawningStubbornAdapter,
     StubbornAdapter,
     TranslateFailingAdapter,
 )
@@ -351,6 +355,56 @@ def test_a_worker_that_ignores_cancel_is_terminated(tmp_path: Path) -> None:
     assert "terminated" in log_text(run)
 
 
+def test_cancel_during_collect_ends_cancelled_without_results(tmp_path: Path) -> None:
+    # Codex review of PR #24: a cancel accepted while collecting must not end as done.
+    adapter = DummyAdapter()
+    run = target(tmp_path, adapter).create(file_bytes(coffee_shop()), "base")
+    adapter.on_collect = run.cancel
+    assert run.execute() == "cancelled"
+    assert read_manifest(run.folder)["state"] == "cancelled"
+    assert not (run.folder / "summary.json").exists()
+    assert not (run.folder / "tables").exists()
+
+
+def process_ended(pid: int) -> bool:
+    """Whether ``pid`` has ended (gone, or a zombie no one has reaped yet)."""
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text(encoding="ascii")
+    except FileNotFoundError:
+        return True
+    return stat[stat.rindex(")") + 2] == "Z"
+
+
+def test_terminating_a_worker_also_ends_the_processes_it_started(tmp_path: Path) -> None:
+    # Codex review of PR #24: a forced stop must not leave the worker's children running.
+    local = target(tmp_path, SpawningStubbornAdapter(), cancel_grace_s=0.2)
+    run = local.create(file_bytes(coffee_shop()), "base")
+    thread = execute_in_thread(run)
+    wait_for(lambda: (run.engine_folder / GRANDCHILD_RECORD).exists())
+    grandchild = json.loads((run.engine_folder / GRANDCHILD_RECORD).read_text(encoding="utf-8"))
+    assert not process_ended(grandchild)
+    run.cancel()
+    thread.join(timeout=30)
+    assert run.state == "cancelled"
+    wait_for(lambda: process_ended(grandchild), timeout=5)
+
+
+def test_a_worker_that_lingers_after_its_report_is_still_limited(tmp_path: Path) -> None:
+    # Codex review of PR #24: the pipe closing does not mean the worker has ended.
+    local = target(
+        tmp_path,
+        LingeringAdapter(),
+        limits=Limits(time_s=0.5, memory_bytes=None),
+        limit_grace_s=0.2,
+    )
+    run = local.create(file_bytes(coffee_shop()), "base")
+    started = time.monotonic()
+    assert run.execute() == "failed"
+    assert time.monotonic() - started < 10
+    assert error_of(run)["code"] == "E192"
+    assert "terminated" in log_text(run)
+
+
 # --- E190 ----------------------------------------------------------------------------------
 
 
@@ -390,6 +444,10 @@ def test_translate_and_collect_errors_are_e190(tmp_path: Path) -> None:
     run = target(tmp_path, CollectFailingAdapter()).create(file_bytes(coffee_shop()), "base")
     assert run.execute() == "failed"
     assert_e190(run, "collect detail 42")
+    run = target(tmp_path, BadTablesAdapter()).create(file_bytes(coffee_shop()), "base")
+    assert run.execute() == "failed"
+    assert_e190(run, "bad_table")
+    assert not (run.folder / "tables").exists()
 
 
 # --- E192 ----------------------------------------------------------------------------------

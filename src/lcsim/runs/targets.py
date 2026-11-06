@@ -26,7 +26,10 @@ in ``log.txt``.
 
 from __future__ import annotations
 
+import contextlib
 import multiprocessing
+import os
+import signal
 import socket
 import threading
 import time
@@ -44,7 +47,7 @@ from lcsim.model.issues import Issue, pointer
 from lcsim.model.loading import SeedSource, load_text
 from lcsim.model.model import Model
 from lcsim.runs.ids import new_run_id
-from lcsim.runs.limits import Limits, limit_exceeded, process_tree_memory
+from lcsim.runs.limits import Limits, descendant_ids, limit_exceeded, process_tree_memory
 from lcsim.runs.lock import LOCK_FILE, RunLock, is_held, take_lock
 from lcsim.runs.manager import check_experiment, collect_summary
 from lcsim.runs.manifest import (
@@ -85,6 +88,9 @@ LIMIT_GRACE_S = 2.0
 POLL_S = 0.1
 #: How often the worker's memory is read.
 MEMORY_POLL_S = 1.0
+#: The signal that ends a forcibly stopped worker's own processes (SIGKILL where it
+#: exists; Windows has none, and has no /proc to find them either).
+_KILL = getattr(signal, "SIGKILL", signal.SIGTERM)
 
 
 def now() -> datetime:
@@ -358,11 +364,21 @@ class LocalRun:
             results, summary = collect_summary(
                 self._adapter, self._model, self._experiment_id, self.engine_folder, self._warnings
             )
-            write_tables(results.tables, self.folder)
-            write_summary(summary, self.folder)
         except Exception:
             return self._fail(_engine_error(engine), "collect raised:\n" + traceback.format_exc())
-        self.move("done", fraction=1.0)
+        # Holding the mutex, a cancel() either came before this check or finds the run
+        # final: a cancel accepted while collecting is never lost.
+        with self._mutex:
+            if self._cancel.is_set():
+                return self._end_cancelled()
+            try:
+                write_tables(results.tables, self.folder)
+                write_summary(summary, self.folder)
+            except Exception:
+                return self._fail(
+                    _engine_error(engine), "writing the results raised:\n" + traceback.format_exc()
+                )
+            self.move("done", fraction=1.0)
         return "done"
 
     def _end_cancelled(self) -> JobState:
@@ -414,12 +430,20 @@ class LocalRun:
         report: tuple[Any, ...] | None = None
         memory: int | None = None
         next_memory = 0.0
+        reporting = True
         while True:
-            if receive.poll(POLL_S):
+            # The pipe closing does not mean the worker has ended (its interpreter may still
+            # wait for threads or children), so it is watched until it has.
+            if not reporting:
+                worker.join(POLL_S)
+                if not worker.is_alive():
+                    break
+            elif receive.poll(POLL_S):
                 try:
                     message = receive.recv()
                 except EOFError:
-                    break
+                    reporting = False
+                    continue
                 if message[0] == "progress":
                     with self._mutex:  # cancel() may write from another thread
                         self._manifest.progress(float(message[1]))
@@ -435,14 +459,13 @@ class LocalRun:
             if exceeded is not None:
                 self.log(f"{exceeded} limit exceeded; stopping the worker")
                 self._cancel.set()
-                self._stop(worker, self._target.limit_grace_s)
+                self._stop(worker, pid, self._target.limit_grace_s)
                 return report, exceeded
             if (
                 self._cancelled_at is not None
                 and clock - self._cancelled_at > self._target.cancel_grace_s
             ):
-                self._stop(worker, 0.0)
-        worker.join()
+                self._stop(worker, pid, 0.0)
         return report, None
 
     def _read_memory(self, pid: int) -> int | None:
@@ -455,12 +478,18 @@ class LocalRun:
             self.log("the memory limit is not enforced: memory cannot be read here")
         return reading
 
-    def _stop(self, worker: BaseProcess, grace_s: float) -> None:
+    def _stop(self, worker: BaseProcess, pid: int, grace_s: float) -> None:
+        """Waits ``grace_s`` for the worker to end, then ends it and every process it
+        started (found through ``/proc``; on Windows and macOS only the worker itself)."""
         worker.join(grace_s)
         if worker.is_alive():
+            started = descendant_ids(pid)  # read first: they lose their parent below
             worker.terminate()
             worker.join()
-            self.log("worker terminated")
+            for child in started:
+                with contextlib.suppress(OSError):  # it may have ended already
+                    os.kill(child, _KILL)
+            self.log(f"worker terminated, with {len(started)} process(es) it started")
 
 
 def recover_interrupted(runs_root: Path) -> list[str]:

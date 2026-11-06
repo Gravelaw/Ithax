@@ -21,6 +21,7 @@ __all__ = [
     "PAGE_SIZE",
     "Limits",
     "default_memory_limit",
+    "descendant_ids",
     "limit_exceeded",
     "process_tree_memory",
     "system_memory",
@@ -103,18 +104,27 @@ def _resident(proc: Path, pid: int) -> int:
     return int(statm.split()[1]) * PAGE_SIZE
 
 
+def descendant_ids(pid: int, proc: Path = Path("/proc")) -> list[int]:
+    """Every process that ``pid`` started, directly or not, read from ``proc``; empty
+    without ``/proc`` (Windows, macOS) or when ``pid`` is not there."""
+    if not (proc / str(pid)).is_dir():
+        return []
+    children: dict[int, list[int]] = {}
+    for child, parent in _parent_ids(proc).items():
+        children.setdefault(parent, []).append(child)
+    found: list[int] = []
+    pending = list(children.get(pid, ()))
+    while pending:
+        current = pending.pop()
+        found.append(current)
+        pending.extend(children.get(current, ()))
+    return found
+
+
 def process_tree_memory(pid: int, proc: Path = Path("/proc")) -> int | None:
     """The resident memory in bytes of process ``pid`` and every process it started,
     directly or not, read from ``proc``; ``None`` without ``/proc`` or when ``pid`` is
     not there."""
     if not (proc / str(pid)).is_dir():
         return None
-    children: dict[int, list[int]] = {}
-    for child, parent in _parent_ids(proc).items():
-        children.setdefault(parent, []).append(child)
-    total, pending = 0, [pid]
-    while pending:
-        current = pending.pop()
-        total += _resident(proc, current)
-        pending.extend(children.get(current, ()))
-    return total
+    return sum(_resident(proc, current) for current in [pid, *descendant_ids(pid, proc)])

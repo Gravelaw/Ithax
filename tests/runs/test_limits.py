@@ -13,6 +13,7 @@ from lcsim.runs.limits import (
     DEFAULT_TIME_LIMIT_S,
     Limits,
     default_memory_limit,
+    descendant_ids,
     limit_exceeded,
     process_tree_memory,
     system_memory,
@@ -117,3 +118,7 @@ def test_unreadable_entries_are_skipped(tmp_path: Path) -> None:
     page = limits.PAGE_SIZE
     assert process_tree_memory(10, proc=tmp_path) == (100 + 20 + 3) * page
     assert process_tree_memory(11, proc=tmp_path) == (20 + 3) * page
+    assert sorted(descendant_ids(10, proc=tmp_path)) == [11, 12, 15]
+    assert descendant_ids(13, proc=tmp_path) == []
+    assert descendant_ids(99, proc=tmp_path) == []  # not there
+    assert descendant_ids(10, proc=tmp_path / "missing") == []  # no /proc
