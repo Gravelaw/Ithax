@@ -105,14 +105,15 @@ def schema_pass(document: object) -> list[Issue]:
         if version_issue is not None:
             return [version_issue]
     errors = list(_validator().iter_errors(_without_huge_integers(document)))
-    # A key of the other domain is reported once; what is inside it is not judged.
+    # A key of the other domain is reported once: no other error at that key (its type,
+    # its missing keys) or inside it is reported, since the key is to be removed.
     misplaced = [list(error.absolute_path) for error in errors if error.validator == "not"]
     # A dict keeps one of each issue (jsonschema reports a `required` failure once per
     # missing key, each naming all of them) in linear time; issues are frozen and hashable.
     issues: dict[Issue, None] = {}
     for error in errors:
         at = list(error.absolute_path)
-        if any(len(at) > len(key) and at[: len(key)] == key for key in misplaced):
+        if error.validator != "not" and any(at[: len(key)] == key for key in misplaced):
             continue
         issues.update(dict.fromkeys(_issues_from_error(error, document)))
     return sorted(issues, key=lambda issue: _sort_key(issue.path))

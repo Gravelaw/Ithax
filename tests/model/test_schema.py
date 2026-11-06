@@ -657,11 +657,39 @@ def test_process_key_in_an_optimization_model(key: str) -> None:
     )
 
 
-def test_other_domain_key_is_reported_once_even_when_its_content_is_wrong() -> None:
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("variables", [{"bad": 1}, 2]),
+        ("variables", 4),
+        ("objective", {}),
+        ("objective", []),
+        ("objective", {"sense": "max", "linear": [], "extra": 1}),
+    ],
+)
+def test_other_domain_key_is_reported_once_even_when_its_content_is_wrong(
+    key: str, value: object
+) -> None:
+    # Found in review: errors at the key itself (its type, its missing keys) were reported
+    # too, telling the user to fill in a key that is to be removed.
     document = coffee()
-    document["variables"] = [{"bad": 1}, 2]
+    document[key] = value
     issue = only(schema_pass(document))
-    assert issue.path == "/variables"
+    assert issue.path == f"/{key}"
+    assert "belongs to the 'optimization' domain" in issue.message
+
+
+@pytest.mark.parametrize(
+    ("key", "value"), [("components", 4), ("experiments", [1]), ("objectives", {})]
+)
+def test_process_key_of_the_wrong_type_in_an_optimization_model_is_reported_once(
+    key: str, value: object
+) -> None:
+    document = product_mix()
+    document[key] = value
+    issue = only(schema_pass(document))
+    assert issue.path == f"/{key}"
+    assert "belongs to the 'process' domain" in issue.message
 
 
 def test_process_constraint_shape_in_an_optimization_model() -> None:
