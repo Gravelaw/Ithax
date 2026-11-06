@@ -159,7 +159,7 @@ Updated at the end of every session.
 | Spec review council (before M1) | Done 2026-11-05: specs 1 to 4 at 0.3, spec 0 and 5 to 7 at 0.2; owner questions listed in `docs/DECISIONS.md` |
 | M1 Model schema, loading, units, validation | Done 2026-11-06: `bash scripts/check.sh` passes (1,140 tests, 0 skipped, coverage 100%); the three examples load with zero issues; all 29 issue codes have fixtures; the migration test passes; specs 1 and 2 at 0.4; summary in `docs/sessions/2026-11-06-M1.md`, owner items listed there |
 | M2 Process adapter with `source`, `server`, `delay`, `branch`, `sink` | Ready to start |
-| M9 design before building (AKS-118, ahead of order at the owner's request) | Session items done 2026-11-06: `docs/design/` and the three M9 research notes; interface framework confirmed in spec 3. Awaiting the owner's walkthrough or its fallback before any `ui/` code. |
+| M9 design before building (AKS-118, ahead of order at the owner's request) | Done 2026-11-06: `docs/design/` and the M9 research notes; owner design review recorded in `docs/DECISIONS.md` (design system version 2: Sanzo Wada palette, bundled fonts, Phosphor icons, charts); walkthrough fallback taken, so the outside walkthrough is a condition of M10. M9 may start in milestone order; its session first draws the approved changes listed in `docs/design/wireframes/README.md`. |
 
 Specs are in `docs/specs/`. Run the checks with `bash scripts/check.sh` after
 `pip install -e ".[dev]"`.

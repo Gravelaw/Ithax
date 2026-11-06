@@ -4,6 +4,27 @@ Low-fidelity wireframes of the seven screens of spec 3 "Screens", the canvas fir
 
 Each file is a plain SVG at 1280 × 800, drawn in the light theme's tokens (`../design-system.md`), with a `<title>` and `<desc>` that say what it shows. They open in any browser. `tests/test_design.py` checks that every SVG here parses as XML and is listed below.
 
+## After the owner design review (2026-11-06)
+
+The wireframes show **layout and content**; the look is set by `../design-system.md` version 2. After the owner review they were recoloured to the Sanzo Wada light palette, and the placeholder squares were replaced by the Phosphor icons of `../design-system.md` "Icons": the navigation rail (filled icon on the current screen), the palette and block icons, and the Undo, Redo, Run and zoom buttons. Fonts in the drawings stay generic.
+
+The approved look itself (block shapes per category, after-run overlay, results headline card, charts, the delete dialog) is shown in `../preview/owner-review.html`, section "Proposed new look", with example data. These approved changes are specified in the text files and **not yet drawn here**; the M9 session draws them before building each screen:
+
+| Change (owner review) | Specified in | Affects |
+| --- | --- | --- |
+| Block shapes per category; distinct resource boxes; reference lines by pattern, icon and word | `../design-system.md` "Block styles", "Line styles" | `01-canvas.svg`, `01b-canvas-learn.svg`, `01c-canvas-states.svg` |
+| Review marks for an outside change, "N changes to review" | `../canvas-interactions.md` "Reviewing an outside change" | `01-canvas.svg`, `01c-canvas-states.svg` |
+| Delete confirmation dialog | `../canvas-interactions.md` "Deleting" | `01-canvas.svg` |
+| "Try a change" beside settings | `../canvas-interactions.md` "Trying a change" | `01-canvas.svg` |
+| Lesson rings the one field to change; prediction step | `../canvas-interactions.md` "Learn mode on the canvas" | `01b-canvas-learn.svg` |
+| "Does this column include time spent waiting?" | `../flows.md` step B7b | `03-data.svg` |
+| Data histogram with the fitted curve | `../design-system.md` "Charts" | `03-data.svg` |
+| Live trends; search best-so-far chart | `../design-system.md` "Charts" | `05-run-monitor.svg` |
+| Headline card that says why; charts per run kind; table of all trials | `../canvas-interactions.md` "Learn mode on the canvas", `../design-system.md` "Charts" | `06-results.svg` |
+| Undo steps, Ask before deleting, Motion, Colour-blind safe charts, Restore all defaults | `../canvas-interactions.md`, `../design-system.md`, `../accessibility.md` | `07-settings.svg` |
+| Optimization models: Table view and Diagram view | `../canvas-interactions.md` "The model and the canvas" | a new wireframe at M9 |
+| Plain words ("repeat runs", "likely range") | `../design-system.md` "Type" | all screens |
+
 Values in the drawings are examples. Numbers taken from the specs are marked as such in the drawing; `{braced}` text is a placeholder for a value that does not exist yet (template minutes, engine versions, fit scores).
 
 | File | Screen (spec 3) | Shows | Behaviour described in |

@@ -4,7 +4,7 @@
 
 The app is two programs: an engine service that does all the work, and an interface that talks to it only through an API. That split is what lets a Windows interface drive Linux engines.
 
-> **Warning: untested.** Nothing in this spec has been built. The interface frameworks were re-checked on 2026-11-06 (`docs/research/spec-3-framework-check.md`); the service framework is re-checked at M6. The performance targets are proposals. This spec defines behaviour; the user flows, wireframes, canvas rules, design system and accessibility check are in `docs/design/` (2026-11-06), but the owner's walkthrough is outstanding, and interface code must not start until the "Design before building" checklist is complete. See "Known gaps" in the Build guide.
+> **Warning: untested.** Nothing in this spec has been built. The interface frameworks were re-checked on 2026-11-06 (`docs/research/spec-3-framework-check.md`); the service framework is re-checked at M6. The performance targets are proposals. This spec defines behaviour; the user flows, wireframes, canvas rules, design system and accessibility check are in `docs/design/` (2026-11-06), and the owner reviewed them on 2026-11-06 (design system version 2; `docs/DECISIONS.md` "Owner design review"). The walkthrough with outside users has not happened; the owner took the fallback below, so it is a condition of M10. See "Known gaps" in the Build guide.
 
 ## Scope
 
@@ -39,7 +39,7 @@ The interface uses no private channel. Anything it can do, a script or an assist
 ## Screens
 
 1. **Home:** recent projects, template gallery, Learn or Build entry (Build mode form as in spec 4).
-2. **Canvas:** drag blocks from a palette, connect them, edit properties in a side panel. Validation errors appear on the offending block. For an `optimization` model, which has no components, the screen shows a form of variables, objective and constraints in place of the graph.
+2. **Canvas:** drag blocks from a palette, connect them, edit properties in a side panel. Validation errors appear on the offending block. For an `optimization` model, which has no components, the screen shows its variables, objective and constraints in place of the graph, in a table view and a diagram view of the same model.
 3. **Data:** import CSV or Excel, map columns, fit a distribution to a column.
 4. **Experiment:** run length, replications, scenarios, optimization setup.
 5. **Run monitor:** progress, live key numbers, cancel.
@@ -184,14 +184,14 @@ These are functional rules. Visual design is covered by the checklist below.
 - **Single source.** The canvas shows the model file and nothing else. Every canvas action is one or more model edits.
 - **Add.** Dragging a block from the palette adds a component with a generated id, such as `server_2`, and default settings.
 - **Connect.** Dragging from an output port to an input port sends `connect`. Dragging from an output port that is already connected replaces its connection.
-- **Delete.** Removes the selection and its connections.
+- **Delete.** Removes the selection and its connections, after a confirmation the user can turn off in Settings (on by default).
 - **Undo and redo.** At least 100 steps, covering every model edit. Each step stores the model as it was; undo and redo write the stored model with `PUT .../model` and `base_revision`, because some edits (such as `set_setting` creating a new key) have no inverse edit.
 - **Save.** Automatic after every edit. There is no save button.
 - **Validate.** Runs half a second after the last edit. Issues appear as a marker on the block and in a list; selecting a list entry selects the block.
 - **Run.** Disabled while errors exist, with the reason shown.
 - **Rename.** Changing a component's id updates its connections and any references to its metrics.
-- **External edits.** The canvas sends `base_revision` on every write and, on a `model` event whose revision it did not produce, reloads the model and shows a one-line notice naming the client. The reload clears the undo and redo history, so an undo cannot silently revert another client's change.
-- **References.** Blocks without ports (`resource_pool`, `schedule`, `failure`) are placed like any block. Their `pool` and `target` settings are drawn as dashed reference lines, which are not connections; they are set in the side panel with `set_setting`.
+- **External edits.** The canvas sends `base_revision` on every write and, on a `model` event whose revision it did not produce, reloads the model and shows a one-line notice naming the client. The reload clears the undo and redo history, so an undo cannot silently revert another client's change. The canvas marks what the other client added, changed or removed, and the user can accept or reject each change; a rejection is an ordinary write of the model with that item restored, sent with `PUT .../model` and `base_revision`.
+- **References.** Blocks without ports (`resource_pool`, `schedule`, `failure`) are placed like any block. Their `pool` and `target` settings are drawn as reference lines, which are not connections and differ by kind in pattern, icon and word; they are set in the side panel with `set_setting`.
 
 ### Performance targets
 
@@ -219,6 +219,8 @@ Done by the owner:
 - [ ] A walkthrough of the wireframes with at least one student and one business user, both outside the project. If nobody is available within two weeks of the wireframes being ready, the owner does a scripted think-aloud walkthrough, logs the gap in `docs/DECISIONS.md`, and the outside walkthrough becomes a condition of M10 instead of M9 (proposed default, owner to confirm).
 
 M9 may start when the five files exist and the owner has recorded the walkthrough or its fallback.
+
+Owner decision, 2026-11-06: the fallback is taken. Nobody outside the project has walked through the wireframes. The owner's own step-by-step review of the design, with two AI persona walkthroughs (`docs/research/spec-3-persona-walkthrough-student.md` and `-business.md`), counts as the owner walkthrough; the gap is logged in `docs/DECISIONS.md`; the walkthrough with at least one student and one business user outside the project is a condition of M10 instead of M9. The box above stays unticked until that outside walkthrough happens.
 
 ## Research before building
 
@@ -257,3 +259,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - Verifier follow-up: the M9 end-to-end test uses the spec 2 pass rule (3 × standard error at a fixed seed).
 - 2026-11-06, review of PR #1: `set_parameter` and `set_experiment` create the parameter or experiment when `id` is new, so a project started without a template can gain parameters and experiments through edits (and so through the MCP `edit_model` tool).
 - 2026-11-06, M9 design (AKS-118, ahead of the milestone order at the owner's request): the five session items of "Design before building" are done in `docs/design/`; the owner walkthrough stays open. Framework check: React, React Flow and Tauri 2 confirmed, Tauri at 2.11.1 or later for advisory GHSA-7gmj-67g7-phm9; warning line updated. Gaps the design found, each closed by the simplest reading: the Canvas screen of an `optimization` model is a form; `set_path` and `remove_path` reach `variables` and `objective`, which no edit could change before; new `set_label` edit, since no edit could set a component's `label`; undo and redo write stored models with `PUT .../model`; an external reload clears the undo history; new "References" rule for blocks without ports. The end-to-end test row notes that `tauri-driver` is documented for Linux.
+- 2026-11-06, owner design review (AKS-118): design system version 2 in `docs/design/` (Sanzo Wada palette, bundled fonts, Phosphor icons, block shapes, charts). Spec text aligned with the owner's choices: the optimization Canvas screen has a table view and a diagram view; Delete asks for confirmation unless turned off; external edits are marked for the user to accept or reject; reference lines differ by kind. Walkthrough fallback taken by the owner: the outside walkthrough is a condition of M10; warning line updated. Logged for a later spec change, not made here: results costs, a "Compare options" Build answer (spec 4), a never-reused id counter, `domain` on project creation (M6), and the chart data additions of `docs/research/spec-3-results-visualization.md`.

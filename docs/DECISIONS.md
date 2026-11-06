@@ -712,4 +712,78 @@ AGPL-3.0 compatibility: MIT is permissive; for Apache-2.0 the Apache Software Fo
 
 ### Awaiting owner: wireframe walkthrough
 
-The owner's walkthrough with a student and a business user, or its fallback (spec 3 "Design before building"; owner question 7 above), is **not** recorded. M9 interface code may not start until it is, or its fallback is logged here. Tracked in AKS-82.
+The owner's walkthrough with a student and a business user, or its fallback (spec 3 "Design before building"; owner question 7 above), is **not** recorded. M9 interface code may not start until it is, or its fallback is logged here. Tracked in AKS-82. *(Closed 2026-11-06 by the fallback; see "Owner design review" below.)*
+
+## 2026-11-06 · M9 design: owner design review (AKS-118)
+
+The owner reviewed the design step by step in a Claude Code session, following a walkthrough page with the wireframes (`docs/design/preview/owner-review.html`). This entry records each answer. Items the owner confirmed as proposed are marked "confirmed"; items the owner changed say how. Quotes are the owner's words.
+
+### Overall direction
+
+- **Decision:** Version 2 of the design system replaces version 1's look. The owner said the first draft "looks very functional" but "does not evoke a wow factor and screams more like a traditional ERP interface", asked for Sanzo Wada's *A Dictionary of Color Combinations* as the colour reference, icons on the navigation and canvas buttons, research on design that keeps users coming back, and charts for data, outputs and searches of many trials ("if lets say 1000 simulations trials are taking to optimize a process, how do I view the same").
+- **Reason:** Owner request. Research notes: `docs/research/spec-3-wada-palette.md`, `spec-3-engaging-design.md`, `spec-3-icons-and-type.md`, `spec-3-results-visualization.md`.
+- **Alternatives considered:** Keeping version 1's neutral palette (rejected by the owner).
+- **Spec sections updated:** Spec 3 warning line, "Screens" item 2, "Canvas behaviour" (Delete, External edits, References), "Design before building", "Changes in this version".
+- **Dependencies added:** None now; no interface code exists. Recorded for M9, to be pinned and re-checked from each package's licence file when added: Phosphor Icons `@phosphor-icons/react` 2.1.10 (MIT); fonts Bricolage Grotesque, Atkinson Hyperlegible Next, JetBrains Mono (SIL OFL 1.1, bundled in the app); Apache ECharts 6.1.0 (Apache-2.0) with `zrender` 6.1.0 (BSD-3-Clause) and `echarts-for-react` 3.0.6 (MIT), whose `LICENSE` and `NOTICE` ship in the installer. Colour values are copied from `mattdesl/dictionary-of-colour-combinations` 1.0.2 (MIT), credited in `docs/design/design-system.md`; the dataset itself is not added. How checked: the research notes above.
+
+### Answers, step by step
+
+| Step | Item | Owner's answer | Outcome |
+| --- | --- | --- | --- |
+| 1 | User flows (Learn and Build) | "we can go with the recommendations of the user flows" | Confirmed |
+| 2 | Canvas layout and behaviour | "the layout and behaviours are fine for now. However, based on new icons as well as changes in the spec it may change" | Confirmed for now |
+| 3 | Screen contents | "as of now findings first"; spec changes "can be made later" once the design works out | Confirmed; findings stay first |
+| 4 | Delete without confirmation | Asked for "a dialog box which will have an warning to the user for deletion" with a "not to remind again" tick, and a Settings toggle to "notify before deletion" | Changed: confirmation dialog with "Don't ask me again"; Settings, Canvas, "Ask before deleting", on by default |
+| 4 | Features left out (grouping, sub-models, copy and paste, comments, alignment) | "it is fine to consider the additional features for later" | Later |
+| 5 | Proposed new look | Dark mode "may need some rework. the color pallete looks too sharp to the eye"; after softening: "It feels right now" | Approved with a softened dark theme |
+| 5 | Design system version 2 (palette, icons, fonts, block shapes, depth, motion, charts, headline card) | "Sure. go ahead" | Approved |
+| 6 | Accessibility (WCAG 2.2 AA) | "Approach is good, but lets add the color blind safe chart as well" | Approved; colour-blind safe chart option added |
+
+### The twelve design choices of 2026-11-06
+
+| # | Choice | Owner's answer | Outcome |
+| --- | --- | --- | --- |
+| 1 | Undo stores whole models; 200 steps | "put a toggle in the setting which will lets users decide how many steps need to be kept", with a recommendation "based on system specs" | Changed: Settings, Canvas, "Undo steps to keep"; recommended by tier (low 200, mid 500, high 1,000) with a memory estimate; minimum 100 (spec 3) |
+| 2 | An outside edit reloads the canvas and clears undo | Asked for a "show diff" feature: changes highlighted with dashed boxes, and on hover "the option to accept the change or reject it" | Changed: reload and clear as before, plus review marks (Added, Changed, Removed) with Accept and Reject; Reject is a whole-model write with `base_revision` |
+| 3 | Dashed reference lines for resource blocks | "need to be distinguished clearly, not just the box, but also the line"; then "Lets start with this first" | Changed: distinct box per kind; lines by pattern (dashes, dots, dash-dot), icon and word, in the resource colour, no arrowhead. Own colour per kind left for later |
+| 4 | Optimization models get a form | "we should not narrow on 3 templates only. The app is for every domain"; then "lets start with what you have proposed now" | Changed: Table view and Diagram view of any optimization model; domain words, units and icons; gallery grouped by domain over time. Network-shaped plans wait for the M5 indexed layout |
+| 5 | Generated ids, smallest free number | Asked how it interacts with undo and with assistant changes; accepted the answer ("ok") | Changed: highest number plus one, so names are not reused; a never-reused counter is logged for the spec 3 update |
+| 6 | No grouping, sub-models, copy and paste, comments | "ok" | Confirmed; grouping and sub-models first in line after Phase 1 |
+| 7 | Zoom 20% to 200%; a drag or arrow burst is one undo step | "agreed" | Confirmed |
+| 8 | While a write fails, read-only and retry every 2 s | "ok" | Confirmed |
+| 9 | Run also disabled while saving or checking | Asked for "the mouse becoming a stop sign along with the run button becoming grey" | Confirmed with pointers: "not allowed" when errors block Run, "progress" while saving or checking; the visible reason stays |
+| 10 | Settings: tier override, theme, text size | "yes, add restore all defaults" | Confirmed with "Restore all defaults" (preferences only, not run targets or engines; confirmation dialog) |
+| 11 | System fonts only | "ok" | Changed by the Step 5 approval: bundled open fonts, never downloaded at run time |
+| 12 | Three block categories | "lets add right with simple categories. We can expand other options like filters, sort by name, date, popularity, industry etc in later phases" | Confirmed; palette filters and sorting later |
+
+### API additions and the open gap
+
+- **`set_label`:** confirmed ("confirm A, B and the M6 fix").
+- **`set_path` reaching `variables` and `objective`:** confirmed.
+- **No edit sets `domain` (open, M6):** the owner confirmed the proposed fix, to be made at M6: "New empty project" asks "Process (flows and queues)" or "Plan (decisions and limits)", and `POST /v1/projects` takes that choice. Spec 3 is not changed now; the gap stays open until M6.
+
+### Walkthrough: fallback taken
+
+- **Decision:** Spec 3's fallback. At the owner's request two AI persona walkthroughs were run from images of the screens, a student and a small-business user (`docs/research/spec-3-persona-walkthrough-student.md`, `spec-3-persona-walkthrough-business.md`): 30 problems, 2 that stop the user. After reading them the owner said: "yes, add the fixes and take the fallback". The owner's review with these walkthroughs counts as the owner walkthrough; **nobody outside the project has walked through the wireframes**, which is the gap logged here; the walkthrough with at least one student and one business user outside the project becomes a condition of M10 instead of M9. M9 may start under spec 3 "Design before building".
+- **Reason:** Owner decision (owner question 7 of the spec review council recommended accepting the fallback). AI role-plays of static images are cheap evidence, not a substitute for real users.
+- **Alternatives considered:** Recruiting outside users before M9 (not chosen).
+- **Spec sections updated:** Spec 3 "Design before building" (owner decision paragraph; the outside-walkthrough box stays unticked), warning line. Tracked in Linear AKS-79 and AKS-82.
+
+### Fixes from the persona walkthroughs (approved: "add the fixes")
+
+1. "Try a change" beside any setting creates the parameter and a scenario in one step (`canvas-interactions.md` "Trying a change").
+2. The Data screen asks "Does this column include time spent waiting?" before a column becomes a service time (`flows.md` B7b).
+3. The lesson's exercise rings the one field to change, and shows the prediction step (`canvas-interactions.md` "Learn mode on the canvas").
+4. The results headline says why ("because one till was busy 75% of the time").
+5. Plain words with the technical term on hover (`design-system.md` "Type").
+6. A "Compare options" Build answer and the coffee shop tagged for both audiences: approved, **pending a spec 4 change** (`flows.md` note); the form shows spec 4's six answers until then.
+7. The preview's repeat-run chart uses one row and scale per option, and its trials table names the limit a rejected trial broke.
+
+### Logged for later spec changes (owner: spec changes "can be made later")
+
+- **Costs in results** (staff cost per hour, machine price, customers who leave): spec 1, 2 and 4; from the business persona.
+- **"Compare options" Build answer and template audiences:** spec 4.
+- **A never-reused id counter** (choice 5): spec 3 `project.json` or the model.
+- **`domain` on project creation:** spec 3, at M6.
+- **Chart data:** a `candidate` progress event, candidate indices and stages in `summary.json`, a `candidates` table, stored scenario differences, defined time-series sampling, and plot points in the fit response (`docs/research/spec-3-results-visualization.md`): specs 1 to 3, by M3, M5 and M6.
+- **Wireframes:** the approved changes listed in `docs/design/wireframes/README.md` are drawn by the M9 session before it builds each screen.
