@@ -294,3 +294,26 @@ The verifier confirmed every council change and found six small inconsistencies 
 - **Alternatives considered:** salabim, whose `Resource.set_capacity()` exists, was rejected on speed (previous entry).
 - **Spec sections updated:** none yet; spec 2 "Block reference" `schedule` is verified at M4.
 - **Dependencies added:** none.
+
+### Engine discovery by entry points confirmed
+
+- **Decision:** Adapters are found through entry points in group `lcsim.engines`, read with the standard library's `importlib.metadata`. The entry-point name is the adapter name used by `run.engine`. A plugin that fails to import is left out and logged. Duplicate names are left out and logged, with E102 if no single engine remains. The group is renamed with the placeholder package, because `lcsim` is taken on PyPI by an unrelated liquid crystal simulator.
+- **Reason:** Entry points are the packaging standard for plugins. xarray uses them for its I/O engines, and pluggy and stevedore build on them. They need no dependency. A test showed that a plugin with a broken import is listed but fails only on load, and that `EntryPoints[name]` silently picks one of two duplicates; the spec now says what the core does in each case. Details in `docs/research/spec-1-plugin-mechanisms.md`.
+- **Alternatives considered:** a naming convention or namespace packages (both import every candidate to discover it); pluggy or stevedore (hook calling and driver managers that spec 1 does not need, and one more dependency).
+- **Spec sections updated:** spec 1 "Engine contract", "Division of labour" (pyarrow) and "Changes in this version".
+- **Dependencies added:** none.
+
+### Libraries for M2, confirmed from their licence files
+
+Not added to `pyproject.toml` in this change; M2's first code change adds them. Each licence was read from the installed wheel's own licence file with `importlib.metadata` on 2026-11-06, in scratch environments on Python 3.11.18 and 3.13.18. These replace the "PyPI metadata" rows of "Dependencies pre-recorded for M1 to M3" for these four packages.
+
+| Package | Version on Python 3.11 / 3.12 and later | Licence | How checked | AGPL-3.0 |
+| --- | --- | --- | --- | --- |
+| simpy | 4.1.2 / 4.1.2 | MIT | `simpy-4.1.2.dist-info/licenses/LICENSE.rst`, "The MIT License (MIT)" | compatible (Expat, FSF list) |
+| numpy | 2.4.6 / 2.5.4 | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 (`License-Expression`) | `numpy-*.dist-info/licenses/LICENSE.txt`, BSD 3-clause; the Linux wheel bundles OpenBLAS (BSD-3-Clause), LAPACK (BSD-3-Clause-Open-MPI), libgfortran (GPL-3.0-or-later WITH GCC-exception-3.1) and libquadmath (LGPL-2.1-or-later) | compatible |
+| scipy | 1.17.1 / 1.18.1 | BSD-3-Clause, with the same four bundled libraries as numpy in the Linux wheel | `scipy-*.dist-info/LICENSE.txt` | compatible |
+| pyarrow | 26.0.1 / 26.0.1 | Apache-2.0 | `pyarrow-26.0.1.dist-info/licenses/LICENSE.txt`, Apache License 2.0 plus notices for bundled Apache-2.0, BSD, MIT and ZPL-2.1 code | compatible |
+
+- **Python 3.11 gets older numpy and scipy.** numpy 2.5.4 and scipy 1.18.1 declare `Requires-Python >=3.12`. The PyPI JSON shows the newest releases for 3.11 are numpy 2.4.6 and scipy 1.17.1, and pip picked them on 3.11.18. CI runs on 3.11 and 3.13, so it tests both pairs. Spec 1 promises a repeat run only on the same versions, so nothing changes. The spec 1 stream for key `42:0:till` gave bit-identical exponential samples on numpy 2.4.6 and 2.5.4; that was observed, not promised.
+- **AGPL-3.0 compatibility.** The FSF licence list says Apache-2.0 is "compatible with version 3 of the GNU GPL", that Expat (MIT) and Modified BSD are "compatible with the GNU GPL", and that LGPLv2.1 "is compatible with GPLv2 and GPLv3". It also says AGPLv3 allows combining "separate modules or source files released under both of those licenses [AGPLv3 and GPLv3] in a single project". The GCC runtime library exception permits use by non-GPL programs. All four packages may therefore be imported into the service process under spec 1's engine licence rule. This is not legal advice; a lawyer confirms before release (spec 1).
+- **Windows.** The PyPI JSON lists `cp311` and `cp313` `win_amd64` wheels for numpy 2.4.6, scipy 1.17.1 and pyarrow 26.0.1, and `cp313` only for numpy 2.5.4 and scipy 1.18.1. simpy is pure Python. This is consistent with spec 3's native-Windows default.
