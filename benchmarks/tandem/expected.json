@@ -1,0 +1,37 @@
+[
+  {
+    "metric": "server_a.wait.mean",
+    "value": 270.0,
+    "method": "three_se",
+    "source": "Station A is M/M/1: E(W) = (rho/mu)/(1 - rho), rho = 0.75, 1/mu = 90 s: 270 s; Adan and Resing, Queueing Systems (2015), section 4.3",
+    "milestone": "M2"
+  },
+  {
+    "metric": "server_b.wait.mean",
+    "value": 60.0,
+    "method": "three_se",
+    "source": "Burke's theorem (Burke 1956, Operations Research 4(6)): the departures of a stable M/M/1 queue are Poisson at the arrival rate, so B is again M/M/1: E(W) = (rho/mu)/(1 - rho), rho = 0.5, 1/mu = 60 s: 60 s; Adan and Resing, Queueing Systems (2015), section 4.3",
+    "milestone": "M2"
+  },
+  {
+    "metric": "server_a.utilization",
+    "value": 0.75,
+    "method": "three_se",
+    "source": "Utilization rho_A = lambda/mu_A = 90 s / 120 s = 0.75",
+    "milestone": "M2"
+  },
+  {
+    "metric": "server_b.utilization",
+    "value": 0.5,
+    "method": "three_se",
+    "source": "Utilization rho_B = lambda/mu_B = 60 s / 120 s = 0.5 (Burke's theorem: B sees arrival rate lambda)",
+    "milestone": "M2"
+  },
+  {
+    "metric": "exit.cycle_time.mean",
+    "value": 480.0,
+    "method": "three_se",
+    "source": "Burke's theorem (Burke 1956, Operations Research 4(6)): the departures of a stable M/M/1 queue are Poisson at the arrival rate, so B is again M/M/1; sum of M/M/1 sojourn times (1/mu)/(1 - rho): 90/0.25 + 60/0.5 = 360 s + 120 s = 480 s; Adan and Resing, Queueing Systems (2015), section 4.3",
+    "milestone": "M2"
+  }
+]

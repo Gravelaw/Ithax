@@ -1,0 +1,16 @@
+[
+  {
+    "metric": "sink_a.throughput",
+    "value": 0.0025,
+    "method": "three_se",
+    "source": "Splitting with fixed probabilities: lambda x weight_a/(weight_a + weight_b) = (1/120 per second) x 0.3 = 1/400 per second (9 per hour)",
+    "milestone": "M2"
+  },
+  {
+    "metric": "sink_b.throughput",
+    "value": 0.005833333333333334,
+    "method": "three_se",
+    "source": "Splitting with fixed probabilities: lambda x weight_b/(weight_a + weight_b) = (1/120 per second) x 0.7 = 7/1200 per second (21 per hour)",
+    "milestone": "M2"
+  }
+]
