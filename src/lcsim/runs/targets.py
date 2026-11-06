@@ -408,7 +408,15 @@ class LocalRun:
             ),
             name=f"lcsim-run-{self.run_id}",
         )
-        worker.start()
+        try:
+            worker.start()
+        except Exception:  # no process, file or memory left to start one
+            send.close()
+            receive.close()
+            return (
+                _engine_error(self._adapter.name),
+                "the worker could not be started:\n" + traceback.format_exc(),
+            )
         send.close()
         pid = worker.pid
         assert pid is not None  # set by start()

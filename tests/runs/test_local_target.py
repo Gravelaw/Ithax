@@ -6,6 +6,7 @@ models are small.
 """
 
 import json
+import multiprocessing.context
 import os
 import socket
 import threading
@@ -466,6 +467,21 @@ def test_a_worker_that_ends_without_reporting_is_e190(
     assert run.execute() == "failed"
     assert_e190(run, "exit status 7")
     assert "memory limit is not enforced" in log_text(run)
+
+
+def test_a_worker_that_cannot_start_is_e190_and_the_run_ends(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Codex review of PR #24: a failed process start must not leave the run "running".
+    def refuse(self: object) -> None:
+        raise OSError(11, "Resource temporarily unavailable 31337")
+
+    monkeypatch.setattr(multiprocessing.context.SpawnProcess, "start", refuse)
+    run = target(tmp_path, DummyAdapter()).create(file_bytes(coffee_shop()), "base")
+    assert run.execute() == "failed"
+    assert_e190(run, "31337")
+    assert "could not be started" in log_text(run)
+    assert not (run.folder / LOCK_FILE).exists()
 
 
 def test_translate_and_collect_errors_are_e190(tmp_path: Path) -> None:
