@@ -1214,3 +1214,86 @@ def test_a_long_list_in_a_hint_shows_the_first_twelve(folder: Path) -> None:
     assert issue.hint.startswith("Name one of the imported files, such as 'f00.csv', ")
     assert issue.hint.endswith(" or 'f11.csv'.")
     assert "f12.csv" not in issue.hint
+
+
+# --- review of PR #9 ------------------------------------------------------------------------
+
+
+def two_weights(a: Any, b: Any) -> dict[str, Any]:
+    return with_branch(
+        {"routes": ["a", "b"], "rule": "probability", "weights": {"a": a, "b": b}}, ["a", "b"]
+    )
+
+
+def test_weights_too_large_for_a_float_do_not_raise() -> None:
+    document = two_weights(10**309, 1.0)
+    assert load_document(document).issues == ()
+    assert range_issues(built(two_weights(10**309, 0))) == []
+
+
+def test_parameters_that_a_search_varies_together_are_checked_together() -> None:
+    document = two_weights({"$param": "x"}, {"$param": "y"})
+    for name in ("x", "y"):
+        document["parameters"][name] = {"value": 1, "type": "number", "min": 0, "max": 1}
+    issue = only(range_issues(built(document)), "E123", "/components/2/params/weights")
+    assert issue.message.startswith(
+        "Every value in the 'weights' setting of 'split' is 0 with 'x' at its 'min' and 'y' "
+        "at its 'min';"
+    )
+    document["parameters"]["y"]["min"] = 0.5
+    assert range_issues(built(document)) == []
+
+
+def test_joint_bounds_of_distribution_fields() -> None:
+    service = {"dist": "uniform", "min": {"$param": "low"}, "max": {"$param": "high"}}
+    document = with_service(service)
+    document["parameters"]["low"] = {
+        "value": "1 min",
+        "type": "quantity",
+        "min": "0 s",
+        "max": "3 min",
+    }
+    document["parameters"]["high"] = {"value": "4 min", "type": "quantity", "min": "2 min"}
+    issue = only(distribution_issues(built(document)), "E160", f"{SERVICE}/min")
+    assert issue.message.endswith(
+        "the 'min' (3 min) is above the 'max' (2 min) with 'low' at its 'max' and 'high' at "
+        "its 'min'."
+    )
+
+
+def test_a_parameter_without_bounds_stays_at_its_value_in_joint_cases() -> None:
+    service = {"dist": "uniform", "min": {"$param": "low"}, "max": {"$param": "high"}}
+    document = with_service(service)
+    document["parameters"]["low"] = {"value": "1 min", "type": "quantity"}
+    document["parameters"]["high"] = {"value": "4 min", "type": "quantity", "min": "2 min"}
+    assert distribution_issues(built(document)) == []
+
+
+def test_a_parameter_named_twice_is_one_value() -> None:
+    # `min` and `max` both from one parameter can never be out of order.
+    service = {"dist": "uniform", "min": {"$param": "t"}, "max": {"$param": "t"}}
+    document = with_service(service)
+    document["parameters"]["t"] = {
+        "value": "1 min",
+        "type": "quantity",
+        "min": "0 s",
+        "max": "9 min",
+    }
+    assert distribution_issues(built(document)) == []
+
+
+def test_many_parameters_are_checked_at_all_lowest_and_all_highest_bounds() -> None:
+    routes = [f"r{number}" for number in range(13)]  # one more than the joint limit
+    document = with_branch(
+        {
+            "routes": routes,
+            "rule": "probability",
+            "weights": {route: {"$param": route} for route in routes},
+        },
+        routes,
+    )
+    for route in routes:
+        document["parameters"][route] = {"value": 1, "type": "number", "min": 0, "max": 1}
+    issue = only(range_issues(built(document)), "E123", "/components/2/params/weights")
+    assert "with 'r0' at its 'min', 'r1' at its 'min'," in issue.message
+    assert issue.message.count("at its 'min'") == 13

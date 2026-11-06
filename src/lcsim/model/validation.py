@@ -670,10 +670,23 @@ class _Case:
     text: str
 
 
+# Joint cases are made for at most this many parameters at once (2**12 = 4,096 cases);
+# above it, only all at their lowest and all at their highest bound.
+_JOINT_LIMIT = 12
+
+
 def _cases(model: Model, names: Sequence[str]) -> list[_Case]:
     """Every case in which the parameters ``names`` take a value the model gives them:
     each at its ``value``; then each scenario that sets any of them; then each at its
-    ``min`` and at its ``max``. Without parameters, the one case of the written values."""
+    ``min`` and at its ``max``; then, for two or more parameters, every combination of
+    their bounds, since a search varies them together (spec 2 "Simulation-based
+    optimization"). Without parameters, the one case of the written values.
+
+    The checks that use these cases are linear inequalities in the values (a minimum,
+    an order, an end within a period) or "not all zero" over values that are each at
+    least zero; each fails somewhere in a box of values only if it fails at a corner, so
+    the corners stand for the whole search range. A parameter named twice is one value.
+    """
     if not names:
         return [_Case({}, "")]
     shown = _words(names, last="and")
@@ -704,7 +717,45 @@ def _cases(model: Model, names: Sequence[str]) -> list[_Case]:
                 cases.append(
                     _Case({name: value}, f" with the parameter {_quote(name)} at its '{bound}'")
                 )
+    if len(names) > 1:
+        cases += _corners(model, names)
     return cases
+
+
+def _corners(model: Model, names: Sequence[str]) -> list[_Case]:
+    """The cases with every parameter of ``names`` at one of its bounds together; a
+    parameter without a bound stays at its ``value``."""
+    options: list[list[tuple[str, ParameterValue]]] = []
+    for name in names:
+        parameter = model.parameters[name]
+        bounds = [
+            (bound, value)
+            for bound, value in (("min", parameter.min), ("max", parameter.max))
+            if value is not None
+        ]
+        options.append(bounds or [("value", parameter.value)])
+    if len(names) <= _JOINT_LIMIT:
+        combinations = list(itertools.product(*options))
+    else:
+        combinations = [
+            tuple(choice[0] for choice in options),
+            tuple(choice[-1] for choice in options),
+        ]
+    return [
+        _Case(
+            {name: value for name, (_, value) in zip(names, chosen, strict=True)},
+            " with "
+            + _words(
+                [
+                    f"{_quote(name)} at its '{bound}'"
+                    for name, (bound, _) in zip(names, chosen, strict=True)
+                ],
+                quote=False,
+                last="and",
+            ),
+        )
+        for chosen in combinations
+    ]
 
 
 def _magnitude(value: int | float | Quantity) -> int | float:
@@ -1060,7 +1111,10 @@ def _all_zero(
     scalars = [item for item in weights if isinstance(item, int | float | ParamRef)]
     # A negative weight has its own issue; this one is about weights that add up to zero.
     failure = _first_failure(
-        model, scalars, lambda numbers: any(n < 0 for n in numbers) or sum(numbers) > 0
+        # `any`, not `sum`: a weight may be an integer too large to convert to a float.
+        model,
+        scalars,
+        lambda numbers: any(n < 0 for n in numbers) or any(n > 0 for n in numbers),
     )
     if failure is None:
         return []
