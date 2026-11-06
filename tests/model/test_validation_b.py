@@ -473,8 +473,12 @@ def test_a_branch_with_no_routes_is_e123_at_routes() -> None:
     issue = only(range_issues(built(document)), "E123", "/components/2/params/routes")
     assert issue.component == "split"
     assert issue.message == "The 'routes' setting of 'split' is empty; it needs at least 1 entry."
-    # The whole meaning pass reports nothing else: an empty branch has no output port.
-    assert codes(meaning_pass(built(document))) == [("E123", "/components/2/params/routes")]
+    # The whole meaning pass reports no other error: an empty branch has no output port.
+    # The exit, which only the branch fed, cannot be reached from the source (W200).
+    assert codes(meaning_pass(built(document))) == [
+        ("E123", "/components/2/params/routes"),
+        ("W200", "/components/3"),
+    ]
 
 
 def test_empty_weights_are_not_all_zero() -> None:

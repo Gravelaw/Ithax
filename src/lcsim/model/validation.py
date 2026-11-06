@@ -54,9 +54,12 @@ cannot be built.
 from __future__ import annotations
 
 import itertools
+import math
 import re
+from collections import deque
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from fractions import Fraction
 from typing import Literal
 
 from lcsim.model.catalogue import (
@@ -91,18 +94,23 @@ __all__ = [
     "RESERVED_SCENARIO_ID",
     "STAND_IN_ENGINES",
     "InstalledEngine",
+    "clipping_issues",
     "connection_issues",
     "data_issues",
     "distribution_issues",
+    "distribution_mean",
     "engine_issues",
     "experiment_issues",
+    "flow_rates",
     "identifier_issues",
+    "load_issues",
     "meaning_pass",
     "metric_issues",
     "parameter_issues",
     "range_issues",
     "reference_issues",
     "setting_issues",
+    "unreachable_issues",
 ]
 
 Segment = str | int
@@ -1608,13 +1616,488 @@ def _metric_issue(
     )
 
 
+# --- the warnings: W200, W201, W202 --------------------------------------------------------------
+
+# A flow into a block: the mean rate, per second, of the units arriving, by what each unit
+# holds. ``()`` is one item; ``(5,)`` a batch of 5 items; ``(2, 3)`` a batch of 3 batches
+# of 2 (the last size is the outermost). Rates are exact fractions, so that "at least its
+# capacity" is decided exactly; every step is closed-form arithmetic (guide rule 7).
+_Flow = dict[tuple[int, ...], Fraction]
+
+
+@dataclass(frozen=True)
+class _Graph:
+    """The connection graph the warnings walk."""
+
+    # (index in the file, component) for the first component of each id.
+    nodes: tuple[tuple[int, Component], ...]
+    by_id: Mapping[str, Component]
+    # (component id, output port) -> the id of the component that port feeds. Only the
+    # first connection from a port counts (a second is E132), and only one whose two ends
+    # are valid (E130, E161 otherwise).
+    feeds: Mapping[tuple[str, str], str]
+    # Servers whose capacity a schedule or failure changes: the target of one, or a
+    # server whose pool is the target of a schedule.
+    stopped: frozenset[str]
+
+
+def _graph(model: Model) -> _Graph:
+    by_id = _first_by_id(model.components)
+    nodes = tuple(
+        (index, component)
+        for index, component in enumerate(model.components)
+        if by_id[component.id] is component
+    )
+    feeds: dict[tuple[str, str], str] = {}
+    seen: set[tuple[str, str]] = set()
+    for connection in model.connections:
+        origin, destination = connection.origin, connection.destination
+        start = by_id.get(origin.component)
+        if start is None or origin.port not in start.output_ports:
+            continue
+        key = (origin.component, origin.port)
+        if key in seen:
+            continue
+        seen.add(key)
+        end = by_id.get(destination.component)
+        if end is not None and destination.port in end.input_ports:
+            feeds[key] = destination.component
+    targets = {
+        name
+        for _, component in nodes
+        if component.type in ("schedule", "failure")
+        and isinstance(name := component.settings.get("target"), str)
+        and name in by_id
+    }
+    pools = {name for name in targets if by_id[name].type == "resource_pool"}
+    stopped = frozenset(
+        component.id
+        for _, component in nodes
+        if component.type == "server"
+        and (component.id in targets or component.settings.get("pool") in pools)
+    )
+    return _Graph(nodes, by_id, feeds, stopped)
+
+
+def _successors(graph: _Graph) -> dict[str, list[tuple[str, str]]]:
+    """For each component id, its (output port, component fed) pairs."""
+    successors: dict[str, list[tuple[str, str]]] = {
+        component.id: [] for _, component in graph.nodes
+    }
+    for (origin, port), destination in graph.feeds.items():
+        successors[origin].append((port, destination))
+    return successors
+
+
+def _run_cases(model: Model) -> list[_Case]:
+    """The cases a warning is checked in: the parameters at their ``value``, then each
+    scenario that sets a parameter. Unlike the errors, not at ``min`` and ``max``: a
+    search tries values the modeller may expect to be poor (DECISIONS, AKS-91)."""
+    cases = [_Case({}, "")]
+    for experiment in model.experiments:
+        if experiment.default_scenario_added:
+            continue
+        cases += [
+            _Case(
+                scenario.set,
+                f" in scenario {_quote(scenario.id)} of experiment {_quote(experiment.id)}",
+            )
+            for scenario in experiment.scenarios
+            if scenario.set
+        ]
+    return cases
+
+
+def _exact(model: Model, value: Scalar, expects: Expects, case: _Case) -> Fraction | None:
+    """``value`` in the case, as an exact fraction; ``None`` for a reference with E150 or
+    E152."""
+    if not _fits(model, value, expects):
+        return None
+    return Fraction(_resolve(model, value, case))
+
+
+def _field_expects(distribution: Distribution, name: str, dimension: Dimension) -> Expects:
+    spec = DISTRIBUTIONS[distribution.dist]
+    kind = next(field.kind for form in spec.forms for field in form if field.name == name)
+    plain = kind is FieldKind.NUMBER or dimension is Dimension.DIMENSIONLESS
+    return "number" if plain else "quantity"
+
+
+def _fields(
+    model: Model, distribution: Distribution, dimension: Dimension, case: _Case
+) -> dict[str, Fraction] | None:
+    """The named fields of ``distribution`` in the case; ``None`` if one cannot be read."""
+    fields: dict[str, Fraction] = {}
+    for name, value in distribution.fields.items():
+        number = _exact(model, value, _field_expects(distribution, name, dimension), case)
+        if number is None:
+            return None
+        fields[name] = number
+    return fields
+
+
+def _normal_below_zero(mean: float, sd: float) -> float:
+    """P(X < 0) for X normal with ``mean`` and ``sd``: Φ(-mean/sd)."""
+    return 0.5 * math.erfc(mean / sd / math.sqrt(2))
+
+
+def _clipped_normal_mean(mean: float, sd: float) -> float:
+    """E[max(X, 0)] for X normal with ``mean`` and ``sd``: mean·Φ(z) + sd·φ(z), z =
+    mean/sd. The closed form of the mean of a normal clipped at zero (spec 1
+    "Distributions": negative samples are set to zero)."""
+    z = mean / sd
+    density = math.exp(-z * z / 2) / math.sqrt(2 * math.pi)
+    return mean * 0.5 * math.erfc(-z / math.sqrt(2)) + sd * density
+
+
+def _mean(
+    model: Model, distribution: Distribution, dimension: Dimension, case: _Case
+) -> Fraction | None:
+    fields = _fields(model, distribution, dimension, case)
+    if fields is None:
+        return None
+    values: list[Fraction] = []
+    for value in distribution.values or ():
+        number = _exact(model, value, _field_expects(distribution, "values", dimension), case)
+        if number is None:
+            return None
+        values.append(number)
+    try:
+        return _theoretical_mean(distribution, fields, values)
+    except (OverflowError, ValueError):
+        return None  # a mean beyond the range of a float (a weibull's gamma function)
+
+
+def _theoretical_mean(
+    distribution: Distribution, fields: Mapping[str, Fraction], values: Sequence[Fraction]
+) -> Fraction | None:
+    """The theoretical means of spec 1 "Distributions" (the sampling test); ``None`` for
+    fields that are inconsistent (E160) and for a ``data`` column, which is not read."""
+    name = distribution.dist
+    mean: Fraction | float | None = None
+    if name == "constant":
+        mean = fields["value"]
+    elif name == "exponential":
+        mean = fields["mean"] if fields["mean"] > 0 else None
+    elif name == "uniform":
+        low, high = fields["min"], fields["max"]
+        mean = (low + high) / 2 if low <= high else None
+    elif name == "triangular":
+        low, mode, high = fields["min"], fields["mode"], fields["max"]
+        mean = (low + mode + high) / 3 if low <= mode <= high else None
+    elif name == "normal":
+        if fields["sd"] > 0:
+            mean = _clipped_normal_mean(float(fields["mean"]), float(fields["sd"]))
+    elif name == "lognormal":
+        mean = fields["mean"] if fields["mean"] > 0 and fields["sd"] > 0 else None
+    elif name == "weibull":
+        shape, scale = fields["shape"], fields["scale"]
+        if shape > 0 and scale > 0:
+            mean = float(scale) * math.gamma(1 + 1 / float(shape))
+    elif values:  # empirical with `values`; with `data` the column is not read here
+        mean = sum(values, Fraction(0)) / len(values)
+    if isinstance(mean, float):
+        return Fraction(mean) if math.isfinite(mean) else None
+    return mean
+
+
+def distribution_mean(
+    model: Model,
+    distribution: Distribution,
+    values: Mapping[str, ParameterValue] | None = None,
+    *,
+    dimension: Dimension = Dimension.TIME,
+) -> Fraction | None:
+    """The theoretical mean of ``distribution`` in SI units, as spec 1 "Distributions"
+    gives it for the sampling test, with ``values`` replacing the ``value`` of the
+    parameters it names. A ``normal`` is sampled clipped at zero, so its mean is that of
+    the clipped variable, mean·Φ(mean/sd) + sd·φ(mean/sd), which is ``mean`` to within
+    one part in 10⁷ when ``mean`` ≥ 5 ``sd``.
+
+    ``None`` when the mean cannot be known: inconsistent fields (E160), a reference with
+    E150 or E152, a mean beyond the range of a float, or an ``empirical`` ``data`` column
+    (the model layer reads no values). Phase 1 distributions are times, so ``dimension``
+    is a time unless stated.
+    """
+    return _mean(model, distribution, dimension, _Case(values or {}, ""))
+
+
+# --- W200: reachable from a source ---------------------------------------------------------------
+
+
+def unreachable_issues(model: Model) -> list[Issue]:
+    """W200 for each component with an input port that no chain of connections reaches
+    from a ``source`` (spec 1 "Validation issues"). A connection counts when both its ends
+    are valid and it is the first from its output port."""
+    graph = _graph(model)
+    successors = _successors(graph)
+    stack = [component.id for _, component in graph.nodes if component.type == "source"]
+    reached: set[str] = set()
+    while stack:
+        for _, destination in successors[stack.pop()]:
+            if destination not in reached:
+                reached.add(destination)
+                stack.append(destination)
+    return [
+        _issue(
+            "W200",
+            ("components", index),
+            f"{_quote(component.id)} (a {component.type}) cannot be reached from any source: "
+            "no chain of connections leads from a source to its 'in' port, so no item will "
+            "arrive there.",
+            "Connect it to a source, or to a block that a source reaches; or remove it.",
+            component.id,
+        )
+        for index, component in graph.nodes
+        if component.input_ports and component.id not in reached
+    ]
+
+
+# --- W201: mean arrival rate times mean service time against capacity --------------------------
+
+
+def _admits_less(component: Component) -> bool:
+    """A block that can refuse an item: a ``queue``, or a server with a ``queue_capacity``.
+    A source feeding one is a loss point (spec 1 "Validation")."""
+    return component.type == "queue" or (
+        component.type == "server" and "queue_capacity" in component.settings
+    )
+
+
+def _outputs(
+    model: Model, graph: _Graph, component: Component, inflow: _Flow | None, case: _Case
+) -> dict[str, _Flow | None]:
+    """The flow out of each output port of ``component``, given the flow into it.
+
+    Spec 1 "Validation": a probability branch multiplies by weight/total, a batch divides
+    by ``size``, an unbatch multiplies by it; a shortest-queue branch, a store, a batch
+    with a ``timeout``, a server with a schedule or failure, and a loss point (a
+    discarding ``queue``, a source feeding a block that can refuse an item) give a flow
+    that cannot be propagated (``None``).
+    """
+    ports = component.output_ports
+    settings = component.settings
+    if component.type == "source":
+        fed = graph.feeds.get((component.id, "out"))
+        interarrival = settings["interarrival"]
+        assert isinstance(interarrival, Distribution)
+        mean = _mean(model, interarrival, Dimension.TIME, case)
+        if (fed is not None and _admits_less(graph.by_id[fed])) or mean is None or mean <= 0:
+            return {"out": None}
+        return {"out": {(): 1 / mean}}
+    if inflow is None or not inflow:
+        return {port: inflow for port in ports}  # nothing known, or nothing arrives
+    stops = (
+        component.type == "store"
+        or (component.type == "server" and component.id in graph.stopped)
+        or (component.type == "queue" and settings.get("on_full") == "discard")
+        or (component.type == "batch" and "timeout" in settings)
+        or (component.type == "branch" and settings.get("rule") != "probability")
+    )
+    if stops:
+        return {port: None for port in ports}
+    if component.type == "batch":
+        size = _exact(model, _scalar(settings["size"]), "integer", case)
+        if size is None or size < 1:
+            return {"out": None}
+        whole = int(size)
+        return {"out": {(*held, whole): rate / whole for held, rate in inflow.items()}}
+    if component.type == "unbatch":
+        flow: _Flow = {}
+        for held, rate in inflow.items():
+            inner, count = (held[:-1], held[-1]) if held else ((), 1)
+            flow[inner] = flow.get(inner, Fraction(0)) + rate * count
+        return {"out": flow}
+    if component.type == "branch":
+        return _branch_outputs(model, component, inflow, case)
+    return {port: inflow for port in ports}  # server, delay, blocking queue
+
+
+def _scalar(value: SettingValue) -> Scalar:
+    assert isinstance(value, int | float | Quantity | ParamRef)
+    return value
+
+
+def _branch_outputs(
+    model: Model, component: Component, inflow: _Flow, case: _Case
+) -> dict[str, _Flow | None]:
+    """A probability branch sends weight/total of the flow down each route."""
+    routes = list(dict.fromkeys(component.output_ports))
+    weights = component.settings.get("weights")
+    shares: dict[str, Fraction] = {}
+    for route in routes:
+        weight = weights.get(route) if isinstance(weights, Mapping) else None
+        number = None if weight is None else _exact(model, _scalar(weight), "number", case)
+        if number is None or number < 0:
+            return {route: None for route in routes}
+        shares[route] = number
+    total = sum(shares.values(), Fraction(0))
+    if total <= 0:
+        return {route: None for route in routes}
+    return {
+        route: {held: rate * share / total for held, rate in inflow.items()}
+        for route, share in shares.items()
+    }
+
+
+def _inflows(model: Model, graph: _Graph, case: _Case) -> dict[str, _Flow | None]:
+    """The flow into every component, propagated from the sources in topological order
+    (Kahn's algorithm). Merges add. A block on a loop, or after one, is never reached by
+    the order and gets ``None``: a rate on a loop would need the traffic equations
+    solved, which is a linear system (guide rule 7)."""
+    successors = _successors(graph)
+    waiting = {component.id: 0 for _, component in graph.nodes}
+    for destination in graph.feeds.values():
+        waiting[destination] += 1
+    inflow: dict[str, _Flow | None] = {component.id: {} for _, component in graph.nodes}
+    ready = deque(component.id for _, component in graph.nodes if waiting[component.id] == 0)
+    done: set[str] = set()
+    while ready:
+        name = ready.popleft()
+        done.add(name)
+        outputs = _outputs(model, graph, graph.by_id[name], inflow[name], case)
+        for port, destination in successors[name]:
+            out, current = outputs[port], inflow[destination]
+            if out is None or current is None:
+                inflow[destination] = None
+            else:
+                for held, rate in out.items():
+                    current[held] = current.get(held, Fraction(0)) + rate
+            waiting[destination] -= 1
+            if waiting[destination] == 0:
+                ready.append(destination)
+    return {name: flow if name in done else None for name, flow in inflow.items()}
+
+
+def _total(flow: _Flow | None) -> Fraction | None:
+    return None if flow is None else sum(flow.values(), Fraction(0))
+
+
+def flow_rates(
+    model: Model, values: Mapping[str, ParameterValue] | None = None
+) -> dict[str, Fraction | None]:
+    """The mean arrival rate, in units per second, at each component with an input port,
+    with ``values`` replacing the ``value`` of the parameters they name (spec 1
+    "Validation", W201). A batch counts as one unit. ``None`` where the rate cannot be
+    propagated: after a shortest-queue branch, a store, a batch with a ``timeout``, a
+    server with a schedule or failure, a loss point, on or after a loop, or after a
+    value that cannot be read. A component no source reaches has rate 0."""
+    graph = _graph(model)
+    inflow = _inflows(model, graph, _Case(values or {}, ""))
+    return {
+        component.id: _total(inflow[component.id])
+        for _, component in graph.nodes
+        if component.input_ports
+    }
+
+
+def load_issues(model: Model) -> list[Issue]:
+    """W201 for a server whose mean arrival rate times its mean service time is at least
+    its ``capacity`` while its queue is unlimited (no ``queue_capacity``), so the queue
+    will grow without limit (spec 1 "Validation issues").
+
+    The rate is propagated by ``flow_rates``; a server whose rate cannot be propagated, or
+    whose capacity a schedule or failure changes, is not checked. Each server is checked
+    with the parameters at their ``value`` and in each scenario; the first case that
+    fails is named.
+    """
+    graph = _graph(model)
+    found: dict[int, Issue] = {}
+    for case in _run_cases(model):
+        inflow = _inflows(model, graph, case)
+        for index, component in graph.nodes:
+            if component.type != "server" or index in found:
+                continue
+            issue = _load_issue(model, graph, index, component, inflow[component.id], case)
+            if issue is not None:
+                found[index] = issue
+    return [found[index] for index in sorted(found)]
+
+
+def _load_issue(
+    model: Model,
+    graph: _Graph,
+    index: int,
+    component: Component,
+    inflow: _Flow | None,
+    case: _Case,
+) -> Issue | None:
+    settings = component.settings
+    rate = _total(inflow)
+    if "queue_capacity" in settings or component.id in graph.stopped or rate is None:
+        return None
+    capacity = _exact(model, _scalar(settings["capacity"]), "integer", case)
+    service = settings["service"]
+    assert isinstance(service, Distribution)
+    mean = _mean(model, service, Dimension.TIME, case)
+    if capacity is None or capacity < 1 or mean is None or rate * mean < capacity:
+        return None
+    name = _quote(component.id)
+    return _issue(
+        "W201",
+        ("components", index),
+        f"The mean arrival rate at {name} ({_figures(rate * 3600)} per hour) times its mean "
+        f"service time ({_duration(mean)}) is {_figures(rate * mean)}, which is at least its "
+        f"'capacity' of {_number_text(int(capacity))}, and its queue is unlimited, so the "
+        f"queue will grow without limit{case.text}.",
+        f"Raise the 'capacity' of {name}, shorten its service time, or send less work to it.",
+        component.id,
+    )
+
+
+# --- W202: a normal distribution clipped at zero ------------------------------------------------
+
+
+def clipping_issues(model: Model) -> list[Issue]:
+    """W202 for a ``normal`` distribution whose ``mean`` is less than twice its ``sd``, so that
+    about 2% or more of its samples are below zero and are set to zero (spec 1
+    "Distributions"). Checked with the parameters at their ``value`` and in each
+    scenario; the first case that fails is named. A normal with an ``sd`` not above zero
+    (E160) or a reference with E150 or E152 is not checked."""
+    issues: list[Issue] = []
+    cases = _run_cases(model)
+    for index, component in enumerate(model.components):
+        _, uses, _ = _setting_values(index, component)
+        for use in uses:
+            if use.distribution.dist != "normal":
+                continue
+            for case in cases:
+                fields = _fields(model, use.distribution, use.dimension, case)
+                if fields is None:
+                    break
+                mean, sd = fields["mean"], fields["sd"]
+                if sd <= 0 or mean >= 2 * sd:
+                    continue
+                issues.append(_clipping_issue(use, float(mean), float(sd), case))
+                break
+    return issues
+
+
+def _clipping_issue(use: _Use, mean: float, sd: float, case: _Case) -> Issue:
+    below = 100 * _normal_below_zero(mean, sd)
+    share = f"{below:.0f}" if below >= 10 else f"{below:.2g}"
+    raised = _duration(Fraction(_clipped_normal_mean(mean, sd)), 3)
+    return _issue(
+        "W202",
+        use.at,
+        f"The 'normal' distribution in {use.where} has a 'mean' ({_duration(Fraction(mean), 3)}) "
+        f"less than twice its 'sd' ({_duration(Fraction(sd), 3)}){case.text}, so about "
+        f"{share}% of its samples are below zero; they are set to zero, which raises its mean "
+        f"to {raised}.",
+        "Use a 'mean' of at least twice the 'sd', or a distribution that is never negative, "
+        "such as 'lognormal' with the same mean and sd.",
+        use.component,
+    )
+
+
 # --- the pass --------------------------------------------------------------------------------
 
 
 def meaning_pass(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue]:
     """The meaning pass: part A (identifiers, settings that name things, connections),
     then part B (parameters, references, ranges, distributions, data, experiments,
-    metrics). ``data`` is the project's data index (default: nothing imported).
+    metrics), then the warnings (W200, W201, W202). ``data`` is the project's data index
+    (default: nothing imported).
 
     E102 is not here: the loader checks it before building (``engine_issues``).
     """
@@ -1629,6 +2112,9 @@ def meaning_pass(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue
         *data_issues(model, data),
         *experiment_issues(model),
         *metric_issues(model),
+        *unreachable_issues(model),
+        *load_issues(model),
+        *clipping_issues(model),
     ]
 
 
@@ -1696,6 +2182,25 @@ def _time_text(seconds: int | float) -> str:
         if abs(seconds) >= length and float(count).is_integer():
             return f"{_number_text(count)} {unit}"
     return f"{_number_text(seconds)} s"
+
+
+def _figures(value: Fraction, digits: int = 4) -> str:
+    """An exact number as a message shows it, to ``digits`` significant figures."""
+    try:
+        return f"{float(value):.{digits}g}"
+    except OverflowError:
+        return "a very large number"
+
+
+def _duration(seconds: Fraction, digits: int = 4) -> str:
+    """A time in seconds, to ``digits`` significant figures, in the largest Phase 1 unit
+    it reaches: ``2.5 min``, ``1.53 h``, ``45 s``. Every time a mean is made of is a
+    finite float, so the conversion cannot overflow."""
+    value = float(seconds)
+    for unit, length in _TIME_UNITS:
+        if abs(value) >= length:
+            return f"{value / length:.{digits}g} {unit}"
+    return f"{value:.{digits}g} s"
 
 
 def _shown(value: int | float, expects: Expects) -> str:
