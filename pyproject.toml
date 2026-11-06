@@ -12,6 +12,7 @@ requires-python = ">=3.11"
 dynamic = ["version"]
 dependencies = [
     "jsonschema>=4.26.0",
+    "numpy>=2.4.6",
     "pint>=0.25.3",
 ]
 
