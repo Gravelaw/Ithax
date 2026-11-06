@@ -4,7 +4,13 @@ Registered in ``pyproject.toml`` as entry point ``simpy`` in group ``lcsim.engin
 (spec 1 "Engine contract"). Its ``capabilities()`` reports the model layer's ``process``
 catalogue (``lcsim.model.catalogue.PROCESS_TYPES``), which spec 1 "Validation" requires it
 to equal, and SimPy's licence (MIT) and invocation (imported, ``in-process``; spec 1
-"Engine licence rule"). ``translate``, ``run`` and ``collect`` are filled in by AKS-98.
+"Engine licence rule").
+
+``translate`` writes ``workdir/input.json`` (``lcsim.engines.process.translate``); ``run``
+runs every scenario and replication from it (``lcsim.engines.process.runner``) and writes
+``workdir/output/replications.parquet`` once all have finished, nothing when cancelled;
+``collect`` reads that table into ``Results``. The ``timeseries`` table is not written
+yet (AKS-99), so ``Results.tables`` holds ``replications`` only.
 """
 
 from __future__ import annotations
@@ -12,15 +18,25 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
+import pyarrow.parquet as pq
+
 import lcsim
 from lcsim.engines.adapter import CancelToken, Capabilities, Progress, Results
+from lcsim.engines.process.runner import (
+    REPLICATIONS_SCHEMA,
+    replications_table,
+    run_all,
+    write_table,
+)
+from lcsim.engines.process.translate import read_input, write_input
 from lcsim.model.catalogue import PROCESS_TYPES
 from lcsim.model.issues import Issue
 from lcsim.model.model import Model
 
-__all__ = ["ProcessAdapter"]
+__all__ = ["REPLICATIONS_FILE", "ProcessAdapter"]
 
-_NOT_YET = "the process adapter's {} is built in AKS-98 (M2)"
+#: Where ``run`` writes the ``replications`` table, relative to ``workdir``.
+REPLICATIONS_FILE = Path("output") / "replications.parquet"
 
 
 class ProcessAdapter:
@@ -47,8 +63,9 @@ class ProcessAdapter:
         return []
 
     def translate(self, model: Model, experiment_id: str, workdir: Path) -> None:
-        """Writes SimPy's input into ``workdir``; not built yet."""
-        raise NotImplementedError(_NOT_YET.format("translate"))
+        """Writes the engine input of experiment ``experiment_id`` to
+        ``workdir/input.json``."""
+        write_input(model, experiment_id, workdir)
 
     def run(
         self,
@@ -57,9 +74,17 @@ class ProcessAdapter:
         cancel: CancelToken,
         workers: int,
     ) -> None:
-        """Runs every scenario and replication; not built yet."""
-        raise NotImplementedError(_NOT_YET.format("run"))
+        """Runs every scenario and replication with up to ``workers`` processes, then
+        writes the ``replications`` table; writes nothing when ``cancel`` is set."""
+        engine_input = read_input(workdir)
+        output = workdir / REPLICATIONS_FILE
+        output.unlink(missing_ok=True)
+        done = run_all(workdir, engine_input, on_progress, cancel, workers)
+        if done is not None:
+            write_table(replications_table(engine_input, done), output)
 
     def collect(self, workdir: Path) -> Results:
-        """Reads the per-replication values into ``Results``; not built yet."""
-        raise NotImplementedError(_NOT_YET.format("collect"))
+        """The ``replications`` table ``run`` wrote; ``FileNotFoundError`` when ``run``
+        did not finish."""
+        table = pq.read_table(workdir / REPLICATIONS_FILE, schema=REPLICATIONS_SCHEMA)
+        return Results(tables={"replications": table}, warnings=[])

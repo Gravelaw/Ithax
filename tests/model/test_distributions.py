@@ -24,6 +24,7 @@ from lcsim.model.distributions import (
     DataNotYetSupportedError,
     Sampler,
     sampler_for,
+    sampler_from_numbers,
 )
 from lcsim.model.issues import Issue
 from lcsim.model.loading import build_document
@@ -349,3 +350,41 @@ def test_an_unknown_distribution_is_refused() -> None:
     """Loading never builds one (E160); a sampler for one is a programming error."""
     with pytest.raises(ValueError, match="'gamma'"):
         sampler_for(MODEL, dist("gamma", shape=2))
+
+
+@pytest.mark.parametrize(
+    ("distribution", "fields", "values"),
+    [
+        (dist("constant", value=seconds(90)), {"value": 90.0}, None),
+        (dist("exponential", mean=seconds(90)), {"mean": 90.0}, None),
+        (dist("uniform", min=seconds(10), max=seconds(20)), {"min": 10.0, "max": 20.0}, None),
+        (
+            dist("triangular", min=seconds(1), mode=seconds(2), max=seconds(4)),
+            {"min": 1.0, "mode": 2.0, "max": 4.0},
+            None,
+        ),
+        (dist("normal", mean=seconds(60), sd=seconds(5)), {"mean": 60.0, "sd": 5.0}, None),
+        (dist("lognormal", mean=seconds(60), sd=seconds(5)), {"mean": 60.0, "sd": 5.0}, None),
+        (dist("weibull", shape=2, scale=seconds(60)), {"shape": 2.0, "scale": 60.0}, None),
+        (dist("empirical", values=(seconds(1), seconds(-2), seconds(3))), {}, [1.0, -2.0, 3.0]),
+    ],
+)
+def test_a_sampler_from_resolved_numbers_draws_as_sampler_for(
+    distribution: Distribution, fields: dict[str, float], values: list[float] | None
+) -> None:
+    """AKS-98: the engine input holds SI floats; its samplers draw as the model's do."""
+    from_model, from_numbers = (
+        sampler_for(MODEL, distribution),
+        sampler_from_numbers(distribution.dist, fields, values),
+    )
+    first, second = generator_for(SEED, 0, "till"), generator_for(SEED, 0, "till")
+    assert [from_model(first) for _ in range(50)] == [from_numbers(second) for _ in range(50)]
+
+
+def test_a_sampler_from_numbers_refuses_an_unknown_distribution_or_no_values() -> None:
+    with pytest.raises(ValueError, match="'gamma'"):
+        sampler_from_numbers("gamma", {"shape": 2.0})
+    with pytest.raises(ValueError, match="at least one value"):
+        sampler_from_numbers("empirical", {}, [])
+    with pytest.raises(ValueError, match="at least one value"):
+        sampler_from_numbers("empirical", {})

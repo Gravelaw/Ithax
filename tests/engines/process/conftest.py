@@ -1,0 +1,118 @@
+"""Shared helpers for the process adapter's tests (AKS-98): small models built through the
+real loader, and a block that records what reaches it."""
+
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any
+
+import pytest
+import simpy
+
+from lcsim.engines.process.blocks import Block, Context, Item
+from lcsim.engines.process.statistics import TimeWeighted, Window
+from lcsim.model.loading import load_document
+from lcsim.model.model import Model
+from lcsim.model.streams import generator_for
+
+ModelMaker = Callable[..., Model]
+ContextMaker = Callable[[float, float], Context]
+
+
+def model_document(
+    components: Sequence[Mapping[str, Any]],
+    connections: Sequence[tuple[str, str]],
+    *,
+    length: str = "1200 s",
+    warmup: str = "0 s",
+    replications: int = 2,
+    seed: int = 1,
+    scenarios: Sequence[Mapping[str, Any]] | None = None,
+    parameters: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    experiment: dict[str, Any] = {
+        "id": "e",
+        "length": length,
+        "warmup": warmup,
+        "replications": replications,
+        "seed": seed,
+    }
+    if scenarios is not None:
+        experiment["scenarios"] = list(scenarios)
+    return {
+        "format_version": "0.1",
+        "meta": {"name": "Test"},
+        "domain": "process",
+        "parameters": dict(parameters or {}),
+        "components": [dict(component) for component in components],
+        "connections": [{"from": origin, "to": to} for origin, to in connections],
+        "experiments": [experiment],
+        "run": {"target": "local", "fidelity": "standard"},
+    }
+
+
+@pytest.fixture
+def make_model() -> ModelMaker:
+    """Loads a model from components and connections; fails on any error issue."""
+
+    def make(
+        components: Sequence[Mapping[str, Any]],
+        connections: Sequence[tuple[str, str]],
+        **experiment: Any,
+    ) -> Model:
+        result = load_document(model_document(components, connections, **experiment))
+        assert result.model is not None, [issue.as_dict() for issue in result.issues]
+        return result.model
+
+    return make
+
+
+def constant(value: str) -> dict[str, str]:
+    return {"dist": "constant", "value": value}
+
+
+def line(
+    interarrival: Mapping[str, Any], service: Mapping[str, Any], capacity: Any = 1
+) -> tuple[list[dict[str, Any]], list[tuple[str, str]]]:
+    """A source, one server and a sink: ``arrivals`` → ``till`` → ``exit``."""
+    return (
+        [
+            {"id": "arrivals", "type": "source", "params": {"interarrival": interarrival}},
+            {
+                "id": "till",
+                "type": "server",
+                "params": {"capacity": capacity, "service": service},
+            },
+            {"id": "exit", "type": "sink", "params": {}},
+        ],
+        [("arrivals.out", "till.in"), ("till.out", "exit.in")],
+    )
+
+
+@pytest.fixture
+def make_context() -> ContextMaker:
+    """A fresh SimPy environment with the observed period from ``warmup`` to ``end``."""
+
+    def make(warmup: float, end: float) -> Context:
+        window = Window(warmup, end)
+        return Context(env=simpy.Environment(), window=window, wip=TimeWeighted(window))
+
+    return make
+
+
+class Recorder(Block):
+    """A test block: records each item and when it arrived; refuses items when closed."""
+
+    def configure(self, settings: Mapping[str, Any]) -> None:
+        self.open = bool(settings.get("open", True))
+        self.items: list[Item] = []
+        self.times: list[float] = []
+
+    def accepts(self) -> bool:
+        return self.open
+
+    def receive(self, item: Item) -> None:
+        self.items.append(item)
+        self.times.append(self.now)
+
+
+def recorder(context: Context, *, open: bool = True) -> Recorder:
+    return Recorder("recorder", {"open": open}, context, generator_for(0, 0, "recorder"))

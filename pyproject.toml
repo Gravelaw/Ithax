@@ -15,6 +15,7 @@ dependencies = [
     "numpy>=2.4.6",
     "pint>=0.25.3",
     "pyarrow>=26.0.1",
+    "simpy>=4.1.2",
 ]
 
 [project.optional-dependencies]

@@ -79,7 +79,7 @@ The sections below are binding. Where they differ from the summary above, these 
 
 | Type | Ports | Settings | Behaviour |
 | --- | --- | --- | --- |
-| `source` | `out` | `interarrival` (distribution), optional `first_arrival` (time quantity), `max_items` (integer) | Creates one item, waits one interarrival time, repeats |
+| `source` | `out` | `interarrival` (distribution), optional `first_arrival` (time quantity), `max_items` (integer) | Creates one item, waits one interarrival time, repeats. The first item is created at `first_arrival`, 0 s when absent; after `max_items` items the source stops (proposed default, owner to confirm) |
 | `server` | `in`, `out` | `capacity` (integer), `service` (distribution), optional `queue_capacity` (integer), `discipline`, `pool` | Items wait in the server's own queue, then hold one unit of capacity for one service time |
 | `delay` | `in`, `out` | `time` (distribution) | Holds each item for the sampled time; no queue, no capacity limit |
 | `branch` | `in`, one output per route | `routes` (array of identifiers, required; one output port per entry, named by the entry), `rule` (`probability` or `shortest_queue`), `weights` (object keyed by route, required for `probability`) | Sends each item down one route |
@@ -138,6 +138,8 @@ The prototype exercised `source`, `server`, `delay`, `branch` with the `probabil
 | `model.wip.mean` | Time-weighted number of items in the system: created and not yet at a sink or discarded |
 
 - The observed period runs from the end of warm-up to the end of the run.
+- An event at exactly the end of warm-up belongs to the observed period: counts and observations take events at or after warm-up (an item reaching a sink at that instant counts, and so does a wait whose service starts then). Time-weighted statistics integrate only over the period, so an item in service across the end of warm-up adds only the part of its service after it. `queue_length.max` is the largest of the value held at the end of warm-up and every value taken during the period, including one held for no time. Proposed default (AKS-98), owner to confirm.
+- A mean over no items (`wait.mean` or `cycle_time.mean` in a replication where no item qualifies) is undefined, and the replication's value is NaN (spec 1 "Tables for the `process` domain"). Proposed default (AKS-98), owner to confirm.
 - Items still in the system at the end are not counted in waits or cycle times.
 - Across replications: the reported mean is the mean of replication means. The half-width is t(1 − (1 − confidence)/2, n − 1) times the sample standard deviation of the replication means (n − 1 denominator), divided by √n. The t quantile comes from `scipy.stats.t.ppf`; no table is hard-coded. Per-replication statistics are the adapter's; this across-replication line is computed by the experiment manager for every adapter.
 - Between scenarios: for each metric and each pair of scenarios the difference is computed per replication (same replication number, same streams) and reported as a mean with a half-width from the paired differences; an interval excluding zero is reported as separated.
@@ -289,3 +291,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 Since version 0.4 (to be numbered when the next review or milestone closes):
 
 - 2026-11-06, M2 research note `docs/research/spec-2-simulation-library.md`: SimPy confirmed as the process engine over salabim and Ciw; "Simultaneous events" now states SimPy's tested ordering (a process start or an interrupt runs first at its instant; nothing runs at the end time). The M2 benchmark answers were recomputed from closed-form formulas in `docs/research/spec-2-benchmark-sources.md` and all match.
+- 2026-11-06, SimPy adapter core (AKS-98), found while building `src/lcsim/engines/process/`: "Block reference" says a source's first item is created at `first_arrival`, 0 s when absent, and that it stops after `max_items` items (owner to confirm); "Statistic definitions" says an event at exactly the end of warm-up belongs to the observed period, that time-weighted statistics count only the part of the period after warm-up, what `queue_length.max` takes, and that a mean over no items is NaN (owner to confirm).
