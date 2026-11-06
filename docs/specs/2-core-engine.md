@@ -100,7 +100,7 @@ Rules that apply across blocks:
 - **Discipline.** `discipline` values are `fifo` (default) or `lifo`.
 - **Blocking.** If the next block cannot accept an item, the item stays where it is and keeps holding its capacity.
 - **Branch rules.** `probability` draws from the branch's own stream and picks a route with probability weight/sum of weights. `shortest_queue` picks the route whose next block has the fewest waiting items (0 for a block without a queue); ties go to the earliest route in `routes`.
-- **Simultaneous events.** Events at the same time run in the order they were scheduled.
+- **Simultaneous events.** Events at the same time run in the order they were scheduled, with SimPy's one exception: the first step of a process started at that instant, and an interrupt, run before the other events due then (SimPy orders events by time, then urgent before normal priority, then scheduling order). An event due exactly at the end of the run does not run.
 
 Proposed defaults chosen by the review council, owner to confirm; M4 may correct them with a DECISIONS entry:
 
@@ -277,3 +277,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-06, review of PR #1: `model.wip.mean` stops counting an item when it is discarded (by a source or a `queue` with `on_full: discard`) as well as when it reaches a sink, so WIP stays bounded in a stable loss system.
 - 2026-11-06, review of PR #1: `<server>.utilization` caps busy time at available capacity at each instant, so off-shift completion of an item cannot push utilization above 1. M4 adds a schedule test with a service that crosses a shift end.
 - 2026-11-06, review of PR #1: the search's confirmation stage counts the always-confirmed baseline as a feasible candidate, so a search is `infeasible` only when no confirmed candidate, baseline included, meets the constraints.
+- 2026-11-06, M2 research note `docs/research/spec-2-simulation-library.md`: SimPy confirmed as the process engine over salabim and Ciw; "Simultaneous events" now states SimPy's tested ordering (a process start or an interrupt runs first at its instant; nothing runs at the end time). The M2 benchmark answers were recomputed from closed-form formulas in `docs/research/spec-2-benchmark-sources.md` and all match.

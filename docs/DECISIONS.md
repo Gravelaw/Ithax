@@ -268,3 +268,29 @@ The verifier confirmed every council change and found six small inconsistencies 
   - Build guide, spec 1, spec 2 and spec 4 differ only where the exporter puts a backslash before `<`, `[`, `]`, `_` or `|` in plain text. The stored text is the same.
 - **Defect found:** The sync found one real fault in the repository. Spec 2's "Statistic definitions" table had an unescaped `|` inside a code span, which splits the cell in GitHub Markdown. The repository file now writes it as `\|`, and the fix is logged in spec 2's change list.
 - **Source of truth:** The repository is still the source of truth (owner question 8).
+
+## 2026-11-06 · M2 (research notes, started early)
+
+### M2 research notes written before M1 closes
+
+- **Decision:** The three M2 research notes (`docs/research/spec-2-simulation-library.md`, `docs/research/spec-1-plugin-mechanisms.md`, `docs/research/spec-2-benchmark-sources.md`) are written now, while M1 is still open.
+- **Reason:** The owner asked for parallel work ahead of the normal order (Linear AKS-95). The notes are documents only: no product code, no tests and no change to `pyproject.toml`, so M1's work and checks are untouched. Guide rule 2 (one milestone per session) is kept in spirit: this session builds nothing for M2.
+- **Alternatives considered:** Wait for M1 to close (the normal order).
+- **Spec sections updated:** see the next three entries.
+- **Dependencies added:** none.
+
+### SimPy confirmed as the process engine
+
+- **Decision:** SimPy stays the engine for the `process` domain. Spec 2's "Simultaneous events" rule now states SimPy's tested ordering: at one instant, events run in scheduling order, except that a process start or an interrupt runs first, and an event due exactly at the end of the run does not run.
+- **Reason:** On 100 replications of the spec 2 M/M/1 case, SimPy took about 5 s, Ciw 9 s and salabim 142 s; all three met the 3 × standard error rule. Ciw draws from Python's global `random` module, which the conventions forbid and spec 1's stream scheme cannot use. salabim's default mode needs the undeclared `greenlet` package. Details in `docs/research/spec-2-simulation-library.md`.
+- **Alternatives considered:** salabim (has a capacity setter for schedules and animation, but is 25 to 30 times slower on this case); Ciw (network-of-queues only, global random generator).
+- **Spec sections updated:** spec 2 "Block reference" (Simultaneous events) and "Changes in this version".
+- **Dependencies added:** none in this change; recorded below for M2.
+
+### Engine gap: SimPy lacks resource capacity that changes over time
+
+- **Decision:** At M4 the adapter builds the `schedule` block itself, because SimPy's `Resource.capacity` is a read-only property (checked in `simpy/resources/base.py`, 4.1.2). One workaround is a process that seizes the off-shift units with priority on a `PriorityResource`. Another is a counter in the adapter that holds back units. M4 chooses one and tests it against the deterministic schedule benchmark. This is event logic, not numerical code (guide rule 7).
+- **Reason:** Spec 2 `schedule` changes the capacity of a server or pool over time.
+- **Alternatives considered:** salabim, whose `Resource.set_capacity()` exists, was rejected on speed (previous entry).
+- **Spec sections updated:** none yet; spec 2 "Block reference" `schedule` is verified at M4.
+- **Dependencies added:** none.
