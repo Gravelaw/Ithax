@@ -185,7 +185,8 @@ def read_quantity(value: object, expected: Dimension) -> Quantity:
     if _is_json_number(value):
         raise QuantityKindError(
             value,
-            f"{value!r} is a plain number, but {_EXPECTED[expected]} with a unit is expected.",
+            f"{_number_text(value)} is a plain number, but {_EXPECTED[expected]} with a unit "
+            "is expected.",
             _HINT[expected],
         )
     raise _unreadable(value, expected)
@@ -200,7 +201,9 @@ def read_number(value: object) -> int | float:
     quantity such as ``"2 min"``, any other string, true, false, null, an array, an
     object, or a non-finite float.
     """
-    if _is_json_number(value) and math.isfinite(value):
+    # An int is always finite; math.isfinite would convert it to a float and overflow
+    # for an integer above about 1.8e308, such as 10**309.
+    if _is_json_number(value) and (isinstance(value, int) or math.isfinite(value)):
         return value
     if isinstance(value, str):
         message = f"'{value}' is text, but a plain number with no unit is expected."
@@ -212,6 +215,14 @@ def read_number(value: object) -> int | float:
 def _is_json_number(value: object) -> TypeGuard[int | float]:
     # bool is a subclass of int in Python, but true and false are not JSON numbers.
     return isinstance(value, int | float) and not isinstance(value, bool)
+
+
+def _number_text(value: int | float) -> str:
+    # repr of an int with more than 4,300 digits raises ValueError (Python's integer
+    # string limit), and a long one would swamp the message.
+    if isinstance(value, int) and value.bit_length() > 64:
+        return "a very large integer"
+    return repr(value)
 
 
 def _json_repr(value: object) -> str:

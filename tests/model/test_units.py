@@ -261,6 +261,31 @@ def test_anything_but_a_finite_json_number_where_a_number_is_expected_is_e123(
     assert caught.value.hint
 
 
+@pytest.mark.parametrize(
+    "value", [10**309, -(10**309), 10**5000, 2**64 + 1], ids=["1e309", "-1e309", "1e5000", "2^64+1"]
+)
+def test_read_number_returns_very_large_integers_unchanged(value: int) -> None:
+    # math.isfinite(10**309) would raise OverflowError; an int is always finite.
+    assert read_number(value) == value
+
+
+@pytest.mark.parametrize("value", [10**309, 10**5000], ids=["1e309", "1e5000"])
+def test_very_large_integer_where_a_quantity_is_expected_is_e123(value: int) -> None:
+    # repr(10**5000) raises ValueError (integer string limit); the message must not.
+    with pytest.raises(QuantityKindError) as caught:
+        read_quantity(value, TIME)
+    assert caught.value.message.startswith("a very large integer is a plain number")
+
+
+def test_integers_up_to_64_bits_are_quoted_in_the_e123_message() -> None:
+    with pytest.raises(QuantityKindError) as caught:
+        read_quantity(2**64 - 1, TIME)
+    assert caught.value.message.startswith(f"{2**64 - 1} is a plain number")
+    with pytest.raises(QuantityKindError) as caught:
+        read_quantity(2**64, TIME)
+    assert caught.value.message.startswith("a very large integer is a plain number")
+
+
 def test_read_number_message_for_a_quantity_names_the_quantity() -> None:
     with pytest.raises(QuantityKindError) as caught:
         read_number("2 min")
