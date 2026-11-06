@@ -5,8 +5,9 @@ A process run's summary is, in this order: ``model`` (the model's name), ``exper
 ``fidelity``, ``fidelity_label``, ``replications``, ``confidence``, ``scenarios`` keyed by
 scenario id in the experiment's order, each ``{set, metrics}`` with every metric of the
 ``replications`` table as ``{mean, half_width, unit, n}``; ``differences``, the paired
-scenario differences; and ``warnings``: the warnings given (the adapter's ``validate``
-warnings), then the adapter's ``collect`` warnings, then W210 from the warm-up check
+scenario differences; and ``warnings``: the warnings given (the local run target gives the
+load-time warnings W200 to W202, then the adapter's ``validate`` warnings; AKS-103), then
+the adapter's ``collect`` warnings, then W210 from the warm-up check
 (``lcsim.runs.warmup``), which runs on the ``timeseries`` table of a plain experiment.
 
 An optimization run's summary is ``model``, then the adapter's ``solution``, then

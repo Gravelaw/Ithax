@@ -17,13 +17,18 @@ the run target writes ``summary.json`` and the tables with ``lcsim.runs.tables``
 records the state. An exception from the adapter propagates; the run target reports it
 (E190). A plain experiment only: a search experiment (spec 2 "Simulation-based
 optimization") is M5's.
+
+The steps are also available one by one, for the ``local`` run target
+(``lcsim.runs.targets``; AKS-103), which runs ``validate``, ``translate`` and ``collect``
+in its own process and ``run`` in a worker process: ``check_experiment`` (step 1) and
+``collect_summary`` (step 4, with the warnings to put first in the summary).
 """
 
 from __future__ import annotations
 
 import json
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -33,7 +38,15 @@ from lcsim.model.issues import Issue, pointer
 from lcsim.model.model import Model
 from lcsim.runs.summary import build_summary
 
-__all__ = ["OFFERED_FIDELITIES", "RunOutcome", "RunState", "fidelity_issues", "run_experiment"]
+__all__ = [
+    "OFFERED_FIDELITIES",
+    "RunOutcome",
+    "RunState",
+    "check_experiment",
+    "collect_summary",
+    "fidelity_issues",
+    "run_experiment",
+]
 
 #: Spec 1 "Top-level keys": Phase 1 process and optimization engines accept only these.
 OFFERED_FIDELITIES = ("standard",)
@@ -97,15 +110,7 @@ def run_experiment(
     ``cancel`` defaults to a token that is never set. An experiment the model does not
     have raises ``ValueError``; a search experiment raises ``NotImplementedError`` (M5).
     """
-    experiment = next((item for item in model.experiments if item.id == experiment_id), None)
-    if experiment is None:
-        raise ValueError(f"the model has no experiment {experiment_id!r}")
-    if experiment.search is not None:
-        raise NotImplementedError(
-            f"experiment {experiment_id!r} has a search, which the experiment manager runs "
-            "from M5 (spec 2 'Simulation-based optimization')"
-        )
-    issues = (*adapter.validate(model), *fidelity_issues(model))
+    issues = check_experiment(adapter, model, experiment_id)
     if any(issue.severity == "error" for issue in issues):
         return RunOutcome("refused", issues, None, None)
     token: CancelToken = threading.Event() if cancel is None else cancel
@@ -114,6 +119,36 @@ def run_experiment(
     adapter.run(workdir, on_progress, token, workers)
     if token.is_set():
         return RunOutcome("cancelled", issues, None, None)
-    results = adapter.collect(workdir)
-    summary = build_summary(model, experiment_id, results, issues)
+    results, summary = collect_summary(adapter, model, experiment_id, workdir, issues)
     return RunOutcome("done", issues, results, summary)
+
+
+def check_experiment(adapter: EngineAdapter, model: Model, experiment_id: str) -> tuple[Issue, ...]:
+    """Step 1: the adapter's ``validate`` issues, then E173 from the fidelity check; any
+    error among them refuses the run.
+
+    An experiment the model does not have raises ``ValueError``; a search experiment
+    raises ``NotImplementedError`` (M5).
+    """
+    experiment = next((item for item in model.experiments if item.id == experiment_id), None)
+    if experiment is None:
+        raise ValueError(f"the model has no experiment {experiment_id!r}")
+    if experiment.search is not None:
+        raise NotImplementedError(
+            f"experiment {experiment_id!r} has a search, which the experiment manager runs "
+            "from M5 (spec 2 'Simulation-based optimization')"
+        )
+    return (*adapter.validate(model), *fidelity_issues(model))
+
+
+def collect_summary(
+    adapter: EngineAdapter,
+    model: Model,
+    experiment_id: str,
+    workdir: Path,
+    warnings: Sequence[Issue],
+) -> tuple[Results, dict[str, Any]]:
+    """Step 4: ``collect(workdir)`` and the ``summary.json`` dict, with ``warnings``
+    first in its ``warnings``."""
+    results = adapter.collect(workdir)
+    return results, build_summary(model, experiment_id, results, warnings)
