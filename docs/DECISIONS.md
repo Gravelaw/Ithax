@@ -331,3 +331,24 @@ The verifier confirmed every council change and found six small inconsistencies 
 
   - **AGPL-3.0 compatibility:** all of these are MIT, BSD 3-clause or PSF licences. The FSF licence list (read 2026-11-06) calls the Expat (MIT) licence, the modified BSD licence and the licence of Python 2.0.1 and later "compatible with the GNU GPL". Each may therefore be combined into the AGPL-3.0 product and imported in-process. Not legal advice; the spec 1 engine licence rule still applies.
   - **Avoided:** jsonschema's `format` extra pulls in `rfc3987` 1.3.8 (GPL-3.0-or-later per PyPI). That licence could still be combined with AGPL-3.0, but the extra is not needed.
+
+### Units and quantities (AKS-86)
+
+- **Decision:**
+  - `src/lcsim/model/units.py` is the quantity layer. Public API: `Dimension` (`TIME`, `DIMENSIONLESS`), `Quantity` (frozen; `magnitude` as an SI float, `dimension`, and `unit`, the SI symbol), `PHASE_1_UNITS`, `units_of(dimension)`, `si_symbol(dimension)` (`s` or `1`, for the results `unit` column), `parse_quantity(text, expected)`, `read_quantity(value, expected)`, `read_number(value)`, and the errors `QuantityError`, `QuantityParseError` (E141), `QuantityDimensionError` (E140) and `QuantityKindError` (E123).
+  - It is the only module that imports pint (tested). The grammar is matched first, as the AKS-85 entry decided; pint then tells E140 from E141 and converts to SI base units.
+  - E140 versus E141: E140 only when pint knows the unit name and none of its readings has the expected dimension. pint gives some names several readings with different dimensions (`cd` is candela or centi-day; `ha` is hectare or hecto-year; 91 such names were found). If any reading has the expected dimension, the unit is the right kind but not a Phase 1 unit, so E141.
+  - A number whose SI value is not finite (`"1e400 s"`, `"1e308 d"`) is E141. `"-0 s"` is stored as 0.0.
+  - Values that are neither quantities nor numbers: where a plain number is expected, anything other than a finite JSON number is E123 (`true` is not a number, although Python's `bool` is an `int`). Where a quantity is expected, a JSON number is E123 and `true`, `false`, `null`, an array or an object is E141. `{"$param": ...}` references are resolved before these functions are called.
+  - The errors carry `code`, `value`, a plain-language `message` that quotes the value, and a `hint`. They are not yet spec 1 issue objects: AKS-87 builds the issue type, and the meaning pass (AKS-89, AKS-90) turns each error into an issue with `component` and `path`, and names the setting in the message. No shared issue type was built here, to leave that to AKS-87.
+- **Reason:**
+  - The spec 1 grammar left these cases open; each is the simplest reading that keeps unknown or unusable values from loading (guide rule 5). They are flagged for the owner in the PR.
+  - Building one `UnitRegistry` takes about 0.14 s, so it is built once per process, on first use.
+  - pint 0.25.3 (Python 3.11) raises `KeyError` for the dimensionality of `dimensionless`, so the module states each dimension's pint dimensionality itself instead of asking pint for it. pint 0.25 declares `UnitRegistry` generic and 0.26 does not, so the one annotation that names it carries `# type: ignore[type-arg,unused-ignore]`.
+- **Alternatives considered:**
+  - E140 for any known unit whose first pint reading has another dimension: `2 cd` for a time would then be E140, although centi-day is a time.
+  - E123 for every non-number where a quantity is expected: `true` or `null` is not "a plain number", which is what E123 names in that direction.
+  - Returning the pint quantity: pint would then leave the model layer.
+- **Tested:** `tests/model/test_units.py` has 111 tests (123 pass and 29 skip in the full run); line coverage of `units.py` is 100%. `bash scripts/check.sh` exits 0 on Python 3.13.18 with pint 0.26.2 and on Python 3.11.18 with pint 0.25.3. 510 numbers times the four Phase 1 units (2,040 conversions) give exactly `float(number) × factor`. A fuzz of about 100,000 `parse_quantity` calls per pint version (every pint unit name, prefixed names and random tokens, each against both dimensions) raised only `QuantityError`, never another exception.
+- **Spec sections updated:** spec 1 "Quantities", with a dated line under "Changes in this version".
+- **Dependencies added:** `pint>=0.25.3` in `pyproject.toml`. Licences of pint and its dependencies (flexcache, flexparser, platformdirs, typing-extensions) are recorded in the AKS-85 entry above; the installed versions match it (pint 0.26.2 and 0.25.3, flexcache 0.3, flexparser 0.4, platformdirs 4.14.5, typing-extensions 4.16.0).

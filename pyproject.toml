@@ -10,7 +10,9 @@ license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dynamic = ["version"]
-dependencies = []
+dependencies = [
+    "pint>=0.25.3",
+]
 
 [project.optional-dependencies]
 dev = [
