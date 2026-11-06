@@ -104,7 +104,7 @@ def schema_pass(document: object) -> list[Issue]:
         version_issue = _version_issue(document)
         if version_issue is not None:
             return [version_issue]
-    errors = list(_validator().iter_errors(document))
+    errors = list(_validator().iter_errors(_without_huge_integers(document)))
     # A key of the other domain is reported once; what is inside it is not judged.
     misplaced = [list(error.absolute_path) for error in errors if error.validator == "not"]
     issues: list[Issue] = []
@@ -116,6 +116,56 @@ def schema_pass(document: object) -> list[Issue]:
             if issue not in issues:
                 issues.append(issue)
     return sorted(issues, key=lambda issue: _sort_key(issue.path))
+
+
+# Integers longer than this many bits (about 4,200 decimal digits) are replaced before
+# validation: jsonschema formats the offending value with repr() when it builds an error,
+# and Python refuses to print an integer of more than 4,300 digits.
+_HUGE_INTEGER_BITS = 14_000
+
+
+def _is_huge_integer(value: object) -> bool:
+    return (
+        isinstance(value, int)
+        and not isinstance(value, bool)
+        and value.bit_length() > _HUGE_INTEGER_BITS
+    )
+
+
+def _without_huge_integers(document: object) -> object:
+    """``document``, or a copy with every very large integer replaced by 0.
+
+    The copy keeps every key and JSON type, so the schema reports the same problems at the
+    same paths; messages name a number's kind, never its value. Both walks use an explicit
+    stack, so a deeply nested file cannot exhaust Python's recursion limit here.
+    """
+    stack: list[object] = [document]
+    while stack:
+        value = stack.pop()
+        if isinstance(value, dict):
+            stack.extend(value.values())
+        elif isinstance(value, list):
+            stack.extend(value)
+        elif _is_huge_integer(value):
+            break
+    else:
+        return document
+    holder: list[object] = [document]
+    work: list[tuple[dict[Any, object] | list[object], Any]] = [(holder, 0)]
+    while work:
+        container, key = work.pop()
+        value = container[key]
+        if isinstance(value, dict):
+            copied_dict = dict(value)
+            container[key] = copied_dict
+            work.extend((copied_dict, name) for name in copied_dict)
+        elif isinstance(value, list):
+            copied_list = list(value)
+            container[key] = copied_list
+            work.extend((copied_list, index) for index in range(len(copied_list)))
+        elif _is_huge_integer(value):
+            container[key] = 0
+    return holder[0]
 
 
 def _version_issue(document: Mapping[str, Any]) -> Issue | None:

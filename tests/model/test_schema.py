@@ -859,3 +859,54 @@ def test_object_keys_of_many_digits_sort_without_overflow() -> None:
     document["components"][0].update({long_key: 1, "10": 1, "9": 1, "010": 1})
     issues = schema_pass(document)
     assert [issue.path.rsplit("/", 1)[1] for issue in issues] == ["9", "010", "10", long_key]
+
+
+HUGE = 10**5000  # more digits than Python will print (its limit is 4,300)
+
+
+def put(document: dict[str, Any], path: tuple[str | int, ...], value: object) -> None:
+    parent: Any = document
+    for part in path[:-1]:
+        parent = parent[part]
+    if isinstance(parent, list) and path[-1] == len(parent):
+        parent.append(value)
+    else:
+        parent[path[-1]] = value
+
+
+@pytest.mark.parametrize(
+    ("path", "value", "expected"),
+    [
+        (("meta", "name"), HUGE, [("E100", "/meta/name")]),
+        (("components", 3), HUGE, [("E100", "/components/3")]),
+        (("components", 0, "id"), -HUGE, [("E100", "/components/0/id")]),
+        (("variables",), [{"id": "x", "type": "c", "lower": HUGE}], [("E100", "/variables")]),
+        (("experiments", 0, "length"), HUGE, []),
+        (("components", 0, "ui"), {"x": [HUGE]}, []),
+    ],
+    ids=["wrong-type", "list-item", "negative", "other-domain-key", "untyped", "in-ui"],
+)
+def test_very_large_integers_are_reported_not_raised(
+    path: tuple[str | int, ...], value: object, expected: list[tuple[str, str]]
+) -> None:
+    # jsonschema prints the offending value when it builds an error; a very large integer
+    # would make that raise, so the schema pass validates a copy without such integers.
+    document = coffee()
+    put(document, path, value)
+    before = copy.deepcopy(document)
+    issues = schema_pass(document)
+    assert summary(issues) == expected
+    assert document == before
+    if expected and expected[0][1] != "/variables":
+        assert issues[0].message.endswith("not a number.")
+
+
+@pytest.mark.parametrize("document", [HUGE, [HUGE]], ids=["integer", "array"])
+def test_very_large_integer_as_the_whole_file(document: object) -> None:
+    issue = only(schema_pass(document))
+    assert (issue.code, issue.path) == ("E100", "")
+
+
+def test_document_without_large_integers_is_validated_as_it_is() -> None:
+    document = coffee()
+    assert schema_module._without_huge_integers(document) is document
