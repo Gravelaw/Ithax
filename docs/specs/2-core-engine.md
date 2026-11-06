@@ -1,6 +1,6 @@
 # Spec 2: Core Engine for Process Simulation and Optimization
 
-> Version 0.3 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.4 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 Two engine adapters, both in Python: discrete-event simulation on SimPy, and optimization on HiGHS; Optuna is a search driver inside the experiment manager, not an adapter. Together with an experiment manager they make Phase 1 a complete product.
 
@@ -79,15 +79,15 @@ The sections below are binding. Where they differ from the summary above, these 
 
 | Type | Ports | Settings | Behaviour |
 | --- | --- | --- | --- |
-| `source` | `out` | `interarrival` (distribution), optional `first_arrival`, `max_items` | Creates one item, waits one interarrival time, repeats |
-| `server` | `in`, `out` | `capacity` (integer), `service` (distribution), optional `queue_capacity`, `discipline`, `pool` | Items wait in the server's own queue, then hold one unit of capacity for one service time |
+| `source` | `out` | `interarrival` (distribution), optional `first_arrival` (time quantity), `max_items` (integer) | Creates one item, waits one interarrival time, repeats |
+| `server` | `in`, `out` | `capacity` (integer), `service` (distribution), optional `queue_capacity` (integer), `discipline`, `pool` | Items wait in the server's own queue, then hold one unit of capacity for one service time |
 | `delay` | `in`, `out` | `time` (distribution) | Holds each item for the sampled time; no queue, no capacity limit |
-| `branch` | `in`, one output per route | `routes` (array of identifiers, required; one `out` port per entry), `rule` (`probability` or `shortest_queue`), `weights` (object keyed by route, required for `probability`) | Sends each item down one route |
-| `queue` | `in`, `out` | `capacity`, `discipline`, optional `on_full` (`block`, default, or `discard`: the item leaves and is counted in `<queue>.discarded`) | A standalone buffer, for use ahead of a batch or branch |
-| `batch` | `in`, `out` | `size`, optional `timeout` | Collects `size` items and releases them as one |
+| `branch` | `in`, one output per route | `routes` (array of identifiers, required; one output port per entry, named by the entry), `rule` (`probability` or `shortest_queue`), `weights` (object keyed by route, required for `probability`) | Sends each item down one route |
+| `queue` | `in`, `out` | `capacity` (integer), optional `discipline`, optional `on_full` (`block`, default, or `discard`: the item leaves and is counted in `<queue>.discarded`) | A standalone buffer, for use ahead of a batch or branch |
+| `batch` | `in`, `out` | `size` (integer), optional `timeout` (time quantity) | Collects `size` items and releases them as one |
 | `unbatch` | `in`, `out` | none | Splits a batch back into its items |
-| `store` | `in`, `out` | `initial`, `reorder_point`, `order_quantity`, `lead_time` | Each item arriving at `in` takes one unit of stock and leaves by `out` at once. If stock is zero the item waits, first in first out, until a delivery; each such item counts as a stock-out. When stock on hand plus on order falls to `reorder_point`, an order of `order_quantity` is placed and arrives after `lead_time` (a distribution) |
-| `resource_pool` | none | `capacity` | Shared staff or tools; servers name it in their `pool` setting |
+| `store` | `in`, `out` | `initial`, `reorder_point`, `order_quantity` (integers), `lead_time` (distribution) | Each item arriving at `in` takes one unit of stock and leaves by `out` at once. If stock is zero the item waits, first in first out, until a delivery; each such item counts as a stock-out. When stock on hand plus on order falls to `reorder_point`, an order of `order_quantity` is placed and arrives after `lead_time` (a distribution) |
+| `resource_pool` | none | `capacity` (integer) | Shared staff or tools; servers name it in their `pool` setting |
 | `schedule` | none | `target`, `shifts`, optional `period` (time quantity, default 24 h) | Changes the capacity of a server or pool over time |
 | `failure` | none | `target`, `time_to_failure`, `time_to_repair` | Takes a server out of service at random and returns it after repair |
 | `sink` | `in` | none | Removes the item and records its statistics |
@@ -100,13 +100,14 @@ Rules that apply across blocks:
 - **Discipline.** `discipline` values are `fifo` (default) or `lifo`.
 - **Blocking.** If the next block cannot accept an item, the item stays where it is and keeps holding its capacity.
 - **Branch rules.** `probability` draws from the branch's own stream and picks a route with probability weight/sum of weights. `shortest_queue` picks the route whose next block has the fewest waiting items (0 for a block without a queue); ties go to the earliest route in `routes`.
-- **Simultaneous events.** Events at the same time run in the order they were scheduled.
+- **Simultaneous events.** Events at the same time run in the order they were scheduled, with SimPy's one exception: the first step of a process started at that instant, and an interrupt, run before the other events due then (SimPy orders events by time, then urgent before normal priority, then scheduling order). An event due exactly at the end of the run does not run.
+- **Ranges.** A server's, queue's or pool's `capacity`, a batch's `size`, a store's `order_quantity` and a source's `max_items` are at least 1, since a smaller value never passes an item; a `queue_capacity`, a store's `initial` and `reorder_point`, and a shift's `capacity` are at least 0; each weight is at least 0 and at least one is above 0; `first_arrival` and a shift's `start` are at least 0 s; `timeout` and `period` are above 0 s; a branch has at least one route; a shift's `end` is after its `start` and no later than `period`. A value outside these is E123 (spec 1). Proposed defaults (AKS-90), owner to confirm.
 
 Proposed defaults chosen by the review council, owner to confirm; M4 may correct them with a DECISIONS entry:
 
 - **Source when blocked.** A source whose next block cannot accept the item discards it and counts it in `<source>.discarded`; arrivals are never delayed.
 - **Failure.** `time_to_failure` is sampled from the failure block's stream and runs on calendar time while the unit is not failed, busy and idle alike. A failure takes one unit; an item in service on it is suspended and resumes with its remaining service time after repair (preempt-resume). `time_to_repair` runs from the moment of failure.
-- **Schedule.** `shifts` is a list of `{start, end, capacity}` with `start` and `end` time quantities within `period`; the list repeats every `period`, and outside every listed shift the capacity is 0. A unit busy when scheduled capacity falls finishes its current item, then stops.
+- **Schedule.** `shifts` is a list of `{start, end, capacity}` with `start` and `end` time quantities within `period` and `capacity` an integer; the list repeats every `period`, and outside every listed shift the capacity is 0. A unit busy when scheduled capacity falls finishes its current item, then stops.
 - **Batch timeout.** When `timeout` elapses after a batch's first item arrived, the partial batch is released; an `unbatch` splits whatever it receives. A batch's cycle time is its first item's.
 - **Pool.** A server with `pool` seizes its own capacity first, then one pool unit; service, and therefore the end of the item's wait, begins only when both are held, and both are released after service; pool units are granted first come, first served across servers.
 - **Targets.** A server may be the target of at most one `schedule` and one `failure` (E125).
@@ -173,7 +174,7 @@ Every number above was recomputed by the council on 2026-11-05 and re-derived in
 
 ### Reference values from the prototype (script and two model files not retained)
 
-A throwaway translator produced these. Only `coffee_shop.json` survives verbatim; the three-machine line and warehouse files and the script were not retained, so their rows are indicative and unverified. At M1 both models are written fresh with M2 blocks only, to these targets (proposed default, owner to confirm): three-machine line, weld utilization 0.85 to 0.92 and the other stations below 0.70; warehouse, throughput within 1% of 60 per hour and pack utilization 0.75 to 0.85. The exact parameters are the M1 session's choice; note that with exponential arrivals and service a station at utilization 0.90 has a mean wait of nine service times (ρ/(1 − ρ)), so the prototype's 17.3 minutes would need a weld service time near 2 minutes or a lower-variance service distribution; reproducing it is not required. M2 re-measures both and replaces the rows.
+A throwaway translator produced these. Only `coffee_shop.json` survives verbatim; the three-machine line and warehouse files and the script were not retained, so their rows are indicative and unverified. At M1 both models are written fresh with M2 blocks only, to these targets (proposed default, owner to confirm): three-machine line, weld utilization 0.85 to 0.92 and the other stations below 0.70; warehouse, throughput within 1% of 60 per hour and pack utilization 0.75 to 0.85. The exact parameters are the M1 session's choice; note that with exponential arrivals and service a station at utilization 0.90 has a mean wait of nine service times (ρ/(1 − ρ)), so the prototype's 17.3 minutes would need a weld service time near 2 minutes or a lower-variance service distribution; reproducing it is not required. M2 re-measures both and replaces the rows. Written at M1 (AKS-93, proposed default, owner to confirm): `examples/three_machine_line.json` has arrivals 30 per hour into cut, weld and paint, single exponential servers with means 1.2, 1.8 and 1 min (utilizations 0.60, 0.90 and 0.50), and a constant 2 min transfer before paint; `examples/warehouse.json` has arrivals 60 per hour into pick (three exponential servers, mean 2 min, utilization 0.667), a probability branch sending one order in five through a constant 5 min inspection, and pack (one exponential server, mean 0.8 min, utilization 0.80). No block in either loses items, so each throughput equals its arrival rate; "within 1% of 60 per hour" is the tolerance for the estimate M2 measures. Each file's `meta.description` gives the queueing arithmetic.
 
 | Check | Result |
 | --- | --- |
@@ -207,7 +208,8 @@ A model with `"domain": "optimization"` uses `variables`, `objective` and `const
 }
 ```
 
-- Variable types: `continuous`, `integer`, `binary`.
+- Variable types: `continuous`, `integer`, `binary`. `lower` and `upper` are plain numbers; a bound left out means no bound on that side (write `"lower": 0` for a non-negative variable).
+- `objective.sense` is `minimize` or `maximize`; a constraint's `op` is `<=`, `>=` or `==`; coefficients and `rhs` are plain numbers.
 - Phase 1 supports linear objectives and constraints only.
 - Results report each variable's value, the objective value, and for each constraint whether it is tight.
 - Indexed problems, such as a transport plan over many routes, need sets and tables. That extension is designed when the transport template is built.
@@ -273,7 +275,17 @@ Complete these and record the findings, with sources, in a short note in the rep
 - C15 (SIM-19, ARCH-15, TEST-2, PRD-1): prototype rows marked reference only; targets for the two example files written at M1.
 - C16 (ARCH-1, ARCH-2, SIM-7, TEST-7, ARCH-18, PRD-8): optimization `summary.json`; search procedure with baseline, exhaustive path, confirmation stage and result layout; fidelity for process models.
 - C17 (TEST-1, TEST-8, TEST-12, TEST-6): version line, research items tagged, acceptance table.
+
+2026-11-06, version 0.4, M1 closed (AKS-94); the lines below were added after version 0.3, during the review of PR #1 and the M1 build:
+
 - 2026-11-06, sync to Claude Docs: the `<server|queue>` rows of "Statistic definitions" escape the pipe (`\|`) so the table keeps two columns.
 - 2026-11-06, review of PR #1: `model.wip.mean` stops counting an item when it is discarded (by a source or a `queue` with `on_full: discard`) as well as when it reaches a sink, so WIP stays bounded in a stable loss system.
 - 2026-11-06, review of PR #1: `<server>.utilization` caps busy time at available capacity at each instant, so off-shift completion of an item cannot push utilization above 1. M4 adds a schedule test with a service that crosses a shift end.
 - 2026-11-06, review of PR #1: the search's confirmation stage counts the always-confirmed baseline as a feasible candidate, so a search is `infeasible` only when no confirmed candidate, baseline included, meets the constraints.
+- 2026-11-06, model loading (AKS-88), found while building the `process` type catalogue (`src/lcsim/model/catalogue.py`): "Block reference" states the kind of the settings it left open (`first_arrival` and `timeout` are time quantities; `max_items`, `queue_capacity`, queue `capacity`, `size`, the store's stock levels, the pool's `capacity` and a shift's `capacity` are integers), makes a queue's `discipline` optional to match its stated default (`fifo`), and names a branch's output ports by their routes. "Mathematical optimization in the model file" lists `sense` and `op` words (`==` for equality, which the assignment benchmark needs), says bounds are plain numbers and that a missing bound means none.
+- 2026-11-06, meaning pass B (AKS-90): "Rules that apply across blocks" gains "Ranges", the smallest value of each number and time setting and the order of a shift's `start`, `end` and `period`, which the meaning pass checks with E123. These were left open by the block table.
+- 2026-11-06, example models (AKS-93): "Reference values from the prototype" records the parameters of the two example files written fresh at M1 and reads the warehouse throughput target as the tolerance for the M2 estimate, since a stable model with no loss has a long-run throughput equal to its arrival rate.
+
+Since version 0.4 (to be numbered when the next review or milestone closes):
+
+- 2026-11-06, M2 research note `docs/research/spec-2-simulation-library.md`: SimPy confirmed as the process engine over salabim and Ciw; "Simultaneous events" now states SimPy's tested ordering (a process start or an interrupt runs first at its instant; nothing runs at the end time). The M2 benchmark answers were recomputed from closed-form formulas in `docs/research/spec-2-benchmark-sources.md` and all match.

@@ -1,0 +1,33 @@
+name: pr-title
+
+# Separate from checks.yml so that a title or body edit re-runs only this check and never
+# publishes a skipped (and so passing) result for the code checks or benchmarks.
+# Design: docs/DECISIONS.md, 2026-11-06 · M0, "CI workflow (AKS-73)".
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: PR title starts with Linear issue identifiers
+        env:
+          # Passed through the environment, never interpolated into the script.
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^AKS-[0-9]+(, AKS-[0-9]+)*: [^ ]'
+          if [[ "$TITLE" =~ $pattern ]]; then
+            echo "PR title OK: $TITLE"
+          else
+            echo "::error::PR title must start with 'AKS-<n>: ' (or 'AKS-<n>, AKS-<m>: ') so Linear links the PR. Got: $TITLE"
+            exit 1
+          fi

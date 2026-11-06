@@ -1,6 +1,6 @@
 # Spec 1: Model Format and Engine Contract
 
-> Version 0.3 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.4 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 A model is one JSON file that passes a published schema. Every engine is a plugin that implements the same five functions. The interface, the engines and any AI assistant all work through these two contracts.
 
@@ -59,18 +59,20 @@ A minimal example:
 
 - Every physical quantity is written with its unit, as in `"2 min"`.
 - Values are converted to SI on load. A dimension mismatch is a validation error.
-- Proposed library: pint.
+- Library: pint, confirmed by the M1 research note `docs/research/spec-1-schema-and-units.md`. It is declared as `pint>=0.25.3`: pint 0.26 needs Python 3.12, so Python 3.11 installs the 0.25 series. pint accepts much more than the grammar under "Quantities" (for example `2min`, `2 minutes`, `2 * min`, `nan s`), so the loader checks the grammar first and uses pint only to convert.
 
 ## Validation
 
 Two passes, both run before any engine starts:
 
-1. **Schema:** structure, types and required keys, checked against the JSON Schema.
+1. **Schema:** structure, types and required keys, checked against the JSON Schema (draft 2020-12, validated with the `jsonschema` package; the schema uses no `format` keyword).
 2. **Meaning:** no dangling connections, no unknown component types, units of the right dimension, parameters within allowed ranges.
 
-The JSON Schema checks only the top-level keys, the JSON type of each top-level value, and that every component, connection, parameter and experiment entry is an object with its required keys of the right JSON type. Identifiers, quantities and component settings are typed as plain strings or objects in the schema, with no patterns and no per-type required lists, so that the meaning-pass codes in the table below (E102, E110 to E171, E174, W200 to W202) are reported with their specific codes. Component type descriptions (settings, ports) come from the adapter's `Capabilities`; until the process adapter exists (M2) the model layer carries the `process` type catalogue from spec 2's block reference, and at M2 the adapter's `capabilities()` must equal it (tested). Flow rates for W201 are propagated from sources: a probability branch multiplies by weight/total, a batch divides by `size`, an unbatch multiplies by it, merges add; where a rate cannot be propagated (shortest-queue branches, stores, timeouts, schedules, failures, and loss points: a `queue` with `on_full: discard`, or a source whose next block has a finite capacity, since either admits less than the offered rate) the check is skipped for every server downstream.
+The JSON Schema checks only the top-level keys, the JSON type of each top-level value, and that every component, connection, parameter and experiment entry is an object with its required keys of the right JSON type. Identifiers and names (`domain`, a component's `type`, `metric`, `run.engine`) are typed as plain strings and component settings (`params`) as a plain object, with no patterns and no per-type required lists; quantities, plain numbers and the enumerated words (a parameter's or variable's `type`, `sense`, `op`, `run.target` and `run.fidelity`) may be any JSON value in the schema. This is so that the meaning-pass codes in the table below (E102, E110 to E171, E174, W200 to W202) and the run codes E172 and E173 are reported with their specific codes. The schema is `src/lcsim/model/schema.json`; `GET /v1/schema` serves it (spec 3). Component type descriptions (settings, ports) come from the adapter's `Capabilities`; until the process adapter exists (M2) the model layer carries the `process` type catalogue from spec 2's block reference, and at M2 the adapter's `capabilities()` must equal it (tested). Flow rates for W201 are propagated from sources: a probability branch multiplies by weight/total, a batch divides by `size`, an unbatch multiplies by it, merges add; where a rate cannot be propagated (shortest-queue branches, stores, timeouts, schedules, failures, and loss points: a `queue` with `on_full: discard`, or a source whose next block has a finite capacity, since either admits less than the offered rate) the check is skipped for every server downstream. In detail (AKS-91): a source's rate is 1 / the mean of its `interarrival`, also with `max_items`; a block with a finite capacity is a `queue` or a server with `queue_capacity`; a schedule or failure stops the rate at the server whose capacity it changes (its target, or a server whose `pool` is the target of a schedule), and that server is not checked either; an unbatch multiplies each batch it receives by the size of that batch, undoing one level of batching; a block on a loop of connections, or after one, is skipped, since a rate on a loop needs the traffic equations solved; so is everything after a value that cannot be read (a reference with E150 or E152, inconsistent fields, an `empirical` `data` column, an interarrival mean not above zero). A block no source reaches gets rate zero. Only the first connection from an output port, with both ends valid, carries items. The mean of a distribution is its theoretical mean from the sampling test under "Distributions", except that a `normal` is sampled clipped at zero, so its mean is mean·Φ(mean/sd) + sd·φ(mean/sd), which equals `mean` to within one part in 10⁷ when `mean` ≥ 5 `sd`. Rates are compared with the capacity exactly. The warnings W201 and W202 are checked with each parameter at its `value` and in each scenario, and name the first case that fails; not at `min` and `max`, since a search tries values the modeller may expect to be poor.
 
 Errors name the component and the key, in plain language.
+
+Before the schema pass the file is read as UTF-8 JSON (a leading byte order mark is accepted). Text that is not JSON, `NaN` or `Infinity`, a whole number with more digits than Python reads (4,300 by default), nesting deeper than the JSON reader allows, and a key written more than once in one object are E100, because the file cannot be read unambiguously. A file with a schema issue is not loaded further. Loading then converts every value (see "Units") and reports, with its own code, each value it cannot convert; the checks across the model (identifiers, references, the connection graph, ranges, metric names, warnings) follow on a model that loads.
 
 ## Engine contract
 
@@ -86,7 +88,7 @@ Each engine adapter is a Python class with five methods:
 
 Adapters are discovered as plugins, so a new engine needs no change to the core.
 
-Proposed discovery mechanism, confirmed by the M2 research note: Python entry points in group `lcsim.engines`, each naming a class that implements `EngineAdapter`.
+Discovery mechanism, confirmed by the M2 research note (`docs/research/spec-1-plugin-mechanisms.md`): Python entry points in group `lcsim.engines`, each naming a class that implements `EngineAdapter`; the product's own adapters are registered the same way in its `pyproject.toml`. The entry-point name is the adapter name that `run.engine` refers to and equals the class's `name`. Entry points are listed without importing them; each is then loaded inside a guard, and one that fails to import is left out and logged, never fatal. Two installed entry points with the same name are both left out and logged; if that leaves no single engine for the model's `domain`, the issue is E102. The group name follows the package name: `lcsim` is a placeholder and is taken on PyPI by an unrelated project, so the group is renamed with the package before the first release.
 
 **Engine licence rule.** The product is AGPL-3.0. An adapter drives its engine as a separate process through the engine's own input and output files; it does not import the engine into the service process unless the engine's licence is recorded in `docs/DECISIONS.md` as compatible with AGPL-3.0 for a combined work (Phase 1 engines SimPy, HiGHS via highspy, Pyomo and Optuna are MIT or BSD per PyPI metadata read on 2026-11-05 and may be imported). Engines are installed by the environment manager, not compiled into the product. `capabilities()` reports the engine's licence identifier and how it is invoked (`process` or `in-process`). This is not legal advice; a lawyer confirms the rule before the first release. Proposed default, owner to confirm.
 
@@ -122,7 +124,7 @@ A run is reproducible from the run folder: the model, its manifest and any copie
 
 ## Versioning
 
-`format_version` is `MAJOR.MINOR` as a string. A minor increase is additive: a reader accepts any file with its own major and a minor no higher than its own, filling defaults in memory. A major increase ships a migration that rewrites the file after asking the user. E101 is raised for an unknown major or a minor above the reader's. Each new major version ships a migration that upgrades older files. The app never opens a file it cannot migrate without saying so.
+`format_version` is `MAJOR.MINOR` as a string. A minor increase is additive: a reader accepts any file with its own major and a minor no higher than its own, filling defaults in memory. A major increase ships a migration that rewrites the file after asking the user. E101 is raised for an unknown major or a minor above the reader's, and for a string that is not two ASCII decimal integers without leading zeros joined by a dot (`"0.1.0"`, `"v0.1"`, `"0.01"`); a `format_version` that is not a string is E100. A file with E101 gets no other schema issue, because it may follow another version's schema. This reader is version 0.1, so it opens 0.0 and 0.1. Each new major version ships a migration that upgrades older files. The app never opens a file it cannot migrate without saying so. A migration is a function from one major version to another, registered for that pair of majors; a file is migrated through the fewest registered steps, and a file of the reader's major with a minor above the reader's is never migrated. The model layer never migrates on its own and never writes the file: a file of another major is E101 when loaded even when a migration exists, and the hint then says that the program can convert it. The caller (the service, the interface) asks the user, migrates, and saves the rewritten file only after the user agrees. Format 0 ships no migration; the M1 test registers a test-only one from the test itself.
 
 ## Detailed specification
 
@@ -139,8 +141,8 @@ Running three example models against the first draft of the format forced four c
 
 ### Identifiers
 
-- Pattern: `^[a-z][a-z0-9_]{0,63}$`.
-- Unique within their list: components, parameters, experiments, scenarios.
+- Pattern: `^[a-z][a-z0-9_]{0,63}$` (E111), for the id of every component, parameter, experiment, scenario, objective, constraint and variable, and for each route of a branch (a route names an output port).
+- Unique within their list (E110): components, parameters, experiments, the scenarios of one experiment, objectives, constraints, variables, the routes of one branch. Lists are separate: a component and an experiment may share an id. E110 is reported at each later use.
 - Used unchanged in metric names, error messages and results.
 - `model` is reserved as a metric prefix (`model.wip.mean`) and `optimizer` as the random-stream key of the simulation-based search (spec 2); neither may be a component id. `default` is reserved as the scenario id of the implicit scenario. Using a reserved identifier is E112.
 
@@ -159,30 +161,41 @@ Running three example models against the first draft of the format forced four c
 | `constraints` | `process`: array of `{id, metric, op, value}`; `optimization`: array of `{id, linear, op, rhs}` | no | empty |
 | `variables` | array of `{id, type, lower?, upper?}` | yes for `optimization`; not allowed for `process` |  |
 | `objective` | object `{sense, linear}` | yes for `optimization`; not allowed for `process` |  |
-| `run` | object with `target`, `fidelity` and optional `engine` (adapter name) | no | `local`, `standard` |
+| `run` | object with `target` and `fidelity` (both required when `run` is present) and optional `engine` (adapter name) | no | `local`, `standard` |
 
-Which keys are required, and the shape of `constraints`, depend on `domain`. A key that belongs to the other domain is an E100 error. Phase 1 process and optimization engines accept only `fidelity: standard`; the fidelity ladder of spec 6 applies to physics domains. Another value is E173. The service selects the one installed adapter whose capabilities include the model's `domain`; if there are several and `run.engine` is absent, or none, the issue is E102.
+Which keys are required, and the shape of `constraints`, depend on `domain`. A key that belongs to the other domain is an E100 error. When `domain` is not one of the Phase 1 values, the schema pass checks every key as above but requires and forbids no domain-specific key; the meaning pass reports E102. Phase 1 process and optimization engines accept only `fidelity: standard`; the fidelity ladder of spec 6 applies to physics domains. Another value is E173. The service selects the one installed adapter whose capabilities include the model's `domain`; if there are several and `run.engine` is absent, or none, the issue is E102. When `run.engine` is present, the adapter of that name is chosen, and E102 is raised if no installed adapter of that name handles the `domain`. The E102 `path` is `/domain` when no adapter handles the domain, and `/run/engine` otherwise. The loader checks this before building, since a model of a domain no engine runs cannot be built. Until an adapter exists for a Phase 1 domain (M2 for `process`, M5 for `optimization`), the model layer stands in for it; a stand-in has no adapter name, so `run.engine` is not checked against it.
 
-Unknown keys are an error, except under any `ui` key, which engines ignore.
+Unknown keys are an error, except under any `ui` key, which engines ignore. In this version only a component has a `ui` key; a top-level `ui` is an unknown key.
 
 ### Quantities
 
 - Grammar: a number, one space, a unit. Example: `"1.5 min"`.
-- Phase 1 time units: `s`, `min`, `h`, `d`. Internal time is seconds, as a float.
+  - The number follows the JSON number grammar, `-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?`; `nan`, `inf`, `+2` and `.5` are not numbers.
+  - Exactly one space (U+0020) separates number and unit, with nothing before or after.
+  - The unit is one of the Phase 1 units below, written exactly as listed; case matters.
+  - A unit that the units library knows, but whose dimension differs from the one the setting expects (`"5 m"` for a time), is E140. Any other string that breaks these rules (`"2min"`, `"2 minutes"`, `"2 ms"`, `"nan s"`) is E141. A unit name with several readings is E140 only when no reading has the expected dimension: `"2 cd"` (candela, or centi-day) for a time is E141.
+  - A number whose value in SI units is not a finite float (`"1e400 s"`, `"1e308 d"`) is E141.
+- Phase 1 time units: `s`, `min`, `h`, `d`. Internal time is seconds, as a float; `"-0 s"` is stored as 0.0.
 - Counts, probabilities and capacities are plain JSON numbers with no unit.
-- A quantity where a plain number is expected, or the reverse, is an error.
+- A quantity where a plain number is expected, or the reverse, is an error (E123). Where a plain number is expected, any value other than a finite JSON number (a quantity, any other string, `true`, `false`, `null`, an array or an object) is E123. Where a quantity is expected, a value that is neither a string nor a number (`true`, `false`, `null`, an array, or an object other than a `{"$param": "id"}` reference) is E141.
 
 ### Parameters
 
-Each entry has `value` (required), `type` (`integer`, `number` or `quantity`), and optional `min`, `max`, `description`. A `{"$param": "id"}` object may appear anywhere a component setting takes a number or quantity.
+Each entry has `value` and `type` (both required; `type` is `integer`, `number` or `quantity`), and optional `min`, `max`, `description`. `value`, `min`, `max` and a scenario's value for the parameter are written as its `type` says: an `integer` is a whole number (`2.0` reads as 2), a `number` a plain number, a `quantity` a time quantity, since time is the only dimension with Phase 1 units. A `{"$param": "id"}` object may appear anywhere a component setting takes a number or quantity, including a distribution's fields and the values inside an object setting; it is exactly that one key with a text id, and any other object is not a reference.
+
+- A reference to an id that is not in `parameters` is E150.
+- The parameter's `type` must fit the place that refers to it: `integer` where a whole number is taken, `integer` or `number` where a plain number is taken, and `quantity` where a time is taken. Otherwise E152.
+- A `value`, or a scenario's value, below `min` or above `max` is E151, at that value; a `min` above `max` is E151 at `min`.
+- A setting or distribution field that refers to a parameter is checked, by the error rules for that setting or field, against every value the model gives the parameter: its `value`, its `min` and `max` (the range a search explores), and each scenario's value. Where several parameters feed one check (two weights, a `min` and a `max`), every combination of their bounds is also checked, since a search varies them together. An issue names the first case that fails. Warnings W201 and W202 are checked only at the `value` and each scenario's value (see "Validation").
 
 ### Components and ports
 
 Each component has `id`, `type`, `params`, and optional `label` and `ui`. The `ui` object holds canvas position and is never read by an engine.
 
-- Each component type declares its ports. Most have `in` and `out`; a source has only `out`; a sink has only `in`; a branch has one output port per entry of its `routes` setting.
-- A connection is `{"from": "<id>.<port>", "to": "<id>.<port>"}`.
+- Each component type declares its ports. Most have `in` and `out`; a source has only `out`; a sink has only `in`; a branch has one output port per entry of its `routes` setting, named by that entry.
+- A connection is `{"from": "<id>.<port>", "to": "<id>.<port>"}`. Each end is split at its first dot; an end without a dot, or with nothing before or after it, is E130.
 - Every output port connects to exactly one input port. An input port accepts any number of connections.
+- A `from` end must name an output port of its component and a `to` end an input port; an unknown component or port is E130, except that a `from` end on a branch naming a port that is not in its `routes` is E161. An output port that no connection names is E131, at the component (`/components/<i>`), or for a branch at the route's entry in `routes`. A second connection from the same output port is E132, at that connection's `from`. A connection whose `from` end is valid connects that port even when its `to` end is wrong, so a wrong `to` end gives one issue.
 
 ### Distributions
 
@@ -195,7 +208,12 @@ Each component has `id`, `type`, `params`, and optional `label` and `ui`. The `u
 | `normal` | `mean`, `sd` | Negative samples are set to zero, which raises the sample mean; W202 warns when `mean` < 2 × `sd` |
 | `lognormal` | `mean`, `sd` | Mean and standard deviation of the variable itself, not of its logarithm. Sampled with σ² = ln(1 + sd²/mean²), μ = ln(mean) − σ²/2 |
 | `weibull` | `shape`, `scale` | Mean is scale × Γ(1 + 1/shape); not exercised by the prototype |
-| `empirical` | `values` (array of plain numbers or quantities of one dimension, inline) or `data` = `{"file": "<name in data/>", "column": "<column>"}` | Sampled with equal probability and replacement. With `data`, values are read as numbers or as quantities per the column index's declared unit; the run copies the column to `runs/<run_id>/data/<component id>.<setting>.parquet`, where `<setting>` is the name of the setting that holds the distribution (for example `time_to_repair`), so two `data` references on one component never share a file (never under `tables/`, which holds only the tables listed in "Run folder and results") and the manifest records, per reference, the source file name, column and SHA-256; a missing or changed file is E162. Not exercised by the prototype; `data` arrives with the import endpoint at M6 |
+| `empirical` | `values` (array of plain numbers or quantities of one dimension, inline) or `data` = `{"file": "<name in data/>", "column": "<column>"}` | Sampled with equal probability and replacement. `values` must hold at least one value (E160). With `data`, values are read as numbers or as quantities per the column index's declared unit; the run copies the column to `runs/<run_id>/data/<component id>.<setting>.parquet`, where `<setting>` is the name of the setting that holds the distribution (for example `time_to_repair`), so two `data` references on one component never share a file (never under `tables/`, which holds only the tables listed in "Run folder and results") and the manifest records, per reference, the source file name, column and SHA-256; a missing or changed file is E162. Not exercised by the prototype; `data` arrives with the import endpoint at M6 |
+
+Fields that must agree (E160): `sd`, `shape`, `scale`, and the `mean` of the positive distributions (`exponential` and `lognormal`) are greater than zero; a `min` is not above its `max`, and a triangular `mode` lies from `min` to `max`. A `min` equal to the `max` is allowed. A `normal` `mean` may be zero or negative; W202 warns when it clips.
+
+A `data` reference is checked against the column index of the project's `data/` folder (spec 3 "Project folder"), which records each imported file's name, its columns with the declared unit of each, and the SHA-256 of the file at import. E162 is raised for a `file` not in the index, a file in the index that is now missing from the folder or whose SHA-256 differs, and a `column` the file does not have. Until the import endpoint writes the index (M6), the index is empty, so every `data` reference is E162. The model layer reads no values and checks no declared unit; M6 does both.
+
 
 Sampling test (M2, every distribution): 20,000 samples from one stream; the sample mean lies within four standard errors of the theoretical mean, standard error = theoretical standard deviation / √20000. Theoretical mean and sd: constant: value, 0 (so the samples must equal the value exactly); exponential: mean, mean; uniform: (min+max)/2, (max−min)/√12; triangular: (min+mode+max)/3, √((a²+b²+c²−ab−ac−bc)/18); normal: tested with mean ≥ 5 sd so clipping is negligible, plus an assertion that no sample is negative; lognormal: the given mean and sd; weibull: scale·Γ(1+1/shape), variance scale²·[Γ(1+2/shape) − Γ(1+1/shape)²]; empirical: mean and population sd of `values`.
 
@@ -207,13 +225,15 @@ Sampling test (M2, every distribution): 20,000 samples from one stream; the samp
 | `length` | time quantity | required |
 | `warmup` | time quantity, less than `length` | `0 s` |
 | `replications` | integer, at least 2 | 30 |
-| `seed` | integer | chosen at random and recorded in the manifest |
-| `scenarios` | array of `{id, set: {parameter id: value}}` | one scenario with the reserved id `default` and an empty `set`; a user scenario may not use that id (E112) |
+| `seed` | integer | chosen at random when the file is loaded (from 0 to 2⁶³ − 1, from the operating system's generator) and recorded in the manifest |
+| `scenarios` | array of `{id, set: {parameter id: value}}`, both keys required | one scenario with the reserved id `default` and an empty `set`, also when the array is empty; a user scenario may not use that id (E112) |
 | `confidence` | number in (0, 1) | 0.95 |
 | `record_interval` | time quantity | `length` / 200 |
 | `search` | object `{objective, budget, variables, replications}` | absent: a plain experiment |
 
-`search.objective` names an id in top-level `objectives` (exactly one in Phase 1); `search.budget` is an integer at least 1, default 50; `search.variables` is an array of parameter ids, default every parameter with both `min` and `max`; `search.replications` (integer at least 2, default 10) is the replications per candidate during the search, while the experiment's own `replications` is used for the confirmation stage of spec 2. E171 covers a `search` that names an unknown objective or a parameter without `min` and `max`. Running an experiment that has `search` runs the simulation-based search of spec 2; the run id, states and events are those of any run. Proposed; verified at M5.
+`search.objective` (required) names an id in top-level `objectives` (exactly one in Phase 1); `search.budget` is an integer at least 1, default 50; `search.variables` is an array of parameter ids, default every parameter with both `min` and `max`; `search.replications` (integer at least 2, default 10) is the replications per candidate during the search, while the experiment's own `replications` is used for the confirmation stage of spec 2. E171 covers a `search` that names an unknown objective or a parameter without `min` and `max`, and a search with no variables (an empty `variables`, or none listed and no parameter with both `min` and `max`). A variable that is not a parameter is E150.
+
+E170 covers a value outside the ranges in the table: a `length` not above 0 s, a `warmup` below 0 s or not less than `length`, `replications` below 2, `confidence` outside (0, 1), a `record_interval` not above 0 s, a `search.budget` below 1 and `search.replications` below 2. Each is reported at its own key. Running an experiment that has `search` runs the simulation-based search of spec 2; the run id, states and events are those of any run. Proposed; verified at M5.
 
 ### Random streams
 
@@ -228,7 +248,7 @@ Each component gets its own random stream in each replication. The stream key is
  "constraints": [{"id": "util", "metric": "till.utilization", "op": "<=", "value": 0.85}]}
 ```
 
-Metrics whose names are defined in spec 2 "Statistic definitions" are the only ones objectives and constraints may name; naming any other is E174. Item attributes, the `attribute` branch rule and priority queue disciplines are deferred to Phase 2 until a block that sets attributes exists (proposed default, owner to confirm; recorded in the Build guide known gaps).
+An objective's `sense` is `minimize` or `maximize`. A constraint's `op` is `<=` or `>=` (an equality on a simulated mean is never met exactly), and its `value` is a plain number, or a time quantity for a metric measured in time (`wait.mean`, `cycle_time.mean`). A rate (`throughput`, `orders`, `discarded`: spec 2 defines each as a count divided by the period) is a plain number of items per second, the SI unit in which results store it, because Phase 1 has no rate unit: 30 items per hour is written `0.008333`. Proposed default, owner to confirm; a rate unit such as `1/h` would be an additive minor version. A `value` of the wrong kind for its metric is E123. A metric name is `<component id>.<measure>[.<statistic>]` exactly as spec 2 lists it for the component's type, or `model.wip.mean`; `till.wait` without `.mean` is not one. Metrics whose names are defined in spec 2 "Statistic definitions" are the only ones objectives and constraints may name; naming any other is E174. Item attributes, the `attribute` branch rule and priority queue disciplines are deferred to Phase 2 until a block that sets attributes exists (proposed default, owner to confirm; recorded in the Build guide known gaps).
 
 ### Validation issues
 
@@ -241,7 +261,7 @@ Every issue is one object:
  "hint": "Connect it to another block or to a sink."}
 ```
 
-`severity` is `error` or `warning`.
+`severity` is `error` or `warning`: `error` for an E code, `warning` for a W code. `path` is a JSON Pointer (RFC 6901) to the key or value concerned; for a missing key it is where the key belongs, and `""` is the whole file. `component` is the id of the component the path lies in, or `null`.
 
 | Code | Pass | Meaning |
 | --- | --- | --- |
@@ -252,9 +272,9 @@ Every issue is one object:
 | E111 | meaning | Identifier does not match the pattern |
 | E112 | meaning | Reserved identifier used (`model` or `optimizer` as a component id, `default` as a scenario id) |
 | E120 | meaning | Unknown component type |
-| E121 | meaning | Unknown setting for this component type (an unknown key inside `params`) |
-| E122 | meaning | Required setting missing |
-| E123 | meaning | Setting has a quantity where a number is expected, or the reverse |
+| E121 | meaning | Unknown setting for this component type (an unknown key inside `params`, or inside an object setting such as a shift); also a key of a branch's `weights` that is not one of its `routes` |
+| E122 | meaning | Required setting missing (also a required key of an object setting); also a route of a branch with `weights` that has no weight |
+| E123 | meaning | Setting has a quantity where a number is expected, or the reverse; also any value that is not of the kind its place takes: a non-whole number where a whole number is expected, a word outside its list (a parameter's or variable's `type`, `sense`, `op`, `discipline`, `on_full`, `rule`), a setting that should be text, an array or an object and is not, a number or time below the smallest value its setting takes (spec 2 "Ranges"), a branch with no `routes`, `weights` that are all zero, a shift that does not end after it starts or ends after `period`, or a constraint `value` of the wrong kind for its metric |
 | E124 | meaning | Setting names an unknown component or one of the wrong type (`pool`, `target`) |
 | E125 | meaning | A server or pool is the target of more than one `schedule`, or a server of more than one `failure` |
 | E130 | meaning | Connection names an unknown component or port |
@@ -262,14 +282,14 @@ Every issue is one object:
 | E132 | meaning | Output port connected more than once |
 | E140 | meaning | Quantity has the wrong kind of unit |
 | E141 | meaning | Quantity cannot be parsed |
-| E150 | meaning | Reference to an unknown parameter |
-| E151 | meaning | Parameter value outside its `min` and `max` |
+| E150 | meaning | Reference to an unknown parameter (a `$param`, a scenario's `set` or a search variable) |
+| E151 | meaning | Parameter value outside its `min` and `max` (its `value` or a scenario's value), or a `min` above the `max` |
 | E152 | meaning | Parameter type does not fit the setting that references it |
-| E160 | meaning | Distribution fields inconsistent: `min` above `max`; `sd`, `shape`, `scale` or the `mean` of a positive distribution not greater than zero; empty `values` |
+| E160 | meaning | Distribution fields inconsistent: `min` above `max` (or a triangular `mode` outside `min` to `max`); `sd`, `shape`, `scale` or the `mean` of a positive distribution not greater than zero; empty `values`. Also a distribution that cannot be read: not an object, no `dist` or an unknown one, a missing or unknown field, both or neither of `values` and `data`, `values` not an array, or `data` not `{file, column}` with text values |
 | E161 | meaning | Connection names a branch route that is not in `routes` |
-| E162 | meaning | Data reference names a file or column not in the project's `data/` folder, or the file's hash has changed |
-| E170 | meaning | Experiment invalid, such as `warmup` not less than `length` or `confidence` outside (0, 1) |
-| E171 | meaning | `search` names an unknown objective or a parameter without `min` and `max` |
+| E162 | meaning | Data reference names a file or column not in the project's `data/` folder, or the file is missing or its hash has changed |
+| E170 | meaning | Experiment invalid, such as `warmup` not less than `length` or `confidence` outside (0, 1); every case is listed under "Experiments" |
+| E171 | meaning | `search` names an unknown objective or a parameter without `min` and `max`, or has no variables |
 | E172 | run | Run target not available on this build, not configured, or not reachable |
 | E173 | run | Fidelity not offered by this engine |
 | E174 | meaning | Objective or constraint names a metric that does not exist: an unknown component, or a measure or statistic that spec 2 does not define for that component's type |
@@ -278,7 +298,7 @@ Every issue is one object:
 | E190 | run | Engine exited with an error (details in `log.txt`) |
 | E191 | run | Run interrupted by a service restart |
 | E192 | run | Run exceeded its time or memory limit |
-| W200 | meaning | Component with an `in` port cannot be reached from any source |
+| W200 | meaning | Component with an `in` port cannot be reached from any source (over connections whose two ends are valid, the first from each output port) |
 | W201 | meaning | Mean arrival rate at a server times its mean service time is at least its capacity, and its queue is unlimited, so the queue will grow without limit |
 | W202 | meaning | Normal distribution will clip about 2% or more of its samples at zero (`mean` < 2 × `sd`) |
 | W210 | run | Results were still changing after warm-up; lengthen `warmup` |
@@ -314,7 +334,7 @@ class EngineAdapter(Protocol):
 
 #### Division of labour
 
-`workdir` is `runs/<run_id>/engine/`; the manager owns everything else in the run folder. `translate`, `run` and `collect` are called once per run; a search run (spec 2) calls them once per candidate evaluation, each in its own subfolder of `engine/`. The adapter runs every scenario and replication inside `run`, using at most `workers` processes; it must honour `warmup`. `Table` is a pyarrow Arrow table (pyarrow, Apache-2.0 per PyPI metadata read on 2026-11-05; confirmed by the M2 research note, since the first adapter needs it at M2). A process adapter reports per-replication values and sampled time series only, in the `replications` and `timeseries` table layouts of "Run folder and results"; the manager computes means, half-widths and paired scenario differences. An optimization adapter has no replications: it returns `Results.solution`, a dict in the `summary.json` layout of spec 2 "Optimization model layout" (`status`, `objective`, `variables`, `constraints`), and the manager computes no statistics for it. `Results(tables: dict[str, Table], warnings: list[Issue], solution: dict | None = None)`; `solution` is set by optimization adapters only. The manager writes `tables/*.parquet`, `summary.json` (adding the fidelity label and warnings to `solution` for an optimization run) and `manifest.json`. `Capabilities.parallel_modes` is drawn from `replications`, `threads`, `processes`, `gpu`; an adapter listing `replications` runs them in parallel up to `workers`.
+`workdir` is `runs/<run_id>/engine/`; the manager owns everything else in the run folder. `translate`, `run` and `collect` are called once per run; a search run (spec 2) calls them once per candidate evaluation, each in its own subfolder of `engine/`. The adapter runs every scenario and replication inside `run`, using at most `workers` processes; it must honour `warmup`. `Table` is a pyarrow Arrow table (pyarrow, Apache-2.0, confirmed from the wheel's `LICENSE.txt` by the M2 research note `docs/research/spec-1-plugin-mechanisms.md`). A process adapter reports per-replication values and sampled time series only, in the `replications` and `timeseries` table layouts of "Run folder and results"; the manager computes means, half-widths and paired scenario differences. An optimization adapter has no replications: it returns `Results.solution`, a dict in the `summary.json` layout of spec 2 "Optimization model layout" (`status`, `objective`, `variables`, `constraints`), and the manager computes no statistics for it. `Results(tables: dict[str, Table], warnings: list[Issue], solution: dict | None = None)`; `solution` is set by optimization adapters only. The manager writes `tables/*.parquet`, `summary.json` (adding the fidelity label and warnings to `solution` for an optimization run) and `manifest.json`. `Capabilities.parallel_modes` is drawn from `replications`, `threads`, `processes`, `gpu`; an adapter listing `replications` runs them in parallel up to `workers`.
 
 ### Run folder and results
 
@@ -404,6 +424,21 @@ Complete these and record the findings, with sources, in a short note in the rep
 - C9 (ARCH-5, ARCH-6, ARCH-11, SIM-11, PRD-12, ARCH-7): `run_id`, manifest fields, `replications` and `timeseries` tables.
 - C10 (TEST-1, TEST-3, TEST-11, TEST-12, PRD-1, TEST-2, PRD-15, TEST-13): version line, prototype status, research items tagged, acceptance table.
 - Verifier follow-up: a new minor version needs no migration; E172 refuses a run before it is created; `run_id` lookup goes through `projects.json`; meaning-pass codes listed exactly.
+
+2026-11-06, version 0.4, M1 closed (AKS-94); the lines below were added after version 0.3, during the review of PR #1 and the M1 build:
+
 - 2026-11-06, review of PR #1: the adapter contract scopes "per-replication values only" to process adapters; optimization adapters return `Results.solution` (status, objective, variables, constraints), which the manager writes to `summary.json`.
 - 2026-11-06, review of PR #1: an `empirical` `data` snapshot is named `data/<component id>.<setting>.parquet`, so a component with two data-driven distributions (such as a `failure` block) keeps both; the manifest records file, column and hash per reference. The duplicate `Results(...)` signature left by the previous change is removed.
 - 2026-11-06, review of PR #1: W201 rate propagation stops at loss points (a discarding `queue`, or a source feeding a finite-capacity block), so a stable server downstream of a loss system is not flagged.
+- 2026-11-06, M1 research notes (AKS-85): "Units" confirms pint (was "Proposed library"), declared as `pint>=0.25.3` because pint 0.26 needs Python 3.12, with the grammar checked before pint converts (`docs/research/spec-1-schema-and-units.md`); "Validation" names JSON Schema draft 2020-12, the `jsonschema` package and no `format` keyword; "Quantities" states the exact grammar for the number, the single space and the unit symbol, and which strings are E140 and which E141.
+- 2026-11-06, units and quantities (AKS-86): "Quantities" adds what the grammar left open, found while building `src/lcsim/model/units.py`: a unit name with several readings is E140 only when no reading has the expected dimension; a number that is not finite in SI units is E141; `"-0 s"` is stored as 0.0; where a plain number is expected, any value other than a finite JSON number is E123; where a quantity is expected, `true`, `false`, `null`, an array or a non-`$param` object is E141.
+- 2026-11-06, issue objects and the schema pass (AKS-87), found while building `src/lcsim/model/schema.json` and `schema.py`: "Validation" says quantities, plain numbers and enumerated words take any JSON value in the schema (it said "plain strings or objects", which would have made `"length": true` E100 instead of the E141 that "Quantities" requires, and `run.target` E100 instead of E172); "Top-level keys" says what the schema pass checks for an unknown `domain`, that `run` needs `target` and `fidelity` when present, and that only a component has `ui`; "Parameters" makes `type` required (spec 3 already rejects a new parameter without `value` and `type`); "Experiments" makes both keys of a scenario and `search.objective` required; "Versioning" says which strings are E101, that a non-string is E100, and that E101 stops the schema pass; "Validation issues" defines `severity`, `path` and `component`.
+- 2026-11-06, model loading (AKS-88), found while building `src/lcsim/model/loading.py`, `model.py` and `catalogue.py`: "Validation" says how the file is read before the schema pass (UTF-8 with an optional BOM; non-JSON text, `NaN`, `Infinity`, over-long whole numbers, too-deep nesting and duplicate keys are E100) and that loading reports values it cannot convert; "Parameters" says how `value`, `min`, `max` and scenario values follow the parameter's `type` (a `quantity` parameter is a time in Phase 1; `2.0` is a whole number) and that `$param` also works inside distribution fields and object settings; "Components and ports" names a branch's output ports by their routes and says how a connection end is split; "Experiments" says the missing `seed` is chosen at load, from 0 to 2⁶³ − 1, and that an empty `scenarios` array also gets the `default` scenario; "Metric names" lists the `sense` and `op` words and the kinds of a constraint's `value`; the E123 and E160 rows of "Validation issues" name the further cases loading reports with them.
+- 2026-11-06, meaning pass A (AKS-89), found while building `src/lcsim/model/validation.py`: "Identifiers" lists every id the pattern and uniqueness apply to (objectives, constraints, variables and a branch's routes added; scenarios unique within one experiment); "Top-level keys" says how `run.engine` chooses an adapter, where E102 points, and that until an adapter exists the model layer stands in for it without a name, so `run.engine` is not checked before then; "Components and ports" says which end is E130 and which E161, and where E131 and E132 point; the E121 and E122 rows of "Validation issues" cover a branch's `weights` keys against its `routes`.
+- 2026-11-06, meaning pass B (AKS-90), found while building the value checks of `src/lcsim/model/validation.py` and the data index `src/lcsim/model/data.py`: "Parameters" says where E150, E151 and E152 apply, which parameter types fit which places, and that a setting fed by a parameter is checked for its `value`, `min`, `max`, scenario values and, with several parameters, every combination of their bounds (added after review of PR #9); "Distributions" lists the fields that must agree (adding a triangular `mode` outside `min` to `max`, and allowing `min` equal to `max`) and how a `data` reference is checked against the column index, which is empty until M6; "Experiments" lists every E170 case (adding `length`, a negative `warmup`, `record_interval` and the search's `budget` and `replications`), adds a search with no variables to E171 and a search variable that is not a parameter to E150; "Metric names" says which metrics are times and which rates, that a rate constraint is a plain number per second (owner to confirm), and that a wrong kind of `value` is E123; the E123, E150, E151, E160, E162, E170 and E171 rows of "Validation issues" follow.
+- 2026-11-06, warnings W200 to W202 (AKS-91), found while building them in `src/lcsim/model/validation.py`: "Validation" details the W201 propagation (a source's rate with `max_items`, which blocks have a finite capacity, that a schedule or failure stops the rate at the server it changes and skips that server, how an unbatch undoes one level of batching, that loops and values that cannot be read stop the rate, that an unreached block has rate zero, which connections carry items, the clipped mean of a `normal`, exact comparison) and says that W201 and W202 are checked at each parameter's `value` and each scenario's value, not at `min` and `max`; "Parameters" says its bounds rule is for errors; the W200 row says which connections count.
+- 2026-11-06, format versioning and the test-only migration (AKS-92), found while building `src/lcsim/model/migration.py`: "Versioning" says how a migration is registered and chained, that a newer minor of the reader's major is never migrated, that a file of a major with a migration is still E101 when loaded (with a hint that it can be converted) because the model layer never migrates on its own, that the caller asks the user before the rewritten file is saved, and that format 0 ships no migration.
+
+Since version 0.4 (to be numbered when the next review or milestone closes):
+
+- 2026-11-06, M2 research note `docs/research/spec-1-plugin-mechanisms.md`: entry points in `lcsim.engines` confirmed; the entry-point name is the adapter name, a plugin that fails to import is left out and logged, duplicate names are left out (E102 if no single engine remains), and the group is renamed with the placeholder package. pyarrow's Apache-2.0 licence confirmed from the wheel's `LICENSE.txt`.
