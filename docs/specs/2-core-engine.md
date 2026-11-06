@@ -118,7 +118,7 @@ The prototype exercised `source`, `server`, `delay`, `branch` with the `probabil
 | Statistic | Definition |
 | --- | --- |
 | `<server>.wait.mean` | Mean time from arrival at the server to start of service, over items whose service starts after warm-up |
-| `<server>.utilization` | Busy time in the observed period divided by the integral over the period of available capacity (scheduled capacity minus failed units); without schedule or failure this equals busy time over capacity times the period |
+| `<server>.utilization` | Busy time in the observed period divided by the integral over the period of available capacity (scheduled capacity minus failed units); without schedule or failure this equals busy time over capacity times the period. Busy time counts at each instant at most the available capacity: a unit finishing its item after scheduled capacity falls (see "Schedule") adds nothing, so utilization never exceeds 1 |
 | `<sink>.throughput` | Items reaching the sink after warm-up, divided by the observed period |
 | `<sink>.cycle_time.mean` | Mean time from creation to sink, over items reaching the sink after warm-up |
 | `<server>.availability` | Time at least one unit is not failed, over the period; 1 without a failure (proposed; confirmed at M4) |
@@ -275,3 +275,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - C17 (TEST-1, TEST-8, TEST-12, TEST-6): version line, research items tagged, acceptance table.
 - 2026-11-06, sync to Claude Docs: the `<server|queue>` rows of "Statistic definitions" escape the pipe (`\|`) so the table keeps two columns.
 - 2026-11-06, review of PR #1: `model.wip.mean` stops counting an item when it is discarded (by a source or a `queue` with `on_full: discard`) as well as when it reaches a sink, so WIP stays bounded in a stable loss system.
+- 2026-11-06, review of PR #1: `<server>.utilization` caps busy time at available capacity at each instant, so off-shift completion of an item cannot push utilization above 1. M4 adds a schedule test with a service that crosses a shift end.
