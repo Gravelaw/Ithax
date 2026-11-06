@@ -59,13 +59,13 @@ A minimal example:
 
 - Every physical quantity is written with its unit, as in `"2 min"`.
 - Values are converted to SI on load. A dimension mismatch is a validation error.
-- Proposed library: pint.
+- Library: pint, confirmed by the M1 research note `docs/research/spec-1-schema-and-units.md`. It is declared as `pint>=0.25.3`: pint 0.26 needs Python 3.12, so Python 3.11 installs the 0.25 series. pint accepts much more than the grammar under "Quantities" (for example `2min`, `2 minutes`, `2 * min`, `nan s`), so the loader checks the grammar first and uses pint only to convert.
 
 ## Validation
 
 Two passes, both run before any engine starts:
 
-1. **Schema:** structure, types and required keys, checked against the JSON Schema.
+1. **Schema:** structure, types and required keys, checked against the JSON Schema (draft 2020-12, validated with the `jsonschema` package; the schema uses no `format` keyword).
 2. **Meaning:** no dangling connections, no unknown component types, units of the right dimension, parameters within allowed ranges.
 
 The JSON Schema checks only the top-level keys, the JSON type of each top-level value, and that every component, connection, parameter and experiment entry is an object with its required keys of the right JSON type. Identifiers, quantities and component settings are typed as plain strings or objects in the schema, with no patterns and no per-type required lists, so that the meaning-pass codes in the table below (E102, E110 to E171, E174, W200 to W202) are reported with their specific codes. Component type descriptions (settings, ports) come from the adapter's `Capabilities`; until the process adapter exists (M2) the model layer carries the `process` type catalogue from spec 2's block reference, and at M2 the adapter's `capabilities()` must equal it (tested). Flow rates for W201 are propagated from sources: a probability branch multiplies by weight/total, a batch divides by `size`, an unbatch multiplies by it, merges add; where a rate cannot be propagated (shortest-queue branches, stores, timeouts, schedules, failures) the check is skipped for every server downstream.
@@ -168,6 +168,10 @@ Unknown keys are an error, except under any `ui` key, which engines ignore.
 ### Quantities
 
 - Grammar: a number, one space, a unit. Example: `"1.5 min"`.
+  - The number follows the JSON number grammar, `-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?`; `nan`, `inf`, `+2` and `.5` are not numbers.
+  - Exactly one space (U+0020) separates number and unit, with nothing before or after.
+  - The unit is one of the Phase 1 units below, written exactly as listed; case matters.
+  - A unit that the units library knows, but whose dimension differs from the one the setting expects (`"5 m"` for a time), is E140. Any other string that breaks these rules (`"2min"`, `"2 minutes"`, `"2 ms"`, `"nan s"`) is E141.
 - Phase 1 time units: `s`, `min`, `h`, `d`. Internal time is seconds, as a float.
 - Counts, probabilities and capacities are plain JSON numbers with no unit.
 - A quantity where a plain number is expected, or the reverse, is an error.
@@ -406,3 +410,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - Verifier follow-up: a new minor version needs no migration; E172 refuses a run before it is created; `run_id` lookup goes through `projects.json`; meaning-pass codes listed exactly.
 - 2026-11-06, review of PR #1: the adapter contract scopes "per-replication values only" to process adapters; optimization adapters return `Results.solution` (status, objective, variables, constraints), which the manager writes to `summary.json`.
 - 2026-11-06, review of PR #1: an `empirical` `data` snapshot is named `data/<component id>.<setting>.parquet`, so a component with two data-driven distributions (such as a `failure` block) keeps both; the manifest records file, column and hash per reference. The duplicate `Results(...)` signature left by the previous change is removed.
+- 2026-11-06, M1 research notes (AKS-85): "Units" confirms pint (was "Proposed library"), declared as `pint>=0.25.3` because pint 0.26 needs Python 3.12, with the grammar checked before pint converts (`docs/research/spec-1-schema-and-units.md`); "Validation" names JSON Schema draft 2020-12, the `jsonschema` package and no `format` keyword; "Quantities" states the exact grammar for the number, the single space and the unit symbol, and which strings are E140 and which E141. Version number unchanged until M1 closes.
