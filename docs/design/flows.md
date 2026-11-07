@@ -40,11 +40,11 @@ Home -> Learn -> Pick a template -> Canvas with step card -> steps 1..n -> Exerc
 | L2 | Home | Picks "Coffee shop queue" | Creates a project from the template | `POST /v1/projects {name, template}` |
 | L3 | Canvas | Reads step 1 | Opens the Canvas with the step card (`wireframes/01b-canvas-learn.svg`); highlights the step's block (`canvas-interactions.md`, "Learn mode on the canvas") | `GET /v1/templates/{tid}` (lesson text), `GET .../model`, events socket |
 | L4 | Canvas | Presses Next through the steps; may click blocks and look at their settings | Moves the highlight; the side panel shows the highlighted block's settings | none, until the user edits |
-| L5 | Canvas | Reaches the exercise: makes the change it asks for, for example setting `tills` from 1 to 2 | Sends the edit; validates 500 ms later | `POST .../model/edits`, `POST .../validate` |
-| L6 | Canvas | Picks a prediction from the list ("The wait will fall by about half", ...) | Enables "Run" in the step card | none |
+| L5 | Canvas | Reaches the exercise: makes the change it asks for, for example setting `tills` from 1 to 2 | Selects the block, opens its side panel and rings the one field to change ("In the side panel of Till, set Capacity to 2"); sends the edit; validates 500 ms later | `POST .../model/edits`, `POST .../validate` |
+| L6 | Canvas | Under "What do you think will happen?", picks a prediction from the list ("The wait will fall by about half", ...) | Enables "Run" in the step card | none |
 | L7 | Canvas | Presses Run | Starts the run of the template's experiment; opens the Run monitor | `POST /v1/projects/{pid}/runs {experiment_id}` |
 | L8 | Run monitor | Watches progress; may leave and come back | Shows progress, live key numbers and Cancel (`wireframes/05-run-monitor.svg`) | `GET /v1/runs/{rid}/events` |
-| L9 | Results | Reads the result | Shows the exercise explanation first, with "You predicted: …", then the findings, then charts and tables, then the footer (`wireframes/06-results.svg`) | `GET /v1/runs/{rid}/summary`, `GET .../tables/{name}` |
+| L9 | Results | Reads the result | Shows the exercise explanation first, with "You predicted: …", then the headline card that says what changed and why ("…because one till was busy 75% of the time"), then the findings, charts and tables, then the footer (`wireframes/06-results.svg`) | `GET /v1/runs/{rid}/summary`, `GET .../tables/{name}` |
 | L10 | Results | Chooses "Try another lesson" or "Change the model and run again" | Returns to Home or the Canvas | |
 
 Notes:
@@ -67,14 +67,14 @@ Home -> Build -> Q1 "What do you want to find out?" -> (Q1b for the optimization
 | # | Screen | User does | System does | API |
 | --- | --- | --- | --- | --- |
 | B1 | Home | Chooses "Build" | Opens the Build form, step 1 (`wireframes/02b-build-form.svg`) | |
-| B2 | Build form | Answers "What do you want to find out?" with one of six answers (spec 4): how long will people or items wait; where is the bottleneck; how much does downtime cost; how many staff or machines do I need; how much stock should I hold; what mix, plan or rota is best | Shows the template each answer opens beside the answer: Coffee shop, Three-machine line, Machine breakdowns, How many machines, Inventory reorder point, and for the last answer a second question | |
+| B2 | Build form | Answers "What do you want to find out?" with one of six answers (spec 4): how long will people or items wait; where is the bottleneck; how much does downtime cost; how many staff or machines do I need; how much stock should I hold; what mix, plan or rota is best. A seventh answer, "compare options (for example another person or a faster machine)", was approved in the owner design review and waits for a spec 4 change (see the note below) | Shows the template each answer opens beside the answer: Coffee shop, Three-machine line, Machine breakdowns, How many machines, Inventory reorder point, and for the last answer a second question | |
 | B2b | Build form | For "what mix, plan or rota is best", answers the second question: "a product mix", "a transport plan" or "a staff rota" | Selects Product mix, Transport plan or Staff rota (spec 4) | |
 | B3 | Build form | Names the project (default: the template title) and answers "Do you have data?" | | |
 | B4a | Canvas | Chose "No, I will estimate" | Creates the project from the template and opens the Canvas with nothing selected, so the side panel shows the model's parameters (spec 4: "Canvas with the template's parameters open") | `POST /v1/projects {name, template}` |
 | B4b | Data | Chose "Yes, import a file" | Creates the project and opens the Data screen (`wireframes/03-data.svg`) | `POST /v1/projects` |
 | B5b | Data | Drops or picks a CSV or Excel file | Uploads it; shows columns, types and a preview | `POST /v1/projects/{pid}/data` |
 | B6b | Data | Picks a column (for example "minutes between arrivals") and presses "Fit a distribution" | Lists candidate distributions with their fitted fields and fit score, best first | `POST .../data/{file}/fit {column}` |
-| B7b | Data | Picks a candidate and "Use for…" a block setting, for example `arrivals` interarrival | Sets that setting to the fitted distribution, or to `empirical` with a data reference if the user chooses "Use the data as it is" | `POST .../model/edits` (`set_setting`) |
+| B7b | Data | Picks a candidate and "Use for…" a block setting, for example `arrivals` interarrival | When the setting is a service or process time, first asks "Does this column include time spent waiting?" with Yes, No and "Not sure". Yes or Not sure shows a warning: "Service time must not include waiting, or the model counts the wait twice. Use a column that measures only the work, or estimate it." and does not set the field until the user confirms. Then sets that setting to the fitted distribution, or to `empirical` with a data reference if the user chooses "Use the data as it is" | `POST .../model/edits` (`set_setting`) |
 | B8 | Canvas | Changes numbers in the side panel; may add or remove blocks | Saves and validates after each change | `POST .../model/edits`, `POST .../validate` |
 | B9 | Canvas or Experiment | Optionally sets run length, replications, scenarios on the Experiment screen (`wireframes/04-experiment.svg`) | Template experiments are already valid, so this step can be skipped | `POST .../model/edits` (`set_experiment`, `set_scenario`) |
 | B10 | Canvas | Presses Run | Starts the run; opens the Run monitor | `POST /v1/projects/{pid}/runs` |
@@ -83,6 +83,8 @@ Home -> Build -> Q1 "What do you want to find out?" -> (Q1b for the optimization
 
 Notes:
 
+- **Compare options (pending spec 4).** The owner approved a seventh Build answer for "Is option A or B better?" questions (persona walkthrough, business problem 4). Proposed behaviour: the form asks which template is closest to the user's process, opens it, and points to "Try a change" (`canvas-interactions.md`) to add each option as a scenario. Spec 4 "Build mode" lists six answers, so this answer and the coffee shop's audience change from "Students" to "Both" wait for the spec 4 update the owner scheduled after the design review; until then the form shows the six.
+- **Plain words.** The form, the Data screen and Results use everyday words with the technical term on hover (`design-system.md` "Type", Plain words): "how well the pattern fits" for fit score, "repeat runs" for replications.
 - **Build mode never requires a data file** (spec 4). Path B4a reaches a result changing only parameters, which is the spec 4 acceptance row "A Build-mode user without data reaches a completed run changing only parameters".
 - **The data path rejoins the canvas.** After B7b the Data screen offers "Go to the canvas"; the user can import more files first.
 - **Optimization answers** (Product mix, Transport plan, Staff rota) open an optimization model. Its Canvas screen is the variables, objective and constraints form (`canvas-interactions.md`, "The model and the canvas"); Run sends no `experiment_id`; Results shows the variable values, the objective and which constraints are tight (spec 2), with the `optimization_result` finding first.

@@ -4,107 +4,107 @@
   <desc id="desc">Home screen. Two large entries, Learn and Build. Below, the template gallery of the ten Phase 1 templates with audience and estimated minutes, and the list of recent projects with links to create an empty project or open a folder.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5F6773"/>
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#547076"/>
     </marker>
     <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse">
-      <circle cx="1" cy="1" r="1" fill="#C3C8D0"/>
+      <circle cx="1" cy="1" r="1" fill="#BBB49D"/>
     </pattern>
   </defs>
-  <rect x="0" y="0" width="1280" height="800" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1"/>
+  <rect x="0" y="0" width="1280" height="800" rx="0" fill="#FDFAF4" stroke="none" stroke-width="1"/>
   <!-- Navigation rail: the seven screens of spec 3 -->
-  <rect x="0" y="0" width="72" height="800" rx="0" fill="#EEF0F3" stroke="none" stroke-width="1"/>
-  <line x1="72" y1="0" x2="72" y2="800" stroke="#D4D8DE" stroke-width="1"/>
-  <rect x="0" y="56" width="72" height="56" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1"/>
-  <rect x="0" y="56" width="3" height="56" rx="0" fill="#1D5BBF" stroke="none" stroke-width="1"/>
-  <rect x="26" y="64" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
-  <text x="36" y="102" font-family="sans-serif" font-size="12" font-weight="600" fill="#1B1F24" text-anchor="middle">Home</text>
-  <rect x="26" y="128" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
-  <text x="36" y="166" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Canvas</text>
-  <rect x="26" y="192" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
-  <text x="36" y="230" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Data</text>
-  <rect x="26" y="256" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
-  <text x="36" y="294" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Experiment</text>
-  <rect x="26" y="320" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
-  <text x="36" y="358" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Run monitor</text>
-  <rect x="26" y="384" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
-  <text x="36" y="422" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Results</text>
-  <rect x="26" y="448" width="20" height="20" rx="4" fill="none" stroke="#6E7682" stroke-width="1.5"/>
-  <text x="36" y="486" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="middle">Settings</text>
+  <rect x="0" y="0" width="72" height="800" rx="0" fill="#F7EEDC" stroke="none" stroke-width="1"/>
+  <line x1="72" y1="0" x2="72" y2="800" stroke="#CABD9E" stroke-width="1"/>
+  <rect x="0" y="56" width="72" height="56" rx="0" fill="#FDFAF4" stroke="none" stroke-width="1"/>
+  <rect x="0" y="56" width="3" height="56" rx="0" fill="#1C4286" stroke="none" stroke-width="1"/>
+  <svg x="24" y="62" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#1C4286"><path d="M224,120v96a8,8,0,0,1-8,8H160a8,8,0,0,1-8-8V164a4,4,0,0,0-4-4H108a4,4,0,0,0-4,4v52a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V120a16,16,0,0,1,4.69-11.31l80-80a16,16,0,0,1,22.62,0l80,80A16,16,0,0,1,224,120Z"/></g></svg>
+  <text x="36" y="102" font-family="sans-serif" font-size="12" font-weight="600" fill="#34454C" text-anchor="middle">Home</text>
+  <svg x="24" y="126" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#547076"><path d="M245.66,74.34l-32-32a8,8,0,0,0-11.32,11.32L220.69,72H208c-49.33,0-61.05,28.12-71.38,52.92-9.38,22.51-16.92,40.59-49.48,42.84a40,40,0,1,0,.1,16c43.26-2.65,54.34-29.15,64.14-52.69C161.41,107,169.33,88,208,88h12.69l-18.35,18.34a8,8,0,0,0,11.32,11.32l32-32A8,8,0,0,0,245.66,74.34ZM48,200a24,24,0,1,1,24-24A24,24,0,0,1,48,200Z"/></g></svg>
+  <text x="36" y="166" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="middle">Canvas</text>
+  <svg x="24" y="190" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#547076"><path d="M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM40,112H80v32H40Zm56,0H216v32H96ZM216,64V96H40V64ZM40,160H80v32H40Zm176,32H96V160H216v32Z"/></g></svg>
+  <text x="36" y="230" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="middle">Data</text>
+  <svg x="24" y="254" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#547076"><path d="M221.69,199.77,160,96.92V40h8a8,8,0,0,0,0-16H88a8,8,0,0,0,0,16h8V96.92L34.31,199.77A16,16,0,0,0,48,224H208a16,16,0,0,0,13.72-24.23ZM110.86,103.25A7.93,7.93,0,0,0,112,99.14V40h32V99.14a7.93,7.93,0,0,0,1.14,4.11L183.36,167c-12,2.37-29.07,1.37-51.75-10.11-15.91-8.05-31.05-12.32-45.22-12.81ZM48,208l28.54-47.58c14.25-1.74,30.31,1.85,47.82,10.72,19,9.61,35,12.88,48,12.88a69.89,69.89,0,0,0,19.55-2.7L208,208Z"/></g></svg>
+  <text x="36" y="294" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="middle">Experiment</text>
+  <svg x="24" y="318" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#547076"><path d="M240,128a8,8,0,0,1-8,8H204.94l-37.78,75.58A8,8,0,0,1,160,216h-.4a8,8,0,0,1-7.08-5.14L95.35,60.76,63.28,131.31A8,8,0,0,1,56,136H24a8,8,0,0,1,0-16H50.85L88.72,36.69a8,8,0,0,1,14.76.46l57.51,151,31.85-63.71A8,8,0,0,1,200,120h32A8,8,0,0,1,240,128Z"/></g></svg>
+  <text x="36" y="358" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="middle">Run monitor</text>
+  <svg x="24" y="382" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#547076"><path d="M224,200h-8V40a8,8,0,0,0-8-8H152a8,8,0,0,0-8,8V80H96a8,8,0,0,0-8,8v40H48a8,8,0,0,0-8,8v64H32a8,8,0,0,0,0,16H224a8,8,0,0,0,0-16ZM160,48h40V200H160ZM104,96h40V200H104ZM56,144H88v56H56Z"/></g></svg>
+  <text x="36" y="422" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="middle">Results</text>
+  <svg x="24" y="446" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#547076"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm109.94-52.79a8,8,0,0,0-3.89-5.4l-29.83-17-.12-33.62a8,8,0,0,0-2.83-6.08,111.91,111.91,0,0,0-36.72-20.67,8,8,0,0,0-6.46.59L128,41.85,97.88,25a8,8,0,0,0-6.47-.6A112.1,112.1,0,0,0,54.73,45.15a8,8,0,0,0-2.83,6.07l-.15,33.65-29.83,17a8,8,0,0,0-3.89,5.4,106.47,106.47,0,0,0,0,41.56,8,8,0,0,0,3.89,5.4l29.83,17,.12,33.62a8,8,0,0,0,2.83,6.08,111.91,111.91,0,0,0,36.72,20.67,8,8,0,0,0,6.46-.59L128,214.15,158.12,231a7.91,7.91,0,0,0,3.9,1,8.09,8.09,0,0,0,2.57-.42,112.1,112.1,0,0,0,36.68-20.73,8,8,0,0,0,2.83-6.07l.15-33.65,29.83-17a8,8,0,0,0,3.89-5.4A106.47,106.47,0,0,0,237.94,107.21Zm-15,34.91-28.57,16.25a8,8,0,0,0-3,3c-.58,1-1.19,2.06-1.81,3.06a7.94,7.94,0,0,0-1.22,4.21l-.15,32.25a95.89,95.89,0,0,1-25.37,14.3L134,199.13a8,8,0,0,0-3.91-1h-.19c-1.21,0-2.43,0-3.64,0a8.08,8.08,0,0,0-4.1,1l-28.84,16.1A96,96,0,0,1,67.88,201l-.11-32.2a8,8,0,0,0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.09,8.09,0,0,0-3-3.06l-28.6-16.29a90.49,90.49,0,0,1,0-28.26L61.67,97.63a8,8,0,0,0,3-3c.58-1,1.19-2.06,1.81-3.06a7.94,7.94,0,0,0,1.22-4.21l.15-32.25a95.89,95.89,0,0,1,25.37-14.3L122,56.87a8,8,0,0,0,4.1,1c1.21,0,2.43,0,3.64,0a8.08,8.08,0,0,0,4.1-1l28.84-16.1A96,96,0,0,1,188.12,55l.11,32.2a8,8,0,0,0,1.22,4.22c.62,1,1.23,2,1.8,3.06a8.09,8.09,0,0,0,3,3.06l28.6,16.29A90.49,90.49,0,0,1,222.9,142.12Z"/></g></svg>
+  <text x="36" y="486" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="middle">Settings</text>
   <!-- Top bar: project, save state, undo/redo, experiment, Run with its reason -->
-  <rect x="72" y="0" width="1208" height="48" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1"/>
-  <line x1="72" y1="48" x2="1280" y2="48" stroke="#D4D8DE" stroke-width="1"/>
-  <text x="92" y="30" font-family="sans-serif" font-size="16" font-weight="600" fill="#1B1F24" text-anchor="start">Home</text>
-  <text x="104" y="96" font-family="sans-serif" font-size="24" font-weight="600" fill="#1B1F24" text-anchor="start">What would you like to do?</text>
-  <rect x="104" y="116" width="376" height="120" rx="8" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
-  <text x="124" y="152" font-family="sans-serif" font-size="20" font-weight="600" fill="#1B1F24" text-anchor="start">Learn</text>
-  <text x="124" y="176" font-family="sans-serif" font-size="14" font-weight="400" fill="#4F5866" text-anchor="start">Start from a worked example</text>
-  <text x="124" y="204" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">A guided lesson explains each block, then asks you</text>
-  <text x="124" y="222" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">to change something and predict.</text>
-  <rect x="496" y="116" width="376" height="120" rx="8" fill="#FFFFFF" stroke="#6E7682" stroke-width="1"/>
-  <text x="516" y="152" font-family="sans-serif" font-size="20" font-weight="600" fill="#1B1F24" text-anchor="start">Build</text>
-  <text x="516" y="176" font-family="sans-serif" font-size="14" font-weight="400" fill="#4F5866" text-anchor="start">Answer a question of your own</text>
-  <text x="516" y="204" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">Two questions pick the closest template; your data</text>
-  <text x="516" y="222" font-family="sans-serif" font-size="13" font-weight="400" fill="#1B1F24" text-anchor="start">is optional.</text>
-  <text x="104" y="280" font-family="sans-serif" font-size="20" font-weight="600" fill="#1B1F24" text-anchor="start">Templates</text>
-  <rect x="104" y="296" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
-  <text x="116" y="322" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Coffee shop queue</text>
-  <text x="116" y="366" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Students</text>
-  <text x="116" y="386" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
-  <rect x="260" y="296" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
-  <text x="272" y="322" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Three-machine</text>
-  <text x="272" y="340" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">production line</text>
-  <text x="272" y="366" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Both</text>
-  <text x="272" y="386" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
-  <rect x="416" y="296" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
-  <text x="428" y="322" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Machine</text>
-  <text x="428" y="340" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">breakdowns</text>
-  <text x="428" y="366" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Both</text>
-  <text x="428" y="386" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
-  <rect x="572" y="296" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
-  <text x="584" y="322" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Clinic patient</text>
-  <text x="584" y="340" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">flow</text>
-  <text x="584" y="366" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Both</text>
-  <text x="584" y="386" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
-  <rect x="728" y="296" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
-  <text x="740" y="322" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Warehouse pick</text>
-  <text x="740" y="340" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">and pack</text>
-  <text x="740" y="366" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Business</text>
-  <text x="740" y="386" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
-  <rect x="104" y="412" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
-  <text x="116" y="438" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Inventory reorder</text>
-  <text x="116" y="456" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">point</text>
-  <text x="116" y="482" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Business</text>
-  <text x="116" y="502" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
-  <rect x="260" y="412" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
-  <text x="272" y="438" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Product mix</text>
-  <text x="272" y="482" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Students</text>
-  <text x="272" y="502" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
-  <rect x="416" y="412" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
-  <text x="428" y="438" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Transport plan</text>
-  <text x="428" y="482" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Business</text>
-  <text x="428" y="502" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
-  <rect x="572" y="412" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
-  <text x="584" y="438" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">Staff rota</text>
-  <text x="584" y="482" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Business</text>
-  <text x="584" y="502" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
-  <rect x="728" y="412" width="144" height="104" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
-  <text x="740" y="438" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">How many</text>
-  <text x="740" y="456" font-family="sans-serif" font-size="13" font-weight="600" fill="#1B1F24" text-anchor="start">machines?</text>
-  <text x="740" y="482" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Both</text>
-  <text x="740" y="502" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">{minutes} min</text>
+  <rect x="72" y="0" width="1208" height="48" rx="0" fill="#FDFAF4" stroke="none" stroke-width="1"/>
+  <line x1="72" y1="48" x2="1280" y2="48" stroke="#CABD9E" stroke-width="1"/>
+  <text x="92" y="30" font-family="sans-serif" font-size="16" font-weight="600" fill="#34454C" text-anchor="start">Home</text>
+  <text x="104" y="96" font-family="sans-serif" font-size="24" font-weight="600" fill="#34454C" text-anchor="start">What would you like to do?</text>
+  <rect x="104" y="116" width="376" height="120" rx="8" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="124" y="152" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Learn</text>
+  <text x="124" y="176" font-family="sans-serif" font-size="14" font-weight="400" fill="#547076" text-anchor="start">Start from a worked example</text>
+  <text x="124" y="204" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">A guided lesson explains each block, then asks you</text>
+  <text x="124" y="222" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">to change something and predict.</text>
+  <rect x="496" y="116" width="376" height="120" rx="8" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="516" y="152" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Build</text>
+  <text x="516" y="176" font-family="sans-serif" font-size="14" font-weight="400" fill="#547076" text-anchor="start">Answer a question of your own</text>
+  <text x="516" y="204" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Two questions pick the closest template; your data</text>
+  <text x="516" y="222" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">is optional.</text>
+  <text x="104" y="280" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Templates</text>
+  <rect x="104" y="296" width="144" height="104" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="116" y="322" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Coffee shop queue</text>
+  <text x="116" y="366" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Students</text>
+  <text x="116" y="386" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">{minutes} min</text>
+  <rect x="260" y="296" width="144" height="104" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="272" y="322" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Three-machine</text>
+  <text x="272" y="340" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">production line</text>
+  <text x="272" y="366" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Both</text>
+  <text x="272" y="386" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">{minutes} min</text>
+  <rect x="416" y="296" width="144" height="104" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="428" y="322" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Machine</text>
+  <text x="428" y="340" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">breakdowns</text>
+  <text x="428" y="366" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Both</text>
+  <text x="428" y="386" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">{minutes} min</text>
+  <rect x="572" y="296" width="144" height="104" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="584" y="322" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Clinic patient</text>
+  <text x="584" y="340" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">flow</text>
+  <text x="584" y="366" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Both</text>
+  <text x="584" y="386" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">{minutes} min</text>
+  <rect x="728" y="296" width="144" height="104" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="740" y="322" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Warehouse pick</text>
+  <text x="740" y="340" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">and pack</text>
+  <text x="740" y="366" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Business</text>
+  <text x="740" y="386" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">{minutes} min</text>
+  <rect x="104" y="412" width="144" height="104" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="116" y="438" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Inventory reorder</text>
+  <text x="116" y="456" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">point</text>
+  <text x="116" y="482" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Business</text>
+  <text x="116" y="502" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">{minutes} min</text>
+  <rect x="260" y="412" width="144" height="104" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="272" y="438" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Product mix</text>
+  <text x="272" y="482" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Students</text>
+  <text x="272" y="502" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">{minutes} min</text>
+  <rect x="416" y="412" width="144" height="104" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="428" y="438" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Transport plan</text>
+  <text x="428" y="482" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Business</text>
+  <text x="428" y="502" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">{minutes} min</text>
+  <rect x="572" y="412" width="144" height="104" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="584" y="438" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Staff rota</text>
+  <text x="584" y="482" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Business</text>
+  <text x="584" y="502" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">{minutes} min</text>
+  <rect x="728" y="412" width="144" height="104" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="740" y="438" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">How many</text>
+  <text x="740" y="456" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">machines?</text>
+  <text x="740" y="482" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Both</text>
+  <text x="740" y="502" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">{minutes} min</text>
   <!-- Recent projects (GET /v1/projects) -->
-  <rect x="912" y="96" width="344" height="680" rx="8" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
-  <text x="928" y="128" font-family="sans-serif" font-size="20" font-weight="600" fill="#1B1F24" text-anchor="start">Recent projects</text>
-  <rect x="928" y="148" width="312" height="48" rx="4" fill="#EEF0F3" stroke="#D4D8DE" stroke-width="1"/>
-  <text x="940" y="169" font-family="sans-serif" font-size="14" font-weight="600" fill="#1B1F24" text-anchor="start">Coffee shop</text>
-  <text x="940" y="187" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Edited today</text>
-  <rect x="928" y="204" width="312" height="48" rx="4" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
-  <text x="940" y="225" font-family="sans-serif" font-size="14" font-weight="600" fill="#1B1F24" text-anchor="start">Three-machine line</text>
-  <text x="940" y="243" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Edited yesterday · run in progress</text>
-  <rect x="928" y="260" width="312" height="48" rx="4" fill="#FFFFFF" stroke="#D4D8DE" stroke-width="1"/>
-  <text x="940" y="281" font-family="sans-serif" font-size="14" font-weight="600" fill="#1B1F24" text-anchor="start">Packing study</text>
-  <text x="940" y="299" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Edited 3 Nov</text>
-  <text x="928" y="340" font-family="sans-serif" font-size="14" font-weight="400" fill="#1D5BBF" text-anchor="start">New empty project</text>
-  <text x="928" y="368" font-family="sans-serif" font-size="14" font-weight="400" fill="#1D5BBF" text-anchor="start">Open a project folder</text>
-  <text x="104" y="560" font-family="sans-serif" font-size="12" font-weight="400" fill="#4F5866" text-anchor="start">Template minutes come from each template.json (spec 4); the ten templates are named in spec 4 but not written yet.</text>
+  <rect x="912" y="96" width="344" height="680" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="928" y="128" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Recent projects</text>
+  <rect x="928" y="148" width="312" height="48" rx="4" fill="#F7EEDC" stroke="#CABD9E" stroke-width="1"/>
+  <text x="940" y="169" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">Coffee shop</text>
+  <text x="940" y="187" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Edited today</text>
+  <rect x="928" y="204" width="312" height="48" rx="4" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="940" y="225" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">Three-machine line</text>
+  <text x="940" y="243" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Edited yesterday · run in progress</text>
+  <rect x="928" y="260" width="312" height="48" rx="4" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="940" y="281" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">Packing study</text>
+  <text x="940" y="299" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Edited 3 Nov</text>
+  <text x="928" y="340" font-family="sans-serif" font-size="14" font-weight="400" fill="#1C4286" text-anchor="start">New empty project</text>
+  <text x="928" y="368" font-family="sans-serif" font-size="14" font-weight="400" fill="#1C4286" text-anchor="start">Open a project folder</text>
+  <text x="104" y="560" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Template minutes come from each template.json (spec 4); the ten templates are named in spec 4 but not written yet.</text>
 </svg>

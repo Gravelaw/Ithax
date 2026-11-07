@@ -11,17 +11,17 @@ Numbers and titles are from the WCAG 2.2 Recommendation (https://www.w3.org/TR/W
 | Criterion | Level | How the design meets it | Where |
 | --- | --- | --- | --- |
 | 1.3.1 Info and Relationships | A | Panels are landmarks with names ("Palette", "Canvas", "Block settings", "Problems"); form fields have labels; tables have header cells | All screens |
-| 1.4.1 Use of Color | A | Errors and warnings differ by badge shape and word, not only colour; block categories carry an icon and the type word; chart series carry marker shapes and direct labels | `design-system.md` |
-| 1.4.3 Contrast (Minimum) | AA | Every text pair is at least 4.5:1 in both themes; lowest 5.19:1 | "Contrast" below |
+| 1.4.1 Use of Color | A | Errors and warnings differ by badge shape and word, not only colour; block categories differ by shape (capsule, rounded box, tag) as well as icon and type word; the three resource reference lines differ by pattern, icon and word; review marks carry "Added", "Changed", "Removed"; chart series carry marker shapes and direct labels, and a colour-blind safe chart palette is a setting | `design-system.md` |
+| 1.4.3 Contrast (Minimum) | AA | Every text pair is at least 4.5:1 in both themes; lowest 4.60:1 | "Contrast" below |
 | 1.4.4 Resize Text | AA | Text-size setting from 100% to 200%; all sizes in `rem` | "Text size" below |
 | 1.4.10 Reflow | AA | Panels collapse below 1024 px; the side panel becomes an overlay. The canvas is a diagram, which falls under the criterion's exception for content that needs a two-dimensional layout; its text alternative (the blocks table, "Screen readers" below) reflows | `design-system.md` "Spacing and layout" |
-| 1.4.11 Non-text Contrast | AA | Outlines, ports, connections, focus rings, markers and category stripes are at least 3:1 against what is next to them; lowest 4.20:1 | "Contrast" below |
+| 1.4.11 Non-text Contrast | AA | Outlines, ports, connections, reference lines, focus rings, markers, category colours and chart series are at least 3:1 against what is next to them; lowest 3.44:1 | "Contrast" below |
 | 1.4.12 Text Spacing | AA | No fixed-height text boxes; text wraps | All screens |
 | 1.4.13 Content on Hover or Focus | AA | Tooltips appear on hover and on keyboard focus, stay while the pointer is over them, close with Escape, and never hold the only copy of information (issue text is also in the problems list and side panel) | `canvas-interactions.md` |
 | 2.1.1 Keyboard | A | Every canvas action has a keyboard path ("Keyboard map" below); the pointer-only paths have keyboard equivalents | "Keyboard map" |
 | 2.1.2 No Keyboard Trap | A | Tab and Shift+Tab always leave the canvas; Escape closes dialogs and leaves "placing" and "connecting" states | "Focus order" |
 | 2.1.4 Character Key Shortcuts | A | Single-key shortcuts (C, F2, Delete, arrows) act only while the canvas has focus, which the criterion allows | "Keyboard map" |
-| 2.2.2 Pause, Stop, Hide | A | The Run monitor's live numbers update at most once per second, and a "Pause updates" button stops them; nothing blinks | `wireframes/05-run-monitor.svg` |
+| 2.2.2 Pause, Stop, Hide | A | The Run monitor's live numbers update at most once per second, and a "Pause updates" button stops them; items moving along connections after a run have a "Pause flow" button, and the Motion setting can turn all motion off; nothing blinks | `wireframes/05-run-monitor.svg`, `design-system.md` "Motion" |
 | 2.4.3 Focus Order | A | A fixed order, described in "Focus order" | "Focus order" |
 | 2.4.7 Focus Visible | AA | A 2 px `focus` ring with 2 px offset on every focusable element, including blocks, ports and connections | `design-system.md` |
 | 2.4.11 Focus Not Obscured (Minimum) | AA | Focusing a block off-screen pans the canvas to show it (React Flow `autoPanOnNodeFocus`, on by default); notices and the problems list never cover the focused block | `canvas-interactions.md` |
@@ -32,7 +32,7 @@ Numbers and titles are from the WCAG 2.2 Recommendation (https://www.w3.org/TR/W
 | 4.1.2 Name, Role, Value | A | Blocks, ports and connections have accessible names ("Block till, server, 1 error"; "Output port out of till, connected to exit.in"); toggles and pickers expose their state | "Screen readers" |
 | 4.1.3 Status Messages | AA | Save state, validation counts, notices and run progress are announced in polite live regions without taking focus | `canvas-interactions.md` |
 
-Level AAA criterion 2.3.3 (animation from interactions) is followed because the design has no animation.
+Level AAA criterion 2.3.3 (animation from interactions) is followed: Settings, Appearance, "Motion" (Full, Reduced, Off) defaults to the operating system's reduce-motion preference, and Off removes every animation (`design-system.md` "Motion").
 
 ## Keyboard map
 
@@ -51,7 +51,9 @@ Canvas shortcuts work only while the canvas has focus (WCAG 2.1.4). Every action
 | Connect (alternative) | In the side panel, the output port's picker | Connect |
 | Disconnect | Select the connection, Delete; or the picker's "Not connected" | Connect |
 | Move the selection | Arrow keys (8 px), Shift+arrow (40 px) | |
-| Delete the selection | Delete or Backspace | Delete |
+| Delete the selection | Delete or Backspace; in the confirmation dialog, focus starts on Cancel, Tab to Delete and Enter, Escape cancels | Delete |
+| Review an outside change | F6 to the side panel's "Changes to review" list, arrow to a change, Accept or Reject buttons | External edits |
+| Try a change | Tab to "Try a change" beside a field, Enter, type the value and a name, Enter | |
 | Rename | F2, type, Enter (Escape cancels) | Rename |
 | Edit settings | F6 to the side panel, Tab through fields | |
 | Undo, redo | Ctrl+Z; Ctrl+Shift+Z or Ctrl+Y | Undo and redo |
@@ -93,7 +95,7 @@ Within the window, F6 and Shift+F6 cycle through the regions; Tab moves within a
 
 Rules:
 
-- **Opening a dialog** (first-start notice, Connect, Find block, Stop run) moves focus to its first control; closing returns focus to where it was.
+- **Opening a dialog** (first-start notice, Connect, Find block, Stop run) moves focus to its first control; closing returns focus to where it was. The delete confirmation and "Restore all defaults" dialogs put focus on Cancel, so Enter pressed by accident changes nothing.
 - **After adding a block**, focus moves to the new block; after deleting, to the next block in model order, or the canvas if none.
 - **After selecting a problem entry**, focus stays in the list so the user can go through the problems; the side panel and the canvas follow the selection.
 - **After an external reload**, focus stays on the same block id if it still exists.
@@ -102,12 +104,12 @@ Rules:
 
 All colour pairs, with their computed ratios in both themes, are in `design-system.md` "Contrast", generated by `scripts/contrast.py` from `docs/design/tokens.json`; `tests/test_design.py` fails if any pair falls below its threshold or the table goes stale.
 
-Summary of the 2026-11-06 computation (28 pairs per theme, 56 in all):
+Summary of the computation after the owner design review of 2026-11-06 (Sanzo Wada palette, softened dark theme, chart tokens; 37 pairs per theme, 74 in all):
 
 | Theme | Text pairs (need 4.5:1) | Lowest text pair | Non-text pairs (need 3:1) | Lowest non-text pair |
 | --- | --- | --- | --- | --- |
-| Light | 15 of 15 pass | 5.19:1, `success` on `success-bg` | 13 of 13 pass | 4.20:1, `border-strong` on `canvas` |
-| Dark | 15 of 15 pass | 6.64:1, `text-muted` on `surface-alt` | 13 of 13 pass | 5.32:1, `border-strong` on `surface` |
+| Light | 15 of 15 pass | 4.60:1, `text-muted` on `surface-alt` | 22 of 22 pass | 3.44:1, `cat-resource` on `canvas` |
+| Dark | 15 of 15 pass | 4.86:1, `learn` on `surface` | 22 of 22 pass | 4.02:1, `border-strong` on `surface` |
 
 Contrast while dimmed: no block or text is ever dimmed by opacity. Learn mode highlights one block with a ring instead of fading the others.
 
@@ -124,7 +126,12 @@ Contrast while dimmed: no block or text is ever dimmed by opacity. Learn mode hi
 - **Connections** are focusable: "Connection from arrivals.out to till.in".
 - **React Flow's accessibility layer** is kept on (`nodesFocusable`, `edgesFocusable`) and its messages are worded through `ariaLabelConfig` (`docs/research/spec-3-node-editor-patterns.md`).
 - **A text alternative to the whole canvas** is the side panel with nothing selected, which lists every block with its connections as a table; each row's "Select" button selects the block. A screen-reader user can build and check a model from the palette, the Connect dialog, the side panel and this table without seeing the drawing.
-- **Charts** on the Results screen each have a data table beside them with the same numbers.
+- **Charts** on every screen each have a data table beside them with the same numbers.
+- **Review marks** are announced: "Till, server, changed by an assistant: capacity 1 to 2. Accept or reject."
+
+## Colour blindness
+
+Settings, Appearance, "Colour-blind safe charts" (owner review) switches chart series to `chart-cb-1` to `chart-cb-4`, hues from Okabe and Ito chosen to stay distinct for red-green and blue-yellow colour blindness, each still at least 3:1 against `surface`. Elsewhere nothing relies on colour alone (criterion 1.4.1 above), so the canvas needs no separate mode.
 
 ## Not yet checked
 
