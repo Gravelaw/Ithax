@@ -74,3 +74,16 @@ def test_samefile_decides_for_two_names_resolving_leaves_apart(
     second.mkdir()
     monkeypatch.setattr(os.path, "samefile", lambda a, b: True)
     assert same_folder(first, second)
+
+
+def test_a_parent_step_after_an_alias_follows_the_alias(tmp_path: Path) -> None:
+    """``alias/../project`` with ``alias`` naming ``real/child`` is ``real/project``, as the
+    file system reads it; normalising ``..`` before resolving gave ``tmp/project``
+    (review of PR #34)."""
+    child = tmp_path / "real" / "child"
+    child.mkdir(parents=True)
+    (tmp_path / "real" / "project").mkdir()
+    alias = link(child, tmp_path / "alias")
+    assert canonical(alias / ".." / "project") == tmp_path / "real" / "project"
+    assert canonical(f"{alias}/../project") == tmp_path / "real" / "project"
+    assert same_folder(alias / ".." / "project", tmp_path / "real" / "project")
