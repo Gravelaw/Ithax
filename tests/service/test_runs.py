@@ -999,3 +999,42 @@ def test_a_table_cell_json_has_no_word_for_is_sent_as_text(
     pq.write_table(table, run_folder(client, pid, done_run) / "tables" / "timeseries.parquet")
     rows = client.get(f"/v1/runs/{done_run}/tables/timeseries").json()
     assert rows == [{"when": "1970-01-01 00:00:00", "unit": "s"}]
+
+
+#: Values json.loads takes but no response may carry (review of PR #36).
+POISONED = ["1e999", "-1e999", "NaN", "-Infinity", '"\\ud800"']
+
+
+@pytest.mark.parametrize("value", POISONED)
+def test_a_manifest_that_cannot_be_written_back_is_404_everywhere_not_500(
+    client: TestClient, done_run: str, value: str
+) -> None:
+    pid = get_run(client, done_run)["project_id"]
+    path = run_folder(client, pid, done_run) / MANIFEST_FILE
+    manifest = json.loads(path.read_text())
+    path.write_text(json.dumps(manifest).replace('"fraction": 1.0', f'"fraction": {value}'))
+    assert f'"fraction": {value}' in path.read_text()
+    for response in (
+        client.get(f"/v1/runs/{done_run}"),
+        client.post(f"/v1/runs/{done_run}/cancel"),
+        client.get(f"/v1/runs/{done_run}/summary"),
+        client.get(f"/v1/runs/{done_run}/tables/replications"),
+        client.get(f"/v1/runs/{done_run}/tables/replications?format=csv"),
+    ):
+        assert response.status_code == 404, response.text
+        assert_error(response.json(), "E185")
+    listed = client.get(f"/v1/projects/{pid}/runs")
+    assert listed.status_code == 200
+    assert listed.json() == []
+
+
+@pytest.mark.parametrize("value", POISONED)
+def test_a_summary_that_cannot_be_written_back_is_404_not_500(
+    client: TestClient, done_run: str, value: str
+) -> None:
+    pid = get_run(client, done_run)["project_id"]
+    (run_folder(client, pid, done_run) / "summary.json").write_text(f'{{"mean": {value}}}')
+    response = client.get(f"/v1/runs/{done_run}/summary")
+    assert response.status_code == 404, response.text
+    assert_error(response.json(), "E185")
+    assert client.get(f"/v1/runs/{done_run}").status_code == 200

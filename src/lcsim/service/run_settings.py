@@ -9,14 +9,14 @@ The service reads them from the configuration folder when it starts:
   (not enforced where it cannot be read, spec 1 E192).
 
 A key that is absent takes its default; one holding another value takes its default too,
-and that is logged. A file that cannot be read gives every default (the tier's own reading
-of the file, ``lcsim.service.hardware.active_tier``, logs and replaces it). Settings writes
-the keys at M9.
+and that is logged. A file the strict reader refuses (``lcsim.strict_json``: not JSON, or
+holding ``NaN``, an infinity or text that is not valid Unicode) gives every default (the
+tier's own reading of the file, ``lcsim.service.hardware.active_tier``, logs and replaces
+it). Settings writes the keys at M9.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,6 +24,7 @@ from typing import Any
 
 from lcsim.runs.limits import DEFAULT_TIME_LIMIT_S, Limits
 from lcsim.service.hardware import SETTINGS_FILE
+from lcsim.strict_json import read_json_file
 
 __all__ = ["RunSettings", "read_run_settings"]
 
@@ -60,7 +61,7 @@ def _setting(settings: dict[str, Any], key: str, valid: bool, default: str) -> b
 def read_run_settings(config_dir: Path) -> RunSettings:
     """The run settings of ``settings.json`` in ``config_dir``."""
     try:
-        loaded = json.loads((config_dir / SETTINGS_FILE).read_bytes().decode("utf-8"))
+        loaded = read_json_file(config_dir / SETTINGS_FILE)
     except (OSError, ValueError):
         loaded = None
     settings: dict[str, Any] = loaded if isinstance(loaded, dict) else {}

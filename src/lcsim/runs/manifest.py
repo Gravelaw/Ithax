@@ -36,6 +36,7 @@ from typing import Any
 import lcsim
 from lcsim.model.streams import generator_info
 from lcsim.runs.states import JOB_STATES
+from lcsim.strict_json import read_json_file
 
 __all__ = [
     "MANIFEST_FILE",
@@ -152,17 +153,13 @@ def read_manifest(folder: Path) -> dict[str, Any]:
 
 def read_run_manifest(folder: Path) -> dict[str, Any] | None:
     """The manifest in ``folder`` when it is a run's: a JSON object whose ``run_id`` is the
-    folder's name, whose ``state`` is a job state and whose ``created`` is text, and that
-    holds no ``NaN`` or infinity (which the product never writes and no response may carry);
-    otherwise ``None``."""
-
-    def refuse(constant: str) -> None:
-        raise ValueError(constant)
-
+    folder's name, whose ``state`` is a job state and whose ``created`` is text, read by the
+    strict reader (``lcsim.strict_json``: no ``NaN``, infinity or text that is not valid
+    Unicode, which the product never writes and no response may carry); otherwise
+    ``None``."""
     try:
-        text = (folder / MANIFEST_FILE).read_bytes().decode("utf-8")
-        data = json.loads(text, parse_constant=refuse)
-    except (OSError, ValueError, RecursionError):
+        data = read_json_file(folder / MANIFEST_FILE)
+    except (OSError, ValueError):
         return None
     if (
         isinstance(data, dict)

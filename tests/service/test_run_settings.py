@@ -70,3 +70,14 @@ def test_a_file_that_cannot_be_read_gives_the_defaults(tmp_path: Path, text: str
 def test_a_huge_time_limit_is_kept(tmp_path: Path) -> None:
     (tmp_path / SETTINGS_FILE).write_text(json.dumps({"run_time_limit_s": 1e300}))
     assert read_run_settings(tmp_path).limits.time_s == 1e300
+
+
+@pytest.mark.parametrize("value", ["1e999", "NaN", "Infinity", '"\\ud800"'])
+def test_a_settings_file_that_cannot_be_written_back_gives_the_defaults(
+    tmp_path: Path, value: str
+) -> None:
+    """Review of PR #36: one strict reader for every JSON file read from disk."""
+    (tmp_path / SETTINGS_FILE).write_text(
+        f'{{"max_concurrent_runs": 2, "run_time_limit_s": {value}}}'
+    )
+    assert read_run_settings(tmp_path) == RunSettings()

@@ -31,7 +31,6 @@ from __future__ import annotations
 import contextlib
 import csv
 import io
-import json
 import logging
 import math
 import threading
@@ -67,6 +66,7 @@ from lcsim.service.model_store import ModelStore
 from lcsim.service.projects_store import PROJECT_FILE, ProjectRegistry, read_project
 from lcsim.service.run_feed import RunFeed
 from lcsim.service.run_settings import RunSettings
+from lcsim.strict_json import read_json_file
 
 __all__ = ["STOP_WAIT_S", "TABLE_FORMATS", "RunService", "Table"]
 
@@ -132,15 +132,6 @@ def _refused(issues: tuple[Issue, ...]) -> ServiceError:
             f"The model has {len(errors)} errors, so it cannot run; each is listed in 'issues'."
         )
     return ServiceError(422, errors[0].code, message, issues)
-
-
-def _strict_json(raw: bytes) -> object:
-    """``raw`` as JSON without ``NaN`` or infinities (which no response may carry)."""
-
-    def refuse(constant: str) -> None:
-        raise ValueError(constant)
-
-    return json.loads(raw.decode("utf-8"), parse_constant=refuse)
 
 
 def _cell(value: object) -> object:
@@ -368,8 +359,8 @@ class RunService:
         """``{summary, findings}`` of run ``rid`` (findings arrive at M8)."""
         folder = self._done(rid)
         try:
-            summary = _strict_json((folder / SUMMARY_FILE).read_bytes())
-        except (OSError, ValueError, RecursionError):
+            summary = read_json_file(folder / SUMMARY_FILE)
+        except (OSError, ValueError):  # the strict reader's refusal is a ValueError
             raise _not_found(f"The {SUMMARY_FILE} of the run '{rid}' cannot be read.") from None
         return {"summary": summary, "findings": []}
 
