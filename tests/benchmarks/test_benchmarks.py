@@ -48,7 +48,7 @@ from lcsim.model.catalogue import MODEL_METRICS, PROCESS_TYPES
 from lcsim.model.loading import load_document
 from lcsim.model.model import Model
 from lcsim.runs.manager import run_experiment
-from lcsim.runs.search import combinations
+from lcsim.runs.search import combination_count, combinations
 
 ROOT = Path(__file__).resolve().parents[2]
 BENCHMARKS = ROOT / "benchmarks"
@@ -306,7 +306,11 @@ def emitted_metrics(model: Model) -> set[str]:
     search = model.experiments[0].search if model.experiments else None
     if search is None:
         return metrics
-    found = combinations(model, search) or []
+    # Only a search that takes the exhaustive path lists its combinations (a range may be
+    # far too large to list).
+    count = combination_count(model, search)
+    fits = count is not None and count <= search.budget
+    found = (combinations(model, search) or []) if fits else []
     labels = [candidate_label(dict(zip(search.variables, item, strict=True))) for item in found]
     return (
         metrics

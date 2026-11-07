@@ -29,6 +29,7 @@ from lcsim.runs.manager import RunOutcome, run_experiment
 from lcsim.runs.search import (
     ASK_LIMIT_FACTOR,
     candidate_model,
+    combination_count,
     combinations,
     optimizer_record,
     run_search,
@@ -126,12 +127,35 @@ def test_combinations_are_every_integer_value_the_first_variable_slowest() -> No
     assert search_method(fewer, four) == "optuna"
 
 
+def test_a_large_integer_range_is_counted_not_enumerated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Codex review of PR #32: the path is chosen from the number of combinations, the
+    product of the ranges, without listing them, so a range of 10⁹ values neither fills
+    memory when the run is created nor when the search starts."""
+    document = searching("bowl", value=1, high=10**9, budget=3)
+    document["parameters"]["staff"] = {"value": 2, "type": "integer", "min": 1, "max": 10**9}
+    model = load(document)
+    _, _, search = search_of(model, "base")
+    assert combination_count(model, search) == 10**18
+
+    def refuse(*arguments: Any) -> Any:
+        raise AssertionError("the combinations were listed")
+
+    monkeypatch.setattr("itertools.product", refuse)
+    assert search_method(model, search) == "optuna"
+    result = run_search(model, "base", tmp_path, evaluator(model))
+    assert result is not None and result.method == "optuna"
+    assert len(result.candidates) == 3
+
+
 def test_a_number_or_quantity_variable_has_no_combinations_and_uses_optuna() -> None:
     document = searching("mixed", budget=50)
     document["parameters"]["rate"] = {"value": 1.5, "type": "number", "min": 0.5, "max": 1.5}
     model = load(document)
     _, _, search = search_of(model, "base")
     assert combinations(model, search) is None
+    assert combination_count(model, search) is None
     assert search_method(model, search) == "optuna"
 
 

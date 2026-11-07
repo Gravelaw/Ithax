@@ -87,6 +87,7 @@ __all__ = [
     "Method",
     "SearchResult",
     "candidate_model",
+    "combination_count",
     "combinations",
     "optimizer_record",
     "run_search",
@@ -183,7 +184,8 @@ def _bounds(parameter: Parameter) -> tuple[int | float, int | float]:
 def combinations(model: Model, search: Search) -> list[tuple[int, ...]] | None:
     """Every combination of the variables' values, the first variable slowest, when every
     variable is an ``integer`` parameter; ``None`` otherwise (a ``number`` or ``quantity``
-    variable has no finite set of values)."""
+    variable has no finite set of values). It lists them all, so it is called only once
+    ``combination_count`` is known to fit the budget."""
     parameters = [model.parameters[name] for name in search.variables]
     if any(parameter.type != "integer" for parameter in parameters):
         return None
@@ -194,10 +196,25 @@ def combinations(model: Model, search: Search) -> list[tuple[int, ...]] | None:
     return list(itertools.product(*ranges))
 
 
+def combination_count(model: Model, search: Search) -> int | None:
+    """The number of combinations, the product of each variable's range length
+    (``max`` - ``min`` + 1), counted without listing them, when every variable is an
+    ``integer`` parameter; ``None`` otherwise."""
+    count = 1
+    for name in search.variables:
+        parameter = model.parameters[name]
+        if parameter.type != "integer":
+            return None
+        low, high = _bounds(parameter)
+        count *= int(high) - int(low) + 1
+    return count
+
+
 def search_method(model: Model, search: Search) -> Method:
-    """``exhaustive`` when the integer combinations fit the budget, else ``optuna``."""
-    found = combinations(model, search)
-    return "exhaustive" if found is not None and len(found) <= search.budget else "optuna"
+    """``exhaustive`` when the integer combinations fit the budget, else ``optuna``. The
+    combinations are counted, never listed, here (a range may hold 10⁹ values)."""
+    count = combination_count(model, search)
+    return "exhaustive" if count is not None and count <= search.budget else "optuna"
 
 
 def optimizer_record(method: Method) -> dict[str, str | None]:
@@ -335,8 +352,8 @@ class _Searcher:
         self.parameters = [model.parameters[name] for name in self.search.variables]
         self.judge = _Judge(model, self.search, self.experiment.confidence)
         self.method = search_method(model, self.search)
-        found = combinations(model, self.search)
-        planned = len(found) if found is not None and self.method == "exhaustive" else 0
+        count = combination_count(model, self.search)
+        planned = count if count is not None and self.method == "exhaustive" else 0
         planned = planned or self.search.budget
         total = planned * self.search.replications + (1 + CONFIRM_GROUP) * (
             self.experiment.replications
