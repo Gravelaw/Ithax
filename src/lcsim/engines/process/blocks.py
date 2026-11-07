@@ -498,22 +498,30 @@ class Queue(Block):
             raise ValueError(f"'{self.id}' has on_full {on_full!r}")
         self.discards = on_full == "discard"
         self.waiting: deque[Item] = deque()
-        # An offer to the next block is due or waiting in its ``blocked`` line (``offering``);
-        # it waits there (``stalled``).
-        self._offering = False
+        # An offer to the next block is due among the replication's transfers
+        # (``pending``); the queue's step waits in the next block's ``blocked`` line
+        # (``stalled``).
+        self._pending = False
         self._stalled = False
+        # ``_advance`` is running, so the queue does not drain itself again from within it
+        # (a queue that feeds itself asks its own ``accepts``).
+        self._advancing = False
         self.queue_length = TimeWeighted(self.context.window)
         self.waits = Tally()
         self.discarded = 0
 
     def accepts(self) -> bool:
-        return self.discards or len(self.waiting) < self.capacity
+        if self.discards:
+            return True
+        self._drain()
+        return len(self.waiting) < self.capacity
 
     def waiting_items(self) -> int:
         return len(self.waiting)
 
     def receive(self, item: Item) -> None:
         now = self.now
+        self._drain()
         if len(self.waiting) >= self.capacity:
             assert self.discards  # a blocking queue refuses when full (``accepts``)
             self.context.wip.add(now, -item.count())
@@ -524,33 +532,53 @@ class Queue(Block):
         self.waiting.append(item)
         if self._stalled:
             self.queue_length.set(now, len(self.waiting))
-        elif not self._offering:
-            self._offering = True
+        elif not self._pending:
+            self._pending = True
             self.context.transfers.run(self._offer)
 
+    def _drain(self) -> None:
+        """Before the queue counts as full, its units that the next block takes now move on,
+        so that an offer still due at this instant does not make it refuse or discard."""
+        if len(self.waiting) >= self.capacity and not self._advancing:
+            self._advance()
+
     def _offer(self) -> None:
+        self._pending = False
+        self._advance()
+
+    def _advance(self) -> None:
+        """Moves units on while the next block accepts them; when it refuses, waits in its
+        ``blocked`` line."""
         target = self.target("out")
-        if target.accepts():
-            self._pull()
-        else:
-            self._stalled = True
-            self.queue_length.set(self.now, len(self.waiting))
-            target.blocked.append(self._pull)
+        self._advancing = True
+        try:
+            while self.waiting and not self._stalled:
+                if target.accepts():
+                    self._take()
+                else:
+                    self._stalled = True
+                    self.queue_length.set(self.now, len(self.waiting))
+                    target.blocked.append(self._pull)
+        finally:
+            self._advancing = False
 
     def _pull(self) -> None:
+        """The step in the next block's ``blocked`` line: space has freed there."""
+        self._stalled = False
+        self._take()
+        if self.waiting and not self._pending:
+            self._pending = True
+            self.context.transfers.run(self._offer)
+
+    def _take(self) -> None:
         """Moves the unit the discipline picks to the next block, which accepts it now."""
         now = self.now
-        self._offering = self._stalled = False
         item = self.waiting.pop() if self.lifo else self.waiting.popleft()
         self.queue_length.set(now, min(self.queue_length.value, len(self.waiting)))
         if self.context.window.observes(now):
             self.waits.observe(now - item.arrived)
         self.target("out").receive(item)
-        transfers = self.context.transfers
-        if self.waiting:
-            self._offering = True
-            transfers.run(self._offer)
-        transfers.run(self.space_freed)
+        self.context.transfers.run(self.space_freed)
 
     def metrics(self) -> dict[str, float]:
         return {

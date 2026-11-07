@@ -185,6 +185,64 @@ def test_items_arriving_together_and_all_moving_on_are_never_counted_waiting(
     assert metrics["wait.mean"] == 0.0
 
 
+def test_items_arriving_together_are_not_discarded_while_they_can_move_on(
+    make_model: ModelMaker,
+) -> None:
+    """Review of PR #27: arrivals every 60 s into a batch of 3, an unbatch, a discarding
+    queue of 1 and a sink, 600 s. Each batch's three items reach the queue at one instant
+    (120, 300 and 480 s); the sink takes each at once, so the queue is never full and
+    nothing is discarded."""
+    components = [
+        source("60 s"),
+        {"id": "pack", "type": "batch", "params": {"size": 3}},
+        {"id": "unpack", "type": "unbatch", "params": {}},
+        queue(capacity=1, on_full="discard"),
+        sink(),
+    ]
+    connections = [
+        ("arrivals.out", "pack.in"),
+        ("pack.out", "unpack.in"),
+        ("unpack.out", "line.in"),
+        ("line.out", "exit.in"),
+    ]
+    metrics = metrics_of_model(make_model(components, connections, length="600 s"))
+    assert metrics["line.discarded"] == 0.0
+    assert metrics["exit.count"] == 9.0
+    assert metrics["line.queue_length.max"] == 0.0
+    assert metrics["line.wait.mean"] == 0.0
+
+
+def test_a_queue_whose_items_can_move_on_is_not_full(make_context: ContextMaker) -> None:
+    """Within one transfer step a full queue of one whose item the next block would take
+    still accepts: the item moves on first."""
+    context = make_context(0.0, 10.0)
+    block = block_queue(context, capacity=1)
+    out = recorder(context)
+    block.connect("out", out)
+    first, second = Item(0.0, 0.0), Item(0.0, 0.0)
+    seen: list[bool] = []
+
+    def arrive() -> None:
+        block.receive(first)
+        seen.append(block.accepts())
+        block.receive(second)
+
+    context.transfers.run(arrive)
+    assert seen == [True]
+    assert out.items == [first, second]
+
+
+def test_a_full_queue_feeding_itself_holds_its_item(make_context: ContextMaker) -> None:
+    """A queue of one whose ``out`` leads back to its own ``in`` is full with one item, so
+    it refuses that item and holds it, without asking itself again and again."""
+    context = make_context(0.0, 10.0)
+    block = block_queue(context, capacity=1)
+    block.connect("out", block)
+    block.receive(Item(0.0, 0.0))
+    assert block.waiting_items() == 1 and len(block.blocked) == 1
+    assert not block.accepts()
+
+
 def test_a_full_queue_blocks_the_server_upstream(make_model: ModelMaker) -> None:
     """Arrivals every 60 s into server a (service 10 s), a queue of capacity 1, then server
     b (service 100 s, ``queue_capacity`` 0), 400 s. Item 0: a [0, 10), b [10, 110). Item 1:
