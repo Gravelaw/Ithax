@@ -43,6 +43,7 @@ from lcsim.service.discovery import (
     remove_service_file,
     write_service_file,
 )
+from lcsim.service.paths import canonical
 from lcsim.service.projects_store import utc_now
 
 __all__ = ["LOCAL_ADDRESS", "SERVICE_LOCK", "STARTUP_WAIT_S", "bind_local", "main"]
@@ -127,8 +128,8 @@ def main(
     arguments = _arguments(argv)
     out = sys.stdout if out is None else out
     err = sys.stderr if err is None else err
-    config_dir: Path = (arguments.config_dir or default_config_dir()).absolute()
-    data_dir: Path = (arguments.data_dir or default_data_dir()).absolute()
+    config_dir = canonical(arguments.config_dir or default_config_dir())
+    data_dir = canonical(arguments.data_dir or default_data_dir())
     config_dir.mkdir(parents=True, exist_ok=True)
     owned = _own_or_find(config_dir, out, err)
     if isinstance(owned, int):
