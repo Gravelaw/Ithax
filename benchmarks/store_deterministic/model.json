@@ -1,0 +1,61 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Store, deterministic benchmark",
+    "description": "Spec 2 benchmark store, deterministic: one arrival every 6 min from 0 into a store of initial 100 with reorder_point 30, order_quantity 100 and a constant lead time of 123 min, then a sink. Each item takes one unit; an order is placed when stock on hand plus on order falls to 30, after 70 withdrawals (at 414 min) and then every 100 (every 600 min); each arrives 123 min later, with 10 on hand, never at a demand instant."
+  },
+  "domain": "process",
+  "components": [
+    {
+      "id": "arrivals",
+      "type": "source",
+      "params": {
+        "interarrival": {
+          "dist": "constant",
+          "value": "6 min"
+        }
+      }
+    },
+    {
+      "id": "store",
+      "type": "store",
+      "params": {
+        "initial": 100,
+        "reorder_point": 30,
+        "order_quantity": 100,
+        "lead_time": {
+          "dist": "constant",
+          "value": "123 min"
+        }
+      }
+    },
+    {
+      "id": "exit",
+      "type": "sink",
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": "arrivals.out",
+      "to": "store.in"
+    },
+    {
+      "from": "store.out",
+      "to": "exit.in"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "benchmark",
+      "length": "1000 h",
+      "warmup": "100 h",
+      "replications": 2,
+      "seed": 1008
+    }
+  ],
+  "run": {
+    "target": "local",
+    "fidelity": "standard"
+  }
+}

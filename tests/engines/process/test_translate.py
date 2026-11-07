@@ -192,7 +192,19 @@ def test_an_unknown_experiment_is_refused() -> None:
 
 
 def test_block_types_not_built_yet_are_refused(make_model: ModelMaker) -> None:
+    """``resource_pool``, ``schedule`` and ``failure`` arrive with AKS-107."""
     components, connections = line(constant("1 min"), constant("30 s"))
+    components.append({"id": "staff", "type": "resource_pool", "params": {"capacity": 1}})
+    with pytest.raises(
+        NotImplementedError, match=r"'resource_pool' blocks yet \(component 'staff'\).*M4"
+    ):
+        engine_input(make_model(components, connections), "e")
+
+
+def test_a_store_translates(make_model: ModelMaker) -> None:
+    """``store`` runs since AKS-106: its stock levels as whole numbers and its lead time as
+    a distribution of SI floats."""
+    components, _ = line(constant("1 min"), constant("30 s"))
     components.insert(
         2,
         {
@@ -211,8 +223,18 @@ def test_block_types_not_built_yet_are_refused(make_model: ModelMaker) -> None:
         ("till.out", "stock.in"),
         ("stock.out", "exit.in"),
     ]
-    with pytest.raises(NotImplementedError, match=r"'store' blocks yet \(component 'stock'\).*M4"):
-        engine_input(make_model(components, connections), "e")
+    settings = {
+        component["id"]: component["settings"]
+        for component in engine_input(make_model(components, connections), "e")["scenarios"][0][
+            "components"
+        ]
+    }
+    assert settings["stock"] == {
+        "initial": 5,
+        "reorder_point": 1,
+        "order_quantity": 5,
+        "lead_time": {"dist": "constant", "value": 3600.0},
+    }
 
 
 def test_queue_batch_and_unbatch_translate(make_model: ModelMaker) -> None:

@@ -1,0 +1,23 @@
+[
+  {
+    "metric": "store.stock.mean",
+    "value": 60.0,
+    "method": "exact",
+    "source": "Cycle arithmetic, all times in minutes: demands at 6k from 0; the stock on hand plus on order first falls to the reorder point 30 after 70 withdrawals, at 414; the order arrives at 537 (414 + 123) with 30 - 20 = 10 on hand (20 demands, 420 to 534), raising it to 110. From then on the cycle repeats every 100 demands, 600 min: an order at 414 + 600n (on hand back at 30), a delivery at 537 + 600n (on hand 10 to 110). Deliveries fall at 3 min past a demand, never at one, and the on hand never reaches 0. Over one cycle from a delivery the on hand is 110 for 3 min, 109 down to 11 for 6 min each, and 10 for 3 min: (110 x 3 + 6 x (11 + ... + 109) + 10 x 3)/600 = (330 + 35,640 + 30)/600 = 60.0. The observed period, 100 h to 1,000 h, is 54,000 min, exactly 90 cycles, so its time average is the cycle's whatever the phase.",
+    "milestone": "M4"
+  },
+  {
+    "metric": "store.orders",
+    "value": 2.777777777777778e-05,
+    "method": "exact",
+    "source": "Cycle arithmetic, all times in minutes: demands at 6k from 0; the stock on hand plus on order first falls to the reorder point 30 after 70 withdrawals, at 414; the order arrives at 537 (414 + 123) with 30 - 20 = 10 on hand (20 demands, 420 to 534), raising it to 110. From then on the cycle repeats every 100 demands, 600 min: an order at 414 + 600n (on hand back at 30), a delivery at 537 + 600n (on hand 10 to 110). Deliveries fall at 3 min past a demand, never at one, and the on hand never reaches 0. Orders at 414 + 600n min with n = 10 to 99 fall in the observed period [6,000, 60,000) min: 90 orders over 900 h, 0.100 per hour, 1/36,000 per second.",
+    "milestone": "M4"
+  },
+  {
+    "metric": "store.stockouts",
+    "value": 0.0,
+    "method": "exact",
+    "source": "Cycle arithmetic, all times in minutes: demands at 6k from 0; the stock on hand plus on order first falls to the reorder point 30 after 70 withdrawals, at 414; the order arrives at 537 (414 + 123) with 30 - 20 = 10 on hand (20 demands, 420 to 534), raising it to 110. From then on the cycle repeats every 100 demands, 600 min: an order at 414 + 600n (on hand back at 30), a delivery at 537 + 600n (on hand 10 to 110). Deliveries fall at 3 min past a demand, never at one, and the on hand never reaches 0. The lowest on hand is 10, just before each delivery, so no item finds the stock at zero: 0 stock-outs.",
+    "milestone": "M4"
+  }
+]
