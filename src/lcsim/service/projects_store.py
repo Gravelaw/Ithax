@@ -37,9 +37,11 @@ __all__ = [
     "ProjectRecord",
     "ProjectRegistry",
     "default_model",
+    "json_text",
     "read_project",
     "utc_now",
     "write_json",
+    "write_text",
 ]
 
 _log = logging.getLogger(__name__)
@@ -127,23 +129,30 @@ def read_project(folder: Path) -> ProjectRecord | None:
     return ProjectRecord(**{key: loaded[key] for key in _FIELDS})
 
 
-def write_json(path: Path, value: object) -> None:
-    """Write ``value`` as JSON, indented by two spaces, through a temporary file and a
-    rename, so a reader never sees half a file. The temporary file is named for the
-    process and thread, and removed when the write fails; the ``OSError`` is raised. A
-    NaN or an infinity raises ``ValueError`` before anything is written, since JSON
-    cannot hold it."""
+def json_text(value: object) -> str:
+    """``value`` as the service writes JSON: indented by two spaces, ending in a newline.
+    A NaN or an infinity raises ``ValueError``, since JSON cannot hold it."""
+    return json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+
+
+def write_text(path: Path, text: str) -> None:
+    """Write ``text`` through a temporary file and a rename, so a reader never sees half
+    a file. The temporary file is named for the process and thread, and removed when the
+    write fails; the ``OSError`` is raised."""
     temporary = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
     try:
-        temporary.write_text(
-            json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n",
-            encoding="utf-8",
-        )
+        temporary.write_text(text, encoding="utf-8")
         os.replace(temporary, path)
     except OSError:
         with contextlib.suppress(OSError):
             temporary.unlink()
         raise
+
+
+def write_json(path: Path, value: object) -> None:
+    """Write ``value`` as ``json_text`` with ``write_text``; nothing is written when it
+    holds a NaN or an infinity (``ValueError``)."""
+    write_text(path, json_text(value))
 
 
 def _folder_error(message: str) -> ServiceError:

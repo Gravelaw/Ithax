@@ -828,3 +828,104 @@ def test_validate_checks_data_references_against_the_project(client: TestClient)
     pid = seeded(client, model)
     body = client.post(f"/v1/projects/{pid}/validate").json()
     assert [issue["code"] for issue in body["issues"]] == ["E162"]
+
+
+# --- numbers JSON cannot hold, on every way in (review of PR #35) ---------------------
+
+INFINITE_UI = '"ui": {"x": 1e400'
+
+
+def infinite_shop_text() -> str:
+    text = json.dumps(shop()).replace('"ui": {"x": 10', INFINITE_UI)
+    assert INFINITE_UI in text
+    return text
+
+
+@pytest.mark.parametrize("number", ["1e400", "NaN", "-Infinity"])
+def test_a_model_json_on_disk_with_a_number_json_cannot_hold_is_e186(
+    client: TestClient, number: str
+) -> None:
+    pid = seeded(client)
+    text = json.dumps(shop()).replace('"ui": {"x": 10', '"ui": {"x": ' + number)
+    (folder(client, pid) / MODEL_FILE).write_text(text, encoding="utf-8")
+    for response in (
+        client.get(f"/v1/projects/{pid}/model"),
+        edit(client, pid, {"edit": "set_label", "id": "till", "label": "X"}),
+        edit(client, pid, {"edit": "set_label", "id": "till", "label": "X"}, base_revision=0),
+    ):
+        assert response.status_code == 400
+        body = response.json()
+        assert_error(body, "E186")
+        assert [(issue["code"], issue["path"]) for issue in body["issues"]] == [
+            ("E100", "/components/2/ui/x")
+        ]
+    # Nothing moved: the revision is where it was.
+    assert json.loads((folder(client, pid) / PROJECT_FILE).read_text())["model_revision"] == 1
+    # Validate reports it as the schema-pass issue it is: spec 1 reading refuses the
+    # NaN and Infinity literals itself (at ""), and the service finds 1e400 at its place.
+    body = client.post(f"/v1/projects/{pid}/validate").json()
+    expected = "/components/2/ui/x" if number == "1e400" else ""
+    assert [(issue["code"], issue["path"]) for issue in body["issues"]] == [("E100", expected)]
+    # A whole-model PUT replaces it.
+    assert put(client, pid, shop()).status_code == 200
+
+
+def test_an_opened_folder_whose_model_json_holds_one_is_e186_when_read(
+    client: TestClient, tmp_path: Path
+) -> None:
+    pid = seeded(client)
+    source = folder(client, pid)
+    (source / MODEL_FILE).write_text(infinite_shop_text(), encoding="utf-8")
+    moved = tmp_path / "moved"
+    source.rename(moved)
+    assert client.post("/v1/projects/open", json={"path": str(moved)}).status_code == 200
+    response = client.get(f"/v1/projects/{pid}/model")
+    assert response.status_code == 400
+    assert_error(response.json(), "E186")
+
+
+@pytest.mark.parametrize("number", ["NaN", "Infinity", "-1e400"])
+def test_a_put_body_with_a_number_json_cannot_hold_is_e100(client: TestClient, number: str) -> None:
+    pid = new_project(client)
+    text = json.dumps(shop()).replace('"ui": {"x": 10', '"ui": {"x": ' + number)
+    response = put(client, pid, text)
+    assert response.status_code == 400
+    assert_error(response.json(), "E100")
+    assert on_disk(client, pid)[1] == 0
+
+
+@pytest.mark.parametrize("number", ["NaN", "Infinity", "1e400"])
+def test_an_edit_value_with_a_number_json_cannot_hold_is_e184(
+    client: TestClient, number: str
+) -> None:
+    pid = seeded(client)
+    body = '{"edits": [{"edit": "set_path", "path": "/meta/x", "value": [' + number + "]}]}"
+    response = client.post(
+        f"/v1/projects/{pid}/model/edits",
+        content=body,
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 400
+    answer = response.json()
+    assert_error(answer, "E184")
+    assert [issue["path"] for issue in answer["issues"]] == ["/edits/0/value"]
+    assert on_disk(client, pid) == (shop(), 1)
+
+
+@pytest.mark.parametrize("number", ["NaN", "1e400"])
+def test_other_bodies_with_a_number_json_cannot_hold_are_e184(
+    client: TestClient, number: str
+) -> None:
+    for path, body in (
+        ("/v1/projects", '{"name": ' + number + "}"),
+        ("/v1/projects/open", '{"path": ' + number + "}"),
+        (
+            f"/v1/projects/{seeded(client)}/model/edits",
+            '{"edits": [{"edit": "set_label", "id": "a", "label": null}], "base_revision": '
+            + number
+            + "}",
+        ),
+    ):
+        response = client.post(path, content=body, headers={"Content-Type": "application/json"})
+        assert response.status_code == 400, path
+        assert_error(response.json(), "E184")

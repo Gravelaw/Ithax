@@ -44,11 +44,20 @@ from lcsim.service.projects_store import (
     PROJECT_FILE,
     ProjectRecord,
     ProjectRegistry,
+    json_text,
     read_project,
-    write_json,
+    write_text,
 )
 
-__all__ = ["CONFLICT", "EDIT_REJECTED", "ModelStore", "Written", "base_revision", "no_data"]
+__all__ = [
+    "CONFLICT",
+    "EDIT_REJECTED",
+    "ModelStore",
+    "Written",
+    "base_revision",
+    "no_data",
+    "non_finite_issue",
+]
 
 _log = logging.getLogger(__name__)
 
@@ -89,6 +98,23 @@ class Written:
             "revision": self.revision,
             "issues": [issue.as_dict() for issue in self.issues],
         }
+
+
+def non_finite_issue(document: object) -> Issue | None:
+    """An E100 issue at the first number in ``document`` that JSON cannot hold (``NaN``,
+    ``Infinity``, or a number such as ``1e400`` that reads as an infinity), or ``None``.
+    Such a file cannot be read unambiguously, so spec 1 makes it a schema-pass issue, and
+    it could not be written back or sent."""
+    place = first_non_finite(document)
+    if place is None:
+        return None
+    return Issue(
+        code="E100",
+        component=None,
+        path=place,
+        message=f"The number at '{place}' is too large to be stored, or is not a number.",
+        hint="Write a number a 64-bit float can hold, below about 1.8e308.",
+    )
 
 
 def _folder_error(message: str, issues: Sequence[Issue] = ()) -> ServiceError:
@@ -149,13 +175,21 @@ class ModelStore:
     def _model(cls, folder: Path) -> object:
         raw = cls._raw(folder)
         try:
-            return json.loads(raw.decode("utf-8-sig"))
+            document = json.loads(raw.decode("utf-8-sig"))
         except (UnicodeDecodeError, ValueError, RecursionError):
             raise _folder_error(
                 f"The {MODEL_FILE} in '{folder}' is not a JSON model file; write a whole "
                 "model to replace it.",
                 load_text(raw).issues,
             ) from None
+        issue = non_finite_issue(document)
+        if issue is not None:
+            raise _folder_error(
+                f"The {MODEL_FILE} in '{folder}' holds a number JSON cannot hold; write a "
+                "whole model to replace it.",
+                [issue],
+            )
+        return document
 
     def read(self, pid: str) -> dict[str, Any]:
         """``{model, revision}`` of project ``pid``."""
@@ -185,6 +219,12 @@ class ModelStore:
             raw = self._raw(folder)
         result = self._load(folder, raw)
         issues = list(result.issues)
+        if not issues:
+            # Loading reads `1e400` as an infinity, which a setting may not check (a
+            # component's `ui`): such a file cannot be served or written back.
+            unstorable = non_finite_issue(json.loads(raw.decode("utf-8-sig")))
+            if unstorable is not None:
+                return {"revision": record.model_revision, "issues": [unstorable.as_dict()]}
         if result.model is not None:
             selection = select_adapter(result.model.domain, result.model.run.engine, self.adapters)
             # A model that loads has passed engine selection (E102).
@@ -209,9 +249,13 @@ class ModelStore:
         self, pid: str, folder: Path, record: ProjectRecord, model: object, client: str
     ) -> int:
         revision = record.model_revision + 1
+        # Both files are made into text before either is written, so a value JSON cannot
+        # hold (refused on every way in) could never move the revision without the model.
+        project_text = json_text(asdict(replace(record, model_revision=revision)))
+        model_text = json_text(model)
         try:
-            write_json(folder / PROJECT_FILE, asdict(replace(record, model_revision=revision)))
-            write_json(folder / MODEL_FILE, model)
+            write_text(folder / PROJECT_FILE, project_text)
+            write_text(folder / MODEL_FILE, model_text)
         except OSError:
             _log.warning("Writing the model of %s failed.", folder, exc_info=True)
             raise _folder_error(
@@ -233,21 +277,13 @@ class ModelStore:
                 schema,
             )
         model = json.loads(body.decode("utf-8-sig"))
-        place = first_non_finite(model)
-        if place is not None:
+        unstorable = non_finite_issue(model)
+        if unstorable is not None:
             raise ServiceError(
                 400,
                 "E100",
                 "The model file does not pass the schema pass, so it was not saved.",
-                [
-                    Issue(
-                        code="E100",
-                        component=None,
-                        path=place,
-                        message=f"The number at '{place}' is too large to be stored.",
-                        hint="Write a number a 64-bit float can hold, below about 1.8e308.",
-                    )
-                ],
+                [unstorable],
             )
         with self._locked(pid):
             folder, record = self._record(pid)
