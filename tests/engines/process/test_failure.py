@@ -130,27 +130,29 @@ def test_an_idle_unit_fails_first_then_the_item_that_started_service_last(
     make_model: ModelMaker,
 ) -> None:
     """A server of 2, service 100 s, items at 0 and 30 s; failures 20 s after each repair,
-    repairs 50 s after each failure, run for 250 s. At 20 one unit is idle, so it fails and
+    repairs 50 s after each failure, run for 200 s. At 20 one unit is idle, so it fails and
     item 0 goes on (0 to 100). Item 1 waits from 30 until the repair at 70 (wait 40) and
     serves from 70. At 90 no unit is idle: item 1, which started last, is suspended with
-    80 s left and resumes at 140, ending at 220; item 0 is not touched. At 160 the unit
-    idle since 100 fails. A unit is always up, so availability is 1.
+    80 s left and resumes at 140, ending at 220, after the end; item 0 is not touched and
+    leaves at 100. (Suspending item 0 instead would let both leave, at 150 and 170.) At
+    160 the unit idle since 100 fails. A unit is always up, so availability is 1.
 
-    Busy units at most the available capacity: 20 + 50 + 2 x 20 + 10 + 20 + 50 + 10 = 200;
-    available 2, 1, 2, 1, 2, 1, 2, 1 over [0, 20), [20, 70), [70, 90), [90, 140),
-    [140, 160), [160, 210), [210, 230), [230, 250): 330."""
+    Busy units at most the available capacity: 20 + 50 + 2 x 20 + 10 + 20 + 40 = 180;
+    available 2, 1, 2, 1, 2, 1 over [0, 20), [20, 70), [70, 90), [90, 140), [140, 160),
+    [160, 200): 260."""
     components = [
         source(interarrival="30 s", max_items=2),
         server(capacity=2),
         failure("20 s", "50 s"),
         sink(),
     ]
-    metrics = metrics_of_model(make_model(components, LINE, length="250 s"))
+    metrics = metrics_of_model(make_model(components, LINE, length="200 s"))
     assert metrics["till.availability"] == 1.0
     assert metrics["till.wait.mean"] == (0 + 40) / 2
-    assert metrics["exit.cycle_time.mean"] == (100 + 190) / 2
-    assert metrics["till.utilization"] == 200 / 330
-    assert metrics["till.queue_length.mean"] == 40 / 250
+    assert metrics["exit.count"] == 1.0
+    assert metrics["exit.cycle_time.mean"] == 100.0
+    assert metrics["till.utilization"] == 180 / 260
+    assert metrics["till.queue_length.mean"] == 40 / 200
 
 
 def test_a_blocked_unit_that_fails_still_passes_its_item_on(make_model: ModelMaker) -> None:
