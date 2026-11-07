@@ -119,7 +119,8 @@ def default_data_dir(
 
 @dataclass(frozen=True)
 class ServiceConfig:
-    """What one service instance needs.
+    """What one service instance needs; ``config_dir`` and ``data_dir`` are made
+    absolute.
 
     ``port`` is the port the service listens on, for the ``Host`` check; ``token`` the
     bearer token. ``allowed_origins`` are the WebSocket ``Origin`` values let through
@@ -143,6 +144,10 @@ class ServiceConfig:
     clock: Callable[[], float] = field(default=time.monotonic)
 
     def __post_init__(self) -> None:
+        # Absolute, so that paths stored in projects.json do not depend on the working
+        # directory (review of PR #34).
+        object.__setattr__(self, "config_dir", Path(self.config_dir).absolute())
+        object.__setattr__(self, "data_dir", Path(self.data_dir).absolute())
         if not 0 < self.port < 65536:
             raise ValueError(f"port {self.port!r} is not from 1 to 65535")
         if not self.token:

@@ -41,8 +41,7 @@ class Started:
         self.thread.start()
 
     def _run(self, argv: list[str]) -> None:
-        with contextlib.redirect_stdout(self.output):
-            self.status.append(main(argv))
+        self.status.append(main(argv, out=self.output, err=self.output))
 
 
 @pytest.fixture
@@ -113,6 +112,49 @@ def test_a_start_overwrites_a_file_whose_service_does_not_answer(
     wait_for(lambda: (info := read_service_file(config_dir)) is not None and info.token != "old")
     started.thread.join(30)
     assert started.status == [0]
+
+
+def test_two_starts_at_once_give_one_service(folders: list[str], tmp_path: Path) -> None:
+    """Review of PR #34: two starts racing before either has written service.json must
+    not both serve; the one that takes the lock serves and the other finds it."""
+    starts = [Started([*folders, "--idle-minutes", "0.05"]) for _ in range(2)]
+    for start in starts:
+        start.thread.join(60)
+    assert [start.status for start in starts] == [[0], [0]]
+    outputs = [start.output.getvalue() for start in starts]
+    served = [output for output in outputs if "lcsim service on" in output]
+    found = [output for output in outputs if "already running" in output]
+    assert len(served) == 1, outputs
+    assert len(found) == 1, outputs
+
+
+def test_a_start_that_cannot_take_the_lock_and_finds_no_service_fails(
+    folders: list[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import lcsim.service.main as entry
+    from lcsim.runs.lock import take_lock
+
+    monkeypatch.setattr(entry, "STARTUP_WAIT_S", 0.3)
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    held = take_lock(config_dir / entry.SERVICE_LOCK)
+    try:
+        error = io.StringIO()
+        assert main(folders, err=error) == 1
+    finally:
+        held.release()
+    assert "did not answer" in error.getvalue()
+    assert not (config_dir / SERVICE_FILE).exists()
+
+
+def test_the_lock_is_released_when_the_service_exits(folders: list[str], tmp_path: Path) -> None:
+    from lcsim.runs.lock import is_held
+    from lcsim.service.main import SERVICE_LOCK
+
+    started = Started([*folders, "--idle-minutes", "0.005"])
+    started.thread.join(30)
+    assert started.status == [0]
+    assert not is_held(tmp_path / "config" / SERVICE_LOCK)
 
 
 @pytest.mark.parametrize("minutes", ["0", "-1"])

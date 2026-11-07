@@ -147,8 +147,10 @@ class ProjectRegistry:
         data_dir: Path,
         new_id: Callable[[], str] = lambda: str(uuid.uuid4()),
     ) -> None:
-        self.config_dir = config_dir
-        self.data_dir = data_dir
+        # Absolute, so that the paths in projects.json do not depend on the working
+        # directory (review of PR #34).
+        self.config_dir = config_dir.absolute()
+        self.data_dir = data_dir.absolute()
         self._new_id = new_id
         self._lock = threading.Lock()
 

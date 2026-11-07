@@ -371,3 +371,39 @@ def test_the_registry_uses_the_id_it_is_given(tmp_path: Path) -> None:
 
 def test_utc_now_is_iso_utc_to_the_millisecond() -> None:
     assert ISO_UTC.fullmatch(utc_now())
+
+
+def test_a_relative_data_folder_still_registers_absolute_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review of PR #34: a project path stored relative to the working directory would
+    be lost by a service started from another folder."""
+    from lcsim.service.app import create_app
+    from lcsim.service.config import ServiceConfig
+    from lcsim.service.hardware import Hardware
+    from service.service_support import AUTH, BASE_URL, PORT, TOKEN
+
+    monkeypatch.chdir(tmp_path)
+    config = ServiceConfig(
+        config_dir=Path("config"),
+        data_dir=Path("data"),
+        port=PORT,
+        token=TOKEN,
+        hardware=Hardware(4, None, None),
+    )
+    assert config.config_dir == tmp_path / "config"
+    assert config.data_dir == tmp_path / "data"
+    with TestClient(create_app(config), base_url=BASE_URL, headers=AUTH) as client:
+        project = client.post("/v1/projects", json={"name": "Rel"}).json()
+    assert project["path"] == str(tmp_path / "data" / "projects" / project["id"])
+    stored = json.loads((tmp_path / "config" / PROJECTS_FILE).read_text(encoding="utf-8"))
+    assert stored == {project["id"]: project["path"]}
+
+
+def test_the_registry_makes_its_folders_absolute(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    registry = ProjectRegistry(Path("c"), Path("d"))
+    assert registry.config_dir == tmp_path / "c"
+    assert registry.data_dir == tmp_path / "d"
