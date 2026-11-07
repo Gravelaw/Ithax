@@ -1,6 +1,6 @@
 # Spec 1: Model Format and Engine Contract
 
-> Version 0.6 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.7 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 A model is one JSON file that passes a published schema. Every engine is a plugin that implements the same five functions. The interface, the engines and any AI assistant all work through these two contracts.
 
@@ -487,7 +487,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-06, review of PR #24 (AKS-103): "How the `local` target runs a run" says that a cancel arriving while `collect` runs still ends the run `cancelled` without results, that the worker is watched until its process ends rather than until its pipe closes, and that a terminated worker's own processes are ended with it where `/proc` finds them, and that a worker still running 2 s after it is terminated is killed; the 5 s cancel grace counts from the first cancel; and a worker that cannot be started is E190 (owner to confirm).
 - 2026-11-06, identical runs (AKS-104), found while writing `tests/runs/test_repeat.py` and `tests/runs/test_cross_process.py`: "Identical runs" says how tables are compared (as tables, not file bytes; floats to the last bit; a NaN cell equal to a NaN cell in the same place, since pyarrow's `Table.equals` treats NaN as unequal to itself) and that results do not depend on `workers` or on the process that runs a replication (owner to confirm); the acceptance table names the evidence for the two M3 reproducibility rows.
 
-Since version 0.6, during M4; the lines below were added after version 0.6:
+2026-11-07, version 0.7, M4 closed (AKS-107); the lines below were added after version 0.6, during the M4 build:
 
 - 2026-11-07, `queue`, `batch` and `unbatch` blocks (AKS-105), found while building them in `src/lcsim/engines/process/blocks.py`: "Tables for the `process` domain" adds `<queue>.queue_length` to the `timeseries` metrics, in component order (owner to confirm). The W201 propagation of "Validation" (a batch divides by `size`, an unbatch multiplies by the size of what it receives, a discarding `queue` and a source feeding a `queue` or a server with `queue_capacity` stop the rate) is unchanged: with the blocks running, deterministic models in `tests/engines/process/test_flow_rates.py` pass exactly the rates it computes, and a loss point lets less through than it is offered.
 - 2026-11-07, `store` block (AKS-106), found while building it in `src/lcsim/engines/process/blocks.py`: "Random streams" says a store draws each `lead_time` from its own stream when it places the order, and "Tables for the `process` domain" adds `<store>.stock` to the `timeseries` metrics, in component order (owner to confirm). The W201 rule of "Validation" (a store stops the rate, so every server downstream is skipped) is unchanged: `tests/engines/process/test_flow_rates.py` now runs a model where the source's rate would load the server below a store at 1.5, while the store's orders let through one item per lead time and the server keeps up.
