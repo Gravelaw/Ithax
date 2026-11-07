@@ -1,6 +1,6 @@
 # Spec 1: Model Format and Engine Contract
 
-> Version 0.5 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.6 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 A model is one JSON file that passes a published schema. Every engine is a plugin that implements the same five functions. The interface, the engines and any AI assistant all work through these two contracts.
 
@@ -416,7 +416,7 @@ Units are a column, not Parquet metadata; `summary.json` repeats them per metric
 
 #### Identical runs
 
-Identical means: `summary.json` metrics equal to full floating-point precision, every table under `tables/` equal row for row, and `model.json` byte-equal. `manifest.json` may differ only in `run_id`, `created`, `started`, `ended`, `host`. The comparison is made on the same machine, Python and library versions.
+Identical means: `summary.json` metrics equal to full floating-point precision, every table under `tables/` equal row for row, and `model.json` byte-equal. `manifest.json` may differ only in `run_id`, `created`, `started`, `ended`, `host`. The comparison is made on the same machine, Python and library versions. Tables are compared as tables, not as file bytes: the same columns with the same types, and the same rows in the same order, each float equal to the last bit; a NaN cell (a mean over no items) equals a NaN cell in the same place. The results do not depend on `workers` or on which process runs a replication. Proposed default (AKS-104), owner to confirm.
 
 ## Research before building
 
@@ -438,7 +438,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 | A dummy adapter passes through all five methods on the local target | M3 | agent | `tests/runs/test_dummy_adapter.py` |
 | The same on remote and cluster, markers `remote` and `cluster`, against a local sshd and a local Slurm test queue or stub scheduler | M11 | agent |  |
 | A repeated run is identical as defined above | M3 | agent | `tests/runs/test_repeat.py` |
-| Two separately started worker processes produce `replications` tables equal row for row for the same model and seed | M3 | agent |  |
+| Two separately started worker processes produce `replications` tables equal row for row for the same model and seed | M3 | agent | `tests/runs/test_cross_process.py` |
 | A test-only migration rewrites a 0.1 file to a test version and back; the first real format change replaces it with the real migration and a 0.1 fixture that must still open | M1 | agent | `tests/model/test_migration.py` |
 
 ## Changes in this version
@@ -480,8 +480,9 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-06, SimPy adapter delay, branch, blocking and time series (AKS-99), found while building the `timeseries` table: "Tables for the `process` domain" names the time-series metrics, their unit (`1`) and the row order, pointing to spec 2 for the sample times (owner to confirm); "Division of labour" adds `engine/output/timeseries.parquet` and says `collect` returns both tables.
 - 2026-11-06, M2 close (AKS-101): the warning line says that `weibull` and `empirical` with `values` passed the sampling test at M2 (`tests/model/test_distributions.py`), closing that known gap of the Build guide; `empirical` with `data` still waits for M6.
 
-Since version 0.5 (to be numbered when the next review or milestone closes):
+2026-11-06, version 0.6, M3 closed (AKS-104); the lines below were added after version 0.5, during the M3 build:
 
 - 2026-11-06, experiment manager (AKS-102), found while building `src/lcsim/runs/`: "Run folder and results" says how the manager fills `summary.json` for a process run, which the example left open: each metric adds `n`, the number of replication values its mean is over, and an undefined mean or half-width is `null`; `differences` holds the paired scenario differences, one entry per pair in scenario order with `scenario`, `against` and per-metric `separated`; a scenario's `set` is in SI units; the order of `warnings`; the wording of `fidelity_label`; and the layout for an optimization run (owner to confirm).
 - 2026-11-06, local run target (AKS-103), found while building `src/lcsim/runs/targets.py`, `worker.py`, `manifest.py`, `states.py`, `ids.py`, `limits.py` and `lock.py`: "Run folder and results" adds how the `local` target runs a run: the checks made before a run exists, the `run_id` characters, `model.json` as the file's bytes, which process runs which method, the manifest's values (`fraction` as the progress, null `project_id`, `client` `script`), cancel, E190, how E191 knows a worker is gone (a lock on `worker.lock`), how E192 measures time and memory, and the manager's own files; the job states add `queued` to `failed` for E191 only; `summary.json` `warnings` start with the load-time warnings W200 to W202; "Run targets" defines what `python -m lcsim.runs.worker` reads, prints and returns (all owner to confirm).
 - 2026-11-06, review of PR #24 (AKS-103): "How the `local` target runs a run" says that a cancel arriving while `collect` runs still ends the run `cancelled` without results, that the worker is watched until its process ends rather than until its pipe closes, and that a terminated worker's own processes are ended with it where `/proc` finds them, and that a worker still running 2 s after it is terminated is killed; the 5 s cancel grace counts from the first cancel; and a worker that cannot be started is E190 (owner to confirm).
+- 2026-11-06, identical runs (AKS-104), found while writing `tests/runs/test_repeat.py` and `tests/runs/test_cross_process.py`: "Identical runs" says how tables are compared (as tables, not file bytes; floats to the last bit; a NaN cell equal to a NaN cell in the same place, since pyarrow's `Table.equals` treats NaN as unequal to itself) and that results do not depend on `workers` or on the process that runs a replication (owner to confirm); the acceptance table names the evidence for the two M3 reproducibility rows.
