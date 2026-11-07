@@ -120,8 +120,8 @@ def test_an_uploaded_csv_gives_columns_types_units_and_a_preview(client: TestCli
     assert body["imported"].endswith("Z")
     assert body["rows"] == 5
     assert body["columns"] == [
-        {"name": "time", "type": "text", "unit": None},
-        {"name": "gap_min", "type": "number", "unit": "min"},
+        {"name": "time", "type": "text", "unit": None, "largest": None},
+        {"name": "gap_min", "type": "number", "unit": "min", "largest": 3.8},
     ]
     assert body["preview"][:2] == [["08:00:12", 1.8], ["08:02:40", 2.5]]
     folder = folder_of(client, pid)
@@ -143,8 +143,8 @@ def test_an_uploaded_excel_file_gives_a_column_index_with_units(client: TestClie
     body = response.json()
     assert body["format"] == "xlsx" and body["sheet"] == "Log"
     assert body["columns"] == [
-        {"name": "machine", "type": "text", "unit": None},
-        {"name": "repair_h", "type": "number", "unit": "h"},
+        {"name": "machine", "type": "text", "unit": None, "largest": None},
+        {"name": "repair_h", "type": "number", "unit": "h", "largest": 2.0},
     ]
     assert body["preview"] == [["A", 1.5], ["B", 2.0], ["C", 0.5]]
     assert client.get(f"/v1/projects/{pid}/data").json()[0]["columns"][1]["unit"] == "h"
@@ -751,3 +751,23 @@ def test_validation_hashes_the_data_files_while_the_project_s_writes_are_held(
     put = client.put(f"/v1/projects/{pid}/model", content=json.dumps(breakdown()))
     assert put.json()["issues"] == []
     assert held and all(held)
+
+
+def test_a_column_that_overflows_in_seconds_is_refused_by_validate_and_by_runs(
+    client: TestClient,
+) -> None:
+    """1e308 min is finite in the file but not in seconds; it is E162 before any run
+    exists, as an inline "1e308 min" is E141 (Codex on PR #37)."""
+    pid = project(client)
+    upload(client, pid, "log.csv", b"up_h,down_min\n1.5,1e308\n", {"up_h": "h", "down_min": "min"})
+    put = client.put(f"/v1/projects/{pid}/model", content=json.dumps(breakdown()))
+    assert put.status_code == 200
+    expected = [("E162", "/components/2/params/time_to_repair/data/column")]
+    assert [(issue["code"], issue["path"]) for issue in put.json()["issues"]] == expected
+    issues = client.post(f"/v1/projects/{pid}/validate").json()["issues"]
+    assert [(issue["code"], issue["path"]) for issue in issues] == expected
+    refused = client.post(f"/v1/projects/{pid}/runs", json={"experiment_id": "benchmark"})
+    body = refusal(refused, 422, "E162")
+    assert [(issue["code"], issue["path"]) for issue in body["issues"]] == expected
+    runs = folder_of(client, pid) / "runs"
+    assert not runs.exists() or list(runs.iterdir()) == []

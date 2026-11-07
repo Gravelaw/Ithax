@@ -22,15 +22,25 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import sys
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
-from lcsim.model.data_files import COLUMN_TYPES, FORMATS, ColumnType, Table, file_name_problem
-from lcsim.model.units import PHASE_1_UNITS, Dimension
-from lcsim.strict_json import MAX_WHOLE, encode_json, read_json_file, whole_in
+import numpy
+
+from lcsim.model.data_files import (
+    COLUMN_TYPES,
+    FORMATS,
+    ColumnType,
+    ColumnValues,
+    Table,
+    file_name_problem,
+)
+from lcsim.model.units import PHASE_1_UNITS, Dimension, QuantityError, parse_quantity
+from lcsim.strict_json import MAX_WHOLE, encode_json, read_json_file, real_in, whole_in
 
 __all__ = [
     "EMPTY_DATA_INDEX",
@@ -40,6 +50,7 @@ __all__ = [
     "DataFile",
     "DataIndex",
     "file_sha256",
+    "fits_in_seconds",
     "index_bytes",
     "new_entry",
     "read_data_index",
@@ -63,16 +74,20 @@ class DataColumn:
 
     ``unit`` is the unit the column's values are written in (a Phase 1 unit symbol such as
     ``min``), or ``None`` when they are plain numbers (spec 1 "Distributions"). ``type`` is
-    ``number``, ``text`` or ``empty`` (``lcsim.model.data_files``).
+    ``number``, ``text`` or ``empty`` (``lcsim.model.data_files``). ``largest`` is the
+    largest absolute value of a ``number`` column as the file holds it (``None`` for
+    another type), so validation can tell whether every value fits in seconds without
+    reading the file (``fits_in_seconds``; Codex on PR #37).
     """
 
     name: str
     unit: str | None = None
     type: ColumnType = "number"
+    largest: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         """The column as the index and the API write it."""
-        return {"name": self.name, "type": self.type, "unit": self.unit}
+        return {"name": self.name, "type": self.type, "unit": self.unit, "largest": self.largest}
 
 
 @dataclass(frozen=True)
@@ -185,7 +200,8 @@ def new_entry(
     return DataFile(
         name,
         tuple(
-            DataColumn(column.name, units.get(column.name), column.type) for column in table.columns
+            DataColumn(column.name, units.get(column.name), column.type, _largest(column))
+            for column in table.columns
         ),
         hashlib.sha256(raw).hexdigest(),
         format=table.format,
@@ -194,6 +210,24 @@ def new_entry(
         rows=table.records,
         imported=imported,
     )
+
+
+def _largest(column: ColumnValues) -> float | None:
+    """The largest absolute value of a ``number`` column; ``None`` for another type."""
+    if column.type != "number":
+        return None
+    return float(numpy.max(numpy.abs(column.values)))
+
+
+def fits_in_seconds(value: float, unit: str) -> bool:
+    """Whether ``value`` in ``unit`` is a finite number of seconds: the check an inline
+    quantity goes through (spec 1 "Quantities": ``"1e308 min"`` is E141), so a column of
+    finite values cannot become an infinite time (Codex on PR #37)."""
+    try:
+        parse_quantity(f"{float(value)!r} {unit}", Dimension.TIME)
+    except QuantityError:
+        return False
+    return True
 
 
 def index_bytes(files: Iterable[DataFile]) -> bytes:
@@ -220,7 +254,7 @@ def read_data_index(folder: Path) -> DataIndex:
 
 
 _ENTRY_KEYS = {"name", "format", "sheet", "size", "sha256", "imported", "rows", "columns"}
-_COLUMN_KEYS = {"name", "type", "unit"}
+_COLUMN_KEYS = {"name", "type", "unit", "largest"}
 
 
 def _files(document: object) -> list[DataFile]:
@@ -267,14 +301,20 @@ def _entry(entry: object) -> DataFile:
 def _column(column: object) -> DataColumn:
     if not isinstance(column, dict) or set(column) != _COLUMN_KEYS:
         raise ValueError("not a column")
-    name, kind, unit = column["name"], column["type"], column["unit"]
+    name, kind, unit, largest = column["name"], column["type"], column["unit"], column["largest"]
     if not isinstance(name, str) or not name:
         raise ValueError("not a column name")
     if kind not in COLUMN_TYPES:
         raise ValueError("not a column type")
     if unit is not None and (kind != "number" or unit not in time_units()):
         raise ValueError("not a unit")
-    return DataColumn(name, unit, kind)
+    if kind == "number":
+        largest = real_in(largest, 0.0, sys.float_info.max)
+        if largest is None:
+            raise ValueError("not a largest value")
+    elif largest is not None:
+        raise ValueError("a largest value for a column without numbers")
+    return DataColumn(name, unit, kind, largest)
 
 
 # A project with nothing imported: every data reference is E162.

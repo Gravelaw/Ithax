@@ -774,6 +774,20 @@ def test_a_column_of_plain_numbers_for_a_time_is_e162_at_column(folder: Path) ->
     assert "unit" in issue.hint
 
 
+def test_a_column_whose_values_overflow_in_seconds_is_e162_at_column(folder: Path) -> None:
+    """The check inline quantities go through (spec 1 "Quantities": a value whose SI value
+    is not a finite float), applied to the column's largest value (Codex on PR #37)."""
+    columns = (DataColumn("minutes", "min", "number", 1e308),)
+    issue = only(
+        data_issues(built(with_data()), index(folder, times(columns=columns))),
+        "E162",
+        f"{SERVICE}/data/column",
+    )
+    assert "too large" in issue.message and "seconds" in issue.message
+    fits = (DataColumn("minutes", "s", "number", 1e308),)
+    assert data_issues(built(with_data()), index(folder, times(columns=fits))) == []
+
+
 @pytest.mark.parametrize("kind", ["text", "empty"])
 def test_a_column_that_does_not_hold_numbers_is_e162_at_column(
     folder: Path, kind: ColumnType

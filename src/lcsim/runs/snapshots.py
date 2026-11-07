@@ -28,7 +28,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from lcsim.model.catalogue import PROCESS_TYPES, SettingKind
-from lcsim.model.data import DataIndex
+from lcsim.model.data import DataIndex, fits_in_seconds
 from lcsim.model.data_files import UnreadableData, read_table
 from lcsim.model.issues import Issue, pointer
 from lcsim.model.model import Component, Distribution, Model
@@ -148,6 +148,19 @@ def read_columns(
                     f"In {where}, the column '{reference.column}' of '{reference.file}' "
                     "cannot be read as numbers.",
                     "Import the file again, then start the run again.",
+                )
+            )
+            continue
+        largest = float(numpy.max(numpy.abs(values)))
+        if column.unit is not None and not fits_in_seconds(largest, column.unit):
+            # Checked on the values copied, whatever the index says (Codex on PR #37).
+            issues.append(
+                _issue(
+                    component.id,
+                    (*at, "column"),
+                    f"In {where}, the column '{reference.column}' of '{reference.file}' holds "
+                    f"a value too large to be a time in seconds ({largest!r} {column.unit}).",
+                    "Declare a smaller unit when importing the file, or remove the value.",
                 )
             )
             continue

@@ -38,6 +38,8 @@ from typing import Any
 import numpy
 import scipy.stats
 
+from lcsim.model.data import fits_in_seconds
+
 __all__ = ["SCORE", "Candidate", "fit_column"]
 
 _log = logging.getLogger(__name__)
@@ -182,7 +184,7 @@ def _candidate(
         except Exception:  # a fit that fails is left out, never an error (research note)
             _log.info("The %s fit of a column failed.", name, exc_info=True)
             return None
-    if fields is None or not _agrees(name, fields) or not 0.0 <= score <= 1.0:
+    if fields is None or not _agrees(name, fields, unit) or not 0.0 <= score <= 1.0:
         return None
     distribution: dict[str, Any] = {"dist": name}
     distribution.update({key: _field(key, value, unit) for key, value in fields.items()})
@@ -195,10 +197,15 @@ def _score(scipy_name: str, scaled: Values, params: tuple[float, ...]) -> float:
     return float(result.statistic)
 
 
-def _agrees(name: str, fields: Mapping[str, float]) -> bool:
-    """Whether spec 1 takes ``fields`` for ``name``: finite, the positive fields above
-    zero, and ``min`` ≤ ``mode`` ≤ ``max`` (E160)."""
+def _agrees(name: str, fields: Mapping[str, float], unit: str | None) -> bool:
+    """Whether spec 1 takes ``fields`` for ``name``: finite, each time field a finite
+    number of seconds in ``unit`` (E141 otherwise; Codex on PR #37), the positive fields
+    above zero, and ``min`` ≤ ``mode`` ≤ ``max`` (E160)."""
     if not all(math.isfinite(value) for value in fields.values()):
+        return False
+    if unit is not None and not all(
+        fits_in_seconds(value, unit) for key, value in fields.items() if key not in _PLAIN
+    ):
         return False
     if any(fields[key] <= 0 for key in _ABOVE_ZERO.get(name, ())):
         return False

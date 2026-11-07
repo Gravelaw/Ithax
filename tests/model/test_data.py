@@ -22,7 +22,9 @@ from lcsim.model.data import (
     DataFile,
     DataIndex,
     file_sha256,
+    fits_in_seconds,
     index_bytes,
+    new_entry,
     read_data_index,
 )
 
@@ -139,7 +141,7 @@ def imported(name: str = "times.csv", sha256: str = DIGEST) -> DataFile:
     return DataFile(
         name,
         (
-            DataColumn("minutes", "min"),
+            DataColumn("minutes", "min", "number", 2.0),
             DataColumn("note", None, "text"),
             DataColumn("e", None, "empty"),
         ),
@@ -162,9 +164,9 @@ def test_a_file_entry_as_the_api_lists_it() -> None:
         "imported": "2026-11-07T10:00:00.000Z",
         "rows": 2,
         "columns": [
-            {"name": "minutes", "type": "number", "unit": "min"},
-            {"name": "note", "type": "text", "unit": None},
-            {"name": "e", "type": "empty", "unit": None},
+            {"name": "minutes", "type": "number", "unit": "min", "largest": 2.0},
+            {"name": "note", "type": "text", "unit": None, "largest": None},
+            {"name": "e", "type": "empty", "unit": None, "largest": None},
         ],
     }
 
@@ -220,6 +222,11 @@ def spoil(document: dict[str, Any], change: str) -> object:
         "bad unit": lambda: column.update(unit="ms"),
         "unit on text": lambda: entry["columns"][1].update(unit="min"),
         "column extra key": lambda: column.update(x=1),
+        "number without largest": lambda: column.update(largest=None),
+        "largest negative": lambda: column.update(largest=-1.0),
+        "largest a bool": lambda: column.update(largest=True),
+        "largest beyond a float": lambda: column.update(largest=10**400),
+        "text with largest": lambda: entry["columns"][1].update(largest=1.0),
         "two entries one name": lambda: document["files"].append(dict(entry)),
         "two names one file on windows": lambda: document["files"].append(
             {**entry, "name": "TIMES.csv"}
@@ -260,6 +267,11 @@ def spoil(document: dict[str, Any], change: str) -> object:
         "bad unit",
         "unit on text",
         "column extra key",
+        "number without largest",
+        "largest negative",
+        "largest a bool",
+        "largest beyond a float",
+        "text with largest",
         "two entries one name",
         "two names one file on windows",
     ],
@@ -293,7 +305,7 @@ def test_an_index_the_strict_reader_refuses_is_taken_as_empty(tmp_path: Path, ra
 def test_an_xlsx_entry_names_its_sheet(tmp_path: Path) -> None:
     entry = DataFile(
         "a.xlsx",
-        (DataColumn("x"),),
+        (DataColumn("x", None, "number", 0.0),),
         DIGEST,
         format="xlsx",
         sheet="Arrivals",
@@ -308,3 +320,35 @@ def test_an_xlsx_entry_names_its_sheet(tmp_path: Path) -> None:
 def test_an_index_folder_that_cannot_be_read_is_taken_as_empty(tmp_path: Path) -> None:
     (tmp_path / INDEX_FILE).mkdir()
     assert dict(read_data_index(tmp_path).files) == {}
+
+
+def test_a_new_entry_records_each_number_column_s_largest_absolute_value() -> None:
+    from lcsim.model.data_files import read_table
+
+    raw = b"a,b,c\n-7.5,x,\n2,y,\n"
+    entry = new_entry(
+        "t.csv", raw, read_table(raw, "csv"), {"a": "min"}, "2026-11-07T10:00:00.000Z"
+    )
+    assert [column.as_dict() for column in entry.columns] == [
+        {"name": "a", "type": "number", "unit": "min", "largest": 7.5},
+        {"name": "b", "type": "text", "unit": None, "largest": None},
+        {"name": "c", "type": "empty", "unit": None, "largest": None},
+    ]
+    assert entry.sha256 == hashlib.sha256(raw).hexdigest()
+
+
+@pytest.mark.parametrize(
+    ("value", "unit", "fits"),
+    [(1e308, "s", True), (1e308, "min", False), (2e306, "d", False), (1.5, "h", True)],
+)
+def test_a_value_fits_in_seconds_by_the_check_inline_quantities_use(
+    value: float, unit: str, fits: bool
+) -> None:
+    from lcsim.model.units import Dimension, QuantityError, parse_quantity
+
+    try:
+        parse_quantity(f"{value!r} {unit}", Dimension.TIME)
+        inline = True
+    except QuantityError:
+        inline = False
+    assert fits_in_seconds(value, unit) is fits is inline

@@ -76,7 +76,7 @@ from lcsim.model.catalogue import (
     SettingKind,
     SettingSpec,
 )
-from lcsim.model.data import EMPTY_DATA_INDEX, DataColumn, DataIndex
+from lcsim.model.data import EMPTY_DATA_INDEX, DataColumn, DataIndex, fits_in_seconds
 from lcsim.model.issues import Issue, pointer
 from lcsim.model.model import (
     Component,
@@ -1366,21 +1366,29 @@ def data_issues(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue]
 def _column_issues(
     use: _Use, at: tuple[Segment, ...], name: str, column: DataColumn
 ) -> list[Issue]:
-    """E162 for a column that does not hold numbers, or that declares no unit for the time
-    the setting takes (spec 1 "Distributions"; AKS-113)."""
+    """E162 for a column that does not hold numbers, that declares no unit for the time the
+    setting takes, or whose largest value is not a finite number of seconds in its unit
+    (spec 1 "Distributions"; AKS-113, Codex on PR #37)."""
     problem, hint = None, ""
     if column.type != "number":
         problem = "holds text" if column.type == "text" else "holds no values"
         problem += ", but an empirical distribution samples numbers"
         hint = "Name a column of numbers, or import the file again with its numbers."
     elif column.unit is None:
-        # Every distribution setting in Phase 1 is a time (spec 1 "Distributions"), and a
-        # column may declare only a time unit, so a declared unit always fits.
+        # Every distribution setting in Phase 1 is a time (spec 1 "Distributions").
         problem = "holds plain numbers, but the setting takes a time"
         hint = (
             "Import the file again, declaring the column's time unit (s, min, h or d), or "
             "name a column that has one."
         )
+    elif column.largest is not None and not fits_in_seconds(column.largest, column.unit):
+        # The check an inline quantity goes through, on the column's largest value
+        # (spec 1 "Quantities"; Codex on PR #37).
+        problem = (
+            f"holds a value too large to be a time in seconds (the largest is "
+            f"{column.largest!r} {column.unit})"
+        )
+        hint = "Declare a smaller unit when importing the file, or remove the value."
     if problem is None:
         return []
     return [

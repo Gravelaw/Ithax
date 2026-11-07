@@ -212,3 +212,13 @@ def test_a_candidate_is_a_mapping_and_a_float() -> None:
         "distribution": candidate.distribution,
         "score": candidate.score,
     }
+
+
+def test_a_field_that_would_overflow_in_seconds_is_left_out() -> None:
+    """Every candidate's time fields read back as spec 1 quantities (Codex on PR #37)."""
+    values = numpy.array([1e306, 2e306, 4e306, 8e306])
+    for candidate in fit_column(values, "d"):
+        for key, value in candidate.distribution.items():
+            if key not in ("dist", "shape"):
+                seconds(value)
+    assert fit_column(values, "s")  # in seconds every field fits

@@ -9,6 +9,7 @@ stream. The sampling test of spec 1 runs here against the copied column's mean a
 population sd.
 """
 
+import dataclasses
 import hashlib
 import json
 import math
@@ -319,3 +320,24 @@ def test_a_column_that_no_longer_reads_as_numbers_is_e162(
     assert [(issue.code, issue.path) for issue in problem.issues] == [
         ("E162", "/components/1/params/service/data/column")
     ]
+
+
+def test_values_that_overflow_in_seconds_are_refused_even_when_the_index_says_otherwise(
+    tmp_path: Path,
+) -> None:
+    """A run checks the values it copies, not only the index's largest value, so an index
+    edited by hand cannot let an infinite time into a run (Codex on PR #37)."""
+    data = imported(tmp_path, "times.csv", "minutes\n1\n1e308\n", {"minutes": "min"})
+    entry = data.files["times.csv"]
+    column = dataclasses.replace(entry.columns[0], largest=1.0)
+    edited = dataclasses.replace(entry, columns=(column,))
+    (tmp_path / "data" / INDEX_FILE).write_bytes(index_bytes([edited]))
+    problem = refused(
+        target(tmp_path, read_data_index(tmp_path / "data")), shop(data_ref("times.csv", "minutes"))
+    )
+    assert [(issue.code, issue.path) for issue in problem.issues] == [
+        ("E162", "/components/1/params/service/data/column")
+    ]
+    assert "seconds" in problem.issues[0].message
+    runs = tmp_path / "runs"
+    assert not runs.exists() or not list(runs.iterdir())
