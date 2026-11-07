@@ -6,7 +6,7 @@ skipped. Bump ``CURRENT_MILESTONE`` when a milestone closes.
 
 import pytest
 
-CURRENT_MILESTONE = "M2"
+CURRENT_MILESTONE = "M3"
 
 
 @pytest.fixture

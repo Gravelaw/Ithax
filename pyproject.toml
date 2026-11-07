@@ -15,6 +15,7 @@ dependencies = [
     "numpy>=2.4.6",
     "pint>=0.25.3",
     "pyarrow>=26.0.1",
+    "scipy>=1.17.1",
     "simpy>=4.1.2",
 ]
 
@@ -25,7 +26,6 @@ dev = [
     "mypy>=2.4.1",
     "pytest-cov>=7.1",
     "types-jsonschema>=4.26.0.20261006",
-    "scipy>=1.17.1",
 ]
 
 # Spec 1 "Engine contract": adapters are discovered through this group; the entry-point name
@@ -77,7 +77,8 @@ module = ["pyarrow", "pyarrow.*"]
 ignore_missing_imports = true
 
 # scipy 1.17.1 and 1.18.1 ship no py.typed; scipy-stubs would be one more dev dependency for
-# the one call the tests make (scipy.stats.t.ppf; docs/DECISIONS.md, AKS-101).
+# the one call the experiment manager makes (scipy.stats.t.ppf; docs/DECISIONS.md, AKS-101
+# and AKS-102).
 [[tool.mypy.overrides]]
 module = ["scipy", "scipy.*"]
 ignore_missing_imports = true
