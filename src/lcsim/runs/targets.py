@@ -599,7 +599,16 @@ class LocalRun:
         pid = worker.pid
         assert pid is not None  # set by start()
         self.log(f"worker started, process {pid}")
-        report, exceeded = self._watch(worker, pid, receive)
+        try:
+            report, exceeded = self._watch(worker, pid, receive)
+        except BaseException:
+            # Watching failed (a hook raised): the worker must not outlive the run, so it is
+            # told to stop, given the limit grace, then ended with what it started (review
+            # of PR #36).
+            self._cancel.set()
+            self._stop(worker, pid, self._target.limit_grace_s)
+            receive.close()
+            raise
         receive.close()
         exit_code = worker.exitcode
         self.log(f"worker ended, exit status {exit_code}")

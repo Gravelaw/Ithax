@@ -4,6 +4,7 @@ accepted, ``interrupt`` (E191 when the service stops), the experiment-choice err
 ``recover_interrupted`` skipping folders that are not runs."""
 
 import json
+import os
 import threading
 import time
 from collections.abc import Callable
@@ -11,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from dummy_adapters import DummyAdapter, SlowAdapter
+from dummy_adapters import DummyAdapter, SlowAdapter, StubbornAdapter
 
 from lcsim.engines.adapter import EngineAdapter
 from lcsim.runs.lock import LOCK_FILE
@@ -178,3 +179,21 @@ def test_a_failure_after_the_run_ended_leaves_its_final_state(tmp_path: Path) ->
     with pytest.raises(RuntimeError):
         run.execute()
     assert read_manifest(run.folder)["state"] == "done"
+
+
+def test_a_driver_failure_stops_and_reaps_a_worker_that_ignores_cancel(tmp_path: Path) -> None:
+    """Review of PR #36: the worker must not outlive the failed run."""
+
+    def broken(run: LocalRun, fraction: float, message: str) -> None:
+        raise RuntimeError("hook detail 97")
+
+    local = target(
+        tmp_path, StubbornAdapter(), on_progress=broken, limit_grace_s=0.2, kill_grace_s=1.0
+    )
+    run = local.create(coffee_shop(), "base")
+    assert run.execute() == "failed"
+    log = (run.folder / "log.txt").read_text()
+    pid = int(log.split("worker started, process ")[1].split()[0])
+    assert "worker terminated" in log
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
