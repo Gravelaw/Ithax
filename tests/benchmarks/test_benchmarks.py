@@ -54,6 +54,12 @@ WORKERS = min(4, os.cpu_count() or 1)
 M2_CASES = {"mm1", "mm2", "tandem", "delay", "branch"}
 M2_BLOCKS = {"source", "server", "delay", "branch", "sink"}
 
+# Spec 2 "Benchmark definitions": "Stochastic cases use 100 replications of 200 hours with
+# 10 hours of warm-up unless stated"; the cases that state their own, as (replications,
+# length in hours, warm-up in hours).
+STANDARD_SETTINGS = (100, 200, 10)
+STATED_SETTINGS = {"store_deterministic": (2, 1000, 100)}
+
 MILESTONE = re.compile(r"^M(\d+)$")
 
 
@@ -249,16 +255,22 @@ def test_the_five_m2_cases_exist() -> None:
     assert M2_CASES <= set(CASES)
 
 
+def test_every_case_with_stated_settings_exists() -> None:
+    assert set(STATED_SETTINGS) <= set(CASES)
+
+
 @pytest.mark.parametrize("case", CASES)
 def test_each_model_loads_with_zero_issues_and_the_spec_2_settings(case: str) -> None:
-    """100 replications of 200 h with 10 h of warm-up, a fixed seed, one scenario."""
+    """100 replications of 200 h with 10 h of warm-up unless the case states its own, a
+    fixed seed, one scenario."""
     document, _ = read_case(case)
     model = load(document)
     assert len(model.experiments) == 1
     experiment = model.experiments[0]
-    assert experiment.replications == 100
-    assert experiment.length.magnitude == 200 * 3600
-    assert experiment.warmup.magnitude == 10 * 3600
+    replications, length, warmup = STATED_SETTINGS.get(case, STANDARD_SETTINGS)
+    assert experiment.replications == replications
+    assert experiment.length.magnitude == length * 3600
+    assert experiment.warmup.magnitude == warmup * 3600
     assert not experiment.seed_chosen
     assert experiment.seed == document["experiments"][0]["seed"]
     assert [scenario.id for scenario in experiment.scenarios] == ["default"]
