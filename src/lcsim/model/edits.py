@@ -28,6 +28,7 @@ the array's length appends.
 from __future__ import annotations
 
 import copy
+import logging
 import math
 import re
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -112,6 +113,8 @@ _INDEX = re.compile(r"0|[1-9][0-9]*")
 _ESCAPE = re.compile(r"~(?![01])")
 
 Model = dict[str, Any]
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -268,6 +271,12 @@ def check_edits(edits: object) -> list[Issue]:
 
 
 # --- finding things ------------------------------------------------------------------
+#
+# A batch may pass through states the schema pass would refuse (only its result is
+# checked), and the model it starts from may have been changed outside the service, so
+# every lookup below accepts a collection that is absent, null or of the wrong kind: an
+# edit that needs such a collection is rejected (E180), and a scan skips what it cannot
+# read (review of PR #35).
 
 
 def _first(items: object, ident: str) -> dict[str, Any] | None:
@@ -277,6 +286,44 @@ def _first(items: object, ident: str) -> dict[str, Any] | None:
     return next(
         (item for item in items if isinstance(item, dict) and item.get("id") == ident), None
     )
+
+
+def _objects(value: object) -> list[dict[str, Any]]:
+    """The objects in ``value`` when it is a list, for a scan; nothing otherwise."""
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+
+def _list(model: Model, key: str) -> list[Any]:
+    """The list under ``key``, created when absent; rejected when it is something else."""
+    if key not in model:
+        model[key] = []
+    value = model[key]
+    if not isinstance(value, list):
+        raise _Rejected(
+            f"The model's '{key}' is not a list, so this edit cannot change it.",
+            f"Set '{key}' to a list, or write a whole model with PUT.",
+        )
+    return value
+
+
+def _mapping(model: Model, key: str) -> dict[str, Any]:
+    """The object under ``key``, created when absent; rejected when it is something else."""
+    if key not in model:
+        model[key] = {}
+    value = model[key]
+    if not isinstance(value, dict):
+        raise _Rejected(
+            f"The model's '{key}' is not an object, so this edit cannot change it.",
+            f"Set '{key}' to an object, or write a whole model with PUT.",
+        )
+    return value
+
+
+def _parameters(model: Model) -> dict[str, Any]:
+    """The model's parameters for a lookup: an empty object when there are none, or
+    when ``parameters`` is not an object."""
+    value = model.get("parameters")
+    return value if isinstance(value, dict) else {}
 
 
 def _component(model: Model, ident: str) -> dict[str, Any]:
@@ -299,10 +346,18 @@ def _experiment(model: Model, ident: str) -> dict[str, Any]:
     return found
 
 
-def _component_of(end: str) -> str | None:
-    """The component part of a connection end ``<id>.<port>``, or ``None`` without a dot."""
+def _component_of(end: object) -> str | None:
+    """The component part of a connection end ``<id>.<port>``, or ``None`` for an end
+    without a dot or that is not text."""
+    if not isinstance(end, str):
+        return None
     name, dot, _ = end.partition(".")
     return name if dot else None
+
+
+def _is_from(connection: object, end: str) -> bool:
+    """Whether ``connection`` is an object whose ``from`` is ``end``."""
+    return isinstance(connection, dict) and connection.get("from") == end
 
 
 # --- pointers ------------------------------------------------------------------------
@@ -431,22 +486,29 @@ def _add_component(model: Model, edit: Mapping[str, Any], types: Mapping[str, Bl
     added: dict[str, Any] = {"id": ident, "type": edit["type"], "params": edit["params"]}
     if "ui" in edit:
         added["ui"] = edit["ui"]
-    model.setdefault("components", []).append(copy.deepcopy(added))
+    _list(model, "components").append(copy.deepcopy(added))
 
 
 def _remove_component(model: Model, edit: Mapping[str, Any], _types: object) -> None:
     ident = edit["id"]
     found = _component(model, ident)
     model["components"].remove(found)
-    model["connections"] = [
+    if "connections" not in model:
+        return
+    connections = _list(model, "connections")
+    connections[:] = [
         connection
-        for connection in model.get("connections", [])
-        if ident not in (_component_of(connection["from"]), _component_of(connection["to"]))
+        for connection in connections
+        if not isinstance(connection, dict)
+        or ident not in (_component_of(connection.get("from")), _component_of(connection.get("to")))
     ]
 
 
-def _renamed_end(end: str, old: str, new: str) -> str:
-    return new + end[len(old) :] if _component_of(end) == old else end
+def _renamed_end(end: object, old: str, new: str) -> object:
+    if _component_of(end) == old:
+        assert isinstance(end, str)
+        return new + end[len(old) :]
+    return end
 
 
 def _rename_component(
@@ -462,14 +524,16 @@ def _rename_component(
             "Choose an id no other component has.",
         )
     found["id"] = new
-    for connection in model.get("connections", []):
-        connection["from"] = _renamed_end(connection["from"], old, new)
-        connection["to"] = _renamed_end(connection["to"], old, new)
-    for item in model["components"]:
-        block = types.get(item["type"])
-        if block is None:
+    for connection in _objects(model.get("connections")):
+        for end in ("from", "to"):
+            if end in connection:
+                connection[end] = _renamed_end(connection[end], old, new)
+    for item in _objects(model["components"]):
+        kind = item.get("type")
+        block = types.get(kind) if isinstance(kind, str) else None
+        params = item.get("params")
+        if block is None or not isinstance(params, dict):
             continue
-        params = item["params"]
         for spec in block.settings:
             if not spec.refers_to or spec.name not in params:
                 continue
@@ -479,11 +543,8 @@ def _rename_component(
             elif isinstance(value, list):
                 params[spec.name] = [new if entry == old else entry for entry in value]
     for key in ("objectives", "constraints"):
-        entries = model.get(key)
-        if not isinstance(entries, list):
-            continue
-        for entry in entries:
-            metric = entry.get("metric") if isinstance(entry, dict) else None
+        for entry in _objects(model.get(key)):
+            metric = entry.get("metric")
             if isinstance(metric, str) and metric.startswith(old + "."):
                 entry["metric"] = new + metric[len(old) :]
 
@@ -493,15 +554,15 @@ def _set_setting(model: Model, edit: Mapping[str, Any], _types: object) -> None:
     segments = parse_pointer(edit["path"])
     assert segments is not None
     where = f"'{edit['path']}' in the settings of '{edit['id']}'"
-    _set_at(found["params"], segments, edit["value"], where)
+    _set_at(found.get("params"), segments, edit["value"], where)
 
 
 def _connect(model: Model, edit: Mapping[str, Any], _types: object) -> None:
-    connections = model.setdefault("connections", [])
-    kept: list[dict[str, Any]] = []
+    connections = _list(model, "connections")
+    kept: list[Any] = []
     replaced = False
     for connection in connections:
-        if connection["from"] != edit["from"]:
+        if not _is_from(connection, edit["from"]):
             kept.append(connection)
         elif not replaced:
             connection["to"] = edit["to"]
@@ -509,20 +570,19 @@ def _connect(model: Model, edit: Mapping[str, Any], _types: object) -> None:
             replaced = True
     if not replaced:
         kept.append({"from": edit["from"], "to": edit["to"]})
-    model["connections"] = kept
+    connections[:] = kept
 
 
 def _disconnect(model: Model, edit: Mapping[str, Any], _types: object) -> None:
-    model["connections"] = [
-        connection
-        for connection in model.get("connections", [])
-        if connection["from"] != edit["from"]
-    ]
+    if "connections" not in model:
+        return
+    connections = _list(model, "connections")
+    connections[:] = [item for item in connections if not _is_from(item, edit["from"])]
 
 
 def _set_parameter(model: Model, edit: Mapping[str, Any], _types: object) -> None:
     ident = edit["id"]
-    parameters = model.setdefault("parameters", {})
+    parameters = _mapping(model, "parameters")
     fields = {name: edit[name] for name in ("value", "type", "min", "max") if name in edit}
     if ident not in parameters and not ("value" in fields and "type" in fields):
         raise _Rejected(
@@ -530,7 +590,13 @@ def _set_parameter(model: Model, edit: Mapping[str, Any], _types: object) -> Non
             "'value' and 'type'.",
             "Give 'value' and 'type' (integer, number or quantity) to create it.",
         )
-    parameters.setdefault(ident, {}).update(copy.deepcopy(fields))
+    entry = parameters.setdefault(ident, {})
+    if not isinstance(entry, dict):
+        raise _Rejected(
+            f"The parameter '{ident}' is not an object, so its fields cannot be set.",
+            "Write a whole model with PUT to repair it.",
+        )
+    entry.update(copy.deepcopy(fields))
 
 
 def _references(value: object, ident: str) -> bool:
@@ -545,25 +611,27 @@ def _references(value: object, ident: str) -> bool:
 
 
 def _parameter_uses(model: Model, ident: str) -> Iterator[str]:
-    """Where the parameter ``ident`` is used, in plain language."""
-    for item in model.get("components", []):
-        for name, value in item["params"].items():
+    """Where the parameter ``ident`` is used, in plain language; what cannot be read is
+    skipped (the schema pass checks the batch's result)."""
+    for item in _objects(model.get("components")):
+        params = item.get("params")
+        for name, value in params.items() if isinstance(params, dict) else ():
             if _references(value, ident):
-                yield f"'{item['id']}' (its '{name}' setting)"
-    for experiment in model.get("experiments", []):
-        scenarios = experiment.get("scenarios")
-        for scenario in scenarios if isinstance(scenarios, list) else ():
-            if isinstance(scenario, dict) and ident in scenario.get("set", {}):
-                yield f"the scenario '{scenario['id']}' of '{experiment['id']}'"
+                yield f"'{item.get('id')}' (its '{name}' setting)"
+    for experiment in _objects(model.get("experiments")):
+        for scenario in _objects(experiment.get("scenarios")):
+            values = scenario.get("set")
+            if isinstance(values, dict) and ident in values:
+                yield f"the scenario '{scenario.get('id')}' of '{experiment.get('id')}'"
         search = experiment.get("search")
         variables = search.get("variables") if isinstance(search, dict) else None
         if isinstance(variables, list) and ident in variables:
-            yield f"the search of '{experiment['id']}'"
+            yield f"the search of '{experiment.get('id')}'"
 
 
 def _remove_parameter(model: Model, edit: Mapping[str, Any], _types: object) -> None:
     ident = edit["id"]
-    parameters = model.get("parameters", {})
+    parameters = _parameters(model)
     if ident not in parameters:
         raise _Rejected(
             f"The model has no parameter '{ident}'.",
@@ -584,12 +652,15 @@ def _set_experiment(model: Model, edit: Mapping[str, Any], _types: object) -> No
     found = _first(model.get("experiments"), ident)
     if found is None:
         found = {"id": ident, **_NEW_EXPERIMENT}
-        model.setdefault("experiments", []).append(found)
+        _list(model, "experiments").append(found)
     found.update(copy.deepcopy(fields))
 
 
 def _remove_experiment(model: Model, edit: Mapping[str, Any], _types: object) -> None:
-    model["experiments"].remove(_experiment(model, edit["id"]))
+    # Found first: an absent `experiments` is the unknown experiment's E180 (review of
+    # PR #35).
+    found = _experiment(model, edit["id"])
+    model["experiments"].remove(found)
 
 
 def _scenarios(experiment: dict[str, Any]) -> list[Any]:
@@ -604,7 +675,7 @@ def _scenarios(experiment: dict[str, Any]) -> list[Any]:
 
 def _set_scenario(model: Model, edit: Mapping[str, Any], _types: object) -> None:
     experiment = _experiment(model, edit["experiment_id"])
-    parameters = model.get("parameters", {})
+    parameters = _parameters(model)
     unknown = [name for name in edit["set"] if name not in parameters]
     if unknown:
         raise _Rejected(
@@ -697,7 +768,9 @@ def apply_edits(
 ) -> EditOutcome:
     """Apply ``edits`` in order to a copy of ``model``, all or nothing.
 
-    ``model`` is a model file that passes the schema pass; it is not changed.
+    ``model`` is a model file, normally one that passes the schema pass; it is not
+    changed. Whatever its shape, an edit is applied or rejected with E180 and never
+    raises.
     ``component_types`` are the component types the model's domain offers, by name (the
     installed adapters'), for ``add_component`` and for the settings ``rename_component``
     rewrites.
@@ -711,6 +784,15 @@ def apply_edits(
             _APPLY[edit["edit"]](result, edit, component_types)
         except _Rejected as rejected:
             return _rejection(index, rejected.message, rejected.hint)
+        except Exception:
+            # A last guard: no edit may surface a raw exception, which the API would turn
+            # into a 500 (review of PR #35). The details go to the log, never to the user.
+            _log.exception("Edit %d (%s) failed unexpectedly.", index, edit["edit"])
+            return _rejection(
+                index,
+                f"the {edit['edit']} edit could not be applied to this model.",
+                "Check that the model holds what the edit names; GET the model to see it.",
+            )
     schema = schema_pass(result)
     if not schema:
         return EditOutcome(result, ())

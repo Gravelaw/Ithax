@@ -850,3 +850,141 @@ def test_the_first_component_with_an_id_is_the_one_edited() -> None:
     edited = applied(model, {"edit": "set_label", "id": "till", "label": "First"})
     assert edited["components"][2]["label"] == "First"
     assert "label" not in edited["components"][-1]
+
+
+# --- no edit raises, whatever shape the model is in (review of PR #35) ------------------
+
+# One plausible edit of each kind, against the names of the shop model.
+EVERY_KIND: list[dict[str, Any]] = [
+    {"edit": "add_component", "id": "bin", "type": "sink", "params": {}},
+    {"edit": "remove_component", "id": "till"},
+    {"edit": "rename_component", "id": "till", "new_id": "counter"},
+    {"edit": "set_setting", "id": "till", "path": "/capacity", "value": 2},
+    {"edit": "connect", "from": "till.out", "to": "exit.in"},
+    {"edit": "disconnect", "from": "till.out"},
+    {"edit": "set_parameter", "id": "tills", "value": 2},
+    {"edit": "remove_parameter", "id": "spare"},
+    {"edit": "set_experiment", "id": "base", "replications": 5},
+    {"edit": "remove_experiment", "id": "base"},
+    {"edit": "set_scenario", "experiment_id": "base", "id": "more", "set": {"spare": 1}},
+    {"edit": "remove_scenario", "experiment_id": "base", "id": "more"},
+    {"edit": "set_path", "path": "/objectives/0/sense", "value": "maximize"},
+    {"edit": "remove_path", "path": "/constraints/0"},
+    {"edit": "set_ui", "id": "till", "ui": {"x": 1}},
+    {"edit": "set_label", "id": "till", "label": "Till"},
+]
+
+_BROKEN_VALUES: list[object] = ["absent", None, "text", [], {}, [None, 3, "x"]]
+
+
+def _broken_models() -> list[tuple[str, dict[str, Any]]]:
+    """The shop and plan models with one collection, or one entry's collection, absent
+    or set to a value of the wrong kind."""
+    places: list[tuple[str, ...]] = [
+        ("components",),
+        ("connections",),
+        ("parameters",),
+        ("experiments",),
+        ("objectives",),
+        ("constraints",),
+        ("meta",),
+        ("run",),
+        ("components", "2"),
+        ("components", "2", "params"),
+        ("components", "2", "type"),
+        ("components", "2", "id"),
+        ("components", "4", "params", "target"),
+        ("connections", "0"),
+        ("connections", "0", "from"),
+        ("connections", "0", "to"),
+        ("parameters", "spare"),
+        ("experiments", "0"),
+        ("experiments", "0", "id"),
+        ("experiments", "0", "scenarios"),
+        ("experiments", "0", "scenarios", "0"),
+        ("experiments", "0", "scenarios", "0", "id"),
+        ("experiments", "0", "scenarios", "0", "set"),
+        ("experiments", "0", "search"),
+        ("objectives", "0"),
+        ("objectives", "0", "metric"),
+    ]
+    models: list[tuple[str, dict[str, Any]]] = []
+    for place in places:
+        for value in _BROKEN_VALUES:
+            model = shop()
+            parent: Any = model
+            for segment in place[:-1]:
+                parent = parent[int(segment)] if isinstance(parent, list) else parent[segment]
+            last = place[-1]
+            key: Any = int(last) if isinstance(parent, list) else last
+            if value == "absent" and isinstance(parent, dict):
+                parent.pop(key, None)
+            elif value == "absent":
+                del parent[key]
+            else:
+                parent[key] = copy.deepcopy(value)
+            models.append(("/" + "/".join(place) + f"={value!r}", model))
+    for key in ("variables", "objective", "constraints", "meta"):
+        for value in _BROKEN_VALUES:
+            model = plan()
+            if value == "absent":
+                del model[key]
+            else:
+                model[key] = copy.deepcopy(value)
+            models.append((f"plan /{key}={value!r}", model))
+    return models
+
+
+BROKEN = _broken_models()
+
+
+@pytest.mark.parametrize("kind", EVERY_KIND, ids=[edit["edit"] for edit in EVERY_KIND])
+def test_no_edit_raises_on_a_model_of_any_shape(kind: dict[str, Any]) -> None:
+    """Every kind, on models with each collection absent, null or of the wrong kind, is
+    applied or rejected with E180; none raises (the review of PR #35 found
+    ``remove_experiment`` and ``remove_parameter`` raising, which the API turned into 500)."""
+    assert [edit["edit"] for edit in EVERY_KIND] == list(EDIT_KINDS)
+    for name, model in BROKEN:
+        outcome = apply_edits(model, [kind], PROCESS_TYPES)
+        assert outcome.model is not None or [issue.code for issue in outcome.issues] == ["E180"], (
+            name
+        )
+
+
+def test_remove_experiment_in_an_optimization_model_is_e180() -> None:
+    outcome = apply_edits(plan(), [{"edit": "remove_experiment", "id": "base"}], {})
+    assert [issue.code for issue in outcome.issues] == ["E180"]
+    assert "'base'" in outcome.issues[0].message
+
+
+def test_a_null_scenario_set_does_not_stop_removing_a_parameter() -> None:
+    model = applied(
+        shop(),
+        {"edit": "set_experiment", "id": "base", "scenarios": [{"id": "s", "set": None}]},
+        {"edit": "remove_parameter", "id": "spare"},
+        {"edit": "set_experiment", "id": "base", "scenarios": []},
+    )
+    assert "spare" not in model["parameters"]
+
+
+def test_an_edit_that_fails_unexpectedly_is_e180_without_exception_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import lcsim.model.edits as edits
+
+    def broken(*_args: object) -> None:
+        raise KeyError("secret detail")
+
+    monkeypatch.setitem(edits._APPLY, "set_label", broken)
+    outcome = apply(shop(), {"edit": "set_label", "id": "till", "label": "x"})
+    assert outcome.model is None
+    [issue] = outcome.issues
+    assert issue.code == "E180" and issue.path == "/edits/0"
+    assert "secret" not in issue.message and "KeyError" not in issue.message
+
+
+def test_set_parameter_on_a_parameter_that_is_not_an_object_is_e180() -> None:
+    model = shop()
+    model["parameters"]["spare"] = 5
+    issue = rejected(model, {"edit": "set_parameter", "id": "spare", "value": 1})
+    assert "'spare'" in issue["message"]

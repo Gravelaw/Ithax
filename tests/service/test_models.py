@@ -646,6 +646,29 @@ def test_connect_in_an_optimization_model_is_e180(client: TestClient) -> None:
     assert on_disk(client, pid) == (plan(), 1)
 
 
+def test_remove_experiment_in_an_optimization_model_is_e180_not_500(client: TestClient) -> None:
+    """Review of PR #35: an optimization model has no experiments."""
+    pid = seeded(client, plan())
+    response = edit(client, pid, {"edit": "remove_experiment", "id": "base"})
+    assert response.status_code == 400
+    assert_error(response.json(), "E180")
+    assert on_disk(client, pid) == (plan(), 1)
+
+
+def test_a_null_scenario_set_in_a_batch_does_not_fail_the_request(client: TestClient) -> None:
+    """Review of PR #35: a batch may pass through a state the schema pass would refuse."""
+    pid = seeded(client)
+    response = edit(
+        client,
+        pid,
+        {"edit": "set_experiment", "id": "base", "scenarios": [{"id": "s", "set": None}]},
+        {"edit": "remove_parameter", "id": "spare"},
+        {"edit": "set_experiment", "id": "base", "scenarios": []},
+    )
+    assert response.status_code == 200
+    assert "spare" not in response.json()["model"]["parameters"]
+
+
 def test_a_stale_base_revision_is_409_with_e181_and_nothing_is_applied(client: TestClient) -> None:
     pid = seeded(client)
     response = edit(client, pid, {"edit": "set_label", "id": "till", "label": "X"}, base_revision=0)
