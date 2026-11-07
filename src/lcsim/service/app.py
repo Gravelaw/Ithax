@@ -26,7 +26,7 @@ from lcsim.engines.registry import installed_adapters
 from lcsim.service import engines, models, projects, system, templates
 from lcsim.service.auth import Hardening
 from lcsim.service.config import ServiceConfig
-from lcsim.service.errors import install_error_handlers
+from lcsim.service.errors import AsciiJSONResponse, install_error_handlers
 from lcsim.service.events import ProjectEvents
 from lcsim.service.hardware import active_tier, detect_hardware
 from lcsim.service.lifetime import Lifetime, watch
@@ -94,6 +94,8 @@ def create_app(config: ServiceConfig) -> FastAPI:
         redoc_url=None,
         openapi_url=None,
         lifespan=lifespan,
+        # Every body is ASCII JSON, so no text a client sent can stop it being sent.
+        default_response_class=AsciiJSONResponse,
         telemetry=_NO_TELEMETRY,  # type: ignore[arg-type]
     )
     app.state.service = state

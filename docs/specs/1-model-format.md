@@ -306,7 +306,7 @@ Every issue is one object:
 | E183 | service | Request refused by the hardening rules: a `Host` other than the service's own address, or a WebSocket `Origin` other than the interface's (spec 3: 403) |
 | E184 | service | Request malformed: a body that is not JSON, a field missing, unknown or of the wrong kind, or an unknown `X-Client` (spec 3: 400) |
 | E185 | service | Not found: no such project, template, component type or path (spec 3: 404), or a method a path does not take (405) |
-| E186 | service | Project folder cannot be used: not a project folder, not empty when a project is created there, already registered under another folder, or not writable; also a `model.json` that is not JSON, holds a number JSON cannot hold, or fails the schema pass when edits are sent (spec 3: 400) |
+| E186 | service | Project folder cannot be used: not a project folder, not empty when a project is created there, already registered under another folder, or not writable; also a `model.json` that is not JSON, cannot be stored as it is (a number JSON cannot hold, or text that is not valid Unicode), or fails the schema pass when edits are sent (spec 3: 400) |
 | E187 | service | The service failed while answering; the details are in its log (spec 3: 500) |
 | E190 | run | Engine exited with an error (details in `log.txt`) |
 | E191 | run | Run interrupted by a service restart |
@@ -515,3 +515,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-07, service skeleton (AKS-110), found while building `src/lcsim/service/`: "Validation issues" adds the service codes E182 to E187 (token, hardening, malformed request, not found, project folder, internal failure), which spec 3 "Status codes and errors" puts in `error.code` and which had no spec 1 code; "Engine adapter interface" adds a one-sentence `description` to a component type's description, which `GET /v1/schema/components/{type}` serves and spec 3 names (owner to confirm).
 - 2026-11-07, model endpoints (AKS-111), found while building the model edits of spec 3: the E186 row adds a project whose `model.json` is not JSON, or fails the schema pass when edits are sent (the file was changed outside the service), and the E180 row points to spec 3 "Model edits" for its cases (owner to confirm).
 - 2026-11-07, review of PR #35 (AKS-111): the E186 row adds a `model.json` holding a number JSON cannot hold (`NaN`, `Infinity`, or `1e400`, which reads as an infinity) (owner to confirm).
+- 2026-11-07, review of PR #35 (AKS-111), third round: the E186 row adds a `model.json` holding text that is not valid Unicode, which cannot be written back either (owner to confirm).

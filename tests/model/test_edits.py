@@ -14,7 +14,7 @@ from lcsim.model.edits import (
     EditOutcome,
     apply_edits,
     check_edits,
-    first_non_finite,
+    first_unstorable,
 )
 from lcsim.model.loading import load_document
 
@@ -163,10 +163,31 @@ def test_a_number_json_cannot_hold_is_e184(edit: dict[str, Any], path: str) -> N
     assert "too large" in message
 
 
-def test_first_non_finite_finds_the_place() -> None:
-    assert first_non_finite({"a": [1, {"b": float("inf")}]}) == "/a/1/b"
-    assert first_non_finite({"a": [1, 2.5, "x", None, True]}) is None
-    assert first_non_finite(float("nan")) == ""
+def test_first_unstorable_finds_the_place() -> None:
+    assert first_unstorable({"a": [1, {"b": float("inf")}]}) == "/a/1/b"
+    assert first_unstorable({"a": [1, 2.5, "x", None, True, "café"]}) is None
+    assert first_unstorable(float("nan")) == ""
+    assert first_unstorable({"a": ["ok", "\ud800"]}) == "/a/1"
+    assert first_unstorable({"a": {"\ud800": 1}}) == "/a"
+
+
+def test_text_that_is_not_valid_unicode_is_e184_and_never_quoted() -> None:
+    for edit, path in (
+        ({"edit": "set_label", "id": "till", "label": "\ud800"}, "/edits/0/label"),
+        ({"edit": "\ud800"}, "/edits/0/edit"),
+        ({"edit": "set_label", "id": "till", "label": None, "\ud800": 1}, "/edits/0"),
+    ):
+        issues = check_edits([edit])
+        assert [issue.path for issue in issues] == [path]
+        assert all(_valid(issue.message) and _valid(issue.hint) for issue in issues)
+
+
+def _valid(text: str) -> bool:
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
 
 
 def test_every_shape_problem_of_a_batch_is_listed() -> None:

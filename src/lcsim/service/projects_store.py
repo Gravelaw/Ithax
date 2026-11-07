@@ -37,11 +37,10 @@ __all__ = [
     "ProjectRecord",
     "ProjectRegistry",
     "default_model",
-    "json_text",
+    "encode_json",
     "read_project",
     "utc_now",
     "write_json",
-    "write_text",
 ]
 
 _log = logging.getLogger(__name__)
@@ -129,30 +128,32 @@ def read_project(folder: Path) -> ProjectRecord | None:
     return ProjectRecord(**{key: loaded[key] for key in _FIELDS})
 
 
-def json_text(value: object) -> str:
-    """``value`` as the service writes JSON: indented by two spaces, ending in a newline.
-    A NaN or an infinity raises ``ValueError``, since JSON cannot hold it."""
-    return json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+def encode_json(value: object) -> bytes:
+    """The exact bytes the service writes for ``value``: JSON indented by two spaces and
+    ending in a newline, encoded as strict UTF-8. ``ValueError`` when that is impossible:
+    a NaN or an infinity, or text that is not valid Unicode (a lone surrogate such as
+    ``"\\ud800"``, which a JSON escape can carry); ``UnicodeEncodeError`` is one."""
+    try:
+        text = json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    except (TypeError, RecursionError) as error:
+        raise ValueError("the value cannot be written as JSON") from error
+    return text.encode("utf-8")
 
 
-def write_text(path: Path, text: str) -> None:
-    """Write ``text`` through a temporary file and a rename, so a reader never sees half
-    a file. The temporary file is named for the process and thread, and removed when the
-    write fails; the ``OSError`` is raised."""
+def write_json(path: Path, value: object) -> None:
+    """Write ``value`` as ``encode_json`` gives it, through a temporary file and a rename,
+    so a reader never sees half a file. Nothing is written when ``value`` cannot be
+    encoded (``ValueError``). The temporary file is named for the process and thread, and
+    removed when the write fails; the ``OSError`` is raised."""
+    data = encode_json(value)
     temporary = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
     try:
-        temporary.write_text(text, encoding="utf-8")
+        temporary.write_bytes(data)
         os.replace(temporary, path)
     except OSError:
         with contextlib.suppress(OSError):
             temporary.unlink()
         raise
-
-
-def write_json(path: Path, value: object) -> None:
-    """Write ``value`` as ``json_text`` with ``write_text``; nothing is written when it
-    holds a NaN or an infinity (``ValueError``)."""
-    write_text(path, json_text(value))
 
 
 def _folder_error(message: str) -> ServiceError:

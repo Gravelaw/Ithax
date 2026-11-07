@@ -861,11 +861,11 @@ def test_a_model_json_on_disk_with_a_number_json_cannot_hold_is_e186(
         ]
     # Nothing moved: the revision is where it was.
     assert json.loads((folder(client, pid) / PROJECT_FILE).read_text())["model_revision"] == 1
-    # Validate reports it as the schema-pass issue it is: spec 1 reading refuses the
-    # NaN and Infinity literals itself (at ""), and the service finds 1e400 at its place.
+    # Validate reports the admission gate's E100, at its place, and nothing else.
     body = client.post(f"/v1/projects/{pid}/validate").json()
-    expected = "/components/2/ui/x" if number == "1e400" else ""
-    assert [(issue["code"], issue["path"]) for issue in body["issues"]] == [("E100", expected)]
+    assert [(issue["code"], issue["path"]) for issue in body["issues"]] == [
+        ("E100", "/components/2/ui/x")
+    ]
     # A whole-model PUT replaces it.
     assert put(client, pid, shop()).status_code == 200
 

@@ -44,7 +44,7 @@ __all__ = [
     "EditOutcome",
     "apply_edits",
     "check_edits",
-    "first_non_finite",
+    "first_unstorable",
     "parse_pointer",
 ]
 
@@ -150,20 +150,35 @@ def parse_pointer(text: str) -> list[str] | None:
     return [part.replace("~1", "/").replace("~0", "~") for part in text[1:].split("/")]
 
 
-def first_non_finite(value: object) -> str | None:
-    """The JSON Pointer of the first number in ``value`` that JSON cannot hold (an
-    infinity or NaN, as Python reads ``1e400``), or ``None`` when there is none."""
+def _encodable(text: str) -> bool:
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def first_unstorable(value: object) -> str | None:
+    """The JSON Pointer of the first value in ``value`` that cannot be written as JSON in
+    UTF-8, or ``None`` when there is none: a number JSON cannot hold (an infinity or NaN,
+    as Python reads ``1e400``) or text that is not valid Unicode (a lone surrogate, which
+    a JSON escape such as ``"\\ud800"`` can carry). For such a key, the pointer is that
+    of the object holding it, since the key cannot be written either."""
     if isinstance(value, float):
         return None if math.isfinite(value) else ""
+    if isinstance(value, str):
+        return None if _encodable(value) else ""
     entries: Iterator[tuple[str | int, object]]
     if isinstance(value, dict):
+        if not all(_encodable(key) for key in value):
+            return ""
         entries = iter(value.items())
     elif isinstance(value, list):
         entries = iter(enumerate(value))
     else:
         return None
     for key, item in entries:
-        inner = first_non_finite(item)
+        inner = first_unstorable(item)
         if inner is not None:
             return pointer(key) + inner
     return None
@@ -174,16 +189,8 @@ def _shape_issue(path: str, message: str, hint: str) -> Issue:
 
 
 def _field_issue(index: int, name: str, kind: str, value: object) -> Issue | None:
-    """An E184 issue when ``value`` is not of ``kind``, or holds a number JSON cannot
-    hold, which could not be saved."""
-    place = first_non_finite(value)
-    if place is not None:
-        where = f" (at '{place}')" if place else ""
-        return _shape_issue(
-            pointer("edits", index, name),
-            f"In edit {index}, the field '{name}' holds a number too large to store{where}.",
-            "Write a number a 64-bit float can hold, below about 1.8e308.",
-        )
+    """An E184 issue when ``value`` is not of ``kind``; values that cannot be stored are
+    reported by ``_unstorable_issues`` first."""
     if kind == _ANY:
         return None
     if kind == _OBJECT:
@@ -203,7 +210,41 @@ def _field_issue(index: int, name: str, kind: str, value: object) -> Issue | Non
     )
 
 
+def _unstorable_issues(index: int, edit: dict[str, Any]) -> list[Issue]:
+    """E184 for each field of ``edit`` that could not be stored: a number too large to
+    store, or text that is not valid Unicode. Checked before anything else, and never
+    quoted, since such text cannot be written in a message either."""
+    hint = (
+        "Write numbers a 64-bit float can hold (below about 1.8e308) and text that is "
+        "valid Unicode."
+    )
+    if not all(_encodable(name) for name in edit):
+        return [
+            _shape_issue(
+                pointer("edits", index),
+                f"Edit {index} has a field name that is not valid Unicode.",
+                hint,
+            )
+        ]
+    issues: list[Issue] = []
+    for name, value in edit.items():
+        place = first_unstorable(value)
+        if place is not None:
+            where = f" (at '{place}')" if place else ""
+            issues.append(
+                _shape_issue(
+                    pointer("edits", index, name),
+                    f"In edit {index}, the field '{name}' holds a number too large to store, "
+                    f"or text that is not valid Unicode{where}.",
+                    hint,
+                )
+            )
+    return issues
+
+
 def _edit_shape_issues(index: int, edit: object) -> list[Issue]:
+    if isinstance(edit, dict) and (unstorable := _unstorable_issues(index, edit)):
+        return unstorable
     if not isinstance(edit, dict):
         return [
             _shape_issue(

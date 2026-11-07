@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from lcsim.model.issues import Issue
 from lcsim.service.errors import NOT_FOUND, ServiceError, malformed
@@ -27,6 +27,18 @@ router = APIRouter(prefix="/v1/projects")
 State = Annotated[ServiceState, Depends(service_state)]
 
 
+def _unicode(value: str | None) -> str | None:
+    """``value`` when it is valid Unicode, which the project files are written in; a lone
+    surrogate (a JSON escape such as ``"\\ud800"`` can carry one) is refused (E184,
+    review of PR #35)."""
+    if value is not None:
+        try:
+            value.encode("utf-8")
+        except UnicodeEncodeError:
+            raise ValueError("not valid Unicode") from None
+    return value
+
+
 class CreateProject(BaseModel):
     """The body of ``POST /v1/projects``."""
 
@@ -37,6 +49,8 @@ class CreateProject(BaseModel):
     domain: Domain = "process"
     path: str | None = None
 
+    _writable = field_validator("name", "template", "path")(lambda value: _unicode(value))
+
 
 class OpenProject(BaseModel):
     """The body of ``POST /v1/projects/open``."""
@@ -44,6 +58,8 @@ class OpenProject(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     path: str
+
+    _writable = field_validator("path")(lambda value: _unicode(value))
 
 
 def _absolute(path: str) -> Path:

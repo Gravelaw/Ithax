@@ -1,14 +1,22 @@
 """Reading, writing, editing and validating a project's model (spec 3 "Revision",
-"Endpoints", "Model edits"; AKS-111).
+"Endpoints", "Model edits"; AKS-111, redesigned after the review of PR #35).
 
-``ModelStore`` is what the model routes call. Every write (a whole model, or a batch of
-edits) of one project is made under that project's lock, so two writes that state the
-same ``base_revision`` cannot both pass the check. A write saves ``project.json`` with the
-new ``model_revision`` first and ``model.json`` second, each through a temporary file and
-a rename; a failure between the two leaves a revision that has moved over an unchanged
-model, which a client sees as a 409 and reloads, never a changed model under an old
-revision. After a write the store tells the project's listeners
-(``ProjectEvents.model_written``).
+``ModelStore`` is what the model routes call. Two mechanisms hold every path:
+
+- **Admission.** A model document is admitted only when it becomes the exact bytes the
+  service writes (``encode_json``: JSON without NaN or infinities, in strict UTF-8).
+  ``admit`` is the one gate, run on every path and whatever else loading reports: a
+  ``model.json`` read from disk (``GET``, edits, the 409 body, an opened folder; E186), a
+  ``PUT`` body (E100), the result of an edit batch (E180) and ``validate`` (its E100 is
+  the only issue reported). An edit's own fields are checked as the request's shape first
+  (E184, ``lcsim.model.edits.check_edits``).
+- **Saving.** ``_commit`` makes both files' final bytes first, writes each to a temporary
+  file in the project folder, then renames ``model.json`` into place and ``project.json``
+  (the new revision) last: that last rename is the commit. A failure before it removes the
+  temporary files, and a failure at it also puts the previous model back, so the revision,
+  the model and the events are unchanged; the project's listeners are told only after the
+  commit. Every write of one project holds that project's lock, so two writes that state
+  the same ``base_revision`` cannot both pass the check.
 
 A refused write changes nothing: 400 with E184 (malformed), E180 (an edit that cannot be
 applied), E100 or E101 (a ``PUT`` body that fails the schema pass) or E186 (a project
@@ -19,8 +27,10 @@ folder or ``model.json`` that cannot be used), or 409 with E181 (a stale
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
+import os
 import re
 import threading
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -33,7 +43,7 @@ from lcsim.engines.adapter import EngineAdapter
 from lcsim.engines.registry import installed_engines, select_adapter
 from lcsim.model.catalogue import BlockType
 from lcsim.model.data import EMPTY_DATA_INDEX, DataIndex
-from lcsim.model.edits import apply_edits, check_edits, first_non_finite
+from lcsim.model.edits import apply_edits, check_edits, first_unstorable
 from lcsim.model.issues import Issue
 from lcsim.model.loading import LoadResult, load_document, load_text
 from lcsim.model.schema import schema_pass
@@ -44,9 +54,8 @@ from lcsim.service.projects_store import (
     PROJECT_FILE,
     ProjectRecord,
     ProjectRegistry,
-    json_text,
+    encode_json,
     read_project,
-    write_text,
 )
 
 __all__ = [
@@ -54,9 +63,9 @@ __all__ = [
     "EDIT_REJECTED",
     "ModelStore",
     "Written",
+    "admit",
     "base_revision",
     "no_data",
-    "non_finite_issue",
 ]
 
 _log = logging.getLogger(__name__)
@@ -100,25 +109,37 @@ class Written:
         }
 
 
-def non_finite_issue(document: object) -> Issue | None:
-    """An E100 issue at the first number in ``document`` that JSON cannot hold (``NaN``,
-    ``Infinity``, or a number such as ``1e400`` that reads as an infinity), or ``None``.
-    Such a file cannot be read unambiguously, so spec 1 makes it a schema-pass issue, and
-    it could not be written back or sent."""
-    place = first_non_finite(document)
-    if place is None:
-        return None
-    return Issue(
-        code="E100",
-        component=None,
-        path=place,
-        message=f"The number at '{place}' is too large to be stored, or is not a number.",
-        hint="Write a number a 64-bit float can hold, below about 1.8e308.",
-    )
+def admit(document: object) -> bytes | Issue:
+    """The admission gate: the bytes ``model.json`` would hold for ``document``, or an
+    E100 issue at the first value that stops it from being written (a number JSON cannot
+    hold, or text that is not valid Unicode). Such a file cannot be read unambiguously,
+    so spec 1 makes it a schema-pass issue; the issue never quotes the value."""
+    try:
+        return encode_json(document)
+    except ValueError:
+        place = first_unstorable(document) or ""
+        where = f"at '{place}'" if place else "in the model"
+        return Issue(
+            code="E100",
+            component=None,
+            path=place,
+            message=f"The model cannot be stored: the value {where} is a number too large "
+            "to store, or text that is not valid Unicode.",
+            hint="Write numbers a 64-bit float can hold (below about 1.8e308) and text "
+            "that is valid Unicode.",
+        )
 
 
 def _folder_error(message: str, issues: Sequence[Issue] = ()) -> ServiceError:
     return ServiceError(400, PROJECT_FOLDER, message, issues)
+
+
+@dataclass(frozen=True)
+class _Stored:
+    """A ``model.json`` as read and admitted: its document and its bytes."""
+
+    document: object
+    data: bytes
 
 
 class ModelStore:
@@ -171,31 +192,40 @@ class ModelStore:
                 f"The {MODEL_FILE} in '{folder}' is missing or cannot be read."
             ) from None
 
+    @staticmethod
+    def _parse(raw: bytes) -> object:
+        """``raw`` as JSON; ``ValueError`` when it is not."""
+        try:
+            return json.loads(raw.decode("utf-8-sig"))
+        except (UnicodeDecodeError, ValueError, RecursionError):
+            raise ValueError("not JSON") from None
+
     @classmethod
-    def _model(cls, folder: Path) -> object:
+    def _stored(cls, folder: Path) -> _Stored:
+        """The admitted ``model.json`` of ``folder``; E186 when it cannot be used."""
         raw = cls._raw(folder)
         try:
-            document = json.loads(raw.decode("utf-8-sig"))
-        except (UnicodeDecodeError, ValueError, RecursionError):
+            document = cls._parse(raw)
+        except ValueError:
             raise _folder_error(
                 f"The {MODEL_FILE} in '{folder}' is not a JSON model file; write a whole "
                 "model to replace it.",
                 load_text(raw).issues,
             ) from None
-        issue = non_finite_issue(document)
-        if issue is not None:
+        admitted = admit(document)
+        if isinstance(admitted, Issue):
             raise _folder_error(
-                f"The {MODEL_FILE} in '{folder}' holds a number JSON cannot hold; write a "
-                "whole model to replace it.",
-                [issue],
+                f"The {MODEL_FILE} in '{folder}' cannot be stored as it is; write a whole "
+                "model to replace it.",
+                [admitted],
             )
-        return document
+        return _Stored(document, raw)
 
     def read(self, pid: str) -> dict[str, Any]:
         """``{model, revision}`` of project ``pid``."""
         with self._locked(pid):
             folder, record = self._record(pid)
-            return {"model": self._model(folder), "revision": record.model_revision}
+            return {"model": self._stored(folder).document, "revision": record.model_revision}
 
     def revision(self, pid: str) -> int:
         """The current revision of project ``pid``."""
@@ -212,19 +242,18 @@ class ModelStore:
         return load_document(document, seed_source=_no_seed, data=data, engines=engines)
 
     def validate(self, pid: str) -> dict[str, Any]:
-        """``{revision, issues}`` of the saved model: the schema pass, the meaning pass,
-        then the adapter's ``validate`` when the first two find no error."""
+        """``{revision, issues}`` of the saved model: when it is JSON, the admission gate
+        first (its E100 alone when it fails), then the schema pass, the meaning pass and
+        the adapter's ``validate`` when the first two find no error."""
         with self._locked(pid):
             folder, record = self._record(pid)
             raw = self._raw(folder)
+        with contextlib.suppress(ValueError):
+            admitted = admit(self._parse(raw))
+            if isinstance(admitted, Issue):
+                return {"revision": record.model_revision, "issues": [admitted.as_dict()]}
         result = self._load(folder, raw)
         issues = list(result.issues)
-        if not issues:
-            # Loading reads `1e400` as an infinity, which a setting may not check (a
-            # component's `ui`): such a file cannot be served or written back.
-            unstorable = non_finite_issue(json.loads(raw.decode("utf-8-sig")))
-            if unstorable is not None:
-                return {"revision": record.model_revision, "issues": [unstorable.as_dict()]}
         if result.model is not None:
             selection = select_adapter(result.model.domain, result.model.run.engine, self.adapters)
             # A model that loads has passed engine selection (E102).
@@ -242,30 +271,71 @@ class ModelStore:
             CONFLICT,
             f"The model has changed since revision {base}: it is now at revision "
             f"{record.model_revision}, so nothing was applied.",
-            extra={"model": self._model(folder), "revision": record.model_revision},
+            extra={"model": self._stored(folder).document, "revision": record.model_revision},
         )
 
-    def _save(
-        self, pid: str, folder: Path, record: ProjectRecord, model: object, client: str
+    def _commit(
+        self,
+        pid: str,
+        folder: Path,
+        record: ProjectRecord,
+        data: bytes,
+        previous: bytes | None,
+        client: str,
     ) -> int:
+        """Save the admitted model bytes ``data`` as the next revision; ``previous`` is the
+        ``model.json`` it replaces (``None`` when there was none), put back when the
+        commit fails."""
         revision = record.model_revision + 1
-        # Both files are made into text before either is written, so a value JSON cannot
-        # hold (refused on every way in) could never move the revision without the model.
-        project_text = json_text(asdict(replace(record, model_revision=revision)))
-        model_text = json_text(model)
         try:
-            write_text(folder / PROJECT_FILE, project_text)
-            write_text(folder / MODEL_FILE, model_text)
-        except OSError:
-            _log.warning("Writing the model of %s failed.", folder, exc_info=True)
+            project_data = encode_json(asdict(replace(record, model_revision=revision)))
+        except ValueError:
             raise _folder_error(
-                f"The project folder '{folder}' cannot be written, so the model was not saved."
+                f"The {PROJECT_FILE} in '{folder}' holds text that cannot be written back, "
+                "so the model was not saved."
             ) from None
+        suffix = f".{os.getpid()}.{threading.get_ident()}.tmp"
+        model_path, project_path = folder / MODEL_FILE, folder / PROJECT_FILE
+        model_temp = folder / f".{MODEL_FILE}{suffix}"
+        project_temp = folder / f".{PROJECT_FILE}{suffix}"
+        unsaved = _folder_error(
+            f"The project folder '{folder}' cannot be written, so the model was not saved."
+        )
+        try:
+            try:
+                model_temp.write_bytes(data)
+                project_temp.write_bytes(project_data)
+                os.replace(model_temp, model_path)
+            except OSError:
+                _log.warning("Writing the model of %s failed.", folder, exc_info=True)
+                raise unsaved from None
+            try:
+                os.replace(project_temp, project_path)  # the commit
+            except OSError:
+                _log.warning("Committing the model of %s failed.", folder, exc_info=True)
+                self._put_back(model_path, model_temp, previous)
+                raise unsaved from None
+        finally:
+            for temporary in (model_temp, project_temp):
+                with contextlib.suppress(OSError):
+                    temporary.unlink()
         self.events.model_written(pid, revision, client)
         return revision
 
+    @staticmethod
+    def _put_back(model_path: Path, temporary: Path, previous: bytes | None) -> None:
+        """Put the model a failed commit replaced back in place."""
+        try:
+            if previous is None:
+                model_path.unlink()
+                return
+            temporary.write_bytes(previous)
+            os.replace(temporary, model_path)
+        except OSError:
+            _log.error("The previous model of %s could not be put back.", model_path, exc_info=True)
+
     def put(self, pid: str, body: bytes, base_revision: int | None, client: str) -> Written:
-        """Save the model file ``body`` when it passes the schema pass."""
+        """Save the model file ``body`` when it passes the schema pass and is admitted."""
         folder = self.projects.folder(pid)
         loaded = self._load(folder, body)
         schema = [issue for issue in loaded.issues if issue.code in _SCHEMA_CODES]
@@ -276,19 +346,23 @@ class ModelStore:
                 "The model file does not pass the schema pass, so it was not saved.",
                 schema,
             )
-        model = json.loads(body.decode("utf-8-sig"))
-        unstorable = non_finite_issue(model)
-        if unstorable is not None:
+        model = self._parse(body)
+        admitted = admit(model)
+        if isinstance(admitted, Issue):
             raise ServiceError(
                 400,
-                "E100",
+                admitted.code,
                 "The model file does not pass the schema pass, so it was not saved.",
-                [unstorable],
+                [admitted],
             )
         with self._locked(pid):
             folder, record = self._record(pid)
             self._check_revision(folder, record, base_revision)
-            revision = self._save(pid, folder, record, model, client)
+            try:
+                previous: bytes | None = (folder / MODEL_FILE).read_bytes()
+            except OSError:
+                previous = None
+            revision = self._commit(pid, folder, record, admitted, previous, client)
         return Written(model, revision, loaded.issues)
 
     def _component_types(self, domain: object) -> dict[str, BlockType]:
@@ -311,7 +385,8 @@ class ModelStore:
         with self._locked(pid):
             folder, record = self._record(pid)
             self._check_revision(folder, record, base_revision)
-            current = self._model(folder)
+            stored = self._stored(folder)
+            current = stored.document
             schema = schema_pass(current)
             if schema:
                 raise _folder_error(
@@ -323,7 +398,19 @@ class ModelStore:
             outcome = apply_edits(current, edits, self._component_types(current["domain"]))
             if outcome.model is None:
                 raise ServiceError(400, EDIT_REJECTED, outcome.issues[0].message, outcome.issues)
-            revision = self._save(pid, folder, record, outcome.model, client)
+            admitted = admit(outcome.model)
+            if isinstance(admitted, Issue):
+                issue = Issue(
+                    code=EDIT_REJECTED,
+                    component=None,
+                    path="/edits",
+                    message="The edits would leave a model that cannot be stored: "
+                    + admitted.message[0].lower()
+                    + admitted.message[1:],
+                    hint=admitted.hint,
+                )
+                raise ServiceError(400, EDIT_REJECTED, issue.message, [issue])
+            revision = self._commit(pid, folder, record, admitted, stored.data, client)
         return Written(outcome.model, revision, self._load(folder, None, outcome.model).issues)
 
 
