@@ -484,6 +484,37 @@ def evaluator(model: Model) -> search_module.Evaluate:
     return evaluate
 
 
+def test_only_the_baseline_and_best_confirmations_keep_their_tables(tmp_path: Path) -> None:
+    """Codex review of PR #32: the search keeps each search-stage evaluation's metrics, not
+    its tables, and of the confirmations only the baseline's and the best so far, so the
+    driving process's memory does not grow with the budget."""
+    model = load(searching("late rescue", value=1, high=9, limit=0.5))
+    result = run_search(model, "base", tmp_path, evaluator(model))
+    assert result is not None
+    assert all(candidate.search.results is None for candidate in result.candidates)
+    kept = [
+        candidate.index
+        for candidate in result.candidates
+        if candidate.confirmation is not None and candidate.confirmation.results is not None
+    ]
+    # Seven confirmed (the baseline and tills 2 to 7); the baseline is also the best.
+    assert sum(c.confirmation is not None for c in result.candidates) == 7
+    assert kept == [0]
+    assert result.best_results.tables["replications"].num_rows == 60
+    # A best other than the baseline: bowl from tills 3, best 4; kept: the baseline and 4.
+    model = load(searching("bowl", value=3))
+    (tmp_path / "bowl").mkdir()
+    result = run_search(model, "base", tmp_path / "bowl", evaluator(model))
+    assert result is not None
+    kept_values = [
+        candidate.values
+        for candidate in result.candidates
+        if candidate.confirmation is not None and candidate.confirmation.results is not None
+    ]
+    assert kept_values == [(3,), (4,)]
+    assert result.separated is True
+
+
 def test_asking_stops_after_ten_asks_per_candidate_of_the_budget(tmp_path: Path) -> None:
     # A `number` variable with min = max sends the search to Optuna, which can only ever
     # propose two distinct candidates (tills 1 or 2), so it stops at 10 x 3 asks.

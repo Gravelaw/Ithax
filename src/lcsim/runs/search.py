@@ -62,7 +62,7 @@ from typing import Any, Literal
 import optuna
 from optuna.trial import Trial, TrialState
 
-from lcsim.engines.adapter import Progress, Results
+from lcsim.engines.adapter import Progress, Results, Table
 from lcsim.model.issues import Issue
 from lcsim.model.model import (
     Experiment,
@@ -116,12 +116,20 @@ Evaluate = Callable[[Model, str, Path, Callable[[Progress], None]], Results | No
 
 @dataclass(frozen=True)
 class Evaluation:
-    """One candidate evaluation: what ``collect`` returned, the ``default`` scenario's
-    metrics across its replications, and whether it is feasible on them."""
+    """One candidate evaluation: the ``default`` scenario's metrics across its
+    replications, whether it is feasible on them, the objective metric's value in each
+    replication (for ``separated``), and what ``collect`` returned while it is kept.
 
-    results: Results
+    The search keeps ``results`` only where the summary may need the tables: the baseline's
+    confirmation and the best confirmation so far. Every other evaluation keeps its metrics
+    and drops its tables (``results`` ``None``), so the driving process's memory does not
+    grow with the budget (review of PR #32); the tables stay in the evaluation's folder.
+    """
+
+    results: Results | None
     metrics: Mapping[str, MetricEstimate]
     feasible: bool
+    objective_values: Mapping[int, float]
 
 
 @dataclass
@@ -155,8 +163,10 @@ class SearchResult:
 
     @property
     def best_results(self) -> Results:
-        """The best candidate's confirmation results (it is always confirmed)."""
+        """The best candidate's confirmation results (it is always confirmed, and its
+        tables are kept)."""
         assert self.best.confirmation is not None
+        assert self.best.confirmation.results is not None
         return self.best.confirmation.results
 
 
@@ -300,7 +310,8 @@ class _Judge:
         feasible = self.objective_mean(metrics) is not None and all(
             margin <= 0 for margin in self.margins(metrics)
         )
-        return Evaluation(results, metrics, feasible)
+        values = {} if table is None else _values_by_replication(table, self.objective.metric)
+        return Evaluation(results, metrics, feasible, values)
 
     def rank(self, candidate: Candidate) -> tuple[float, int]:
         """A sort key for a feasible candidate (its mean objective is defined): the better
@@ -369,13 +380,17 @@ class _Searcher:
         results = self.evaluate(model, self.experiment_id, self.workdir / folder, on_progress)
         return None if results is None else self.judge.evaluation(results)
 
+    def _drop_tables(self, evaluation: Evaluation) -> Evaluation:
+        return replace(evaluation, results=None)
+
     def add(self, values: tuple[ParameterValue, ...]) -> Candidate | None:
         index = len(self.candidates)
         label = f"Search, candidate {index + 1}"
         found = self._run(values, self.search.replications, f"search-{index:03d}", label)
         if found is None:
             return None
-        candidate = Candidate(index, values, found)
+        # The search stage needs only the metrics: its tables are dropped at once.
+        candidate = Candidate(index, values, self._drop_tables(found))
         self.candidates.append(candidate)
         return candidate
 
@@ -447,7 +462,27 @@ class _Searcher:
         if found is None:
             return False
         candidate.confirmation = found
+        self._keep_needed_tables()
         return True
+
+    def _confirmed_feasible(self) -> list[Candidate]:
+        """The confirmed feasible candidates, best first."""
+        return sorted(
+            (
+                item
+                for item in self.candidates
+                if item.confirmation is not None and item.confirmation.feasible
+            ),
+            key=self.judge.rank,
+        )
+
+    def _keep_needed_tables(self) -> None:
+        """Drops the tables of every confirmation but the baseline's and the best so far."""
+        feasible = self._confirmed_feasible()
+        keep = {0} if not feasible else {0, feasible[0].index}
+        for item in self.candidates:
+            if item.index not in keep and item.confirmation is not None:
+                item.confirmation = self._drop_tables(item.confirmation)
 
     def confirmation(self) -> bool:
         if not self.confirm(self.candidates[0]):
@@ -467,15 +502,7 @@ class _Searcher:
         return True
 
     def result(self, asks: int) -> SearchResult:
-        judge = self.judge
-        feasible = sorted(
-            (
-                item
-                for item in self.candidates
-                if item.confirmation is not None and item.confirmation.feasible
-            ),
-            key=judge.rank,
-        )
+        feasible = self._confirmed_feasible()
         if not feasible:
             return SearchResult(
                 self.method,
@@ -487,9 +514,7 @@ class _Searcher:
                 asks,
             )
         best = feasible[0]
-        separated = len(feasible) > 1 and _separated(
-            best, feasible[1], judge.objective.metric, self.experiment.confidence
-        )
+        separated = len(feasible) > 1 and _separated(best, feasible[1], self.experiment.confidence)
         return SearchResult(
             self.method,
             self.search.variables,
@@ -501,8 +526,9 @@ class _Searcher:
         )
 
 
-def _values_by_replication(results: Results, metric: str) -> dict[int, float]:
-    table = results.tables["replications"]
+def _values_by_replication(table: Table, metric: str) -> dict[int, float]:
+    """The ``default`` scenario's value of ``metric`` in each replication of a
+    ``replications`` table."""
     rows = zip(
         *(
             table.column(name).to_pylist()
@@ -515,13 +541,13 @@ def _values_by_replication(results: Results, metric: str) -> dict[int, float]:
     }
 
 
-def _separated(best: Candidate, other: Candidate, metric: str, confidence: float) -> bool:
-    """Whether the paired difference of ``metric`` between two confirmed candidates
+def _separated(best: Candidate, other: Candidate, confidence: float) -> bool:
+    """Whether the paired difference of the objective between two confirmed candidates
     excludes zero (spec 2 "Between scenarios": same replication numbers, NaN pairs left
     out, n ≥ 2 and |mean| > half-width)."""
     assert best.confirmation is not None and other.confirmation is not None
-    first = _values_by_replication(best.confirmation.results, metric)
-    second = _values_by_replication(other.confirmation.results, metric)
+    first = best.confirmation.objective_values
+    second = other.confirmation.objective_values
     differences = [
         first[rep] - second[rep]
         for rep in sorted(first.keys() & second.keys())
@@ -573,7 +599,7 @@ def search_summary(
     best = result.best
     assert best.confirmation is not None
     best_model = candidate_model(model, experiment_id, best.values, experiment.replications)
-    summary = build_summary(best_model, experiment_id, best.confirmation.results, warnings)
+    summary = build_summary(best_model, experiment_id, result.best_results, warnings)
     objectives = {objective.id: objective for objective in model.objectives}
     metric = objectives[search.objective].metric
     baseline = result.candidates[0]
