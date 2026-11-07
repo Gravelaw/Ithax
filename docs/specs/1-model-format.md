@@ -300,13 +300,13 @@ Every issue is one object:
 | E173 | run | Fidelity not offered by this engine |
 | E174 | meaning | Objective or constraint names a metric that does not exist: an unknown component, or a measure or statistic that spec 2 does not define for that component's type |
 | E175 | meaning | A coefficient in an `optimization` model's `objective` or in a constraint's `linear` names no variable in `variables`; reported at the coefficient's key, such as `/constraints/0/linear/desks` (AKS-108, owner to confirm) |
-| E180 | service | Edit cannot be applied |
+| E180 | service | Edit cannot be applied (spec 3 "Model edits" lists the cases: 400, at `/edits/<n>`) |
 | E181 | service | Model changed since the stated revision |
 | E182 | service | Token missing or wrong (spec 3: 401, or a WebSocket closed with 1008) |
 | E183 | service | Request refused by the hardening rules: a `Host` other than the service's own address, or a WebSocket `Origin` other than the interface's (spec 3: 403) |
 | E184 | service | Request malformed: a body that is not JSON, a field missing, unknown or of the wrong kind, or an unknown `X-Client` (spec 3: 400) |
 | E185 | service | Not found: no such project, template, component type or path (spec 3: 404), or a method a path does not take (405) |
-| E186 | service | Project folder cannot be used: not a project folder, not empty when a project is created there, already registered under another folder, or not writable (spec 3: 400) |
+| E186 | service | Project folder cannot be used: not a project folder, not empty when a project is created there, already registered under another folder, or not writable; also a `model.json` that is not JSON, or that fails the schema pass when edits are sent (spec 3: 400) |
 | E187 | service | The service failed while answering; the details are in its log (spec 3: 500) |
 | E190 | run | Engine exited with an error (details in `log.txt`) |
 | E191 | run | Run interrupted by a service restart |
@@ -513,3 +513,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 ### Since version 0.8
 
 - 2026-11-07, service skeleton (AKS-110), found while building `src/lcsim/service/`: "Validation issues" adds the service codes E182 to E187 (token, hardening, malformed request, not found, project folder, internal failure), which spec 3 "Status codes and errors" puts in `error.code` and which had no spec 1 code; "Engine adapter interface" adds a one-sentence `description` to a component type's description, which `GET /v1/schema/components/{type}` serves and spec 3 names (owner to confirm).
+- 2026-11-07, model endpoints (AKS-111), found while building the model edits of spec 3: the E186 row adds a project whose `model.json` is not JSON, or fails the schema pass when edits are sent (the file was changed outside the service), and the E180 row points to spec 3 "Model edits" for its cases (owner to confirm).
