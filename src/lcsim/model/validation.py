@@ -38,7 +38,8 @@ ranges"):
   ``DataIndex`` (``lcsim.model.data``).
 - ``experiment_issues``: E170 (an experiment or its search with a value out of range),
   E171 (a search that names an unknown objective, a parameter without ``min`` and ``max``,
-  or no parameter at all) and E150 (a search variable that is not a parameter).
+  no parameter at all or one parameter twice, or that sits in an experiment listing
+  scenarios) and E150 (a search variable that is not a parameter).
 - ``metric_issues``: E174 (an objective or constraint that names a metric spec 2 does not
   define) and E123 (a constraint ``value`` of the wrong kind for its metric).
 - ``program_issues``: E175 (an ``optimization`` coefficient that names no variable;
@@ -1370,7 +1371,9 @@ def experiment_issues(model: Model) -> list[Issue]:
       above 0 s, a search ``budget`` below 1 or search ``replications`` below 2.
     - E171: ``search.objective`` that is not the id of an objective in ``objectives``; a
       search variable that is a parameter without both ``min`` and ``max``; a search with
-      no variables (none listed, or no parameter with both ``min`` and ``max``).
+      no variables (none listed, or no parameter with both ``min`` and ``max``); a search
+      variable named a second time (at the repeat); a search in an experiment that lists
+      scenarios, at ``scenarios`` (AKS-109, owner to confirm).
     - E150: a search variable that is not a parameter (a reference to an unknown
       parameter).
     """
@@ -1407,13 +1410,34 @@ def experiment_issues(model: Model) -> list[Issue]:
                     "Give a parameter a 'min' and a 'max', and list it in 'variables'.",
                 )
             )
+        if not experiment.default_scenario_added:
+            issues.append(
+                _issue(
+                    "E171",
+                    ("experiments", index, "scenarios"),
+                    f"Experiment {name} has a search and also lists scenarios; a search runs "
+                    "its own candidates from the parameters' values, not scenarios.",
+                    "Move the scenarios to an experiment without a search, or remove 'scenarios'.",
+                )
+            )
         for number, variable in enumerate(search.variables):
             parameter = model.parameters.get(variable)
             opening = (
                 f"Variable {number + 1} in the 'variables' of the search of experiment {name} "
                 f"is {_quote(variable)}"
             )
-            if parameter is None:
+            first = search.variables.index(variable)
+            if first < number:
+                issues.append(
+                    _issue(
+                        "E171",
+                        (*search_at, "variables", number),
+                        f"{opening}, which variable {first + 1} already names; the search "
+                        "varies each parameter once.",
+                        f"Remove the repeated {_quote(variable)} from 'variables'.",
+                    )
+                )
+            elif parameter is None:
                 issues.append(
                     _issue(
                         "E150",

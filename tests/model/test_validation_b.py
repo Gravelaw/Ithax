@@ -1038,6 +1038,37 @@ def test_a_search_with_no_variables_is_e171(listed: bool) -> None:
     assert issue.message.startswith("The search of experiment 'base' has no parameters to vary")
 
 
+def test_a_search_variable_named_twice_is_e171_at_the_repeat() -> None:
+    """A repeated `search.variables` entry (M1 leftover; AKS-109, owner to confirm)."""
+    document = machine_count()
+    document["parameters"]["staff"] = {"value": 2, "type": "integer", "min": 1, "max": 3}
+    document["experiments"][0]["search"]["variables"] = ["tills", "staff", "tills"]
+    issue = only(experiment_issues(built(document)), "E171", "/experiments/0/search/variables/2")
+    assert issue.message == (
+        "Variable 3 in the 'variables' of the search of experiment 'base' is 'tills', which "
+        "variable 1 already names; the search varies each parameter once."
+    )
+    assert issue.hint == "Remove the repeated 'tills' from 'variables'."
+    assert issue.component is None
+
+
+def test_a_search_in_an_experiment_with_scenarios_is_e171() -> None:
+    """A search runs its own candidates, not scenarios (AKS-109, owner to confirm)."""
+    document = machine_count()
+    document["experiments"][0]["scenarios"] = [{"id": "two", "set": {"tills": 2}}]
+    issue = only(experiment_issues(built(document)), "E171", "/experiments/0/scenarios")
+    assert issue.message == (
+        "Experiment 'base' has a search and also lists scenarios; a search runs its own "
+        "candidates from the parameters' values, not scenarios."
+    )
+    assert issue.hint == (
+        "Move the scenarios to an experiment without a search, or remove 'scenarios'."
+    )
+    # An empty list is the default scenario, as without the key.
+    document["experiments"][0]["scenarios"] = []
+    assert experiment_issues(built(document)) == []
+
+
 def test_experiments_are_checked_each_at_its_own_index() -> None:
     document = coffee()
     document["experiments"].append({"id": "short", "length": "1 h", "warmup": "2 h"})
