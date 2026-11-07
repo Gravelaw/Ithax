@@ -183,6 +183,7 @@ Added from the AI persona walkthroughs (`docs/research/spec-3-persona-walkthroug
 
 - **"Try a change"** sits beside any number, quantity or distribution field in the side panel. It opens a small form: "What value do you want to try?" (for example service time 1.2 min instead of 1.8 min, or capacity 3 instead of 2), and a name for the option ("Faster coffee machine").
 - **Edits sent, in one batch and one undo step:** `set_parameter` creating a parameter (named from the block and setting, such as `till_service_mean`, with the current value), `set_setting` linking the field to it (`{"$param": "..."}`), and `set_scenario` on the selected experiment adding a scenario that sets the parameter to the tried value. If the field is already linked to a parameter, only the scenario is added.
+- **Keeping the baseline.** If the selected experiment has no scenarios of its own, it is running the implicit `default` scenario (spec 1 "Experiments"), and adding the tried option would replace it. So the same batch first adds a `set_scenario` with id `baseline`, an empty `set` and the name "Current model". If `baseline` is already taken, it uses `baseline_2`, then `baseline_3`. `default` is reserved and never used. The comparison then always has the current model on one side.
 - **Result:** the field shows "Uses parameter `till_service_mean`", and the Experiment screen lists the new option beside the others. The user never has to learn the word "parameter" to compare two options.
 
 ## Context menu
