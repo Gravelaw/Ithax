@@ -274,16 +274,9 @@ def test_what_cannot_run_yet_raises(tmp_path: Path) -> None:
     searching["objectives"] = [{"id": "wait", "metric": "till.wait.mean", "sense": "minimize"}]
     with pytest.raises(NotImplementedError, match="M5"):
         local.create(file_bytes(searching), "base")
-    product_mix = {
-        "format_version": "0.1",
-        "meta": {"name": "Product mix"},
-        "domain": "optimization",
-        "variables": [{"id": "chairs", "type": "continuous", "lower": 0}],
-        "objective": {"sense": "maximize", "linear": {"chairs": 45}},
-        "constraints": [{"id": "wood", "linear": {"chairs": 5}, "op": "<=", "rhs": 400}],
-    }
-    with pytest.raises(NotImplementedError, match="M5"):
-        LocalTarget(tmp_path / "runs").create(file_bytes(product_mix), "base")
+    # A process model is run for one of its experiments (AKS-108).
+    with pytest.raises(ValueError, match="none was given"):
+        local.create(file_bytes(coffee_shop()))
     assert not (tmp_path / "runs").exists() or list((tmp_path / "runs").iterdir()) == []
 
 

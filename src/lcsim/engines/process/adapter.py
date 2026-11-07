@@ -65,9 +65,11 @@ class ProcessAdapter:
         """Checks beyond the common ones (codes E300 to E399): none so far."""
         return []
 
-    def translate(self, model: Model, experiment_id: str, workdir: Path) -> None:
+    def translate(self, model: Model, experiment_id: str | None, workdir: Path) -> None:
         """Writes the engine input of experiment ``experiment_id`` to
-        ``workdir/input.json``."""
+        ``workdir/input.json``; no experiment id (``None``) raises ``ValueError``."""
+        if experiment_id is None:
+            raise ValueError("a process model runs one of its experiments; none was given")
         write_input(model, experiment_id, workdir)
 
     def run(

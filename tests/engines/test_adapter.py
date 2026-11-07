@@ -78,7 +78,7 @@ def test_a_class_missing_a_method_is_not_an_adapter() -> None:
         def validate(self, model: object) -> list[Issue]:
             return []
 
-        def translate(self, model: object, experiment_id: str, workdir: Path) -> None:
+        def translate(self, model: object, experiment_id: str | None, workdir: Path) -> None:
             return None
 
         def run(self, workdir: Path, on_progress: object, cancel: object, workers: int) -> None:

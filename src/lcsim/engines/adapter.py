@@ -140,7 +140,9 @@ class EngineAdapter(Protocol):
     """One engine's adapter (spec 1 "Engine contract").
 
     ``name`` is the adapter name that ``run.engine`` refers to, equal to its entry-point
-    name; ``version`` is the adapter's version.
+    name; ``version`` is the adapter's version. ``translate`` is given the id of the
+    experiment to run for a ``process`` model and ``None`` for an ``optimization`` model,
+    which has no experiments (AKS-108).
     """
 
     name: str
@@ -148,7 +150,7 @@ class EngineAdapter(Protocol):
 
     def capabilities(self) -> Capabilities: ...
     def validate(self, model: Model) -> list[Issue]: ...
-    def translate(self, model: Model, experiment_id: str, workdir: Path) -> None: ...
+    def translate(self, model: Model, experiment_id: str | None, workdir: Path) -> None: ...
     def run(
         self,
         workdir: Path,

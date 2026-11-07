@@ -16,7 +16,11 @@ It writes nothing itself and knows nothing of the run folder, the manifest or jo
 the run target writes ``summary.json`` and the tables with ``lcsim.runs.tables`` and
 records the state. An exception from the adapter propagates; the run target reports it
 (E190). A plain experiment only: a search experiment (spec 2 "Simulation-based
-optimization") is M5's.
+optimization") is M5's (AKS-109).
+
+An ``optimization`` model has no experiments (spec 3: ``POST .../runs`` takes no
+``experiment_id`` for it), so it is run with ``experiment_id`` ``None``, which ``translate``
+receives as it is; a ``process`` model needs the id of one of its experiments (AKS-108).
 
 The steps are also available one by one, for the ``local`` run target
 (``lcsim.runs.targets``; AKS-103), which runs ``validate``, ``translate`` and ``collect``
@@ -97,7 +101,7 @@ def _ignore(progress: Progress) -> None:
 def run_experiment(
     adapter: EngineAdapter,
     model: Model,
-    experiment_id: str,
+    experiment_id: str | None,
     workdir: Path,
     *,
     on_progress: Callable[[Progress], None] = _ignore,
@@ -107,8 +111,10 @@ def run_experiment(
     """Runs experiment ``experiment_id`` of ``model`` through ``adapter`` in ``workdir``
     and returns the outcome with its ``summary.json`` dict.
 
-    ``cancel`` defaults to a token that is never set. An experiment the model does not
-    have raises ``ValueError``; a search experiment raises ``NotImplementedError`` (M5).
+    ``cancel`` defaults to a token that is never set. ``experiment_id`` is ``None`` for an
+    optimization model. An experiment the model does not have, an experiment id for an
+    optimization model or none for a process model raises ``ValueError``; a search
+    experiment raises ``NotImplementedError`` (M5).
     """
     issues = check_experiment(adapter, model, experiment_id)
     if any(issue.severity == "error" for issue in issues):
@@ -123,13 +129,25 @@ def run_experiment(
     return RunOutcome("done", issues, results, summary)
 
 
-def check_experiment(adapter: EngineAdapter, model: Model, experiment_id: str) -> tuple[Issue, ...]:
+def check_experiment(
+    adapter: EngineAdapter, model: Model, experiment_id: str | None
+) -> tuple[Issue, ...]:
     """Step 1: the adapter's ``validate`` issues, then E173 from the fidelity check; any
     error among them refuses the run.
 
-    An experiment the model does not have raises ``ValueError``; a search experiment
-    raises ``NotImplementedError`` (M5).
+    ``experiment_id`` is ``None`` for an optimization model, which has no experiments. An
+    experiment the model does not have, an experiment id for an optimization model or none
+    for a process model raises ``ValueError``; a search experiment raises
+    ``NotImplementedError`` (M5).
     """
+    if model.program is not None:
+        if experiment_id is not None:
+            raise ValueError(
+                f"an optimization model has no experiments, but {experiment_id!r} was given"
+            )
+        return (*adapter.validate(model), *fidelity_issues(model))
+    if experiment_id is None:
+        raise ValueError("a process model runs one of its experiments; none was given")
     experiment = next((item for item in model.experiments if item.id == experiment_id), None)
     if experiment is None:
         raise ValueError(f"the model has no experiment {experiment_id!r}")
@@ -144,7 +162,7 @@ def check_experiment(adapter: EngineAdapter, model: Model, experiment_id: str) -
 def collect_summary(
     adapter: EngineAdapter,
     model: Model,
-    experiment_id: str,
+    experiment_id: str | None,
     workdir: Path,
     warnings: Sequence[Issue],
 ) -> tuple[Results, dict[str, Any]]:

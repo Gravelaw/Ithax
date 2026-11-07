@@ -14,8 +14,9 @@ guard. Left out and logged, never fatal:
   ``name`` differs from its entry-point name.
 
 ``installed_adapters`` runs discovery once per process. ``installed_engines`` turns
-adapters into the model layer's ``InstalledEngine`` records, adding the model layer's
-stand-in for a Phase 1 domain no adapter handles (``optimization`` until M5).
+adapters into the model layer's ``InstalledEngine`` records. Every Phase 1 domain has its
+adapter from M5, so a domain no installed adapter handles is E102 (the model layer's
+stand-in for ``optimization`` is gone; AKS-108).
 ``select_adapter`` picks the adapter for a model's ``domain`` and ``run.engine`` by the
 spec 1 "Top-level keys" rule, with E102 at ``/domain`` or ``/run/engine``.
 """
@@ -32,7 +33,7 @@ from types import MappingProxyType
 
 from lcsim.engines.adapter import Capabilities, EngineAdapter
 from lcsim.model.issues import Issue
-from lcsim.model.validation import STAND_IN_ENGINES, InstalledEngine, engine_issues
+from lcsim.model.validation import InstalledEngine, engine_issues
 
 __all__ = [
     "ENTRY_POINT_GROUP",
@@ -122,30 +123,23 @@ def installed_adapters() -> Mapping[str, EngineAdapter]:
 def installed_engines(
     adapters: Mapping[str, EngineAdapter] | None = None,
 ) -> tuple[InstalledEngine, ...]:
-    """The engines that engine selection sees: one per adapter, by name, then the model
-    layer's stand-in for each domain no adapter handles.
+    """The engines that engine selection sees: one per adapter, by name.
 
     ``adapters`` defaults to ``installed_adapters()``.
     """
     if adapters is None:
         adapters = installed_adapters()
-    found = tuple(
+    return tuple(
         InstalledEngine(name, adapters[name].capabilities().domains) for name in sorted(adapters)
     )
-    handled = {domain for engine in found for domain in engine.domains}
-    stand_ins = tuple(
-        engine for engine in STAND_IN_ENGINES if not handled.intersection(engine.domains)
-    )
-    return found + stand_ins
 
 
 @dataclass(frozen=True)
 class Selection:
     """The adapter chosen for a model, or the issues that stop the choice.
 
-    ``adapter`` is ``None`` with no issues when the model layer's stand-in handles the
-    domain (``optimization`` until M5), and ``None`` with an E102 issue when no single
-    engine does.
+    ``adapter`` is ``None`` exactly when ``issues`` holds the E102 issue: no single engine
+    handles the domain.
     """
 
     adapter: EngineAdapter | None
@@ -172,5 +166,6 @@ def select_adapter(
         for name, adapter in adapters.items()
         if domain in adapter.capabilities().domains and engine in (None, name)
     ]
-    # engine_issues found exactly one engine: an adapter, or else a stand-in.
-    return Selection(chosen[0] if chosen else None, ())
+    # engine_issues found exactly one engine, and every engine is an adapter.
+    [adapter] = chosen
+    return Selection(adapter, ())

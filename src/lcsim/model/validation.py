@@ -41,6 +41,8 @@ ranges"):
   or no parameter at all) and E150 (a search variable that is not a parameter).
 - ``metric_issues``: E174 (an objective or constraint that names a metric spec 2 does not
   define) and E123 (a constraint ``value`` of the wrong kind for its metric).
+- ``program_issues``: E175 (an ``optimization`` coefficient that names no variable;
+  AKS-108).
 
 A value that comes from a parameter is checked for every value the model gives that
 parameter: its ``value``, its ``min`` and ``max`` (the range a search explores) and each
@@ -92,7 +94,6 @@ __all__ = [
     "IDENTIFIER_PATTERN",
     "RESERVED_COMPONENT_IDS",
     "RESERVED_SCENARIO_ID",
-    "STAND_IN_ENGINES",
     "InstalledEngine",
     "clipping_issues",
     "connection_issues",
@@ -107,6 +108,7 @@ __all__ = [
     "meaning_pass",
     "metric_issues",
     "parameter_issues",
+    "program_issues",
     "range_issues",
     "reference_issues",
     "setting_issues",
@@ -142,20 +144,13 @@ class InstalledEngine:
     """An installed engine adapter as engine selection sees it: its name (spec 1
     ``run.engine``) and the domains its ``capabilities()`` include.
 
-    ``name`` is ``None`` for a model-layer stand-in: until an adapter exists for a domain
-    (M2 for ``process``, M5 for ``optimization``), the model layer stands in for it (spec
-    1 "Top-level keys"). A stand-in has no adapter name, so ``run.engine`` cannot be
-    checked against it and any name is accepted.
+    Every Phase 1 domain has an adapter from M5 (``simpy`` for ``process``, ``highs`` for
+    ``optimization``), so the model layer's stand-in, which had no name, is gone
+    (AKS-108).
     """
 
-    name: str | None
+    name: str
     domains: tuple[str, ...]
-
-
-# The stand-ins for the Phase 1 domains no adapter covers yet: ``optimization`` until M5.
-# The ``process`` adapter is discovered from M2 (spec 1 "Engine contract");
-# ``lcsim.engines.registry`` adds a stand-in only for a domain no installed adapter handles.
-STAND_IN_ENGINES: tuple[InstalledEngine, ...] = (InstalledEngine(None, ("optimization",)),)
 
 
 def engine_issues(
@@ -184,9 +179,9 @@ def engine_issues(
                 else "Install an engine for this domain.",
             )
         ]
-    names = [item.name for item in handling if item.name is not None]
+    names = [item.name for item in handling]
     if engine is not None:
-        chosen = [item for item in handling if item.name is None or item.name == engine]
+        chosen = [item for item in handling if item.name == engine]
         if len(chosen) == 1:
             return []
         return [
@@ -200,7 +195,7 @@ def engine_issues(
                     else f"several installed engines of that name handle the domain "
                     f"{_quote(domain)}."
                 ),
-                f"Name one of: {_words(names)}." if names else "Remove 'engine' from 'run'.",
+                f"Name one of: {_words(names)}.",
             )
         ]
     if len(handling) == 1:
@@ -209,12 +204,9 @@ def engine_issues(
         _issue(
             "E102",
             ("run", "engine"),
-            f"Several installed engines handle the domain {_quote(domain)}"
-            + (f" ({_words(names)})" if names else "")
-            + ", and 'run' names no 'engine' to choose one.",
-            f"Add 'engine' to 'run', naming one of: {_words(names)}."
-            if names
-            else "Add 'engine' to 'run'.",
+            f"Several installed engines handle the domain {_quote(domain)} "
+            f"({_words(names)}), and 'run' names no 'engine' to choose one.",
+            f"Add 'engine' to 'run', naming one of: {_words(names)}.",
         )
     ]
 
@@ -2094,6 +2086,54 @@ def _clipping_issue(use: _Use, mean: float, sd: float, case: _Case) -> Issue:
 # --- the pass --------------------------------------------------------------------------------
 
 
+# --- E175: optimization coefficients ------------------------------------------------------------
+
+
+def program_issues(model: Model) -> list[Issue]:
+    """E175 for each coefficient of an ``optimization`` model's objective or constraints
+    that names no variable in ``variables`` (AKS-108), at the coefficient's key, in file
+    order: the objective's first, then each constraint's. A ``process`` model has none.
+    """
+    program = model.program
+    if program is None:
+        return []
+    ids = [variable.id for variable in program.variables]
+    known = set(ids)
+    owners: list[tuple[tuple[Segment, ...], str, Mapping[str, int | float]]] = [
+        (("objective",), "the objective", program.objective.linear)
+    ]
+    owners += [
+        (("constraints", index), f"constraint {_quote(constraint.id)}", constraint.linear)
+        for index, constraint in enumerate(program.constraints)
+    ]
+    issues: list[Issue] = []
+    for at, owner, linear in owners:
+        for name in linear:
+            if name in known:
+                continue
+            if not ids:
+                hint = f"Add a variable {_quote(name)} to 'variables'."
+            elif len(ids) > _LISTED_IDS:
+                hint = (
+                    f"Correct the name to one of the variables, or add a variable {_quote(name)}."
+                )
+            else:
+                hint = (
+                    f"Correct the name to one of the variables, {_words(ids)}, or add a "
+                    f"variable {_quote(name)}."
+                )
+            issues.append(
+                _issue(
+                    "E175",
+                    (*at, "linear", name),
+                    f"The coefficient of {_quote(name)} in {owner} names no variable in "
+                    "'variables'.",
+                    hint,
+                )
+            )
+    return issues
+
+
 def meaning_pass(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue]:
     """The meaning pass: part A (identifiers, settings that name things, connections),
     then part B (parameters, references, ranges, distributions, data, experiments,
@@ -2113,6 +2153,7 @@ def meaning_pass(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue
         *data_issues(model, data),
         *experiment_issues(model),
         *metric_issues(model),
+        *program_issues(model),
         *unreachable_issues(model),
         *load_issues(model),
         *clipping_issues(model),

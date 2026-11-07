@@ -32,7 +32,7 @@ from lcsim.engines.registry import (
 )
 from lcsim.model.catalogue import PROCESS_TYPES
 from lcsim.model.issues import Issue
-from lcsim.model.validation import STAND_IN_ENGINES, InstalledEngine
+from lcsim.model.validation import InstalledEngine
 
 PROCESS_CLASS = "lcsim.engines.process.adapter:ProcessAdapter"
 
@@ -57,7 +57,7 @@ class DummyAdapter:
     def validate(self, model: object) -> list[Issue]:
         return []
 
-    def translate(self, model: object, experiment_id: str, workdir: Path) -> None:
+    def translate(self, model: object, experiment_id: str | None, workdir: Path) -> None:
         return None
 
     def run(
@@ -294,6 +294,17 @@ def test_the_installed_process_adapter_is_discovered() -> None:
     assert isinstance(adapters["simpy"], ProcessAdapter)
 
 
+def test_the_installed_optimization_adapter_is_discovered() -> None:
+    # AKS-108: the product's second adapter, by its own entry point.
+    from lcsim.engines.optimize.adapter import HighsAdapter as RealHighsAdapter
+
+    [point] = [p for p in entry_points(group=ENTRY_POINT_GROUP) if p.name == "highs"]
+    assert point.value == "lcsim.engines.optimize.adapter:HighsAdapter"
+    adapters = load_adapters()
+    assert list(adapters) == ["highs", "simpy"]
+    assert isinstance(adapters["highs"], RealHighsAdapter)
+
+
 # --- installed adapters, once per process ---------------------------------------------------
 
 
@@ -313,24 +324,19 @@ def test_installed_engines_default_to_the_installed_adapters(
     installed: list[object], fresh_cache: None
 ) -> None:
     installed.append(FakeEntryPoint("dummy", DummyAdapter))
-    assert installed_engines() == (
-        InstalledEngine("dummy", ("process",)),
-        InstalledEngine(None, ("optimization",)),
-    )
+    assert installed_engines() == (InstalledEngine("dummy", ("process",)),)
 
 
-def test_installed_engines_add_a_stand_in_only_for_an_unhandled_domain() -> None:
+def test_installed_engines_are_the_adapters_with_no_stand_in() -> None:
+    # The model layer's stand-in for optimization is gone (AKS-108).
     adapters: dict[str, EngineAdapter] = {"simpy": ProcessAdapter()}
-    assert installed_engines(adapters) == (
-        InstalledEngine("simpy", ("process",)),
-        *STAND_IN_ENGINES,
-    )
+    assert installed_engines(adapters) == (InstalledEngine("simpy", ("process",)),)
     adapters["highs"] = HighsAdapter()
     assert installed_engines(adapters) == (
         InstalledEngine("highs", ("optimization",)),
         InstalledEngine("simpy", ("process",)),
     )
-    assert installed_engines({}) == STAND_IN_ENGINES
+    assert installed_engines({}) == ()
 
 
 # --- selection (spec 1 "Top-level keys") ------------------------------------------------------
@@ -343,10 +349,15 @@ def test_the_one_adapter_for_the_domain_is_selected() -> None:
     assert select_adapter("process", "simpy", {"simpy": simpy}).adapter is simpy
 
 
-def test_the_optimization_stand_in_selects_no_adapter() -> None:
+def test_an_optimization_model_without_its_adapter_is_e102_at_domain() -> None:
+    # No stand-in any more (AKS-108): with no optimization adapter, nothing runs it.
     selection = select_adapter("optimization", None, {"simpy": ProcessAdapter()})
-    assert selection == Selection(None, ())
-    assert select_adapter("optimization", "highs", {}).issues == ()
+    assert selection.adapter is None
+    assert [(issue.code, issue.path) for issue in selection.issues] == [("E102", "/domain")]
+    [issue] = select_adapter("optimization", "highs", {}).issues
+    assert (issue.code, issue.path) == ("E102", "/domain")
+    highs = HighsAdapter()
+    assert select_adapter("optimization", "highs", {"highs": highs}) == Selection(highs, ())
 
 
 def test_run_engine_chooses_among_several_adapters() -> None:
