@@ -481,6 +481,13 @@ class Queue(Block):
     moves when space frees. When full, ``on_full`` ``block`` (default) refuses an item, and
     ``discard`` takes it and throws it away, counted in ``discarded``.
 
+    Every onward move is a step of the replication's ``Transfers``, and ``accepts`` only
+    reads the queue, so no call nests one level per block. A queue full only because its
+    offer to the next block is still due at this instant decides about an arriving item
+    after that offer: a blocking queue refuses it, and it moves in at the same instant when
+    the offer frees space (spec 2 "Blocking"); a discarding queue holds it until then
+    (``_arrivals``) and discards it only if the queue is still full with its offer refused.
+
     ``queue_length`` records the units that could not move on at once: it rises only while
     the queue's offer waits in the next block's ``blocked`` line, so after every instant it
     equals the number of units held."""
@@ -498,73 +505,91 @@ class Queue(Block):
             raise ValueError(f"'{self.id}' has on_full {on_full!r}")
         self.discards = on_full == "discard"
         self.waiting: deque[Item] = deque()
-        # An offer to the next block is due among the replication's transfers
-        # (``pending``); the queue's step waits in the next block's ``blocked`` line
-        # (``stalled``).
+        # Items that reached a discarding queue while it was full with its offer still due,
+        # oldest first, waiting for that offer before the queue decides about them.
+        self._arrivals: deque[Item] = deque()
+        # An offer to the next block is due among the transfers (``pending``); the queue's
+        # step waits in the next block's ``blocked`` line (``stalled``); a decision about
+        # ``_arrivals`` is due among the transfers (``deciding``).
         self._pending = False
         self._stalled = False
-        # ``_advance`` is running, so the queue does not drain itself again from within it
-        # (a queue that feeds itself asks its own ``accepts``).
-        self._advancing = False
+        self._deciding = False
         self.queue_length = TimeWeighted(self.context.window)
         self.waits = Tally()
         self.discarded = 0
 
     def accepts(self) -> bool:
-        if self.discards:
-            return True
-        self._drain()
-        return len(self.waiting) < self.capacity
+        return self.discards or len(self.waiting) < self.capacity
 
     def waiting_items(self) -> int:
-        return len(self.waiting)
+        return len(self.waiting) + len(self._arrivals)
 
     def receive(self, item: Item) -> None:
-        now = self.now
-        self._drain()
-        if len(self.waiting) >= self.capacity:
+        item.arrived = self.now
+        if self._arrivals:
+            self._arrivals.append(item)  # behind the items not yet decided about
+        elif len(self.waiting) < self.capacity:
+            self._enter(item)
+        elif self._stalled:
             assert self.discards  # a blocking queue refuses when full (``accepts``)
-            self.context.wip.add(now, -item.count())
-            if self.context.window.observes(now):
-                self.discarded += 1
-            return
-        item.arrived = now
+            self._discard(item)
+        else:
+            # Full, but the offer to the next block has not been tried yet; a blocking
+            # queue refuses here (``accepts``).
+            assert self.discards
+            self._arrivals.append(item)
+            self._decide_later()
+
+    def _enter(self, item: Item) -> None:
         self.waiting.append(item)
         if self._stalled:
-            self.queue_length.set(now, len(self.waiting))
+            self.queue_length.set(self.now, len(self.waiting))
         elif not self._pending:
             self._pending = True
             self.context.transfers.run(self._offer)
 
-    def _drain(self) -> None:
-        """Before the queue counts as full, its units that the next block takes now move on,
-        so that an offer still due at this instant does not make it refuse or discard."""
-        if len(self.waiting) >= self.capacity and not self._advancing:
-            self._advance()
+    def _discard(self, item: Item) -> None:
+        now = self.now
+        self.context.wip.add(now, -item.count())
+        if self.context.window.observes(now):
+            self.discarded += 1
+
+    def _decide_later(self) -> None:
+        if not self._deciding:
+            self._deciding = True
+            self.context.transfers.run(self._decide)
+
+    def _decide(self) -> None:
+        """After the offer that was due: each held item enters while there is room; with the
+        queue full and its offer refused it is discarded; with an offer due again it waits
+        for that one."""
+        self._deciding = False
+        while self._arrivals:
+            if len(self.waiting) < self.capacity:
+                self._enter(self._arrivals.popleft())
+            elif self._stalled:
+                self._discard(self._arrivals.popleft())
+            else:
+                assert self._pending  # held units always have a step due to move them
+                self._decide_later()
+                return
 
     def _offer(self) -> None:
+        """Moves on the units held now while the next block accepts them; when it refuses,
+        waits in its ``blocked`` line. A unit arriving meanwhile (a queue that feeds itself)
+        gets an offer of its own, so an endless zero-time loop still reaches
+        ``should_stop``."""
         self._pending = False
-        self._advance()
-
-    def _advance(self) -> None:
-        """Moves units on while the next block accepts them; when it refuses, waits in its
-        ``blocked`` line. Only the units held when it starts are moved: a unit arriving
-        meanwhile (a queue that feeds itself) gets an offer of its own among the
-        transfers, so an endless zero-time loop still reaches ``should_stop``."""
         target = self.target("out")
-        self._advancing = True
-        try:
-            for _ in range(len(self.waiting)):
-                if self._stalled:
-                    break
-                if target.accepts():
-                    self._take()
-                else:
-                    self._stalled = True
-                    self.queue_length.set(self.now, len(self.waiting))
-                    target.blocked.append(self._pull)
-        finally:
-            self._advancing = False
+        for _ in range(len(self.waiting)):
+            if self._stalled:
+                break
+            if target.accepts():
+                self._take()
+            else:
+                self._stalled = True
+                self.queue_length.set(self.now, len(self.waiting))
+                target.blocked.append(self._pull)
 
     def _pull(self) -> None:
         """The step in the next block's ``blocked`` line: space has freed there."""

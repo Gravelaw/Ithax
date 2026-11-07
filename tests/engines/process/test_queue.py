@@ -24,7 +24,15 @@ from conftest import (
     series_of_model,
 )
 
-from lcsim.engines.process.blocks import BLOCK_TYPES, Context, Item, Queue, Stopped, Transfers
+from lcsim.engines.process.blocks import (
+    BLOCK_TYPES,
+    Context,
+    Item,
+    Queue,
+    Stopped,
+    Transfers,
+    Unbatch,
+)
 from lcsim.engines.process.statistics import TimeWeighted, Window
 from lcsim.model.catalogue import PROCESS_TYPES
 from lcsim.model.streams import generator_for
@@ -213,24 +221,97 @@ def test_items_arriving_together_are_not_discarded_while_they_can_move_on(
     assert metrics["line.wait.mean"] == 0.0
 
 
-def test_a_queue_whose_items_can_move_on_is_not_full(make_context: ContextMaker) -> None:
-    """Within one transfer step a full queue of one whose item the next block would take
-    still accepts: the item moves on first."""
+def test_a_blocking_queue_takes_a_burst_in_order_at_the_same_instant(
+    make_context: ContextMaker,
+) -> None:
+    """Two items offered together to a blocking queue of one whose next block takes
+    everything: ``accepts`` has no side effects, so the second is refused while the first
+    is still due to move; it then moves in when the first leaves, at the same instant
+    (spec 2 "Blocking"), and both reach the next block at 0 s, in order."""
     context = make_context(0.0, 10.0)
     block = block_queue(context, capacity=1)
     out = recorder(context)
     block.connect("out", out)
+    up = recorder(context, name="up")
     first, second = Item(0.0, 0.0), Item(0.0, 0.0)
     seen: list[bool] = []
 
     def arrive() -> None:
-        block.receive(first)
-        seen.append(block.accepts())
-        block.receive(second)
+        up.send(first, block, lambda: None)
+        up.send(second, block, lambda: None)
+        context.transfers.run(lambda: seen.append(block.accepts()))
 
     context.transfers.run(arrive)
-    assert seen == [True]
+    assert seen == [False]  # read after both offers, before the queue's own offer ran
     assert out.items == [first, second]
+    assert out.times == [0.0, 0.0]
+    assert block.metrics()["queue_length.max"] == 0.0
+
+
+def test_a_burst_is_discarded_once_the_queue_is_full_with_its_offer_refused(
+    make_model: ModelMaker,
+) -> None:
+    """Arrivals every 60 s into a batch of 3, an unbatch, a discarding queue of one and a
+    server (service 150 s, ``queue_capacity`` 0), 600 s. At 120 s item 0 goes to the server
+    ([120, 270)); item 1, held while the queue's offer was due, enters once item 0 has
+    left; item 2 waits for the queue's next offer, which the busy server refuses, so it is
+    discarded. Item 1 moves at 270 s ([270, 420)). At 300 s items 3, 4 and 5 find the queue
+    empty but are decided one after the other: 3 enters, its offer is refused, so 4 and 5
+    are discarded. At 420 s item 3 moves ([420, 570)). At 480 s the same happens to items
+    6, 7 and 8: 6 enters and waits until 570 s, 7 and 8 are discarded."""
+    components = [
+        source("60 s"),
+        {"id": "pack", "type": "batch", "params": {"size": 3}},
+        {"id": "unpack", "type": "unbatch", "params": {}},
+        queue(capacity=1, on_full="discard"),
+        server("till", "150 s", queue_capacity=0),
+        sink(),
+    ]
+    connections = [
+        ("arrivals.out", "pack.in"),
+        ("pack.out", "unpack.in"),
+        ("unpack.out", "line.in"),
+        ("line.out", "till.in"),
+        ("till.out", "exit.in"),
+    ]
+    metrics = metrics_of_model(make_model(components, connections, length="600 s"))
+    assert metrics["line.discarded"] == 5 / 600  # items 2, 4, 5, 7 and 8
+    assert metrics["exit.count"] == 3.0  # items 0, 1 and 3 at 270, 420 and 570 s
+    assert metrics["line.wait.mean"] == (0 + 150 + 120 + 90) / 4
+    # The queue holds item 1 over [120, 270), item 3 over [300, 420), item 6 over
+    # [480, 570).
+    assert metrics["line.queue_length.mean"] == (150 + 120 + 90) / 600
+    assert metrics["line.queue_length.max"] == 1.0
+
+
+@pytest.mark.parametrize("on_full", ["block", "discard"])
+def test_a_burst_through_a_long_chain_of_queues_does_not_recurse(
+    make_context: ContextMaker, on_full: str
+) -> None:
+    """Review of PR #27: an unbatch of 400 items into a line of 400 queues of one, then a
+    block that takes everything. Every item gets through at the same instant, none is
+    discarded, and no call nests one level per queue."""
+    context = make_context(0.0, 10.0)
+    unpack = Unbatch("unpack", {}, context, generator_for(7, 0, "unpack"))
+    queues = [
+        Queue(
+            f"q{index}",
+            {"capacity": 1, "on_full": on_full},
+            context,
+            generator_for(7, 0, f"q{index}"),
+        )
+        for index in range(400)
+    ]
+    out = recorder(context)
+    unpack.connect("out", queues[0])
+    for current, following in pairwise(queues):
+        current.connect("out", following)
+    queues[-1].connect("out", out)
+    items = tuple(Item(0.0, 0.0) for _ in range(400))
+    # As in a run, the unbatch receives its batch inside a transfer step (the batch's move).
+    context.transfers.run(lambda: unpack.receive(Item(0.0, 0.0, contents=items)))
+    assert out.items == list(items)
+    assert all(queue.discarded == 0 and queue.waiting_items() == 0 for queue in queues)
 
 
 def test_a_full_queue_feeding_itself_holds_its_item(make_context: ContextMaker) -> None:
