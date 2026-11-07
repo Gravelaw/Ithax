@@ -4,7 +4,9 @@ The fields, in spec 1 order: ``run_id``, ``project_id``, ``experiment_id``,
 ``scenario_ids``, ``state``, ``created``, ``started``, ``ended``, ``target``, ``host``,
 ``client``, ``engine`` ``{name, version}``, ``generator`` ``{name, numpy_version}`` (from
 ``lcsim.model.streams.generator_info()``), ``product_version``, ``format_version``,
-``seed``, ``fraction``, ``data_files``, and ``error`` on a failed run only.
+``seed``, ``fraction``, ``data_files``, then ``optimizer`` ``{name, version}`` on a search
+run only (the search method and the Optuna version; AKS-109) and ``error`` on a failed run
+only.
 
 Times are ISO 8601 UTC to the millisecond, ending in ``Z``. ``fraction`` is the run's
 progress: 0 when queued, then each progress fraction, 1 at ``done``. ``data_files`` stays
@@ -63,7 +65,7 @@ MANIFEST_KEYS = (
     "fraction",
     "data_files",
 )
-_OPTIONAL_KEYS = ("error",)
+_OPTIONAL_KEYS = ("optimizer", "error")
 
 #: The shortest time between two progress writes (spec 1: at most once a second).
 PROGRESS_INTERVAL_S = 1.0
@@ -87,13 +89,14 @@ def new_manifest(
     engine_version: str,
     format_version: str,
     seed: int | None,
+    optimizer: dict[str, str | None] | None = None,
 ) -> dict[str, Any]:
     """The manifest of a run just created: ``queued``, on the ``local`` target, with no
     progress and no data files. An optimization run has no experiment and draws nothing,
     so its ``experiment_id`` and ``seed`` are ``None`` and its ``scenario_ids`` empty
-    (AKS-108)."""
+    (AKS-108). A search run adds ``optimizer`` (AKS-109)."""
     info = generator_info()
-    return {
+    manifest: dict[str, Any] = {
         "run_id": run_id,
         "project_id": project_id,
         "experiment_id": experiment_id,
@@ -113,6 +116,9 @@ def new_manifest(
         "fraction": 0.0,
         "data_files": [],
     }
+    if optimizer is not None:
+        manifest["optimizer"] = dict(optimizer)
+    return manifest
 
 
 def write_manifest(folder: Path, manifest: dict[str, Any]) -> None:
