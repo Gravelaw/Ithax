@@ -14,6 +14,13 @@
   a child process of the service. Each state change is published to the project's events
   (``run`` events) and to the run's feed (``lcsim.service.run_feed``), each progress report
   to the feed. A run holds the service's lifetime from its acceptance to its final state.
+- **Finishing** (CI on PR #36). On disk a run finishes in one order: tables and
+  ``summary.json``, the manifest with the final state, then ``worker.lock`` removed (E191
+  reads the manifest first). A final state becomes visible (the run endpoints, the run's
+  events, the project's events) only after that and, for a run the queue executed, after
+  its queue place is free (``RunQueue.on_finished``); then its lifetime hold is released.
+  Until then the run endpoints show the run as the service last published it, from the
+  feed, even though its manifest already says final.
 - **Finding.** A ``run_id`` is looked up in the index of each registered project, in
   ``projects.json`` order; the run's manifest is the source of truth for its state.
 - **Recovering.** The first time the service uses a project's runs (on start for every
@@ -96,6 +103,7 @@ class _Active:
     pid: str
     run: LocalRun
     hold: contextlib.ExitStack
+    started: bool = False
 
 
 def _not_found(message: str) -> ServiceError:
@@ -177,7 +185,7 @@ class RunService:
         self.settings = settings
         self.workers = workers
         self.feed = RunFeed()
-        self._queue = RunQueue(settings.max_concurrent_runs)
+        self.queue = RunQueue(settings.max_concurrent_runs, on_finished=self._finished)
         self._lock = threading.Lock()
         self._submitting = threading.Lock()
         self._preparing = threading.Lock()
@@ -227,26 +235,52 @@ class RunService:
     def stop(self, timeout_s: float = STOP_WAIT_S) -> None:
         """Starts no more runs, interrupts every unfinished run (E191) and waits up to
         ``timeout_s`` for them to end."""
-        self._queue.close()
+        self.queue.close()
         with self._lock:
             active = list(self._active.values())
         for item in active:
             item.run.interrupt()
-        if not self._queue.join(timeout_s):
+        if not self.queue.join(timeout_s):
             _log.warning("Runs were still ending when the service stopped.")
 
     # --- the run target's hooks ----------------------------------------------------------
 
     def _on_state(self, run: LocalRun, state: JobState) -> None:
+        """Publishes a state change; a final state of a run the queue started waits for
+        the queue to report it (``_finished``), so that its place is free first."""
         with self._lock:
             active = self._active.get(run.run_id)
-            if state in FINAL_STATES:
-                self._active.pop(run.run_id, None)
+            if active is None:
+                return
+            if state == "running":
+                active.started = True
+            deferred = state in FINAL_STATES and active.started
+        if state in FINAL_STATES:
+            if not deferred:  # a queued run that ended without starting holds no place
+                self._publish_final(run.run_id, state)
+            return
         self.feed.state(run.run_id, state)
-        if active is not None:
-            self.events.run_changed(active.pid, run.run_id, state)
-            if state in FINAL_STATES:
-                active.hold.close()
+        self.events.run_changed(active.pid, run.run_id, state)
+
+    def _finished(self, job: object) -> None:
+        """The queue's report that a run it executed has returned and freed its place."""
+        assert isinstance(job, LocalRun)
+        state = job.state
+        if state in FINAL_STATES:
+            self._publish_final(job.run_id, state)
+        else:
+            _log.error("The run %s returned without reaching a final state.", job.run_id)
+
+    def _publish_final(self, rid: str, state: JobState) -> None:
+        """Makes a final state visible: the feed, the project's events, then the lifetime
+        hold is released."""
+        with self._lock:
+            active = self._active.pop(rid, None)
+        if active is None:
+            return
+        self.feed.state(rid, state)
+        self.events.run_changed(active.pid, rid, state)
+        active.hold.close()
 
     def _on_progress(self, run: LocalRun, fraction: float, message: str) -> None:
         self.feed.progress(run.run_id, fraction, message)
@@ -282,25 +316,39 @@ class RunService:
             self.feed.begin(run.run_id)
             self._index(folder).add(run.run_id, run.manifest["created"], experiment_id)
             self.events.run_changed(pid, run.run_id, "queued")
-            self._queue.submit(run)
+            self.queue.submit(run)
         return run.run_id
 
     # --- reading -----------------------------------------------------------------------
 
     def _view(self, manifest: Mapping[str, Any]) -> dict[str, Any]:
+        """The run as the API shows it. A run still live in the feed is shown as the
+        service last published it, even when its manifest is already final (it is
+        finishing): its state and fraction from the feed, no end time and no error."""
         snapshot = self.feed.snapshot(manifest["run_id"])
-        return {
+        view = {
             "run_id": manifest["run_id"],
             "project_id": manifest.get("project_id"),
             "experiment_id": manifest.get("experiment_id"),
             "state": manifest["state"],
             "fraction": manifest.get("fraction"),
-            "message": "" if snapshot is None else snapshot.message,
+            "message": "",
             "created": manifest["created"],
             "started": manifest.get("started"),
             "ended": manifest.get("ended"),
             "error": manifest.get("error"),
         }
+        if snapshot is not None:
+            view.update(
+                state=snapshot.state,
+                fraction=snapshot.fraction,
+                message=snapshot.message,
+                ended=None,
+                error=None,
+            )
+            if snapshot.state == "queued":
+                view["started"] = None
+        return view
 
     def runs(self, pid: str) -> list[dict[str, Any]]:
         """The runs of project ``pid`` in the order they were accepted."""
@@ -348,10 +396,11 @@ class RunService:
 
     def _done(self, rid: str) -> Path:
         folder, manifest = self.find(rid)
-        if manifest["state"] != "done":
+        state = self._view(manifest)["state"]
+        if state != "done":
             raise _not_allowed(
-                f"The run '{rid}' is {manifest['state']}, so it has no results; they are "
-                "written when it is done."
+                f"The run '{rid}' is {state}, so it has no results; they are written when it "
+                "is done."
             )
         return folder
 

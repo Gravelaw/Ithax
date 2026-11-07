@@ -4,7 +4,9 @@ At most ``max_concurrent`` runs execute at once; the others wait in ``queued`` a
 the order they were submitted. Each run executes in a thread of its own (the run target then
 starts the run's worker process). A job that is no longer ``queued`` when its turn comes
 (cancelled or interrupted while waiting) is skipped. ``close`` starts nothing more, and
-``join`` waits for the runs executing.
+``join`` waits for the runs executing. ``on_finished`` is told of each job the queue
+executed once it has returned and its place is free, so an observer that learns of the end
+then finds the queue as it will be (CI on PR #36).
 
 The threads are daemon threads: a run's worker stops by itself when the service process
 ends (spec 1 "Where the methods run"), and the service stops its runs before it exits.
@@ -16,6 +18,7 @@ import collections
 import logging
 import threading
 import time
+from collections.abc import Callable
 from typing import Protocol
 
 from lcsim.runs.states import JobState
@@ -40,10 +43,13 @@ class Job(Protocol):
 class RunQueue:
     """Runs jobs in arrival order, at most ``max_concurrent`` at once."""
 
-    def __init__(self, max_concurrent: int) -> None:
+    def __init__(
+        self, max_concurrent: int, on_finished: Callable[[Job], None] | None = None
+    ) -> None:
         if max_concurrent < 1:
             raise ValueError(f"max_concurrent {max_concurrent!r} is below 1")
         self.max_concurrent = max_concurrent
+        self.on_finished = on_finished
         self._lock = threading.Lock()
         self._waiting: collections.deque[Job] = collections.deque()
         self._threads: list[threading.Thread] = []
@@ -110,3 +116,8 @@ class RunQueue:
             with self._lock:
                 self._threads.remove(threading.current_thread())
                 self._pump()
+            if self.on_finished is not None:
+                try:
+                    self.on_finished(job)
+                except Exception:
+                    _log.exception("Reporting the end of the run %s failed.", job.run_id)

@@ -28,8 +28,9 @@ from starlette.websockets import WebSocketDisconnect
 from lcsim.engines.adapter import EngineAdapter
 from lcsim.engines.optimize.adapter import HighsAdapter
 from lcsim.engines.process.adapter import ProcessAdapter
-from lcsim.runs.lock import LOCK_FILE, take_lock
+from lcsim.runs.lock import LOCK_FILE, RunLock, take_lock
 from lcsim.runs.manifest import MANIFEST_FILE, read_manifest, write_manifest
+from lcsim.runs.targets import LocalTarget
 from lcsim.service.app import create_app
 from lcsim.service.config import ServiceConfig
 from lcsim.service.errors import ServiceError
@@ -511,10 +512,8 @@ def test_cancelling_a_run_that_has_ended_is_409_with_e188(client: TestClient) ->
 
 @pytest.fixture
 def done_run(client: TestClient) -> str:
-    """A run that is done. The manifest says ``done`` a moment before the run leaves the
-    live feed (the run target writes the manifest, then calls the state hook), so the
-    fixture also waits for that: a stream opened in between rightly starts from the live
-    ``running`` snapshot (CI on PR #36)."""
+    """A run that is done: the run endpoints show ``done`` only once it has left the live
+    feed (CI on PR #36), which the fixture also checks."""
     pid = project(client, shop())
     rid = start(client, pid)
     waiting(client, rid)
@@ -554,27 +553,26 @@ def test_done_run_is_not_live_even_when_the_run_leaves_the_feed_slowly(
     assert code == 1000
 
 
-def test_a_stream_opened_while_a_run_is_ending_sends_done_exactly_once(
-    client: TestClient, slow_final: None
+def test_a_stream_opened_while_a_run_is_finishing_sends_done_exactly_once(
+    client: TestClient, slow_unlock: None
 ) -> None:
-    """Opened in the gap (the manifest says done, the feed still has the run): the stream
-    starts from the live snapshot and still ends with ``done`` once."""
+    """Opened while the manifest is final but the run is not yet published (its lock is
+    still being removed): the stream starts from the live ``running`` and ends with
+    ``done`` once."""
     pid = project(client, shop())
     rid = start(client, pid)
     waiting(client, rid)
     release(client, pid, rid)
-    assert wait_state(client, rid, *FINAL)["state"] == "done"
-    assert state_of(client).runs.feed.snapshot(rid) is not None  # inside the 1 s gap
+    folder = run_folder(client, pid, rid)
+    wait_until(lambda: read_manifest(folder)["state"] == "done")
     with events_of(client, rid) as socket:
         socket.send_text(json.dumps({"token": TOKEN}))
         events, code = read_until_closed(socket)
     assert code == 1000
-    assert events[0]["type"] == "state"
-    assert [event for event in events if event["type"] == "state"][-1] == {
-        "type": "state",
-        "state": "done",
-    }
-    assert sum(1 for event in events if event == {"type": "state", "state": "done"}) == 1
+    states = [event for event in events if event["type"] == "state"]
+    assert states[-1] == {"type": "state", "state": "done"}
+    assert states.count({"type": "state", "state": "done"}) == 1
+    assert not (folder / LOCK_FILE).exists()
 
 
 def test_the_summary_is_summary_json_with_no_findings_yet(
@@ -1136,3 +1134,88 @@ def test_a_manifest_field_of_another_kind_or_out_of_range_is_404(
         assert response.status_code == 404, response.text
         assert_error(response.json(), "E185")
     assert client.get(f"/v1/projects/{pid}/runs").json() == []
+
+
+# --- The finishing order (CI on PR #36) -------------------------------------------------
+
+
+@pytest.fixture
+def slow_unlock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Widens the gap between the manifest turning final and ``worker.lock`` going away."""
+    original = RunLock.release
+
+    def release(self: RunLock, *, remove: bool = False) -> None:
+        if remove:
+            time.sleep(1.0)
+        original(self, remove=remove)
+
+    monkeypatch.setattr(RunLock, "release", release)
+
+
+@pytest.mark.usefixtures("slow_unlock")
+@pytest.mark.parametrize("ending", ["done", "cancelled"])
+def test_a_final_state_is_visible_only_once_the_run_has_finished(
+    client: TestClient, ending: str
+) -> None:
+    """Whoever sees the final state (the run endpoints, the run's events, the project's
+    events) finds the run folder final: no ``worker.lock``, its queue place free and the
+    run gone from the live feed."""
+    pid = project(client, shop())
+    with client.websocket_connect(f"{WS_URL}/v1/projects/{pid}/events") as project_socket:
+        project_socket.send_text(json.dumps({"token": TOKEN}))
+        project_socket.receive_json()
+        rid = start(client, pid)
+        waiting(client, rid)
+        with events_of(client, rid) as socket:
+            socket.send_text(json.dumps({"token": TOKEN}))
+            if ending == "done":
+                release(client, pid, rid)
+            else:
+                client.post(f"/v1/runs/{rid}/cancel")
+            run = wait_state(client, rid, *FINAL)
+            folder = run_folder(client, pid, rid)
+            assert run["state"] == ending
+            assert not (folder / LOCK_FILE).exists()
+            assert state_of(client).runs.feed.snapshot(rid) is None
+            assert state_of(client).runs.queue.running == 0
+            events, _code = read_until_closed(socket)
+        assert events[-1] == {"type": "state", "state": ending}
+        assert not (folder / LOCK_FILE).exists()
+        seen = [project_socket.receive_json() for _ in range(3)]
+    assert seen[-1] == {"type": "run", "run_id": rid, "state": ending}
+    assert not (folder / LOCK_FILE).exists()
+
+
+@pytest.mark.usefixtures("slow_unlock")
+def test_a_finishing_run_is_shown_as_it_was_until_it_has_finished(client: TestClient) -> None:
+    """In the gap the manifest is final but the run endpoints still show ``running``, with
+    no end time or error, and the summary is not yet readable."""
+    pid = project(client, shop())
+    rid = start(client, pid)
+    waiting(client, rid)
+    release(client, pid, rid)
+    folder = run_folder(client, pid, rid)
+    wait_until(lambda: read_manifest(folder)["state"] == "done")
+    if (folder / LOCK_FILE).exists():  # inside the 1 s gap
+        run = get_run(client, rid)
+        assert run["state"] == "running"
+        assert run["ended"] is None
+        assert run["error"] is None
+        assert client.get(f"/v1/runs/{rid}/summary").status_code == 409
+    assert wait_state(client, rid, *FINAL)["state"] == "done"
+
+
+def test_the_finishing_hooks_ignore_runs_they_do_not_know(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Defensive paths: a run this service does not drive, and a job that returned
+    without a final state (logged)."""
+    runs = state_of(client).runs
+    pid = project(client, shop())
+    local = LocalTarget(folder_of(client, pid) / "runs", adapters=runs.adapters)
+    run = local.create(json.dumps(shop()).encode(), "base")
+    runs._on_state(run, "running")
+    runs._publish_final(run.run_id, "done")
+    runs._finished(run)
+    assert "returned without reaching a final state" in caplog.text
+    run.cancel()

@@ -124,3 +124,25 @@ def test_a_closed_queue_starts_nothing_more() -> None:
 def test_max_concurrent_must_be_at_least_one() -> None:
     with pytest.raises(ValueError):
         RunQueue(0)
+
+
+def test_on_finished_is_told_after_the_place_is_free_and_its_failure_is_logged(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    log: list[str] = []
+    seen: list[tuple[str, int]] = []
+    queue: RunQueue
+
+    def finished(job: object) -> None:
+        assert isinstance(job, Job)
+        seen.append((job.run_id, queue.running))
+        raise RuntimeError("observer detail")
+
+    queue = RunQueue(1, on_finished=finished)
+    job = Job("0", log)
+    job.go.set()
+    queue.submit(job)
+    assert queue.join(30)
+    wait_until(lambda: seen)
+    assert seen == [("0", 0)]
+    wait_until(lambda: "Reporting the end of the run 0 failed" in caplog.text)
