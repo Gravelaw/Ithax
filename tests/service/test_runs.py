@@ -511,12 +511,70 @@ def test_cancelling_a_run_that_has_ended_is_409_with_e188(client: TestClient) ->
 
 @pytest.fixture
 def done_run(client: TestClient) -> str:
+    """A run that is done. The manifest says ``done`` a moment before the run leaves the
+    live feed (the run target writes the manifest, then calls the state hook), so the
+    fixture also waits for that: a stream opened in between rightly starts from the live
+    ``running`` snapshot (CI on PR #36)."""
     pid = project(client, shop())
     rid = start(client, pid)
     waiting(client, rid)
     release(client, pid, rid)
     assert wait_state(client, rid, *FINAL)["state"] == "done"
+    wait_until(lambda: state_of(client).runs.feed.snapshot(rid) is None)
     return rid
+
+
+@pytest.fixture
+def slow_final(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Widens the gap between the manifest saying ``done`` and the run leaving the live
+    feed, as a slow runner does (CI on PR #36)."""
+    feed = state_of(client).runs.feed
+    original = feed.state
+
+    def state(run_id: str, new: str) -> None:
+        if new in FINAL:
+            time.sleep(1.0)
+        original(run_id, new)
+
+    monkeypatch.setattr(feed, "state", state)
+
+
+@pytest.mark.usefixtures("slow_final")
+def test_done_run_is_not_live_even_when_the_run_leaves_the_feed_slowly(
+    client: TestClient, done_run: str
+) -> None:
+    assert state_of(client).runs.feed.snapshot(done_run) is None
+    with events_of(client, done_run) as socket:
+        socket.send_text(json.dumps({"token": TOKEN}))
+        events, code = read_until_closed(socket)
+    assert events == [
+        {"type": "state", "state": "done"},
+        {"type": "progress", "fraction": 1.0, "message": ""},
+    ]
+    assert code == 1000
+
+
+def test_a_stream_opened_while_a_run_is_ending_sends_done_exactly_once(
+    client: TestClient, slow_final: None
+) -> None:
+    """Opened in the gap (the manifest says done, the feed still has the run): the stream
+    starts from the live snapshot and still ends with ``done`` once."""
+    pid = project(client, shop())
+    rid = start(client, pid)
+    waiting(client, rid)
+    release(client, pid, rid)
+    assert wait_state(client, rid, *FINAL)["state"] == "done"
+    assert state_of(client).runs.feed.snapshot(rid) is not None  # inside the 1 s gap
+    with events_of(client, rid) as socket:
+        socket.send_text(json.dumps({"token": TOKEN}))
+        events, code = read_until_closed(socket)
+    assert code == 1000
+    assert events[0]["type"] == "state"
+    assert [event for event in events if event["type"] == "state"][-1] == {
+        "type": "state",
+        "state": "done",
+    }
+    assert sum(1 for event in events if event == {"type": "state", "state": "done"}) == 1
 
 
 def test_the_summary_is_summary_json_with_no_findings_yet(
