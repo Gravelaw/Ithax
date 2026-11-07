@@ -1,0 +1,31 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Plan"
+  },
+  "domain": "optimization",
+  "variables": [
+    {
+      "id": "desks",
+      "type": "integer",
+      "lower": 0,
+      "upper": 10
+    }
+  ],
+  "objective": {
+    "sense": "maximize",
+    "linear": {
+      "desks": 3
+    }
+  },
+  "constraints": [
+    {
+      "id": "room",
+      "linear": {
+        "desks": 1
+      },
+      "op": "<=",
+      "rhs": 8
+    }
+  ]
+}
