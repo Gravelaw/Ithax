@@ -17,7 +17,13 @@ def make_run(project: Path, rid: str, created: str, state: str = "done") -> Path
     folder.mkdir(parents=True)
     write_manifest(
         folder,
-        {"run_id": rid, "state": state, "created": created, "experiment_id": "base"},
+        {
+            "run_id": rid,
+            "state": state,
+            "created": created,
+            "experiment_id": "base",
+            "fraction": 0.0,
+        },
     )
     return folder
 

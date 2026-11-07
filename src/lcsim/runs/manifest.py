@@ -36,7 +36,7 @@ from typing import Any
 import lcsim
 from lcsim.model.streams import generator_info
 from lcsim.runs.states import JOB_STATES
-from lcsim.strict_json import read_json_file
+from lcsim.strict_json import MAX_WHOLE, read_json_file, real_in, whole_in
 
 __all__ = [
     "MANIFEST_FILE",
@@ -153,7 +153,10 @@ def read_manifest(folder: Path) -> dict[str, Any]:
 
 def read_run_manifest(folder: Path) -> dict[str, Any] | None:
     """The manifest in ``folder`` when it is a run's: a JSON object whose ``run_id`` is the
-    folder's name, whose ``state`` is a job state and whose ``created`` is text, read by the
+    folder's name, whose ``state`` is a job state, whose ``created`` is text, whose
+    ``project_id``, ``experiment_id``, ``started`` and ``ended`` are text or ``null``, whose
+    ``fraction`` is a number from 0 to 1 and whose ``seed`` is ``null`` or a whole number
+    from 0 to ``MAX_WHOLE``, read by the
     strict reader (``lcsim.strict_json``: no ``NaN``, infinity or text that is not valid
     Unicode, which the product never writes and no response may carry); otherwise
     ``None``."""
@@ -166,9 +169,21 @@ def read_run_manifest(folder: Path) -> dict[str, Any] | None:
         and data.get("run_id") == folder.name
         and data.get("state") in JOB_STATES
         and isinstance(data.get("created"), str)
+        and all(_text_or_null(data.get(key)) for key in _TEXT_OR_NULL)
+        # Typed and bounded (review of PR #36): a fraction from 0 to 1, a seed from 0.
+        and real_in(data.get("fraction"), 0.0, 1.0) is not None
+        and (data.get("seed") is None or whole_in(data["seed"], 0, MAX_WHOLE) is not None)
     ):
         return data
     return None
+
+
+#: The manifest fields the run endpoints show that are text or ``null``.
+_TEXT_OR_NULL = ("project_id", "experiment_id", "started", "ended")
+
+
+def _text_or_null(value: object) -> bool:
+    return value is None or isinstance(value, str)
 
 
 class ManifestWriter:

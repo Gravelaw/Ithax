@@ -1038,3 +1038,43 @@ def test_a_summary_that_cannot_be_written_back_is_404_not_500(
     assert response.status_code == 404, response.text
     assert_error(response.json(), "E185")
     assert client.get(f"/v1/runs/{done_run}").status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("fraction", 10**400),
+        ("fraction", -1),
+        ("fraction", 1.5),
+        ("fraction", True),
+        ("fraction", "1"),
+        ("fraction", None),
+        ("seed", 10**400),
+        ("seed", -1),
+        ("seed", 2**63),
+        ("seed", 1.5),
+        ("seed", True),
+        ("seed", "1"),
+        ("started", 5),
+        ("ended", 10**400),
+        ("experiment_id", 7),
+        ("project_id", 7),
+    ],
+)
+def test_a_manifest_field_of_another_kind_or_out_of_range_is_404(
+    client: TestClient, done_run: str, key: str, value: object
+) -> None:
+    """Review of PR #36: every number read from disk is typed and bounded."""
+    pid = get_run(client, done_run)["project_id"]
+    path = run_folder(client, pid, done_run) / MANIFEST_FILE
+    manifest = json.loads(path.read_text())
+    manifest[key] = value
+    path.write_text(json.dumps(manifest))
+    for response in (
+        client.get(f"/v1/runs/{done_run}"),
+        client.get(f"/v1/runs/{done_run}/summary"),
+        client.get(f"/v1/runs/{done_run}/tables/replications"),
+    ):
+        assert response.status_code == 404, response.text
+        assert_error(response.json(), "E185")
+    assert client.get(f"/v1/projects/{pid}/runs").json() == []

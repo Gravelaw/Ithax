@@ -20,13 +20,20 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from lcsim.runs.limits import DEFAULT_TIME_LIMIT_S, Limits
 from lcsim.service.hardware import SETTINGS_FILE
-from lcsim.strict_json import read_json_file
+from lcsim.strict_json import MAX_WHOLE, read_json_file, real_in, whole_in
 
-__all__ = ["RunSettings", "read_run_settings"]
+__all__ = ["MAX_CONCURRENT_RUNS", "MAX_TIME_LIMIT_S", "RunSettings", "read_run_settings"]
+
+_N = TypeVar("_N", int, float)
+
+#: The bounds of the run settings (review of PR #36, owner to confirm): at most 64 runs at
+#: once, and a time limit of at most 7 days.
+MAX_CONCURRENT_RUNS = 64
+MAX_TIME_LIMIT_S = 7 * 24 * 3600.0
 
 _log = logging.getLogger(__name__)
 
@@ -39,23 +46,14 @@ class RunSettings:
     limits: Limits = field(default_factory=Limits)
 
 
-def _whole(value: object) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool) and value >= 1
-
-
-def _positive(value: object) -> bool:
-    return isinstance(value, int | float) and not isinstance(value, bool) and value > 0
-
-
-def _setting(settings: dict[str, Any], key: str, valid: bool, default: str) -> bool:
-    if key not in settings:
-        return False
-    if not valid:
+def _setting(settings: dict[str, Any], key: str, parsed: _N | None, default: str) -> _N | None:
+    """``parsed`` (the value of ``key`` through its typed, bounded parser), or ``None`` for
+    the default; a value present but refused is logged."""
+    if key in settings and parsed is None:
         _log.warning(
             "%s in %s is not valid; the default (%s) is used.", key, SETTINGS_FILE, default
         )
-        return False
-    return True
+    return parsed
 
 
 def read_run_settings(config_dir: Path) -> RunSettings:
@@ -66,18 +64,28 @@ def read_run_settings(config_dir: Path) -> RunSettings:
         loaded = None
     settings: dict[str, Any] = loaded if isinstance(loaded, dict) else {}
     defaults = RunSettings()
-    concurrent: Any = settings.get("max_concurrent_runs")
-    time_s: Any = settings.get("run_time_limit_s")
-    memory: Any = settings.get("run_memory_limit_bytes")
-    use_concurrent = _setting(settings, "max_concurrent_runs", _whole(concurrent), "1")
-    use_time = _setting(settings, "run_time_limit_s", _positive(time_s), "600")
-    use_memory = _setting(
-        settings, "run_memory_limit_bytes", _whole(memory), "half the physical memory"
+    concurrent = _setting(
+        settings,
+        "max_concurrent_runs",
+        whole_in(settings.get("max_concurrent_runs"), 1, MAX_CONCURRENT_RUNS),
+        "1",
+    )
+    time_s = _setting(
+        settings,
+        "run_time_limit_s",
+        real_in(settings.get("run_time_limit_s"), 0.0, MAX_TIME_LIMIT_S, above_minimum=True),
+        "600",
+    )
+    memory = _setting(
+        settings,
+        "run_memory_limit_bytes",
+        whole_in(settings.get("run_memory_limit_bytes"), 1, MAX_WHOLE),
+        "half the physical memory",
     )
     return RunSettings(
-        max_concurrent_runs=concurrent if use_concurrent else defaults.max_concurrent_runs,
+        max_concurrent_runs=defaults.max_concurrent_runs if concurrent is None else concurrent,
         limits=Limits(
-            time_s=float(time_s) if use_time else DEFAULT_TIME_LIMIT_S,
-            memory_bytes=memory if use_memory else defaults.limits.memory_bytes,
+            time_s=DEFAULT_TIME_LIMIT_S if time_s is None else time_s,
+            memory_bytes=defaults.limits.memory_bytes if memory is None else memory,
         ),
     )
