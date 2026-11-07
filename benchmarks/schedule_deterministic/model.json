@@ -1,0 +1,74 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Schedule, deterministic benchmark",
+    "description": "Spec 2 benchmark schedule, deterministic: arrivals every 8 h from 1 h into a server of capacity 1 with constant service 1 h, on shift with capacity 1 from 0 h to 8 h of every 24 h, 0 otherwise. Each day the shift opens with two items waiting (from 9 h and 17 h the day before): they start at 0 h and 1 h, and the item of 1 h at 2 h, waits 15, 8 and 1 h."
+  },
+  "domain": "process",
+  "components": [
+    {
+      "id": "arrivals",
+      "type": "source",
+      "params": {
+        "interarrival": {
+          "dist": "constant",
+          "value": "8 h"
+        },
+        "first_arrival": "1 h"
+      }
+    },
+    {
+      "id": "server",
+      "type": "server",
+      "params": {
+        "capacity": 1,
+        "service": {
+          "dist": "constant",
+          "value": "1 h"
+        }
+      }
+    },
+    {
+      "id": "shift",
+      "type": "schedule",
+      "params": {
+        "target": "server",
+        "shifts": [
+          {
+            "start": "0 h",
+            "end": "8 h",
+            "capacity": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "exit",
+      "type": "sink",
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": "arrivals.out",
+      "to": "server.in"
+    },
+    {
+      "from": "server.out",
+      "to": "exit.in"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "benchmark",
+      "length": "204 h",
+      "warmup": "12 h",
+      "replications": 2,
+      "seed": 1011
+    }
+  ],
+  "run": {
+    "target": "local",
+    "fidelity": "standard"
+  }
+}

@@ -10,11 +10,9 @@ floats, distributions as objects of SI floats, and the catalogue's defaults fill
 "Components and ports"), so changing them leaves the file byte-equal. The JSON is written
 with a fixed key order and Python's shortest round-trip float text.
 
-The adapter runs ``source``, ``server``, ``delay``, ``branch``, ``queue``, ``batch``,
-``unbatch``, ``store`` and ``sink`` (``BLOCK_TYPES``). Any other type and a server's ``pool``
-(M4) raise ``NotImplementedError`` until they are built; an ``empirical`` with ``data``
-raises ``DataNotYetSupportedError`` (E162) until M6, which validation reports before any
-run.
+The adapter runs every type of spec 2's block reference (``BLOCK_TYPES`` holds every
+type of the model layer's catalogue since M4). An ``empirical`` with ``data`` raises
+``DataNotYetSupportedError`` (E162) until M6, which validation reports before any run.
 """
 
 from __future__ import annotations
@@ -24,7 +22,6 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from lcsim.engines.process.blocks import BLOCK_TYPES
 from lcsim.model.catalogue import PROCESS_TYPES
 from lcsim.model.distributions import DataNotYetSupportedError
 from lcsim.model.model import (
@@ -53,11 +50,6 @@ INPUT_FILE = "input.json"
 #: The layout version of the engine input.
 INPUT_VERSION = 1
 
-# Settings the adapter does not run yet, by component type, with the work that adds them.
-_NOT_YET_SETTINGS: Mapping[str, Mapping[str, str]] = {
-    "server": {"pool": "M4"},
-}
-
 
 def engine_input(model: Model, experiment_id: str) -> dict[str, Any]:
     """The engine input for experiment ``experiment_id`` of ``model``.
@@ -67,8 +59,6 @@ def engine_input(model: Model, experiment_id: str) -> dict[str, Any]:
     experiment = next((item for item in model.experiments if item.id == experiment_id), None)
     if experiment is None:
         raise ValueError(f"the model has no experiment '{experiment_id}'")
-    for component in model.components:
-        _check_supported(component)
     return {
         "input_version": INPUT_VERSION,
         "experiment": _experiment(experiment),
@@ -107,20 +97,6 @@ def read_input(workdir: Path) -> dict[str, Any]:
     if document.get("input_version") != INPUT_VERSION:
         raise ValueError(f"'{workdir / INPUT_FILE}' is not a version {INPUT_VERSION} input")
     return document
-
-
-def _check_supported(component: Component) -> None:
-    if component.type not in BLOCK_TYPES:
-        raise NotImplementedError(
-            f"the process adapter does not run '{component.type}' blocks yet "
-            f"(component '{component.id}'); it arrives in M4"
-        )
-    for name, work in _NOT_YET_SETTINGS.get(component.type, {}).items():
-        if name in component.settings:
-            raise NotImplementedError(
-                f"the process adapter does not run a {component.type}'s '{name}' setting "
-                f"yet (component '{component.id}'); it arrives in {work}"
-            )
 
 
 def _experiment(experiment: Experiment) -> dict[str, Any]:

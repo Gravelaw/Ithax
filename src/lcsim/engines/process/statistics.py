@@ -74,8 +74,12 @@ class TimeWeighted:
 
     def mean(self) -> float:
         """The time-weighted mean over the observed period."""
+        return self.integral() / self._window.period
+
+    def integral(self) -> float:
+        """The integral of the value over the observed period."""
         self._advance(self._window.end)
-        return self._area / self._window.period
+        return self._area
 
     def maximum(self) -> float:
         """The largest value in the observed period."""

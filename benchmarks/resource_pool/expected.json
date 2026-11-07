@@ -1,0 +1,44 @@
+[
+  {
+    "metric": "server_a.wait.mean",
+    "value": 270.0,
+    "method": "three_se",
+    "source": "One pool unit: one item at a time in service, first come first served, so M/M/1: E(W) = (rho/mu)/(1 - rho), rho = 0.75, 1/mu = 90 s: 270 s; Adan and Resing, Queueing Systems (2015), section 4.3",
+    "milestone": "M4"
+  },
+  {
+    "metric": "server_a.queue_length.mean",
+    "value": 2.25,
+    "method": "three_se",
+    "source": "M/M/1 E(Lq) = rho^2/(1 - rho) = 2.25, an item holding a server unit while it waits for the pool counting as waiting (spec 2 \"Pool\"); Adan and Resing, Queueing Systems (2015), section 4.3",
+    "milestone": "M4"
+  },
+  {
+    "metric": "server_a.utilization",
+    "value": 0.375,
+    "method": "three_se",
+    "source": "One unit of two in service a fraction rho = 0.75 of the time: 0.75/2; a unit waiting for the pool is not busy (spec 2 \"Pool\")",
+    "milestone": "M4"
+  },
+  {
+    "metric": "pool_a.utilization",
+    "value": 0.75,
+    "method": "three_se",
+    "source": "The pool unit is held exactly while an item is in service: rho = lambda/mu = 90 s / 120 s = 0.75",
+    "milestone": "M4"
+  },
+  {
+    "metric": "server_b.wait.mean",
+    "value": 115.71428571428571,
+    "method": "three_se",
+    "source": "Two pool units and two server units: M/M/2, E(W) = Pi_W/(1 - rho) x 1/(c mu), Erlang C Pi_W = 9/14, rho = 0.75, c = 2, 1/mu = 90 s: 810/7 s (1.9286 min); Adan and Resing, Queueing Systems (2015), equations (5.1) and (5.3)",
+    "milestone": "M4"
+  },
+  {
+    "metric": "pool_b.utilization",
+    "value": 0.75,
+    "method": "three_se",
+    "source": "Busy pool units over 2: lambda/(c mu) = (1/60)/(2/90) = 0.75",
+    "milestone": "M4"
+  }
+]

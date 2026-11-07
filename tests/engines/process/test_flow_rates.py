@@ -155,3 +155,80 @@ def test_a_store_stops_the_rate_because_its_orders_set_what_gets_through(
     assert metrics["till.wait.mean"] == 0.0
     assert metrics["till.queue_length.max"] == 0.0
     assert metrics["exit.count"] == 9.0  # at 210, 330, ..., 1,170 s
+
+
+def test_a_schedule_stops_the_rate_because_its_server_serves_less(
+    make_model: ModelMaker,
+) -> None:
+    """Spec 1 "Validation": a schedule stops the rate at its target, which is not checked
+    (AKS-107). Arrivals every 60 s into a server of service 40 s on shift over [0, 100) of
+    every 200 s, 1,200 s. Its nominal load is 2/3, but on shift it starts at most three
+    items a period (at 200k, 200k + 40 and 200k + 80 s; only two in the first, which has two
+    arrivals), so 17 of the 20 items leave, not the 20 a propagated rate would give."""
+    components = [
+        source(),
+        {"id": "till", "type": "server", "params": {"capacity": 1, "service": constant("40 s")}},
+        {
+            "id": "rota",
+            "type": "schedule",
+            "params": {
+                "target": "till",
+                "period": "200 s",
+                "shifts": [{"start": "0 s", "end": "100 s", "capacity": 1}],
+            },
+        },
+        sink(),
+    ]
+    model = make_model(components, chain("arrivals", "till", "exit"), length="1200 s")
+    rates = flow_rates(model)
+    assert rates["till"] == Fraction(1, 60)
+    assert rates["exit"] is None
+    assert load_issues(model) == []
+    metrics = metrics_of_model(model)
+    assert metrics["arrivals.created"] == 20.0
+    assert metrics["exit.count"] == 17.0
+    assert metrics["till.queue_length.max"] >= 3.0
+
+
+def test_a_failure_stops_the_rate_at_its_server_and_one_on_a_scheduled_pool(
+    make_model: ModelMaker,
+) -> None:
+    """A failure stops the rate at its target, and a schedule on a pool stops it at every
+    server of that pool; neither server is checked (spec 1 "Validation")."""
+    components = [
+        source(),
+        {
+            "id": "till",
+            "type": "server",
+            "params": {"capacity": 1, "service": constant("40 s"), "pool": "staff"},
+        },
+        {"id": "pack", "type": "server", "params": {"capacity": 1, "service": constant("40 s")}},
+        {"id": "staff", "type": "resource_pool", "params": {"capacity": 1}},
+        {
+            "id": "rota",
+            "type": "schedule",
+            "params": {
+                "target": "staff",
+                "period": "200 s",
+                "shifts": [{"start": "0 s", "end": "100 s", "capacity": 1}],
+            },
+        },
+        {
+            "id": "breakdown",
+            "type": "failure",
+            "params": {
+                "target": "pack",
+                "time_to_failure": constant("100 s"),
+                "time_to_repair": constant("100 s"),
+            },
+        },
+        sink(),
+    ]
+    model = make_model(components, chain("arrivals", "till", "pack", "exit"), length="1200 s")
+    rates = flow_rates(model)
+    assert rates["till"] == Fraction(1, 60)
+    assert rates["pack"] is None and rates["exit"] is None
+    assert load_issues(model) == []
+    metrics = metrics_of_model(model)
+    assert metrics["exit.count"] < metrics["arrivals.created"]
+    assert metrics["pack.availability"] == 600 / 1200

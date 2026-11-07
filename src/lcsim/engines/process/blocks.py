@@ -49,6 +49,7 @@ as objects of resolved numbers.
 
 from __future__ import annotations
 
+import math
 from collections import deque
 from collections.abc import Callable, Generator, Mapping
 from dataclasses import dataclass, field
@@ -69,8 +70,11 @@ __all__ = [
     "Branch",
     "Context",
     "Delay",
+    "Failure",
     "Item",
     "Queue",
+    "ResourcePool",
+    "Schedule",
     "Server",
     "Sink",
     "Source",
@@ -78,6 +82,7 @@ __all__ = [
     "Store",
     "Transfers",
     "Unbatch",
+    "Units",
     "sampler_from_json",
 ]
 
@@ -212,6 +217,10 @@ class Block:
         except KeyError:
             raise ValueError(f"output port '{self.id}.{port}' is not connected") from None
 
+    def bind(self, blocks: Mapping[str, Block]) -> None:
+        """Finds the blocks its settings name (a server's ``pool``, a schedule's or failure's
+        ``target``), once every block exists and before any starts; most name none."""
+
     def start(self) -> None:
         """Starts the block's own processes at time 0; most blocks have none."""
 
@@ -315,16 +324,123 @@ class Source(Block):
         }
 
 
-class Server(Block):
+@dataclass(eq=False)
+class _Hold:
+    """One item holding a unit of a server: its order of seizing and of starting service,
+    when its service ends, and its state (spec 2 "Pool" and "Failure")."""
+
+    item: Item
+    seized: int
+    #: ``reserved`` (holds the server unit, its service not begun), ``serving``,
+    #: ``suspended`` (by a failure) or ``finished`` (waiting to move on).
+    state: str = "reserved"
+    started: int = 0
+    ends: float = 0.0
+    remaining: float = 0.0
+    #: Bumped to cancel the end of service already scheduled.
+    timer: int = 0
+    #: On the failed unit.
+    broken: bool = False
+    #: Holds a pool unit.
+    granted: bool = False
+
+
+class Units(Block):
+    """A block with units whose number can change over time: a server or a pool.
+
+    ``capacity`` is the nominal number of units. A ``schedule`` sets ``scheduled`` (capped
+    at ``capacity``) and a ``failure`` counts ``failed`` units; the available capacity is
+    the scheduled capacity minus the failed units, at least 0 (spec 2 "Schedule" and
+    "Failure"). Without either, it is ``capacity`` for ever and the statistics are computed
+    exactly as before the two blocks existed, so no result changes.
+
+    With either, ``utilization`` is the time-integral of the busy units, counted at each
+    instant up to the available capacity, over the time-integral of that capacity; NaN when
+    nothing is available over the whole period. ``busy`` counts the busy units. A rise of
+    the available capacity runs ``on_rise`` as a transfer step, so waiting items start at
+    that instant."""
+
+    def _setup_units(self, capacity: int, on_rise: Callable[[], None]) -> None:
+        self.capacity = capacity
+        self.busy = 0
+        self._on_rise = on_rise
+        self.scheduled = capacity
+        self.failed = 0
+        self.has_schedule = False
+        self.has_failure = False
+        window = self.context.window
+        self.available_units = TimeWeighted(window, float(capacity))
+        self.scheduled_units = TimeWeighted(window, float(capacity))
+        self.up = TimeWeighted(window, 1.0)
+        self.counted_busy = TimeWeighted(window)
+        self.busy_units = TimeWeighted(window)
+
+    @property
+    def available(self) -> int:
+        """The units that may hold an item now."""
+        return max(0, min(self.scheduled, self.capacity) - self.failed)
+
+    @property
+    def varies(self) -> bool:
+        """Whether a schedule or a failure changes the block's capacity."""
+        return self.has_schedule or self.has_failure
+
+    def track(self) -> None:
+        """Records the capacity statistics after a change, when a schedule or failure acts."""
+        if not self.varies:
+            return
+        now = self.now
+        available = self.available
+        self.available_units.set(now, available)
+        self.scheduled_units.set(now, min(self.scheduled, self.capacity))
+        self.up.set(now, 1.0 if self.failed < self.capacity else 0.0)
+        self.counted_busy.set(now, min(self.busy, available))
+
+    def set_scheduled(self, capacity: int) -> None:
+        """The scheduled capacity becomes ``capacity`` now (spec 2 "Schedule")."""
+        before = self.available
+        self.scheduled = capacity
+        self.track()
+        if self.available > before:
+            self.context.transfers.run(self._on_rise)
+
+    def utilization(self) -> float:
+        """Spec 2 ``<server>.utilization`` and ``<pool>.utilization``."""
+        if not self.varies:
+            return self.busy_units.mean() / self.capacity
+        available = self.available_units.integral()
+        return self.counted_busy.integral() / available if available > 0.0 else math.nan
+
+    def utilization_level(self) -> float:
+        """The ``utilization`` time-series value now: busy units over ``capacity``, or, with
+        a schedule or failure, busy units up to the available ones over those, 0 when none
+        is available."""
+        busy = self.busy
+        if not self.varies:
+            return busy / self.capacity
+        available = self.available
+        return min(busy, available) / available if available > 0 else 0.0
+
+
+class Server(Units):
     """Items wait in the server's own queue, then hold one unit of capacity for one service
     time; ``discipline`` ``fifo`` (default) or ``lifo`` picks the next waiting item. With
-    ``queue_capacity`` the server accepts an item only while a unit is free or fewer than
-    that many items wait; a finished item the next block refuses keeps its unit busy."""
+    ``queue_capacity`` the server accepts an item only while a unit is available or fewer
+    than that many items wait; a finished item the next block refuses keeps its unit busy.
+
+    With ``pool`` an item that takes a unit then asks the pool for one of its units; its
+    wait and service begin when it holds both, and it releases both when it moves on (spec
+    2 "Pool"). While it waits for the pool unit it counts as waiting, not busy.
+
+    A ``failure`` takes one unit (``fail``): an available unit holding no item if there is
+    one, otherwise the unit of the item in service that started last, which is suspended
+    with its remaining service time and resumes at the repair (``repair``); otherwise a unit
+    holding a finished item, which still moves on; otherwise a unit whose item waits for the
+    pool, whose service then begins only at the repair (spec 2 "Failure")."""
 
     outputs = ("out",)
 
     def configure(self, settings: Mapping[str, Any]) -> None:
-        self.capacity = int(settings["capacity"])
         self.service = sampler_from_json(settings["service"])
         queue_capacity = settings.get("queue_capacity")
         self.queue_capacity: int | None = None if queue_capacity is None else int(queue_capacity)
@@ -334,12 +450,31 @@ class Server(Block):
         self._next: Callable[[], Item] = (
             self._waiting_first if discipline == "fifo" else self._waiting_last
         )
+        pool = settings.get("pool")
+        self.pool_id: str | None = None if pool is None else str(pool)
+        self.pool: ResourcePool | None = None
         self.waiting: deque[Item] = deque()
-        self.busy = 0
-        window = self.context.window
-        self.queue_length = TimeWeighted(window)
-        self.busy_units = TimeWeighted(window)
+        # Units holding an item, and items holding a unit whose service has not begun; the
+        # busy units (``utilization``) are those in service or holding a finished item.
+        self.held = 0
+        self.reserved = 0
+        self._seized = 0
+        self._started = 0
+        self._finished = 0
+        # Holds in service by start order, and holds waiting for the pool by seizing order.
+        self._serving: dict[int, _Hold] = {}
+        self._reserving: dict[int, _Hold] = {}
+        # Holds on a failed unit, oldest failure first.
+        self._broken: deque[_Hold] = deque()
+        self._setup_units(int(settings["capacity"]), self._capacity_rose)
+        self.queue_length = TimeWeighted(self.context.window)
         self.waits = Tally()
+
+    def bind(self, blocks: Mapping[str, Block]) -> None:
+        if self.pool_id is not None:
+            pool = blocks[self.pool_id]
+            assert isinstance(pool, ResourcePool)  # validation checks the type (E124)
+            self.pool = pool
 
     def _waiting_first(self) -> Item:
         return self.waiting.popleft()
@@ -350,52 +485,157 @@ class Server(Block):
     def accepts(self) -> bool:
         return (
             self.queue_capacity is None
-            or self.busy < self.capacity
+            or self.held < self.available
             or len(self.waiting) < self.queue_capacity
         )
 
     def waiting_items(self) -> int:
-        return len(self.waiting)
+        return len(self.waiting) + self.reserved
+
+    def _note_queue(self) -> None:
+        """Records the number waiting when it has changed."""
+        waiting = len(self.waiting) + self.reserved
+        if waiting != self.queue_length.value:
+            self.queue_length.set(self.now, waiting)
 
     def receive(self, item: Item) -> None:
         item.arrived = self.now
-        if self.busy < self.capacity:
-            self._begin(item)
+        if not self.waiting and self.held < self.available:
+            self._seize(item)
         else:
             self.waiting.append(item)
-            self.queue_length.set(self.now, len(self.waiting))
+        self._note_queue()
 
-    def _begin(self, item: Item) -> None:
+    def _seize(self, item: Item) -> None:
+        """The item takes a unit, then a pool unit when the server has a pool."""
+        self.held += 1
+        self._seized += 1
+        hold = _Hold(item, self._seized)
+        if self.pool is None or self.pool.take(self, hold):
+            hold.granted = self.pool is not None
+            self._begin(hold)
+        else:
+            self.reserved += 1
+            self._reserving[hold.seized] = hold
+
+    def pool_granted(self, hold: _Hold) -> None:
+        """The pool has given ``hold`` its unit; its service begins unless its server unit
+        has failed meanwhile, and then begins at the repair."""
+        hold.granted = True
+        if hold.broken:
+            return
+        del self._reserving[hold.seized]
+        self.reserved -= 1
+        self._note_queue()
+        self._begin(hold)
+
+    def _begin(self, hold: _Hold) -> None:
         now = self.now
         if self.context.window.observes(now):
-            self.waits.observe(now - item.arrived)
+            self.waits.observe(now - hold.item.arrived)
         self.busy += 1
         self.busy_units.set(now, self.busy)
-        done = self.context.env.timeout(self.service(self.rng))
-        done.callbacks.append(lambda _event: self._end(item))
+        self._started += 1
+        hold.started = self._started
+        hold.state = "serving"
+        self._serving[hold.started] = hold
+        self.track()
+        self._serve(hold, self.service(self.rng))
 
-    def _end(self, item: Item) -> None:
+    def _serve(self, hold: _Hold, duration: float) -> None:
+        hold.ends = self.now + duration
+        hold.timer += 1
+        timer = hold.timer
+
+        def done(_event: simpy.Event) -> None:
+            if hold.timer == timer:  # not suspended since
+                self._end(hold)
+
+        self.context.env.timeout(duration).callbacks.append(done)
+
+    def _end(self, hold: _Hold) -> None:
         # The item leaves before its unit is released (spec 2 "Blocking"); a refused item
         # keeps the unit until it moves.
-        self.send(item, self.target("out"), self._release)
+        del self._serving[hold.started]
+        hold.state = "finished"
+        self._finished += 1
+        self.send(hold.item, self.target("out"), self._release)
 
     def _release(self) -> None:
+        self._finished -= 1
         self.busy -= 1
         self.busy_units.set(self.now, self.busy)
-        if self.waiting:
-            following = self._next()
-            self.queue_length.set(self.now, len(self.waiting))
-            self._begin(following)
+        self.held -= 1
+        if self.pool is not None:
+            self.pool.release()
+        self.track()
+        self._fill()
         self.space_freed()
 
+    def _fill(self) -> None:
+        """Waiting items take units while units are available."""
+        while self.waiting and self.held < self.available:
+            self._seize(self._next())
+            self._note_queue()
+
+    def _capacity_rose(self) -> None:
+        self._fill()
+        self.space_freed()
+
+    def fail(self) -> None:
+        """One unit fails now (spec 2 "Failure")."""
+        before = self.available
+        self.failed += 1
+        if self.held >= before:  # no available unit is free
+            if self._serving:
+                hold = self._serving.pop(max(self._serving))
+                hold.timer += 1  # cancels its end
+                hold.remaining = hold.ends - self.now
+                hold.state = "suspended"
+                hold.broken = True
+                self.busy -= 1
+                self.busy_units.set(self.now, self.busy)
+                self._broken.append(hold)
+            elif not self._finished and self._reserving:
+                hold = self._reserving.pop(max(self._reserving))
+                hold.broken = True
+                self._broken.append(hold)
+            # Otherwise the unit holds a finished item, which still moves on.
+        self.track()
+
+    def repair(self) -> None:
+        """The failed unit that failed first is repaired now; the item it held goes on."""
+        before = self.available
+        self.failed -= 1
+        if self._broken:
+            hold = self._broken.popleft()
+            hold.broken = False
+            if hold.state == "suspended":
+                hold.state = "serving"
+                self.busy += 1
+                self.busy_units.set(self.now, self.busy)
+                self._serving[hold.started] = hold
+                self._serve(hold, hold.remaining)
+            elif hold.granted:  # it got its pool unit while its server unit was failed
+                self.reserved -= 1
+                self._note_queue()
+                self._begin(hold)
+            else:
+                self._reserving[hold.seized] = hold
+        self.track()
+        if self.available > before:
+            self.context.transfers.run(self._capacity_rose)
+
     def metrics(self) -> dict[str, float]:
-        # No schedule or failure until M4: availability and scheduled fraction are 1, and
-        # the busy count never exceeds the capacity, so utilization never exceeds 1.
         return {
             "wait.mean": self.waits.mean(),
-            "utilization": self.busy_units.mean() / self.capacity,
-            "availability": 1.0,
-            "scheduled_fraction": 1.0,
+            "utilization": self.utilization(),
+            "availability": self.up.mean() if self.has_failure else 1.0,
+            "scheduled_fraction": (
+                self.scheduled_units.integral() / (self.capacity * self.context.window.period)
+                if self.has_schedule
+                else 1.0
+            ),
             "queue_length.mean": self.queue_length.mean(),
             "queue_length.max": self.queue_length.maximum(),
         }
@@ -403,8 +643,8 @@ class Server(Block):
     def levels(self) -> dict[str, float]:
         # Units holding a refused item are busy (spec 2 "Blocking").
         return {
-            "queue_length": float(len(self.waiting)),
-            "utilization": self.busy / self.capacity,
+            "queue_length": float(len(self.waiting) + self.reserved),
+            "utilization": self.utilization_level(),
         }
 
 
@@ -765,6 +1005,139 @@ class Store(Block):
         return {"stock": float(self.on_hand)}
 
 
+class ResourcePool(Units):
+    """Shared units that servers name in their ``pool`` (spec 2 "Pool"). A server's item
+    asks for a unit with ``take``; it gets one at once when nobody is waiting and a unit is
+    available, and otherwise waits in ``line``, first come first served across servers.
+    ``release`` gives the unit back; the next item in line gets it in a transfer step.
+    ``utilization`` is over the pool's units, as a server's; a schedule may change them."""
+
+    def configure(self, settings: Mapping[str, Any]) -> None:
+        # ``busy`` counts the units held.
+        self.line: deque[tuple[Server, _Hold]] = deque()
+        self._granting = False
+        self._setup_units(int(settings["capacity"]), self._capacity_rose)
+
+    def take(self, server: Server, hold: _Hold) -> bool:
+        """Whether ``hold`` gets a unit now; otherwise it joins the line."""
+        if not self.line and self.busy < self.available:
+            self._hold_one()
+            return True
+        self.line.append((server, hold))
+        return False
+
+    def _hold_one(self) -> None:
+        self.busy += 1
+        self.busy_units.set(self.now, self.busy)
+        self.track()
+
+    def release(self) -> None:
+        """A unit comes back now."""
+        self.busy -= 1
+        self.busy_units.set(self.now, self.busy)
+        self.track()
+        if self.line and not self._granting:
+            self._granting = True
+            self.context.transfers.run(self._capacity_rose)
+
+    def _capacity_rose(self) -> None:
+        """Gives units to the line, in order, while units are available."""
+        self._granting = False
+        while self.line and self.busy < self.available:
+            server, hold = self.line.popleft()
+            self._hold_one()
+            server.pool_granted(hold)
+
+    def metrics(self) -> dict[str, float]:
+        return {"utilization": self.utilization()}
+
+    def levels(self) -> dict[str, float]:
+        return {"utilization": self.utilization_level()}
+
+
+class Schedule(Block):
+    """Sets the scheduled capacity of its ``target``, a server or a pool, over time (spec 2
+    "Schedule"): the sum of the ``shifts`` covering the time within each ``period``, 0
+    where none does. The capacity at time 0 is set when the blocks are bound, before any
+    event; each later change is a SimPy timeout of this block's process. SimPy's resource
+    capacity cannot change, so the adapter does this itself (the M2 "Engine gap")."""
+
+    def configure(self, settings: Mapping[str, Any]) -> None:
+        self.target_id = str(settings["target"])
+        self.period = float(settings["period"])
+        shifts = [
+            (float(shift["start"]), float(shift["end"]), int(shift["capacity"]))
+            for shift in settings["shifts"]
+        ]
+        cuts = sorted(
+            {0.0}
+            | {start for start, _, _ in shifts}
+            | {end for _, end, _ in shifts if end < self.period}
+        )
+        # (offset within the period, capacity from there), merging equal neighbours.
+        self.segments: list[tuple[float, int]] = []
+        for cut in cuts:
+            capacity = sum(units for start, end, units in shifts if start <= cut < end)
+            if not self.segments or self.segments[-1][1] != capacity:
+                self.segments.append((cut, capacity))
+        self.subject: Units | None = None
+
+    def bind(self, blocks: Mapping[str, Block]) -> None:
+        subject = blocks[self.target_id]
+        assert isinstance(subject, Units)  # validation checks the type (E124)
+        self.subject = subject
+        subject.has_schedule = True
+        subject.set_scheduled(self.segments[0][1])
+
+    def start(self) -> None:
+        if len(self.segments) > 1:
+            self.context.env.process(self._run())
+
+    def _run(self) -> Generator[simpy.Event, Any, None]:
+        env = self.context.env
+        assert self.subject is not None
+        cycle = 0.0
+        index = 0
+        while True:
+            index += 1
+            if index == len(self.segments):
+                index = 0
+                cycle += self.period
+            offset, capacity = self.segments[index]
+            yield env.timeout(cycle + offset - env.now)
+            self.subject.set_scheduled(capacity)
+
+
+class Failure(Block):
+    """Fails one unit of its ``target`` server at a time (spec 2 "Failure"): a
+    ``time_to_failure`` drawn from this block's own stream at time 0 and after each repair,
+    on calendar time, then a ``time_to_repair`` drawn at the failure."""
+
+    def configure(self, settings: Mapping[str, Any]) -> None:
+        self.target_id = str(settings["target"])
+        self.time_to_failure = sampler_from_json(settings["time_to_failure"])
+        self.time_to_repair = sampler_from_json(settings["time_to_repair"])
+        self.subject: Server | None = None
+
+    def bind(self, blocks: Mapping[str, Block]) -> None:
+        subject = blocks[self.target_id]
+        assert isinstance(subject, Server)  # validation checks the type (E124)
+        self.subject = subject
+        subject.has_failure = True
+
+    def start(self) -> None:
+        self.context.env.process(self._run())
+
+    def _run(self) -> Generator[simpy.Event, Any, None]:
+        env = self.context.env
+        assert self.subject is not None
+        while True:
+            yield env.timeout(self.time_to_failure(self.rng))
+            self.subject.fail()
+            yield env.timeout(self.time_to_repair(self.rng))
+            self.subject.repair()
+
+
 class Sink(Block):
     """Removes the unit and records its statistics; a batch counts once, with its own
     creation time, and every item it holds leaves work in progress."""
@@ -799,6 +1172,9 @@ BLOCK_TYPES: Mapping[str, type[Block]] = MappingProxyType(
         "batch": Batch,
         "unbatch": Unbatch,
         "store": Store,
+        "resource_pool": ResourcePool,
+        "schedule": Schedule,
+        "failure": Failure,
         "sink": Sink,
     }
 )
