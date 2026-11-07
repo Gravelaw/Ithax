@@ -57,3 +57,31 @@ def test_read_json_file_reads_or_raises(tmp_path: Path) -> None:
 def test_encode_json_round_trips_what_read_json_reads() -> None:
     value = {"a": [1, 2.5, "café"]}
     assert read_json(encode_json(value)) == value
+
+
+# --- Typed, bounded fields (review of PR #36, third finding on numbers read from disk) ---
+
+from lcsim.strict_json import MAX_WHOLE, real_in, whole_in  # noqa: E402
+
+HUGE = 10**400
+BAD_KINDS: list[object] = [True, False, None, "3", [3], {"a": 3}]
+
+
+def test_whole_in_takes_only_whole_numbers_in_range() -> None:
+    assert whole_in(3, 1, 64) == 3
+    assert whole_in(1, 1, 64) == 1
+    assert whole_in(64, 1, 64) == 64
+    assert whole_in(MAX_WHOLE, 0, MAX_WHOLE) == MAX_WHOLE
+    for value in [0, -1, 65, HUGE, -HUGE, 3.0, 2.5, float("inf"), float("nan"), *BAD_KINDS]:
+        assert whole_in(value, 1, 64) is None, value
+
+
+def test_real_in_takes_finite_numbers_in_range_without_raising() -> None:
+    assert real_in(1.5, 0.0, 10.0) == 1.5
+    assert real_in(2, 0.0, 10.0) == 2.0
+    assert isinstance(real_in(2, 0.0, 10.0), float)
+    assert real_in(0, 0.0, 1.0) == 0.0
+    assert real_in(0, 0.0, 1.0, above_minimum=True) is None
+    assert real_in(1.0, 0.0, 1.0) == 1.0
+    for value in [HUGE, -HUGE, 10.5, -0.1, float("inf"), float("-inf"), float("nan"), *BAD_KINDS]:
+        assert real_in(value, 0.0, 10.0) is None, value

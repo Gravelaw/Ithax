@@ -57,6 +57,7 @@ from lcsim.service.projects_store import (
     encode_json,
     read_project,
 )
+from lcsim.strict_json import MAX_WHOLE
 
 __all__ = [
     "CONFLICT",
@@ -287,6 +288,11 @@ class ModelStore:
         ``model.json`` it replaces (``None`` when there was none), put back when the
         commit fails."""
         revision = record.model_revision + 1
+        if revision > MAX_WHOLE:
+            raise _folder_error(
+                f"The project in '{folder}' is at the largest revision the {PROJECT_FILE} may "
+                "hold, so the model was not saved."
+            )
         # The record was read by the strict reader, so it can be written back (PR #36).
         project_data = encode_json(asdict(replace(record, model_revision=revision)))
         suffix = f".{os.getpid()}.{threading.get_ident()}.tmp"

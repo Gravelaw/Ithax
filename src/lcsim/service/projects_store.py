@@ -27,7 +27,7 @@ from typing import Any, Literal
 from lcsim.model.migration import FORMAT_VERSION
 from lcsim.service.errors import NOT_FOUND, PROJECT_FOLDER, ServiceError
 from lcsim.service.paths import canonical, same_folder
-from lcsim.strict_json import encode_json, read_json_file
+from lcsim.strict_json import MAX_WHOLE, encode_json, read_json_file, whole_in
 
 __all__ = [
     "LAYOUT_VERSION",
@@ -112,7 +112,8 @@ def _is_uuid4(text: str) -> bool:
 
 def read_project(folder: Path) -> ProjectRecord | None:
     """The ``project.json`` of ``folder``, or ``None`` when it is missing, unreadable or
-    does not hold the five fields with the right kinds (``id`` a UUID4 string); a file the
+    does not hold the five fields with the right kinds (``id`` a UUID4 string,
+    ``layout_version`` from 1 and ``model_revision`` from 0, each at most ``MAX_WHOLE``); a file the
     service could not write back (``lcsim.strict_json.read_json``) cannot be read."""
     try:
         loaded = read_json_file(folder / PROJECT_FILE)
@@ -121,9 +122,11 @@ def read_project(folder: Path) -> ProjectRecord | None:
     if not isinstance(loaded, dict) or not all(key in loaded for key in _FIELDS):
         return None
     texts = all(isinstance(loaded[key], str) for key in ("id", "name", "created"))
-    whole = all(
-        isinstance(loaded[key], int) and not isinstance(loaded[key], bool)
-        for key in ("layout_version", "model_revision")
+    # Typed and bounded (review of PR #36): a revision from 0, a layout from 1, each at
+    # most MAX_WHOLE.
+    whole = (
+        whole_in(loaded["layout_version"], 1, MAX_WHOLE) is not None
+        and whole_in(loaded["model_revision"], 0, MAX_WHOLE) is not None
     )
     if not (texts and whole and _is_uuid4(loaded["id"])):
         return None
