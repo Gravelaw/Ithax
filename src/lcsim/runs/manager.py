@@ -50,6 +50,7 @@ from lcsim.runs.summary import build_summary
 
 __all__ = [
     "OFFERED_FIDELITIES",
+    "ExperimentChoiceError",
     "RunOutcome",
     "RunState",
     "check_experiment",
@@ -80,6 +81,16 @@ class RunOutcome:
     issues: tuple[Issue, ...]
     results: Results | None
     summary: dict[str, Any] | None
+
+
+class ExperimentChoiceError(ValueError):
+    """The experiment chosen does not fit the model: ``reason`` is ``missing`` (none for a
+    process model), ``unwanted`` (one for an optimization model, which has no experiments)
+    or ``unknown`` (one the model does not have). The service answers 400 (AKS-112)."""
+
+    def __init__(self, reason: Literal["missing", "unwanted", "unknown"], message: str) -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 def fidelity_issues(model: Model) -> list[Issue]:
@@ -146,19 +157,22 @@ def check_experiment(
 
     ``experiment_id`` is ``None`` for an optimization model, which has no experiments. An
     experiment the model does not have, an experiment id for an optimization model or none
-    for a process model raises ``ValueError``.
+    for a process model raises ``ExperimentChoiceError`` (a ``ValueError``).
     """
     if model.program is not None:
         if experiment_id is not None:
-            raise ValueError(
-                f"an optimization model has no experiments, but {experiment_id!r} was given"
+            raise ExperimentChoiceError(
+                "unwanted",
+                f"an optimization model has no experiments, but {experiment_id!r} was given",
             )
         return (*adapter.validate(model), *fidelity_issues(model))
     if experiment_id is None:
-        raise ValueError("a process model runs one of its experiments; none was given")
+        raise ExperimentChoiceError(
+            "missing", "a process model runs one of its experiments; none was given"
+        )
     experiment = next((item for item in model.experiments if item.id == experiment_id), None)
     if experiment is None:
-        raise ValueError(f"the model has no experiment {experiment_id!r}")
+        raise ExperimentChoiceError("unknown", f"the model has no experiment {experiment_id!r}")
     return (*adapter.validate(model), *fidelity_issues(model))
 
 
