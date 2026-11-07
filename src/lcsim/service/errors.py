@@ -56,14 +56,25 @@ _log = logging.getLogger(__name__)
 
 class ServiceError(Exception):
     """A request the service refuses: an HTTP ``status``, a spec 1 ``code``, a plain
-    ``message`` and any ``issues``. Raised by routes and turned into spec 3's body."""
+    ``message``, any ``issues`` and any ``extra`` keys of the body. Raised by routes and
+    turned into spec 3's body."""
 
-    def __init__(self, status: int, code: str, message: str, issues: Sequence[Issue] = ()) -> None:
+    def __init__(
+        self,
+        status: int,
+        code: str,
+        message: str,
+        issues: Sequence[Issue] = (),
+        extra: Mapping[str, Any] | None = None,
+    ) -> None:
         super().__init__(message)
         self.status = status
         self.code = code
         self.message = message
         self.issues = tuple(issues)
+        # Keys added to the body beside "error" and "issues", such as the current "model"
+        # and "revision" of a 409 with E181 (spec 3 "Revision").
+        self.extra = dict(extra or {})
 
 
 def error_body(code: str, message: str, issues: Iterable[Issue] = ()) -> dict[str, Any]:
@@ -174,7 +185,8 @@ def malformed(issues: Sequence[Issue]) -> ServiceError:
 
 async def _service_error(_request: Request, error: Exception) -> JSONResponse:
     assert isinstance(error, ServiceError)
-    return error_response(error.status, error.code, error.message, error.issues)
+    body = {**error_body(error.code, error.message, error.issues), **error.extra}
+    return JSONResponse(body, status_code=error.status)
 
 
 async def _validation_error(_request: Request, error: Exception) -> JSONResponse:

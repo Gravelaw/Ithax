@@ -39,6 +39,7 @@ __all__ = [
     "default_model",
     "read_project",
     "utc_now",
+    "write_json",
 ]
 
 _log = logging.getLogger(__name__)
@@ -126,11 +127,23 @@ def read_project(folder: Path) -> ProjectRecord | None:
     return ProjectRecord(**{key: loaded[key] for key in _FIELDS})
 
 
-def _write_json(path: Path, value: object) -> None:
-    """Write ``value`` as JSON through a temporary file and a rename."""
-    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    temporary.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    os.replace(temporary, path)
+def write_json(path: Path, value: object) -> None:
+    """Write ``value`` as JSON, indented by two spaces, through a temporary file and a
+    rename, so a reader never sees half a file. The temporary file is named for the
+    process and thread, and removed when the write fails; the ``OSError`` is raised. A
+    NaN or an infinity raises ``ValueError`` before anything is written, since JSON
+    cannot hold it."""
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    try:
+        temporary.write_text(
+            json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary, path)
+    except OSError:
+        with contextlib.suppress(OSError):
+            temporary.unlink()
+        raise
 
 
 def _folder_error(message: str) -> ServiceError:
@@ -180,7 +193,7 @@ class ProjectRegistry:
 
     def _save(self, projects: dict[str, str]) -> None:
         self.config_dir.mkdir(parents=True, exist_ok=True)
-        _write_json(self._file, projects)
+        write_json(self._file, projects)
 
     # --- reading --------------------------------------------------------------------
 
@@ -225,8 +238,8 @@ class ProjectRegistry:
             folder.mkdir(parents=True, exist_ok=True)
             (folder / "data").mkdir()
             (folder / "runs").mkdir()
-            _write_json(folder / MODEL_FILE, default_model(name, domain))
-            _write_json(folder / PROJECT_FILE, asdict(record))
+            write_json(folder / MODEL_FILE, default_model(name, domain))
+            write_json(folder / PROJECT_FILE, asdict(record))
         except OSError:
             _log.warning("Creating the project folder %s failed.", folder, exc_info=True)
             raise _folder_error(f"The project folder '{folder}' cannot be written.") from None
