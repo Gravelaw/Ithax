@@ -1378,3 +1378,46 @@ The owner reviewed the design step by step in a Claude Code session, following a
 - **Alternatives considered:** editing the known-gaps rows in the guide (the owner's verbatim text; M1 to M4 closed their rows through DECISIONS); building the disjoint confirmation numbering now (it departs from spec 2 as written, and the owner has not decided).
 - **Spec sections updated:** spec 1 and spec 2 version lines and "Changes in this version" (bumped to 0.8); the overview's "What is here" version sentence.
 - **Dependencies added:** during M5, `highspy>=1.15.1` and `pyomo>=6.10.1` (AKS-108) and `optuna>=5.0.0` (AKS-109), with the licences recorded in their entries. Installed on 2026-11-07: numpy 2.5.4, scipy 1.18.1, pyarrow 26.0.1, simpy 4.1.2, pint 0.26.2, jsonschema 4.26.0, highspy 1.15.1, pyomo 6.10.1, optuna 5.0.0 on Python 3.13.18; numpy 2.4.6, scipy 1.17.1, pyarrow 26.0.1, simpy 4.1.2, pint 0.25.3, jsonschema 4.26.0, highspy 1.15.1, pyomo 6.10.1, optuna 5.0.0 on 3.11.18.
+
+## 2026-11-07 · Owner decisions on M5 "Awaiting owner" items
+
+The owner answered four M5 items in the orchestrating Claude Code session on 2026-11-07. Their words are quoted, then the reading taken. The item numbers are those of `docs/sessions/2026-11-07-M5.md`, "Awaiting owner".
+
+### Item 6: confirmation runs use fresh random numbers (Phase 1a, AKS-133)
+
+- **Owner:** "confirmation runs use fresh random numbers - If we implement an audit module or logs, we need to trace it back. Incl a Phase1a."
+- **Decision:**
+  - Confirmation replications are numbered from `search.replications` onward. They draw random numbers the search stage never used, and keep common random numbers across the confirmed candidates.
+  - Each evaluation records its stage, candidate, seed and replication range, so every confirmed mean can be traced back to its random streams.
+  - Bucket: Phase 1a. Linear AKS-133.
+  - Until then, M5 runs as built (spec 2 as written).
+- **Reason:** removes the selection bias that reusing the search stage's numbers leaves (AKS-132 note; AKS-109 entry). The owner wants it auditable.
+- **Spec sections updated:** none yet. AKS-133 changes spec 2 "Simulation-based optimization" and spec 1 "Random streams" and "Run folder and results" first.
+
+### Item 7: keep the top-three confirmation, add ranking and selection, and choose between them (bucket set at the Phase 1 review)
+
+- **Owner:** "No, Can we do both as well as voting process via a model? or score which will decide the method?"
+- **Decision:**
+  - Ranking and selection does not replace the top-three confirmation. Both are kept: the fixed top-three confirmation, and a ranking-and-selection procedure (KN with common random numbers, plus Batur and Kim's feasibility check, per the AKS-132 note).
+  - Which to use, or how to combine their answers, is decided by a selection step: a transparent score from the search's own facts, or a model that weighs the methods' results ("voting").
+  - Recorded as the owner's direction. Its design is not settled here. The Phase 1 review (AKS-130) sets the bucket and specifies the score or the vote; Phase 2 is suggested, since it needs research and a spec 2 design.
+- **Reason:** the owner prefers keeping both methods and letting a score or vote choose, over replacing one with the other.
+- **Spec sections updated:** none yet.
+
+### Item 14: an optimization model with no variables, and a constraint with an empty `linear`, are rejected (Phase 1a)
+
+- **Owner:** "not sure why is the case. I mean when building an optimiser, we'll need variables via the simulation or manually made by the user."
+- **Decision:**
+  - These two cases should not be answered at all. Today an optimization model with no variables reports `optimal` at 0, and a constraint with an empty `linear` is judged without the solver (AKS-108). Instead, both are validation errors, with an issue code that says what is missing.
+  - Bucket: Phase 1a, collected by AKS-130.
+- **Reason:** an optimizer needs variables, whether made by the user or produced by a simulation. A model without them is incomplete, not solvable.
+- **Spec sections updated:** none yet. The Phase 1a change adds the code to spec 1 "Validation issues" first, with a fixture.
+
+### Item 5 (AKS-83): the engine licence rule is assessed once the product is built (deferred)
+
+- **Owner:** "License rule we should assess once the product is made. We can push it for later."
+- **Decision:**
+  - The engine licence rule and the AGPL-3.0-only versus -or-later choice are deferred until the product is built. AKS-83 stays open.
+  - Meanwhile, every new dependency is still recorded in DECISIONS with its licence and how it was checked (guide "Conventions"), so that the later assessment has the facts.
+- **Reason:** the owner's call.
+- **Spec sections updated:** none.
