@@ -1,0 +1,72 @@
+[
+  {
+    "metric": "objective",
+    "value": 9.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the 6 permutations of the 3 x 3 costs [[9, 2, 7], [6, 4, 3], [5, 8, 1]]: 9, 10, 14, 16, 20 and 21; 9 only for row 0 to column 1, row 1 to column 0, row 2 to column 2 (2 + 6 + 1); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.x_0_0",
+    "value": 0.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the 6 permutations of the 3 x 3 costs [[9, 2, 7], [6, 4, 3], [5, 8, 1]]: 9, 10, 14, 16, 20 and 21; 9 only for row 0 to column 1, row 1 to column 0, row 2 to column 2 (2 + 6 + 1); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.x_0_1",
+    "value": 1.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the 6 permutations of the 3 x 3 costs [[9, 2, 7], [6, 4, 3], [5, 8, 1]]: 9, 10, 14, 16, 20 and 21; 9 only for row 0 to column 1, row 1 to column 0, row 2 to column 2 (2 + 6 + 1); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.x_0_2",
+    "value": 0.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the 6 permutations of the 3 x 3 costs [[9, 2, 7], [6, 4, 3], [5, 8, 1]]: 9, 10, 14, 16, 20 and 21; 9 only for row 0 to column 1, row 1 to column 0, row 2 to column 2 (2 + 6 + 1); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.x_1_0",
+    "value": 1.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the 6 permutations of the 3 x 3 costs [[9, 2, 7], [6, 4, 3], [5, 8, 1]]: 9, 10, 14, 16, 20 and 21; 9 only for row 0 to column 1, row 1 to column 0, row 2 to column 2 (2 + 6 + 1); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.x_1_1",
+    "value": 0.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the 6 permutations of the 3 x 3 costs [[9, 2, 7], [6, 4, 3], [5, 8, 1]]: 9, 10, 14, 16, 20 and 21; 9 only for row 0 to column 1, row 1 to column 0, row 2 to column 2 (2 + 6 + 1); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.x_1_2",
+    "value": 0.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the 6 permutations of the 3 x 3 costs [[9, 2, 7], [6, 4, 3], [5, 8, 1]]: 9, 10, 14, 16, 20 and 21; 9 only for row 0 to column 1, row 1 to column 0, row 2 to column 2 (2 + 6 + 1); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.x_2_0",
+    "value": 0.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the 6 permutations of the 3 x 3 costs [[9, 2, 7], [6, 4, 3], [5, 8, 1]]: 9, 10, 14, 16, 20 and 21; 9 only for row 0 to column 1, row 1 to column 0, row 2 to column 2 (2 + 6 + 1); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.x_2_1",
+    "value": 0.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the 6 permutations of the 3 x 3 costs [[9, 2, 7], [6, 4, 3], [5, 8, 1]]: 9, 10, 14, 16, 20 and 21; 9 only for row 0 to column 1, row 1 to column 0, row 2 to column 2 (2 + 6 + 1); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.x_2_2",
+    "value": 1.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the 6 permutations of the 3 x 3 costs [[9, 2, 7], [6, 4, 3], [5, 8, 1]]: 9, 10, 14, 16, 20 and 21; 9 only for row 0 to column 1, row 1 to column 0, row 2 to column 2 (2 + 6 + 1); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  }
+]

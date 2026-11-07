@@ -1,0 +1,122 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Assignment",
+    "description": "Balanced 3 x 3 assignment: x_<row>_<column> is 1 when the row is assigned to the column; each row and each column exactly once; minimize the cost (spec 2 Benchmark definitions)."
+  },
+  "domain": "optimization",
+  "variables": [
+    {
+      "id": "x_0_0",
+      "type": "binary"
+    },
+    {
+      "id": "x_0_1",
+      "type": "binary"
+    },
+    {
+      "id": "x_0_2",
+      "type": "binary"
+    },
+    {
+      "id": "x_1_0",
+      "type": "binary"
+    },
+    {
+      "id": "x_1_1",
+      "type": "binary"
+    },
+    {
+      "id": "x_1_2",
+      "type": "binary"
+    },
+    {
+      "id": "x_2_0",
+      "type": "binary"
+    },
+    {
+      "id": "x_2_1",
+      "type": "binary"
+    },
+    {
+      "id": "x_2_2",
+      "type": "binary"
+    }
+  ],
+  "objective": {
+    "sense": "minimize",
+    "linear": {
+      "x_0_0": 9,
+      "x_0_1": 2,
+      "x_0_2": 7,
+      "x_1_0": 6,
+      "x_1_1": 4,
+      "x_1_2": 3,
+      "x_2_0": 5,
+      "x_2_1": 8,
+      "x_2_2": 1
+    }
+  },
+  "constraints": [
+    {
+      "id": "row_0",
+      "linear": {
+        "x_0_0": 1,
+        "x_0_1": 1,
+        "x_0_2": 1
+      },
+      "op": "==",
+      "rhs": 1
+    },
+    {
+      "id": "row_1",
+      "linear": {
+        "x_1_0": 1,
+        "x_1_1": 1,
+        "x_1_2": 1
+      },
+      "op": "==",
+      "rhs": 1
+    },
+    {
+      "id": "row_2",
+      "linear": {
+        "x_2_0": 1,
+        "x_2_1": 1,
+        "x_2_2": 1
+      },
+      "op": "==",
+      "rhs": 1
+    },
+    {
+      "id": "col_0",
+      "linear": {
+        "x_0_0": 1,
+        "x_1_0": 1,
+        "x_2_0": 1
+      },
+      "op": "==",
+      "rhs": 1
+    },
+    {
+      "id": "col_1",
+      "linear": {
+        "x_0_1": 1,
+        "x_1_1": 1,
+        "x_2_1": 1
+      },
+      "op": "==",
+      "rhs": 1
+    },
+    {
+      "id": "col_2",
+      "linear": {
+        "x_0_2": 1,
+        "x_1_2": 1,
+        "x_2_2": 1
+      },
+      "op": "==",
+      "rhs": 1
+    }
+  ]
+}

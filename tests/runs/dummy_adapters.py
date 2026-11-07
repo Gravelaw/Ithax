@@ -25,6 +25,9 @@ from pathlib import Path
 import pyarrow as pa
 
 from lcsim.engines.adapter import CancelToken, Capabilities, Progress, Results
+from lcsim.engines.optimize.adapter import HighsAdapter
+from lcsim.engines.optimize.solver import solve
+from lcsim.engines.optimize.translate import read_input
 from lcsim.model.catalogue import PROCESS_TYPES
 from lcsim.model.issues import Issue
 from lcsim.model.model import Model
@@ -61,7 +64,7 @@ class DummyAdapter:
         self.calls.append(("validate", os.getpid()))
         return list(self.issues)
 
-    def translate(self, model: Model, experiment_id: str, workdir: Path) -> None:
+    def translate(self, model: Model, experiment_id: str | None, workdir: Path) -> None:
         self.calls.append(("translate", os.getpid()))
         (workdir / INPUT_FILE).write_text(
             json.dumps({"experiment": experiment_id, "model": model.meta.name}), encoding="utf-8"
@@ -148,7 +151,7 @@ class CrashingAdapter(DummyAdapter):
 class TranslateFailingAdapter(DummyAdapter):
     """``translate`` raises, in the process that drives the run."""
 
-    def translate(self, model: Model, experiment_id: str, workdir: Path) -> None:
+    def translate(self, model: Model, experiment_id: str | None, workdir: Path) -> None:
         raise OSError("translate detail 815")
 
 
@@ -202,3 +205,17 @@ class TermIgnoringAdapter(DummyAdapter):
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
         on_progress(Progress(0.1, "Ignoring cancel and SIGTERM"))
         time.sleep(30)
+
+
+class IterationLimitedAdapter(HighsAdapter):
+    """The HiGHS adapter with a simplex iteration limit of 0 and presolve off, so that
+    HiGHS really ends with ``iterationLimit`` in the worker (AKS-108)."""
+
+    def run(
+        self,
+        workdir: Path,
+        on_progress: Callable[[Progress], None],
+        cancel: CancelToken,
+        workers: int,
+    ) -> None:
+        solve(read_input(workdir), options={"simplex_iteration_limit": 0, "presolve": "off"})

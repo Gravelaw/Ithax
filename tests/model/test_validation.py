@@ -26,12 +26,12 @@ from lcsim.model.validation import (
     IDENTIFIER_PATTERN,
     RESERVED_COMPONENT_IDS,
     RESERVED_SCENARIO_ID,
-    STAND_IN_ENGINES,
     InstalledEngine,
     connection_issues,
     engine_issues,
     identifier_issues,
     meaning_pass,
+    program_issues,
     setting_issues,
 )
 
@@ -140,15 +140,21 @@ def test_the_product_mix_passes_the_meaning_pass() -> None:
 # --- E102: engine lookup (spec 1 "Top-level keys") ----------------------------------------------
 
 
-# The engines a Phase 1 install has from M2: the discovered process adapter ``simpy`` and the
-# model layer's stand-in for ``optimization`` (until M5).
-PHASE_1_ENGINES = (InstalledEngine("simpy", ("process",)), *STAND_IN_ENGINES)
+# The engines a Phase 1 install has from M5: the discovered process adapter ``simpy`` and
+# optimization adapter ``highs``. The model layer's stand-in for ``optimization`` is gone
+# (AKS-108).
+PHASE_1_ENGINES = (
+    InstalledEngine("highs", ("optimization",)),
+    InstalledEngine("simpy", ("process",)),
+)
 
 
-def test_a_stand_in_remains_for_optimization_only() -> None:
-    # Spec 1 "Top-level keys": from M2 the process adapter is discovered; the stand-in for
-    # optimization stays until M5.
-    assert STAND_IN_ENGINES == (InstalledEngine(None, ("optimization",)),)
+def test_every_phase_1_domain_has_an_installed_adapter() -> None:
+    # Spec 1 "Top-level keys": from M5 both domains are checked against the discovered
+    # adapters (pip install -e writes both entry points).
+    from lcsim.engines.registry import installed_engines
+
+    assert installed_engines() == PHASE_1_ENGINES
     assert set(DOMAINS) == {"process", "optimization"}
 
 
@@ -157,18 +163,25 @@ def test_one_engine_runs_each_phase_1_domain(domain: str) -> None:
     assert engine_issues(domain, None, PHASE_1_ENGINES) == []
 
 
-def test_a_stand_in_accepts_any_engine_name() -> None:
-    # A stand-in has no adapter name, so run.engine cannot be checked for optimization
-    # before M5.
-    assert engine_issues("optimization", "highs", STAND_IN_ENGINES) == []
+def test_run_engine_is_checked_for_optimization_from_m5() -> None:
     document = copy.deepcopy(PRODUCT_MIX)
     document["run"] = {"target": "local", "fidelity": "standard", "engine": "highs"}
     assert load_document(document).issues == ()
+    document["run"]["engine"] = "gurobi"
+    result = load_document(document)
+    assert result.model is None
+    [issue] = result.issues
+    assert (issue.code, issue.path, issue.component) == ("E102", "/run/engine", None)
+    assert "'gurobi'" in issue.message and "'optimization'" in issue.message
+    assert issue.hint == "Name one of: 'highs'."
+    document["run"]["engine"] = "simpy"  # installed, but for another domain
+    [issue] = load_document(document).issues
+    assert (issue.code, issue.path) == ("E102", "/run/engine")
 
 
 def test_run_engine_is_checked_for_process_from_m2() -> None:
-    # The loader's default engines are the discovered adapters (the installed entry point
-    # ``simpy``) and the optimization stand-in.
+    # The loader's default engines are the discovered adapters (the installed entry points
+    # ``highs`` and ``simpy``).
     document = coffee()
     document["run"]["engine"] = "simpy"
     assert load_document(document).issues == ()
@@ -196,7 +209,7 @@ def test_load_model_takes_the_engines_it_is_given(tmp_path: Path) -> None:
     path.write_text(json.dumps(coffee()), encoding="utf-8")
     assert load_model(path, engines=PHASE_1_ENGINES).meta.name == "Coffee shop"
     with pytest.raises(ModelLoadError) as raised:
-        load_model(path, engines=STAND_IN_ENGINES)
+        load_model(path, engines=PHASE_1_ENGINES[:1])
     assert [issue.code for issue in raised.value.issues] == ["E102"]
 
 
@@ -249,18 +262,6 @@ def test_run_engine_naming_two_installed_engines() -> None:
     [issue] = engine_issues("process", "simpy", twins)
     assert issue.code == "E102"
     assert "several installed engines of that name" in issue.message
-
-
-def test_several_stand_ins_without_names() -> None:
-    stand_ins = (InstalledEngine(None, ("process",)), InstalledEngine(None, ("process",)))
-    [issue] = engine_issues("process", None, stand_ins)
-    assert issue.message == (
-        "Several installed engines handle the domain 'process', and 'run' names no "
-        "'engine' to choose one."
-    )
-    assert issue.hint == "Add 'engine' to 'run'."
-    [issue] = engine_issues("process", "simpy", stand_ins)
-    assert issue.hint == "Remove 'engine' from 'run'."
 
 
 def test_the_loader_reports_e102_before_building() -> None:
@@ -872,3 +873,64 @@ def test_meaning_pass_issues_follow_no_building_issue() -> None:
     document["components"][1]["params"]["speed"] = 1
     del document["connections"][1]
     assert codes(list(load_document(document).issues)) == [("E121", "/components/1/params/speed")]
+
+
+# --- E175: coefficients that name no variable (AKS-108) -----------------------------------------
+
+
+def test_a_coefficient_must_name_a_variable() -> None:
+    document = copy.deepcopy(PRODUCT_MIX)
+    document["objective"]["linear"]["desks"] = 60
+    document["constraints"][1]["linear"]["Chairs"] = 2
+    result = load_document(document)
+    assert result.model is None
+    issues = list(result.issues)
+    assert codes(issues) == [
+        ("E175", "/objective/linear/desks"),
+        ("E175", "/constraints/1/linear/Chairs"),
+    ]
+    assert all(issue.component is None and issue.severity == "error" for issue in issues)
+    assert issues[0].message == (
+        "The coefficient of 'desks' in the objective names no variable in 'variables'."
+    )
+    assert issues[1].message == (
+        "The coefficient of 'Chairs' in constraint 'labour' names no variable in 'variables'."
+    )
+    assert issues[0].hint == (
+        "Correct the name to one of the variables, 'chairs' or 'tables', or add a variable 'desks'."
+    )
+
+
+def test_a_coefficient_of_a_repeated_variable_id_names_a_variable() -> None:
+    # The repeated id is E110 (identifiers), not E175.
+    document = copy.deepcopy(PRODUCT_MIX)
+    document["variables"][1]["id"] = "chairs"
+    document["objective"]["linear"] = {"chairs": 45}
+    for constraint in document["constraints"]:
+        del constraint["linear"]["tables"]
+    assert codes(list(load_document(document).issues)) == [("E110", "/variables/1/id")]
+
+
+def test_no_variables_at_all_lists_none_in_the_hint() -> None:
+    document = copy.deepcopy(PRODUCT_MIX)
+    document["variables"] = []
+    document["constraints"] = []
+    [issue, _] = program_issues(built(document))
+    assert issue.hint == "Add a variable 'chairs' to 'variables'."
+
+
+def test_a_long_list_of_variables_is_not_spelled_out() -> None:
+    document = copy.deepcopy(PRODUCT_MIX)
+    document["variables"] = [{"id": f"v{index}", "type": "continuous"} for index in range(13)]
+    document["objective"]["linear"] = {"v0": 1, "chairs": 2}
+    document["constraints"] = []
+    [issue] = program_issues(built(document))
+    assert issue.hint == "Correct the name to one of the variables, or add a variable 'chairs'."
+
+
+def test_a_process_model_has_no_program_to_check() -> None:
+    assert program_issues(built(COFFEE_SHOP)) == []
+
+
+def test_the_product_mix_names_only_its_variables() -> None:
+    assert program_issues(built(PRODUCT_MIX)) == []

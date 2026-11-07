@@ -29,7 +29,8 @@ experiments and metric names (AKS-90); warnings follow (AKS-91).
 
 The installed engines for E102 are the ``engines`` argument of each function. When it is
 ``None`` (the default), they are ``lcsim.engines.registry.installed_engines()``: the
-discovered adapters, and the model layer's stand-in for a domain none handles. The
+discovered adapters (the model layer's stand-in for ``optimization`` is gone since
+AKS-108, when that domain got its adapter). The
 registry is imported when first needed, not at module level, because ``lcsim.engines``
 imports the model layer; ``lcsim.model`` therefore imports without ``lcsim.engines``.
 
@@ -1227,7 +1228,8 @@ class _Builder:
     def linear(
         self, raw: Mapping[str, Any], owner: str, at: tuple[Segment, ...]
     ) -> Mapping[str, int | float] | None:
-        """Coefficients by variable id. Whether each id is a variable is checked at M5."""
+        """Coefficients by variable id. Whether each id is a variable is the meaning pass's
+        E175 (``lcsim.model.validation.program_issues``)."""
         coefficients: dict[str, int | float] = {}
         complete = True
         for variable_id, value in raw.items():

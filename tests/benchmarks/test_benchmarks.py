@@ -10,6 +10,10 @@ known answer:
   replication values and SE their sample standard deviation (n - 1) over sqrt(n);
 - ``exact`` and ``sig_figs_4``: estimate and known answer equal to four significant figures.
 
+An optimization case (AKS-108) has no experiment: it runs once through the HiGHS adapter,
+must end ``optimal``, and each row's ``metric`` names the ``objective`` or a variable as
+``variables.<id>`` of the solution, one value, judged by ``sig_figs_4``.
+
 At M2 the experiment manager does not exist yet, so the estimate and its standard error are
 computed here from the adapter's ``replications`` table (the issue's Agent notes).
 
@@ -52,6 +56,8 @@ WORKERS = min(4, os.cpu_count() or 1)
 
 # Spec 2 "Benchmark definitions": the five M2 cases and the blocks the prototype exercised.
 M2_CASES = {"mm1", "mm2", "tandem", "delay", "branch"}
+# The four M5 linear and integer programs (AKS-108).
+M5_OPTIMIZATION_CASES = {"product_mix", "knapsack", "assignment", "diet"}
 M2_BLOCKS = {"source", "server", "delay", "branch", "sink"}
 # Spec 2 acceptance row "Every block has a unit test and appears in a benchmark": M2 for
 # the five prototype blocks, M4 for the rest.
@@ -149,11 +155,28 @@ def load(document: object) -> Model:
     return result.model
 
 
+def is_optimization(document: Mapping[str, Any]) -> bool:
+    """Whether a case is an optimization model (no experiment, no seed)."""
+    return bool(document["domain"] == "optimization")
+
+
+def solution_values(solution: Mapping[str, Any]) -> dict[str, list[float]]:
+    """An optimization solution as one value per metric: ``objective`` and
+    ``variables.<id>``; empty unless the status is ``optimal``, so every row then fails
+    as not reported."""
+    if solution["status"] != "optimal":
+        return {}
+    values = {"objective": [float(solution["objective"])]}
+    values.update({f"variables.{name}": [float(v)] for name, v in solution["variables"].items()})
+    return values
+
+
 def run_case(
     document: Mapping[str, Any], workdir: Path, seed: int | None = None
 ) -> dict[str, list[float]]:
     """Runs the case's one experiment in ``workdir`` (with ``seed`` in place of the file's
-    when given) and returns each metric's replication values, in replication order."""
+    when given) and returns each metric's replication values, in replication order. An
+    optimization case is solved once, with no seed, and gives ``solution_values``."""
     if seed is not None:
         document = copy.deepcopy(dict(document))
         document["experiments"][0]["seed"] = seed
@@ -161,6 +184,12 @@ def run_case(
     selection = select_adapter(model.domain, model.run.engine)
     assert selection.issues == () and selection.adapter is not None
     adapter = selection.adapter
+    if model.program is not None:
+        adapter.translate(model, None, workdir)
+        adapter.run(workdir, lambda progress: None, threading.Event(), WORKERS)
+        solution = adapter.collect(workdir).solution
+        assert solution is not None
+        return solution_values(solution)
     adapter.translate(model, model.experiments[0].id, workdir)
     adapter.run(workdir, lambda progress: None, threading.Event(), WORKERS)
     rows = adapter.collect(workdir).tables["replications"].to_pylist()
@@ -189,6 +218,12 @@ def check(expected: Expected, values: Mapping[str, Sequence[float]]) -> Check:
         return unjudged("not reported by the adapter")
     if any(math.isnan(value) for value in sample):
         return unjudged(f"{sum(map(math.isnan, sample))} of {len(sample)} values are NaN")
+    if expected.method == "sig_figs_4":
+        # An optimization result: one value, no standard error.
+        if len(sample) != 1:
+            return unjudged(f"{len(sample)} values; an optimization result has one")
+        passed = four_figures(sample[0]) == four_figures(expected.value)
+        return Check(expected.metric, expected.method, expected.value, sample[0], 0.0, passed)
     if len(sample) < 2:
         return unjudged(f"{len(sample)} replication values; a standard error needs 2")
     estimate = statistics.fmean(sample)
@@ -209,7 +244,10 @@ def failures(
 
 
 def emitted_metrics(model: Model) -> set[str]:
-    """Every metric the process adapter reports for ``model`` (spec 1 "Metric names")."""
+    """Every metric the process adapter reports for ``model`` (spec 1 "Metric names"), or
+    for an optimization model the ``objective`` and each ``variables.<id>``."""
+    if model.program is not None:
+        return {"objective"} | {f"variables.{v.id}" for v in model.program.variables}
     return {
         f"{component.id}.{measure}"
         for component in model.components
@@ -240,6 +278,8 @@ def test_benchmark_coverage(case: str, tmp_path: Path, current_milestone: str) -
     milestone = case_milestone(expected)
     if not is_due(milestone, current_milestone):
         pytest.skip(f"{case} is a {milestone} case; the build is at {current_milestone}")
+    if is_optimization(document):
+        pytest.skip(f"{case} is an optimization case: it has no seed to vary")
     first = int(document["experiments"][0]["seed"])
     failed: dict[int, list[str]] = {}
     for seed in range(first, first + COVERAGE_SEEDS):
@@ -265,12 +305,22 @@ def test_every_case_with_stated_settings_exists() -> None:
     assert set(STATED_SETTINGS) <= set(CASES)
 
 
+def test_the_four_m5_optimization_cases_exist() -> None:
+    """Spec 2 "Benchmark definitions": product mix, knapsack, assignment and diet."""
+    assert M5_OPTIMIZATION_CASES <= set(CASES)
+    found = {case for case in CASES if is_optimization(read_case(case)[0])}
+    assert found == M5_OPTIMIZATION_CASES
+
+
 @pytest.mark.parametrize("case", CASES)
 def test_each_model_loads_with_zero_issues_and_the_spec_2_settings(case: str) -> None:
     """100 replications of 200 h with 10 h of warm-up unless the case states its own, a
-    fixed seed, one scenario."""
+    fixed seed, one scenario; an optimization case has no experiment."""
     document, _ = read_case(case)
     model = load(document)
+    if is_optimization(document):
+        assert model.experiments == () and model.program is not None
+        return
     assert len(model.experiments) == 1
     experiment = model.experiments[0]
     replications, length, warmup = STATED_SETTINGS.get(case, STANDARD_SETTINGS)
@@ -298,6 +348,11 @@ def test_each_expected_row_is_well_formed_and_names_an_emitted_metric(case: str)
     if case in M2_CASES:
         assert {row.milestone for row in expected} == {"M2"}
         assert {row.method for row in expected} == {"three_se"}
+    if is_optimization(document):
+        assert {row.method for row in expected} == {"sig_figs_4"}
+        assert "objective" in {row.metric for row in expected}
+    else:
+        assert "sig_figs_4" not in {row.method for row in expected}
 
 
 def test_every_m2_block_appears_in_an_m2_benchmark() -> None:
@@ -317,7 +372,7 @@ def test_every_block_type_appears_in_a_benchmark_at_or_before_its_milestone() ->
     for case in CASES:
         document, expected = read_case(case)
         milestone = case_milestone(expected)
-        for component in document["components"]:
+        for component in document.get("components", []):
             found.setdefault(component["type"], set()).add(milestone)
     for block, milestone in BLOCK_MILESTONES.items():
         assert any(is_due(case, milestone) for case in found.get(block, ())), block
@@ -379,13 +434,52 @@ def test_a_missing_metric_nan_values_or_one_value_fail() -> None:
     assert not one.passed and "a standard error needs 2" in one.message("c")
 
 
-@pytest.mark.parametrize("method", ["exact", "sig_figs_4"])
-def test_exact_methods_compare_four_significant_figures(method: str) -> None:
+def test_exact_compares_four_significant_figures() -> None:
     known = 115.71428571428571
-    assert check(row(method, known), {"x.wait.mean": [115.7, 115.74]}).passed
-    off = check(row(method, known), {"x.wait.mean": [115.8, 115.8]})
+    assert check(row("exact", known), {"x.wait.mean": [115.7, 115.74]}).passed
+    off = check(row("exact", known), {"x.wait.mean": [115.8, 115.8]})
     assert not off.passed
     assert "not equal to four significant figures (115.8 against 115.7)" in off.message("c")
+
+
+def test_sig_figs_4_compares_the_one_optimization_value() -> None:
+    known = 98 / 45  # the diet's 2.178
+    exact = check(Expected("objective", known, "sig_figs_4", "s", "M5"), {"objective": [known]})
+    assert exact.passed
+    passed = check(Expected("objective", known, "sig_figs_4", "s", "M5"), {"objective": [2.1778]})
+    assert passed.passed and passed.estimate == 2.1778 and passed.se == 0.0
+    off = check(Expected("objective", known, "sig_figs_4", "s", "M5"), {"objective": [2.179]})
+    assert not off.passed
+    assert "(2.179 against 2.178)" in off.message("diet")
+    zero = Expected("variables.a", 0.0, "sig_figs_4", "s", "M5")
+    assert check(zero, {"variables.a": [0.0]}).passed
+    assert check(zero, {"variables.a": [-0.0]}).passed
+    assert not check(zero, {"variables.a": [1e-12]}).passed
+    two = check(zero, {"variables.a": [0.0, 0.0]})
+    assert not two.passed and "2 values; an optimization result has one" in two.message("c")
+
+
+def test_a_solution_gives_one_value_per_metric_only_when_optimal() -> None:
+    solution = {
+        "status": "optimal",
+        "objective": 21.0,
+        "variables": {"b": 1.0, "c": 1},
+        "constraints": {},
+    }
+    assert solution_values(solution) == {
+        "objective": [21.0],
+        "variables.b": [1.0],
+        "variables.c": [1.0],
+    }
+    infeasible: dict[str, Any] = {
+        "status": "infeasible",
+        "objective": None,
+        "variables": {},
+        "constraints": {},
+    }
+    assert solution_values(infeasible) == {}
+    [line] = failures("knapsack", [Expected("objective", 21.0, "sig_figs_4", "s", "M5")], {})
+    assert line == "knapsack: objective: not reported by the adapter"
 
 
 def test_an_unknown_method_is_refused() -> None:

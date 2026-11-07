@@ -78,7 +78,7 @@ def new_manifest(
     *,
     run_id: str,
     project_id: str | None,
-    experiment_id: str,
+    experiment_id: str | None,
     scenario_ids: Sequence[str],
     created: datetime,
     host: str,
@@ -86,10 +86,12 @@ def new_manifest(
     engine_name: str,
     engine_version: str,
     format_version: str,
-    seed: int,
+    seed: int | None,
 ) -> dict[str, Any]:
     """The manifest of a run just created: ``queued``, on the ``local`` target, with no
-    progress and no data files."""
+    progress and no data files. An optimization run has no experiment and draws nothing,
+    so its ``experiment_id`` and ``seed`` are ``None`` and its ``scenario_ids`` empty
+    (AKS-108)."""
     info = generator_info()
     return {
         "run_id": run_id,

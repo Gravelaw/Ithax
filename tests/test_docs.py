@@ -54,9 +54,11 @@ def test_every_validation_issue_code_has_a_fixture(code: str, issue_pass: str) -
     assert matches, f"no fixture for {code} ({issue_pass} pass) under {ISSUE_FIXTURES}"
 
 
-def test_spec_1_lists_the_29_schema_and_meaning_codes() -> None:
-    """AKS-91 acceptance: the fixture check covers all 29 schema and meaning codes."""
-    assert len(spec_1_issue_codes()) == 29
+def test_spec_1_lists_the_30_schema_and_meaning_codes() -> None:
+    """AKS-91 acceptance: the fixture check covers all 29 schema and meaning codes of M1;
+    AKS-108 adds E175 (a coefficient that names no variable), so there are 30."""
+    assert len(spec_1_issue_codes()) == 30
+    assert ("E175", "meaning") in spec_1_issue_codes()
 
 
 def registered_markers() -> set[str]:

@@ -1,0 +1,48 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Knapsack",
+    "description": "Binary knapsack: maximize 10a + 13b + 8c + 7d with 5a + 6b + 4c + 3d <= 10 (spec 2 Benchmark definitions)."
+  },
+  "domain": "optimization",
+  "variables": [
+    {
+      "id": "a",
+      "type": "binary"
+    },
+    {
+      "id": "b",
+      "type": "binary"
+    },
+    {
+      "id": "c",
+      "type": "binary"
+    },
+    {
+      "id": "d",
+      "type": "binary"
+    }
+  ],
+  "objective": {
+    "sense": "maximize",
+    "linear": {
+      "a": 10,
+      "b": 13,
+      "c": 8,
+      "d": 7
+    }
+  },
+  "constraints": [
+    {
+      "id": "weight",
+      "linear": {
+        "a": 5,
+        "b": 6,
+        "c": 4,
+        "d": 3
+      },
+      "op": "<=",
+      "rhs": 10
+    }
+  ]
+}

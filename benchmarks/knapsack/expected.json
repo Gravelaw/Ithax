@@ -1,0 +1,37 @@
+[
+  {
+    "metric": "objective",
+    "value": 21.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the 16 subsets of {a, b, c, d}: 10 fit in weight 10, with values 21, 20, 18, 17, 15, 13, 10, 8, 7 and 0; 21 only for {b, c} (weight 6 + 4 = 10); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.a",
+    "value": 0.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the 16 subsets of {a, b, c, d}: 10 fit in weight 10, with values 21, 20, 18, 17, 15, 13, 10, 8, 7 and 0; 21 only for {b, c} (weight 6 + 4 = 10); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.b",
+    "value": 1.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the 16 subsets of {a, b, c, d}: 10 fit in weight 10, with values 21, 20, 18, 17, 15, 13, 10, 8, 7 and 0; 21 only for {b, c} (weight 6 + 4 = 10); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.c",
+    "value": 1.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the 16 subsets of {a, b, c, d}: 10 fit in weight 10, with values 21, 20, 18, 17, 15, 13, 10, 8, 7 and 0; 21 only for {b, c} (weight 6 + 4 = 10); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.d",
+    "value": 0.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the 16 subsets of {a, b, c, d}: 10 fit in weight 10, with values 21, 20, 18, 17, 15, 13, 10, 8, 7 and 0; 21 only for {b, c} (weight 6 + 4 = 10); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  }
+]

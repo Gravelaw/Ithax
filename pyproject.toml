@@ -11,10 +11,12 @@ license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dynamic = ["version"]
 dependencies = [
+    "highspy>=1.15.1",
     "jsonschema>=4.26.0",
     "numpy>=2.4.6",
     "pint>=0.25.3",
     "pyarrow>=26.0.1",
+    "pyomo>=6.10.1",
     "scipy>=1.17.1",
     "simpy>=4.1.2",
 ]
@@ -31,6 +33,7 @@ dev = [
 # Spec 1 "Engine contract": adapters are discovered through this group; the entry-point name
 # is the adapter's name, which run.engine refers to.
 [project.entry-points."lcsim.engines"]
+highs = "lcsim.engines.optimize.adapter:HighsAdapter"
 simpy = "lcsim.engines.process.adapter:ProcessAdapter"
 
 [tool.hatch.version]
@@ -81,6 +84,12 @@ ignore_missing_imports = true
 # and AKS-102).
 [[tool.mypy.overrides]]
 module = ["scipy", "scipy.*"]
+ignore_missing_imports = true
+
+# pyomo 6.10.1 ships no py.typed and has no stubs; only lcsim.engines.optimize.solver
+# imports it (docs/DECISIONS.md, AKS-108).
+[[tool.mypy.overrides]]
+module = ["pyomo", "pyomo.*"]
 ignore_missing_imports = true
 
 [tool.coverage.report]

@@ -148,3 +148,10 @@ def test_a_cancelled_run_leaves_no_table(tmp_path: Path) -> None:
     assert not (workdir / TIMESERIES_FILE).exists()
     with pytest.raises(FileNotFoundError):
         adapter.collect(workdir)
+
+
+def test_translate_needs_an_experiment_id(tmp_path: Path) -> None:
+    # Only an optimization model is translated without one (AKS-108).
+    with pytest.raises(ValueError, match="none was given"):
+        ProcessAdapter().translate(load(coffee_shop()), None, tmp_path)
+    assert not (tmp_path / "input.json").exists()

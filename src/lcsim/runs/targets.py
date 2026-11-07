@@ -1,7 +1,8 @@
 """The ``local`` run target (spec 1 "Run targets" and "Run folder and results"; AKS-103).
 
 ``LocalTarget(runs_root).create(model_file, experiment_id)`` checks a run and, when nothing
-refuses it, creates ``runs_root/<run_id>/`` in state ``queued``; ``LocalRun.execute()``
+refuses it, creates ``runs_root/<run_id>/`` in state ``queued`` (an ``optimization`` model
+has no experiments and is created with ``experiment_id`` ``None``; AKS-108); ``LocalRun.execute()``
 then runs it to a final state, and ``LocalRun.cancel()`` (from any thread) cancels it.
 
 Before a run exists: the file is loaded; a ``run.target`` other than ``local`` is E172;
@@ -208,15 +209,21 @@ class LocalTarget:
         self.kill_grace_s = kill_grace_s
 
     def create(
-        self, model_file: bytes, experiment_id: str, *, seed_source: SeedSource | None = None
+        self,
+        model_file: bytes,
+        experiment_id: str | None = None,
+        *,
+        seed_source: SeedSource | None = None,
     ) -> LocalRun:
         """Checks a run of experiment ``experiment_id`` of the model file ``model_file``
-        and creates it, ``queued``.
+        (``None`` for an optimization model, which has no experiments) and creates it,
+        ``queued``.
 
         Raises ``RunRefused`` when any check finds an error (nothing is created),
-        ``ValueError`` for an experiment the model does not have, and
-        ``NotImplementedError`` for a search or an optimization model (M5).
-        ``seed_source`` gives the seed of an experiment the file leaves without one.
+        ``ValueError`` for an experiment the model does not have, an experiment id for an
+        optimization model or none for a process model, and ``NotImplementedError`` for a
+        search (M5). ``seed_source`` gives the seed of an experiment the file leaves
+        without one.
         """
         engines = None if self.adapters is None else installed_engines(self.adapters)
         loaded = load_text(model_file, seed_source=seed_source, engines=engines)
@@ -228,12 +235,8 @@ class LocalTarget:
             raise RunRefused((target_issue,))
         selection = select_adapter(model.domain, model.run.engine, self.adapters)
         # Loading checked run.engine against the same engines (E102), so the choice holds.
-        assert not selection.issues
-        if selection.adapter is None:
-            raise NotImplementedError(
-                f"a {model.domain} model runs from M5 (spec 2 'Mathematical optimization')"
-            )
         adapter = selection.adapter
+        assert adapter is not None and not selection.issues
         checked = check_experiment(adapter, model, experiment_id)
         if any(issue.severity == "error" for issue in checked):
             raise RunRefused(checked)
@@ -249,7 +252,7 @@ class LocalRun:
         target: LocalTarget,
         model_file: bytes,
         model: Model,
-        experiment_id: str,
+        experiment_id: str | None,
         adapter: EngineAdapter,
         warnings: tuple[Issue, ...],
     ) -> None:
@@ -263,7 +266,7 @@ class LocalRun:
         self._cancelled_at: float | None = None
         self._started_at = 0.0
         self._memory_noted = False
-        experiment = next(item for item in model.experiments if item.id == experiment_id)
+        experiment = next((item for item in model.experiments if item.id == experiment_id), None)
         target.runs_root.mkdir(parents=True, exist_ok=True)
         while True:
             created = now()
@@ -286,14 +289,16 @@ class LocalRun:
                 run_id=run_id,
                 project_id=target.project_id,
                 experiment_id=experiment_id,
-                scenario_ids=[scenario.id for scenario in experiment.scenarios],
+                scenario_ids=[]
+                if experiment is None
+                else [scenario.id for scenario in experiment.scenarios],
                 created=created,
                 host=socket.gethostname(),
                 client=target.client,
                 engine_name=adapter.name,
                 engine_version=adapter.version,
                 format_version=model.format_version,
-                seed=experiment.seed,
+                seed=None if experiment is None else experiment.seed,
             ),
         )
         self.log("state queued")
