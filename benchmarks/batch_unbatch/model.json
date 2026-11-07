@@ -1,0 +1,64 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Batch and unbatch benchmark",
+    "description": "Spec 2 benchmark batch and unbatch: exponential arrivals, mean 1 min, into a batch of size 5 (no timeout), an unbatch and a sink."
+  },
+  "domain": "process",
+  "components": [
+    {
+      "id": "arrivals",
+      "type": "source",
+      "params": {
+        "interarrival": {
+          "dist": "exponential",
+          "mean": "1 min"
+        }
+      }
+    },
+    {
+      "id": "batch",
+      "type": "batch",
+      "params": {
+        "size": 5
+      }
+    },
+    {
+      "id": "unbatch",
+      "type": "unbatch",
+      "params": {}
+    },
+    {
+      "id": "exit",
+      "type": "sink",
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": "arrivals.out",
+      "to": "batch.in"
+    },
+    {
+      "from": "batch.out",
+      "to": "unbatch.in"
+    },
+    {
+      "from": "unbatch.out",
+      "to": "exit.in"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "benchmark",
+      "length": "200 h",
+      "warmup": "10 h",
+      "replications": 100,
+      "seed": 1007
+    }
+  ],
+  "run": {
+    "target": "local",
+    "fidelity": "standard"
+  }
+}

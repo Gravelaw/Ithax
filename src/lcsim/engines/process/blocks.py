@@ -1,5 +1,5 @@
-"""The process blocks on SimPy: ``source``, ``server``, ``delay``, ``branch`` and ``sink``
-(spec 2 "Block reference").
+"""The process blocks on SimPy: ``source``, ``server``, ``delay``, ``branch``, ``queue``,
+``batch``, ``unbatch`` and ``sink`` (spec 2 "Block reference").
 
 SimPy schedules every event: a source is a SimPy process that waits one interarrival time
 between items, and a service or a delay is a SimPy timeout whose callback ends it. The
@@ -11,13 +11,23 @@ time, and ``accepts()`` says whether it can take one now; a block with output po
 connects each to the block that ``connect(port, target)`` names. A new block type is one
 more subclass in ``BLOCK_TYPES``.
 
-Blocking (spec 2 "Blocking"): only a server with ``queue_capacity`` refuses an item. A
-block passes an item on with ``send(item, target, then)``: when ``target`` accepts, it
+Blocking (spec 2 "Blocking"): a server with ``queue_capacity`` and a full ``queue`` with
+``on_full`` ``block`` refuse an item; every other block always accepts. A block passes an
+item on with ``send(item, target, then)``: when ``target`` accepts, it
 receives the item and ``then()`` runs at the same instant; otherwise the move waits in the
 target's ``blocked`` line, first in, first out, and runs as soon as the target calls
 ``space_freed()``, at that same instant. A server's ``then`` releases its unit, so a unit
-holding a refused item stays busy; a delay and a branch have nothing to release. A source
-does not send: it discards an item its next block refuses (spec 2 "Source when blocked").
+holding a refused item stays busy; a delay, a branch, a batch and an unbatch have nothing to
+release. A queue does not ``send``: it offers its next item and, when refused, waits in the
+target's ``blocked`` line with a step that takes the item its discipline picks at the
+moment space frees. A source does not send either: it discards an item its next block
+refuses (spec 2 "Source when blocked").
+
+Batches (spec 2 "Batch timeout"): a batch is an ``Item`` whose ``contents`` are the units it
+collected, in arrival order, and whose ``created`` is its first unit's; it moves as one
+unit. An unbatch passes on the contents of what it receives, one level, or a single item as
+it is. A sink counts a batch once, and every item a batch holds leaves work in progress with
+it, as at a queue that discards it.
 
 Offers and ``then`` steps go through the replication's ``Transfers``, which runs them one
 after another, first in, first out, instead of nested: a branch routed back to itself, or a
@@ -52,26 +62,37 @@ from lcsim.model.distributions import Sampler, sampler_from_numbers
 __all__ = [
     "BLOCK_TYPES",
     "TRANSFER_CHECK_STEPS",
+    "Batch",
     "Block",
     "Branch",
     "Context",
     "Delay",
     "Item",
+    "Queue",
     "Server",
     "Sink",
     "Source",
     "Stopped",
     "Transfers",
+    "Unbatch",
     "sampler_from_json",
 ]
 
 
 @dataclass
 class Item:
-    """One item: when it was created, and when it arrived at the block now holding it."""
+    """One unit moving through the model: when it was created, when it arrived at the block
+    now holding it, and, for a batch, the units it holds in the order the batch collected
+    them (empty for a single item). A batch's ``created`` is its first unit's."""
 
     created: float
     arrived: float
+    contents: tuple[Item, ...] = ()
+
+    def count(self) -> int:
+        """The number of items the unit is: 1 for a single item, the items of every unit
+        it holds for a batch."""
+        return sum(part.count() for part in self.contents) if self.contents else 1
 
 
 #: How many transfer steps run between two calls of a ``Transfers``' ``should_stop``.
@@ -305,7 +326,7 @@ class Server(Block):
         queue_capacity = settings.get("queue_capacity")
         self.queue_capacity: int | None = None if queue_capacity is None else int(queue_capacity)
         discipline = settings.get("discipline", "fifo")
-        if discipline not in ("fifo", "lifo"):
+        if discipline not in DISCIPLINES:
             raise ValueError(f"'{self.id}' has discipline {discipline!r}")
         self._next: Callable[[], Item] = (
             self._waiting_first if discipline == "fifo" else self._waiting_last
@@ -398,6 +419,14 @@ class Delay(Block):
         done.callbacks.append(lambda _event: self.send(item, self.target("out"), _nothing))
 
 
+#: The disciplines of spec 2 "Discipline".
+DISCIPLINES = ("fifo", "lifo")
+
+
+#: The ``on_full`` words of a ``queue`` (spec 2 "Block reference").
+ON_FULL = ("block", "discard")
+
+
 #: The branch rules of spec 2 "Branch rules".
 BRANCH_RULES = ("probability", "shortest_queue")
 
@@ -445,8 +474,220 @@ class Branch(Block):
         return min(self.routes, key=lambda route: self.target(route).waiting_items())
 
 
+class Queue(Block):
+    """A standalone buffer of ``capacity`` units. An item moves on as soon as the next block
+    accepts it, so one passing straight through waits 0 s and is never counted as waiting;
+    the others wait, and ``discipline`` ``fifo`` (default) or ``lifo`` picks the one that
+    moves when space frees. When full, ``on_full`` ``block`` (default) refuses an item, and
+    ``discard`` takes it and throws it away, counted in ``discarded``.
+
+    Every onward move is a step of the replication's ``Transfers``, and ``accepts`` only
+    reads the queue, so no call nests one level per block. A queue full only because its
+    offer to the next block is still due at this instant decides about an arriving item
+    after that offer: a blocking queue refuses it, and it moves in at the same instant when
+    the offer frees space (spec 2 "Blocking"); a discarding queue holds it until then
+    (``_arrivals``) and discards it only if the queue is still full with its offer refused.
+
+    ``queue_length`` records the units that could not move on at once: it rises only while
+    the queue's offer waits in the next block's ``blocked`` line, so after every instant it
+    equals the number of units held."""
+
+    outputs = ("out",)
+
+    def configure(self, settings: Mapping[str, Any]) -> None:
+        self.capacity = int(settings["capacity"])
+        discipline = settings.get("discipline", "fifo")
+        if discipline not in DISCIPLINES:
+            raise ValueError(f"'{self.id}' has discipline {discipline!r}")
+        self.lifo = discipline == "lifo"
+        on_full = settings.get("on_full", "block")
+        if on_full not in ON_FULL:
+            raise ValueError(f"'{self.id}' has on_full {on_full!r}")
+        self.discards = on_full == "discard"
+        self.waiting: deque[Item] = deque()
+        # Items that reached a discarding queue while it was full with its offer still due,
+        # oldest first, waiting for that offer before the queue decides about them.
+        self._arrivals: deque[Item] = deque()
+        # An offer to the next block is due among the transfers (``pending``); the queue's
+        # step waits in the next block's ``blocked`` line (``stalled``); a decision about
+        # ``_arrivals`` is due among the transfers (``deciding``).
+        self._pending = False
+        self._stalled = False
+        self._deciding = False
+        self.queue_length = TimeWeighted(self.context.window)
+        self.waits = Tally()
+        self.discarded = 0
+
+    def accepts(self) -> bool:
+        return self.discards or len(self.waiting) < self.capacity
+
+    def waiting_items(self) -> int:
+        return len(self.waiting) + len(self._arrivals)
+
+    def receive(self, item: Item) -> None:
+        item.arrived = self.now
+        if self._arrivals:
+            self._arrivals.append(item)  # behind the items not yet decided about
+        elif len(self.waiting) < self.capacity:
+            self._enter(item)
+        elif self._stalled:
+            assert self.discards  # a blocking queue refuses when full (``accepts``)
+            self._discard(item)
+        else:
+            # Full, but the offer to the next block has not been tried yet; a blocking
+            # queue refuses here (``accepts``).
+            assert self.discards
+            self._arrivals.append(item)
+            self._decide_later()
+
+    def _enter(self, item: Item) -> None:
+        self.waiting.append(item)
+        if self._stalled:
+            self.queue_length.set(self.now, len(self.waiting))
+        elif not self._pending:
+            self._pending = True
+            self.context.transfers.run(self._offer)
+
+    def _discard(self, item: Item) -> None:
+        now = self.now
+        self.context.wip.add(now, -item.count())
+        if self.context.window.observes(now):
+            self.discarded += 1
+
+    def _decide_later(self) -> None:
+        if not self._deciding:
+            self._deciding = True
+            self.context.transfers.run(self._decide)
+
+    def _decide(self) -> None:
+        """After the offer that was due: each held item enters while there is room; with the
+        queue full and its offer refused it is discarded; with an offer due again it waits
+        for that one."""
+        self._deciding = False
+        while self._arrivals:
+            if len(self.waiting) < self.capacity:
+                self._enter(self._arrivals.popleft())
+            elif self._stalled:
+                self._discard(self._arrivals.popleft())
+            else:
+                assert self._pending  # held units always have a step due to move them
+                self._decide_later()
+                return
+
+    def _offer(self) -> None:
+        """Moves on the units held now while the next block accepts them; when it refuses,
+        waits in its ``blocked`` line. A unit arriving meanwhile (a queue that feeds itself)
+        gets an offer of its own, so an endless zero-time loop still reaches
+        ``should_stop``."""
+        self._pending = False
+        target = self.target("out")
+        for _ in range(len(self.waiting)):
+            if self._stalled:
+                break
+            if target.accepts():
+                self._take()
+            else:
+                self._stalled = True
+                self.queue_length.set(self.now, len(self.waiting))
+                target.blocked.append(self._pull)
+
+    def _pull(self) -> None:
+        """The step in the next block's ``blocked`` line: space has freed there."""
+        self._stalled = False
+        self._take()
+        if self.waiting and not self._pending:
+            self._pending = True
+            self.context.transfers.run(self._offer)
+
+    def _take(self) -> None:
+        """Moves the unit the discipline picks to the next block, which accepts it now."""
+        now = self.now
+        item = self.waiting.pop() if self.lifo else self.waiting.popleft()
+        self.queue_length.set(now, min(self.queue_length.value, len(self.waiting)))
+        if self.context.window.observes(now):
+            self.waits.observe(now - item.arrived)
+        self.target("out").receive(item)
+        self.context.transfers.run(self.space_freed)
+
+    def metrics(self) -> dict[str, float]:
+        return {
+            "queue_length.mean": self.queue_length.mean(),
+            "queue_length.max": self.queue_length.maximum(),
+            "wait.mean": self.waits.mean(),
+            "discarded": self.discarded / self.context.window.period,
+        }
+
+    def levels(self) -> dict[str, float]:
+        return {"queue_length": self.queue_length.value}
+
+
+class Batch(Block):
+    """Collects ``size`` units and releases them as one batch, created when its first unit
+    was. With ``timeout``, a batch still collecting when that time has passed since its
+    first unit arrived is released as it is. It always accepts: a formed batch the next
+    block refuses waits for space there while the next batch collects. Each unit's wait
+    runs from its arrival to the moment its batch moves on."""
+
+    outputs = ("out",)
+
+    def configure(self, settings: Mapping[str, Any]) -> None:
+        self.size = int(settings["size"])
+        timeout = settings.get("timeout")
+        self.timeout: float | None = None if timeout is None else float(timeout)
+        self.collecting: list[Item] = []
+        # Batches formed so far: a timeout releases only the batch it was started for.
+        self._formed = 0
+        self.waits = Tally()
+
+    def receive(self, item: Item) -> None:
+        item.arrived = self.now
+        self.collecting.append(item)
+        if len(self.collecting) == 1 and self.timeout is not None:
+            batch = self._formed
+            timer = self.context.env.timeout(self.timeout)
+            timer.callbacks.append(lambda _event: self._expire(batch))
+        if len(self.collecting) >= self.size:
+            self._release()
+
+    def _expire(self, batch: int) -> None:
+        if batch == self._formed:  # still collecting, so it holds at least its first unit
+            self._release()
+
+    def _release(self) -> None:
+        parts = tuple(self.collecting)
+        arrivals = [part.arrived for part in parts]
+        self.collecting = []
+        self._formed += 1
+        unit = Item(created=parts[0].created, arrived=self.now, contents=parts)
+
+        def moved() -> None:
+            now = self.now
+            if self.context.window.observes(now):
+                for arrived in arrivals:
+                    self.waits.observe(now - arrived)
+
+        self.send(unit, self.target("out"), moved)
+
+    def metrics(self) -> dict[str, float]:
+        return {"wait.mean": self.waits.mean()}
+
+
+class Unbatch(Block):
+    """Splits whatever it receives into the units it holds, one level of batching, and
+    sends them on in order; a single item passes through. It always accepts; units the next
+    block refuses wait here, in order, until space frees there."""
+
+    outputs = ("out",)
+
+    def receive(self, item: Item) -> None:
+        target = self.target("out")
+        for part in item.contents or (item,):
+            self.send(part, target, _nothing)
+
+
 class Sink(Block):
-    """Removes the item and records its statistics."""
+    """Removes the unit and records its statistics; a batch counts once, with its own
+    creation time, and every item it holds leaves work in progress."""
 
     def configure(self, settings: Mapping[str, Any]) -> None:
         self.count = 0
@@ -454,7 +695,7 @@ class Sink(Block):
 
     def receive(self, item: Item) -> None:
         now = self.now
-        self.context.wip.add(now, -1)
+        self.context.wip.add(now, -item.count())
         if self.context.window.observes(now):
             self.count += 1
             self.cycle_times.observe(now - item.created)
@@ -469,5 +710,14 @@ class Sink(Block):
 
 #: The block types the process adapter runs, by spec 2 type name.
 BLOCK_TYPES: Mapping[str, type[Block]] = MappingProxyType(
-    {"source": Source, "server": Server, "delay": Delay, "branch": Branch, "sink": Sink}
+    {
+        "source": Source,
+        "server": Server,
+        "delay": Delay,
+        "branch": Branch,
+        "queue": Queue,
+        "batch": Batch,
+        "unbatch": Unbatch,
+        "sink": Sink,
+    }
 )

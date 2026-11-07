@@ -1,0 +1,16 @@
+[
+  {
+    "metric": "exit.throughput",
+    "value": 0.007047619047619047,
+    "method": "three_se",
+    "source": "M/M/1/K with K = 3 (queue capacity 2 plus one unit in service): loss probability P3 = (1 - rho) rho^3/(1 - rho^4) = 27/175 (0.1543), rho = 0.75; throughput lambda (1 - P3) = (1/120 per second) x 148/175 = 37/5250 per second (25.37 per hour); Sztrik, Basic Queueing Theory (2016), section 5.4, table 4",
+    "milestone": "M4"
+  },
+  {
+    "metric": "arrivals.discarded",
+    "value": 0.0012857142857142856,
+    "method": "three_se",
+    "source": "M/M/1/K with K = 3: arrivals finding the line full are discarded at the rate lambda P3 = (1/120 per second) x 27/175 = 9/7000 per second (4.63 per hour); Sztrik, Basic Queueing Theory (2016), section 5.4, table 4",
+    "milestone": "M4"
+  }
+]
