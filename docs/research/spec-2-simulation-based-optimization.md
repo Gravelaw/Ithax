@@ -69,13 +69,28 @@ in the presence of constraints on secondary performance measures", which a guara
 selection with constraints would have to add.
 
 **What this means for spec 2's confirmation.** Spec 2's stage is a clean-up in Boesel,
-Nelson and Kim's sense without the guarantee: it re-runs a fixed short list with fresh,
-more numerous replications (so the selection bias of the search stage does not carry into
-the reported means), keeps common random numbers (spec 1 "Random streams"), re-judges
-constraints, and states whether the best is separated from the runner-up. Its size, three
-candidates plus the baseline, is 6 to 8% of a default budget of 50, inside Hong and
-Nelson's 5 to 10%; for
-small budgets it is a larger share (four of the five machine-count candidates). Replacing it
+Nelson and Kim's sense without the guarantee: it re-runs a fixed short list with more
+replications, keeps common random numbers (spec 1 "Random streams"), re-judges constraints,
+and states whether the best is separated from the runner-up. Its size, three candidates
+plus the baseline, is 6 to 8% of a default budget of 50, inside Hong and Nelson's 5 to 10%;
+for small budgets it is a larger share (four of the five machine-count candidates).
+
+The confirmation replications are not fresh, though. A stream's key is
+`<seed>:<replication>:<component id>` (spec 1 "Random streams";
+`generator_for` in `src/lcsim/model/streams.py`), and the process adapter numbers a run's
+replications from 0 (`range(replications)` in `src/lcsim/engines/process/runner.py`). Spec 2
+runs both stages with the experiment seed, so a candidate's first `search.replications`
+confirmation replications are exactly its search-stage replications, and only the rest are
+new: with the defaults (`search.replications` 10, `replications` 30), 10 of the 30 confirmed
+values are the ones that selected the candidate. The confirmed mean dilutes the search
+stage's selection bias, the "natural bias toward solutions that, by chance, received
+favorable simulation samples" of Hong and Nelson, but does not remove it; with equal
+counts it would repeat the search-stage means exactly. Boesel, Nelson and Kim's
+second-stage sampling, which takes additional observations, avoids this. Disjoint
+confirmation replications would too: numbering them from `search.replications` (keys
+`<seed>:<search.replications + k>:<component id>` for k = 0 to `replications` − 1) keeps
+common random numbers across the confirmed candidates, since all of them would still share
+each key, while the confirmed means use only replications the search never saw. Replacing it
 with KN, Rinott or NSGS would add δ and 1 − α to the `search` object (spec 1
 "Experiments"), make the number of confirmation runs random, and still need a feasibility
 procedure for the constraints; OCBA would replace the fixed `search.replications` with an
@@ -241,6 +256,15 @@ before creating the study removed it (0 lines on standard error). With the recip
   checks only feasibility and repeatability. Recorded for Phase 2 (owner to confirm): KN
   with common random numbers, plus Batur and Kim's feasibility check, as the candidate if a
   guaranteed selection is wanted.
+- **Overlap of the two stages** (found in review of PR #30). As spec 2 is written, the
+  confirmation re-runs replications 0 to `replications` − 1 with the experiment seed, so its
+  first `search.replications` values are the search stage's own, and the confirmed means
+  keep part of the search's selection bias. AKS-109 builds the spec as written (simplest
+  reading) and the overlap is put to the owner: numbering the confirmation replications from
+  `search.replications` would make them disjoint while keeping common random numbers across
+  the confirmed candidates. Choosing it is a spec 2 change (and a line in spec 1 "Random
+  streams"), owner to decide. Neither machine-count assertion depends on it: the theory
+  values are far apart, and the Optuna path checks only feasibility and repeatability.
 - **Optuna's TPE sampler stays** as the search driver; `GPSampler` is not used (it needs
   PyTorch).
 - **The seeding recipe for AKS-109**, exactly:
