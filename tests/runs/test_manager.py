@@ -124,13 +124,6 @@ def test_a_cancelled_run_is_not_collected(tmp_path: Path) -> None:
     assert outcome == RunOutcome("cancelled", (), None, None)
 
 
-def test_a_search_experiment_waits_for_m5(tmp_path: Path) -> None:
-    document = coffee_shop(search={"objective": "wait"})
-    document["objectives"] = [{"id": "wait", "metric": "till.wait.mean", "sense": "minimize"}]
-    with pytest.raises(NotImplementedError, match="M5"):
-        run_experiment(ProcessAdapter(), load(document), "base", tmp_path)
-
-
 def test_an_unknown_experiment_is_refused(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="no experiment 'nope'"):
         run_experiment(ProcessAdapter(), load(coffee_shop()), "nope", tmp_path)

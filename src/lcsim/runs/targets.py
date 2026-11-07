@@ -23,6 +23,13 @@ worker ``limit_grace_s`` to stop and then terminates it. A cancelled worker that
 stopped after ``cancel_grace_s`` is terminated too. An exception from ``translate``,
 ``run`` or ``collect``, or a worker that ends without reporting, is E190, with the details
 in ``log.txt``.
+
+A search experiment (spec 2 "Simulation-based optimization"; AKS-109) runs the same way once
+per candidate evaluation, each in its own subfolder of ``engine/`` (``search-<n>``,
+``confirm-<n>``; ``lcsim.runs.search``), with one worker per evaluation and one time limit for
+the whole run. The run folder's ``summary.json`` and ``tables/`` are the best candidate's
+confirmation with the ``search`` object, and the manifest names the search method and the
+Optuna version in ``optimizer``.
 """
 
 from __future__ import annotations
@@ -35,14 +42,14 @@ import socket
 import threading
 import time
 import traceback
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
 from pathlib import Path
 from typing import Any
 
-from lcsim.engines.adapter import EngineAdapter
+from lcsim.engines.adapter import EngineAdapter, Progress, Results
 from lcsim.engines.registry import installed_engines, select_adapter
 from lcsim.model.issues import Issue, pointer
 from lcsim.model.loading import SeedSource, load_text
@@ -58,6 +65,12 @@ from lcsim.runs.manifest import (
     read_manifest,
     utc_text,
     write_manifest,
+)
+from lcsim.runs.search import (
+    optimizer_record,
+    run_search,
+    search_method,
+    search_summary,
 )
 from lcsim.runs.states import FINAL_STATES, JobState, check_move
 from lcsim.runs.tables import write_summary, write_tables
@@ -177,6 +190,15 @@ def _limit_issue(which: str, limits: Limits) -> Issue:
     )
 
 
+class _EvaluationFailed(Exception):
+    """A search's candidate evaluation failed: the issue and the details for ``log.txt``."""
+
+    def __init__(self, issue: Issue, details: str) -> None:
+        super().__init__(issue.code)
+        self.issue = issue
+        self.details = details
+
+
 class LocalTarget:
     """Creates runs in ``runs_root`` on this machine.
 
@@ -219,11 +241,10 @@ class LocalTarget:
         (``None`` for an optimization model, which has no experiments) and creates it,
         ``queued``.
 
-        Raises ``RunRefused`` when any check finds an error (nothing is created),
+        Raises ``RunRefused`` when any check finds an error (nothing is created) and
         ``ValueError`` for an experiment the model does not have, an experiment id for an
-        optimization model or none for a process model, and ``NotImplementedError`` for a
-        search (M5). ``seed_source`` gives the seed of an experiment the file leaves
-        without one.
+        optimization model or none for a process model. ``seed_source`` gives the seed of an
+        experiment the file leaves without one.
         """
         engines = None if self.adapters is None else installed_engines(self.adapters)
         loaded = load_text(model_file, seed_source=seed_source, engines=engines)
@@ -266,7 +287,9 @@ class LocalRun:
         self._cancelled_at: float | None = None
         self._started_at = 0.0
         self._memory_noted = False
+        self._on_report: Callable[[float, str], None] = self._record_progress
         experiment = next((item for item in model.experiments if item.id == experiment_id), None)
+        self._search = experiment is not None and experiment.search is not None
         target.runs_root.mkdir(parents=True, exist_ok=True)
         while True:
             created = now()
@@ -299,6 +322,9 @@ class LocalRun:
                 engine_version=adapter.version,
                 format_version=model.format_version,
                 seed=None if experiment is None else experiment.seed,
+                optimizer=None
+                if experiment is None or experiment.search is None
+                else optimizer_record(search_method(model, experiment.search)),
             ),
         )
         self.log("state queued")
@@ -360,6 +386,8 @@ class LocalRun:
                 return self.state
             self.move("running")
             self._started_at = time.monotonic()
+        if self._search:
+            return self._execute_search()
         engine = self._adapter.name
         try:
             self._adapter.translate(self._model, self._experiment_id, self.engine_folder)
@@ -367,7 +395,7 @@ class LocalRun:
             return self._fail(_engine_error(engine), "translate raised:\n" + traceback.format_exc())
         if self._cancel.is_set():
             return self._end_cancelled()
-        failure = self._run_worker()
+        failure = self._run_worker(self.engine_folder)
         if failure is not None:
             return self._fail(*failure)
         if self._cancel.is_set():
@@ -378,6 +406,11 @@ class LocalRun:
             )
         except Exception:
             return self._fail(_engine_error(engine), "collect raised:\n" + traceback.format_exc())
+        return self._finish(results, summary)
+
+    def _finish(self, results: Results, summary: dict[str, Any]) -> JobState:
+        """Writes the tables and ``summary.json`` and moves the run to ``done``, unless a
+        cancel came first."""
         # Holding the mutex, a cancel() either came before this check or finds the run
         # final: a cancel accepted while collecting is never lost.
         with self._mutex:
@@ -388,25 +421,85 @@ class LocalRun:
                 write_summary(summary, self.folder)
             except Exception:
                 return self._fail(
-                    _engine_error(engine), "writing the results raised:\n" + traceback.format_exc()
+                    _engine_error(self._adapter.name),
+                    "writing the results raised:\n" + traceback.format_exc(),
                 )
             self.move("done", fraction=1.0)
         return "done"
+
+    def _execute_search(self) -> JobState:
+        """The search: every candidate evaluation translated and collected here, and run
+        in a worker of its own."""
+        engine = self._adapter.name
+        assert self._experiment_id is not None  # a search belongs to an experiment
+
+        def evaluate(
+            model: Model, experiment_id: str, folder: Path, report: Callable[[Progress], None]
+        ) -> Results | None:
+            if self._cancel.is_set():
+                return None
+            folder.mkdir()
+            self.log(f"evaluation {folder.name}")
+            try:
+                self._adapter.translate(model, experiment_id, folder)
+            except Exception:
+                details = f"translate raised in {folder.name}:\n" + traceback.format_exc()
+                raise _EvaluationFailed(_engine_error(engine), details) from None
+            if self._cancel.is_set():
+                return None
+            self._on_report = lambda fraction, message: report(Progress(fraction, message))
+            try:
+                failure = self._run_worker(folder)
+            finally:
+                self._on_report = self._record_progress
+            if failure is not None:
+                raise _EvaluationFailed(*failure)
+            if self._cancel.is_set():
+                return None
+            try:
+                return self._adapter.collect(folder)
+            except Exception:
+                details = f"collect raised in {folder.name}:\n" + traceback.format_exc()
+                raise _EvaluationFailed(_engine_error(engine), details) from None
+
+        def progress(report: Progress) -> None:
+            self._record_progress(report.fraction, report.message)
+
+        try:
+            result = run_search(
+                self._model, self._experiment_id, self.engine_folder, evaluate, progress
+            )
+            if result is None:
+                return self._end_cancelled()
+            summary = search_summary(self._model, self._experiment_id, result, self._warnings)
+        except _EvaluationFailed as failed:
+            return self._fail(failed.issue, failed.details)
+        except Exception:
+            return self._fail(
+                _engine_error(engine), "the search raised:\n" + traceback.format_exc()
+            )
+        return self._finish(result.best_results, summary)
+
+    def _record_progress(self, fraction: float, message: str) -> None:
+        """Writes a progress fraction to the manifest (at most once a second)."""
+        with self._mutex:  # cancel() may write from another thread
+            self._manifest.progress(fraction)
 
     def _end_cancelled(self) -> JobState:
         self.move("cancelled")
         return "cancelled"
 
-    def _run_worker(self) -> tuple[Issue, str] | None:
-        """Runs ``run`` in a spawned worker; the E190 or E192 issue and the details for
-        ``log.txt`` when it failed, otherwise ``None`` (finished or cancelled)."""
+    def _run_worker(self, workdir: Path) -> tuple[Issue, str] | None:
+        """Runs ``run`` in ``workdir`` in a spawned worker; the E190 or E192 issue and the
+        details for ``log.txt`` when it failed, otherwise ``None`` (finished or
+        cancelled)."""
         context = multiprocessing.get_context("spawn")
         receive, send = context.Pipe(duplex=False)
         worker = context.Process(
             target=child_main,
             args=(
                 type(self._adapter),
-                str(self.engine_folder),
+                str(workdir),
                 self._cancel,
                 self._target.workers,
                 send,
@@ -465,8 +558,7 @@ class LocalRun:
                     reporting = False
                     continue
                 if message[0] == "progress":
-                    with self._mutex:  # cancel() may write from another thread
-                        self._manifest.progress(float(message[1]))
+                    self._on_report(float(message[1]), str(message[2]))
                 else:
                     report = message
             clock = time.monotonic()

@@ -14,6 +14,13 @@ An optimization case (AKS-108) has no experiment: it runs once through the HiGHS
 must end ``optimal``, and each row's ``metric`` names the ``objective`` or a variable as
 ``variables.<id>`` of the solution, one value, judged by ``sig_figs_4``.
 
+A search case (AKS-109: the machine count) runs its experiment's search through the
+experiment manager (``run_experiment``). A row ``search.best.<variable>`` is the best
+candidate's value, one value judged by ``sig_figs_4``; a row
+``search.candidates[<variable>=<value>].<metric>`` is the replication values of that
+candidate's confirmation (read with the adapter's ``collect`` from its ``confirm-<n>``
+folder), judged like any simulated metric, so it exists only for a confirmed candidate.
+
 At M2 the experiment manager does not exist yet, so the estimate and its standard error are
 computed here from the adapter's ``replications`` table (the issue's Agent notes).
 
@@ -40,6 +47,8 @@ from lcsim.engines.registry import select_adapter
 from lcsim.model.catalogue import MODEL_METRICS, PROCESS_TYPES
 from lcsim.model.loading import load_document
 from lcsim.model.model import Model
+from lcsim.runs.manager import run_experiment
+from lcsim.runs.search import combination_count, combinations
 
 ROOT = Path(__file__).resolve().parents[2]
 BENCHMARKS = ROOT / "benchmarks"
@@ -58,6 +67,8 @@ WORKERS = min(4, os.cpu_count() or 1)
 M2_CASES = {"mm1", "mm2", "tandem", "delay", "branch"}
 # The four M5 linear and integer programs (AKS-108).
 M5_OPTIMIZATION_CASES = {"product_mix", "knapsack", "assignment", "diet"}
+# The M5 simulation-based search (AKS-109).
+M5_SEARCH_CASES = {"machine_count"}
 M2_BLOCKS = {"source", "server", "delay", "branch", "sink"}
 # Spec 2 acceptance row "Every block has a unit test and appears in a benchmark": M2 for
 # the five prototype blocks, M4 for the rest.
@@ -70,7 +81,13 @@ BLOCK_MILESTONES = {block: "M2" for block in M2_BLOCKS} | {
 # 10 hours of warm-up unless stated"; the cases that state their own, as (replications,
 # length in hours, warm-up in hours).
 STANDARD_SETTINGS = (100, 200, 10)
-STATED_SETTINGS = {"store_deterministic": (2, 1000, 100), "schedule_deterministic": (2, 204, 12)}
+STATED_SETTINGS = {
+    "store_deterministic": (2, 1000, 100),
+    "schedule_deterministic": (2, 204, 12),
+    # Spec 2 "Benchmark definitions": "The coffee shop", whose experiment is 30 replications
+    # of 200 h with 10 h of warm-up.
+    "machine_count": (30, 200, 10),
+}
 
 MILESTONE = re.compile(r"^M(\d+)$")
 
@@ -160,6 +177,37 @@ def is_optimization(document: Mapping[str, Any]) -> bool:
     return bool(document["domain"] == "optimization")
 
 
+def is_search(document: Mapping[str, Any]) -> bool:
+    """Whether a case's experiment has a search."""
+    return any("search" in experiment for experiment in document.get("experiments", []))
+
+
+def candidate_label(values: Mapping[str, Any]) -> str:
+    """``<variable>=<value>`` for each variable, joined by commas: ``tills=2``."""
+    return ",".join(f"{name}={value:g}" for name, value in values.items())
+
+
+def search_values(
+    adapter: Any, model: Model, experiment_id: str, workdir: Path
+) -> dict[str, list[float]]:
+    """Runs the search and returns ``search.best.<variable>`` (one value each) and each
+    confirmed candidate's replication values as
+    ``search.candidates[<label>].<metric>``."""
+    outcome = run_experiment(adapter, model, experiment_id, workdir, workers=WORKERS)
+    assert outcome.state == "done" and outcome.summary is not None
+    found = outcome.summary["search"]
+    values = {f"search.best.{name}": [float(v)] for name, v in found["best"]["set"].items()}
+    for index, candidate in enumerate(found["candidates"]):
+        if not candidate["confirmed"]:
+            continue
+        table = adapter.collect(workdir / f"confirm-{index:03d}").tables["replications"]
+        label = candidate_label(candidate["set"])
+        for row in table.to_pylist():
+            key = f"search.candidates[{label}].{row['metric']}"
+            values.setdefault(key, []).append(row["value"])
+    return values
+
+
 def solution_values(solution: Mapping[str, Any]) -> dict[str, list[float]]:
     """An optimization solution as one value per metric: ``objective`` and
     ``variables.<id>``; empty unless the status is ``optimal``, so every row then fails
@@ -190,6 +238,8 @@ def run_case(
         solution = adapter.collect(workdir).solution
         assert solution is not None
         return solution_values(solution)
+    if model.experiments[0].search is not None:
+        return search_values(adapter, model, model.experiments[0].id, workdir)
     adapter.translate(model, model.experiments[0].id, workdir)
     adapter.run(workdir, lambda progress: None, threading.Event(), WORKERS)
     rows = adapter.collect(workdir).tables["replications"].to_pylist()
@@ -248,11 +298,25 @@ def emitted_metrics(model: Model) -> set[str]:
     for an optimization model the ``objective`` and each ``variables.<id>``."""
     if model.program is not None:
         return {"objective"} | {f"variables.{v.id}" for v in model.program.variables}
-    return {
+    metrics = {
         f"{component.id}.{measure}"
         for component in model.components
         for measure in PROCESS_TYPES[component.type].metrics
     } | {f"model.{measure}" for measure in MODEL_METRICS}
+    search = model.experiments[0].search if model.experiments else None
+    if search is None:
+        return metrics
+    # Only a search that takes the exhaustive path lists its combinations (a range may be
+    # far too large to list).
+    count = combination_count(model, search)
+    fits = count is not None and count <= search.budget
+    found = (combinations(model, search) or []) if fits else []
+    labels = [candidate_label(dict(zip(search.variables, item, strict=True))) for item in found]
+    return (
+        metrics
+        | {f"search.best.{name}" for name in search.variables}
+        | {f"search.candidates[{label}].{metric}" for label in labels for metric in metrics}
+    )
 
 
 # ---------------------------------------------------------------------------------------
@@ -305,6 +369,16 @@ def test_every_case_with_stated_settings_exists() -> None:
     assert set(STATED_SETTINGS) <= set(CASES)
 
 
+def test_the_m5_search_case_exists() -> None:
+    """Spec 2 "Benchmark definitions": machine count (simulation-based)."""
+    assert {case for case in CASES if is_search(read_case(case)[0])} == M5_SEARCH_CASES
+
+
+def test_a_candidate_label_names_each_variable_and_value() -> None:
+    assert candidate_label({"tills": 2}) == "tills=2"
+    assert candidate_label({"tills": 2, "delay": 90.0}) == "tills=2,delay=90"
+
+
 def test_the_four_m5_optimization_cases_exist() -> None:
     """Spec 2 "Benchmark definitions": product mix, knapsack, assignment and diet."""
     assert M5_OPTIMIZATION_CASES <= set(CASES)
@@ -352,7 +426,11 @@ def test_each_expected_row_is_well_formed_and_names_an_emitted_metric(case: str)
         assert {row.method for row in expected} == {"sig_figs_4"}
         assert "objective" in {row.metric for row in expected}
     else:
-        assert "sig_figs_4" not in {row.method for row in expected}
+        # A search's best is one value, judged as an optimization result.
+        one_value = {row.metric for row in expected if row.method == "sig_figs_4"}
+        assert all(metric.startswith("search.best.") for metric in one_value)
+    if is_search(document):
+        assert {row.metric for row in expected if row.method == "sig_figs_4"}
 
 
 def test_every_m2_block_appears_in_an_m2_benchmark() -> None:

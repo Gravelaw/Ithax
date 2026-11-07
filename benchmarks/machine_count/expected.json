@@ -1,0 +1,30 @@
+[
+  {
+    "metric": "search.best.tills",
+    "value": 2.0,
+    "method": "sig_figs_4",
+    "source": "Erlang C for the M/M/c queue, lambda = 1/2 per min, mu = 2/3 per min: E(W) = Pi_W/(1 - rho) x 1/(c mu), rho = lambda/(c mu) (Adan and Resing, Queueing Systems (2015), equations 5.1 and 5.3): 1 till 4.500 min at utilization 0.750, 2 tills 0.245 min (27/110) at 0.375, 3 to 5 tills at 0.250, 0.1875 and 0.150, below the constraint 0.35; the feasible best is 2 tills; docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "search.candidates[tills=1].till.wait.mean",
+    "value": 270.0,
+    "method": "three_se",
+    "source": "Erlang C for the M/M/c queue, lambda = 1/2 per min, mu = 2/3 per min: E(W) = Pi_W/(1 - rho) x 1/(c mu), rho = lambda/(c mu) (Adan and Resing, Queueing Systems (2015), equations 5.1 and 5.3): c = 1, Pi_W = 0.75, E(W) = 9/2 min = 270 s (the M/M/1 benchmark); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "search.candidates[tills=2].till.wait.mean",
+    "value": 14.727272727272727,
+    "method": "three_se",
+    "source": "Erlang C for the M/M/c queue, lambda = 1/2 per min, mu = 2/3 per min: E(W) = Pi_W/(1 - rho) x 1/(c mu), rho = lambda/(c mu) (Adan and Resing, Queueing Systems (2015), equations 5.1 and 5.3): c = 2, Pi_W = 9/44, E(W) = 27/110 min = 0.245 min (162/11 s); docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "search.candidates[tills=2].till.utilization",
+    "value": 0.375,
+    "method": "three_se",
+    "source": "Utilization rho = lambda/(c mu) = 0.5/(2 x 2/3) = 3/8 = 0.375; docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  }
+]

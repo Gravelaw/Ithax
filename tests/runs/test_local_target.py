@@ -266,14 +266,10 @@ def test_no_single_engine_is_refused_with_e102(tmp_path: Path) -> None:
     assert "E102" in [issue.code for issue in refused(tmp_path, document).issues]
 
 
-def test_what_cannot_run_yet_raises(tmp_path: Path) -> None:
+def test_what_cannot_run_raises(tmp_path: Path) -> None:
     local = target(tmp_path, DummyAdapter())
     with pytest.raises(ValueError, match="no experiment 'other'"):
         local.create(file_bytes(coffee_shop()), "other")
-    searching = coffee_shop(search={"objective": "wait"})
-    searching["objectives"] = [{"id": "wait", "metric": "till.wait.mean", "sense": "minimize"}]
-    with pytest.raises(NotImplementedError, match="M5"):
-        local.create(file_bytes(searching), "base")
     # A process model is run for one of its experiments (AKS-108).
     with pytest.raises(ValueError, match="none was given"):
         local.create(file_bytes(coffee_shop()))

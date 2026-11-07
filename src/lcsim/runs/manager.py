@@ -15,8 +15,13 @@ folder's ``engine/``, which the run target chooses; AKS-103):
 It writes nothing itself and knows nothing of the run folder, the manifest or job states:
 the run target writes ``summary.json`` and the tables with ``lcsim.runs.tables`` and
 records the state. An exception from the adapter propagates; the run target reports it
-(E190). A plain experiment only: a search experiment (spec 2 "Simulation-based
-optimization") is M5's (AKS-109).
+(E190).
+
+An experiment with a ``search`` (spec 2 "Simulation-based optimization"; AKS-109) runs the
+search of ``lcsim.runs.search`` instead of steps 2 to 4: each candidate evaluation calls
+``translate``, ``run`` and ``collect`` in its own subfolder of ``workdir``, and the summary is
+``search_summary``'s (the best candidate's confirmation with the ``search`` object); the
+outcome's ``results`` are the best candidate's confirmation results.
 
 An ``optimization`` model has no experiments (spec 3: ``POST .../runs`` takes no
 ``experiment_id`` for it), so it is run with ``experiment_id`` ``None``, which ``translate``
@@ -40,6 +45,7 @@ from typing import Any, Literal
 from lcsim.engines.adapter import CancelToken, EngineAdapter, Progress, Results
 from lcsim.model.issues import Issue, pointer
 from lcsim.model.model import Model
+from lcsim.runs.search import run_search, search_summary
 from lcsim.runs.summary import build_summary
 
 __all__ = [
@@ -113,14 +119,17 @@ def run_experiment(
 
     ``cancel`` defaults to a token that is never set. ``experiment_id`` is ``None`` for an
     optimization model. An experiment the model does not have, an experiment id for an
-    optimization model or none for a process model raises ``ValueError``; a search
-    experiment raises ``NotImplementedError`` (M5).
+    optimization model or none for a process model raises ``ValueError``.
     """
     issues = check_experiment(adapter, model, experiment_id)
     if any(issue.severity == "error" for issue in issues):
         return RunOutcome("refused", issues, None, None)
     token: CancelToken = threading.Event() if cancel is None else cancel
     workdir.mkdir(parents=True, exist_ok=True)
+    if experiment_id is not None and _has_search(model, experiment_id):
+        return _run_search(
+            adapter, model, experiment_id, workdir, on_progress, token, workers, issues
+        )
     adapter.translate(model, experiment_id, workdir)
     adapter.run(workdir, on_progress, token, workers)
     if token.is_set():
@@ -137,8 +146,7 @@ def check_experiment(
 
     ``experiment_id`` is ``None`` for an optimization model, which has no experiments. An
     experiment the model does not have, an experiment id for an optimization model or none
-    for a process model raises ``ValueError``; a search experiment raises
-    ``NotImplementedError`` (M5).
+    for a process model raises ``ValueError``.
     """
     if model.program is not None:
         if experiment_id is not None:
@@ -151,11 +159,6 @@ def check_experiment(
     experiment = next((item for item in model.experiments if item.id == experiment_id), None)
     if experiment is None:
         raise ValueError(f"the model has no experiment {experiment_id!r}")
-    if experiment.search is not None:
-        raise NotImplementedError(
-            f"experiment {experiment_id!r} has a search, which the experiment manager runs "
-            "from M5 (spec 2 'Simulation-based optimization')"
-        )
     return (*adapter.validate(model), *fidelity_issues(model))
 
 
@@ -170,3 +173,38 @@ def collect_summary(
     first in its ``warnings``."""
     results = adapter.collect(workdir)
     return results, build_summary(model, experiment_id, results, warnings)
+
+
+def _has_search(model: Model, experiment_id: str) -> bool:
+    return any(item.id == experiment_id and item.search is not None for item in model.experiments)
+
+
+def _run_search(
+    adapter: EngineAdapter,
+    model: Model,
+    experiment_id: str,
+    workdir: Path,
+    on_progress: Callable[[Progress], None],
+    token: CancelToken,
+    workers: int,
+    issues: tuple[Issue, ...],
+) -> RunOutcome:
+    """The search, every evaluation in this process."""
+
+    def evaluate(
+        candidate: Model, experiment: str, folder: Path, report: Callable[[Progress], None]
+    ) -> Results | None:
+        if token.is_set():
+            return None
+        folder.mkdir()
+        adapter.translate(candidate, experiment, folder)
+        adapter.run(folder, report, token, workers)
+        if token.is_set():
+            return None
+        return adapter.collect(folder)
+
+    result = run_search(model, experiment_id, workdir, evaluate, on_progress)
+    if result is None:
+        return RunOutcome("cancelled", issues, None, None)
+    summary = search_summary(model, experiment_id, result, issues)
+    return RunOutcome("done", issues, result.best_results, summary)
