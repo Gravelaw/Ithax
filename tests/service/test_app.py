@@ -1,8 +1,7 @@
 """The application factory (spec 3 "Architecture" and "Endpoints"; AKS-110).
 
 The full route table test against spec 3 is AKS-114's ``tests/service/test_routes.py``;
-this checks the routes AKS-110, AKS-111 and AKS-112 add and that FastAPI adds none of its
-own.
+this checks the routes AKS-110 to AKS-113 add and that FastAPI adds none of its own.
 """
 
 from fastapi import FastAPI
@@ -41,9 +40,16 @@ AKS_112_ROUTES = {
     ("GET", "/v1/runs/{rid}/tables/{name}"),
 }
 
+AKS_113_ROUTES = {
+    ("POST", "/v1/projects/{pid}/data"),
+    ("GET", "/v1/projects/{pid}/data"),
+    ("DELETE", "/v1/projects/{pid}/data/{file}"),
+    ("POST", "/v1/projects/{pid}/data/{file}/fit"),
+}
 
-def test_the_app_has_the_aks_110_to_aks_112_routes_and_nothing_else(app: FastAPI) -> None:
-    assert route_table(app) == AKS_110_ROUTES | AKS_111_ROUTES | AKS_112_ROUTES
+
+def test_the_app_has_the_aks_110_to_aks_113_routes_and_nothing_else(app: FastAPI) -> None:
+    assert route_table(app) == AKS_110_ROUTES | AKS_111_ROUTES | AKS_112_ROUTES | AKS_113_ROUTES
 
 
 def test_every_path_starts_with_v1(app: FastAPI) -> None:
@@ -58,6 +64,7 @@ def test_there_is_one_router_per_area() -> None:
         "/v1/projects",
         "/v1/projects",
         "/v1",
+        "/v1/projects",
     ]
 
 

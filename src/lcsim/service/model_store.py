@@ -12,11 +12,14 @@
   (E184, ``lcsim.model.edits.check_edits``).
 - **Saving.** ``_commit`` makes both files' final bytes first, writes each to a temporary
   file in the project folder, then renames ``model.json`` into place and ``project.json``
-  (the new revision) last: that last rename is the commit. A failure before it removes the
+  (the new revision) last: that last rename is the commit (``lcsim.service.commit``, which
+  a data import also uses). A failure before it removes the
   temporary files, and a failure at it also puts the previous model back, so the revision,
   the model and the events are unchanged; the project's listeners are told only after the
   commit. Every write of one project holds that project's lock, so two writes that state
-  the same ``base_revision`` cannot both pass the check.
+  the same ``base_revision`` cannot both pass the check. The lock is re-entrant and public
+  (``locked``): a data import holds it while it saves a file and its column index, and a
+  run while it reads the model and its data, so neither sees half of the other (AKS-113).
 
 A refused write changes nothing: 400 with E184 (malformed), E180 (an edit that cannot be
 applied), E100 or E101 (a ``PUT`` body that fails the schema pass) or E186 (a project
@@ -30,7 +33,6 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
-import os
 import re
 import threading
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -42,11 +44,12 @@ from typing import Any
 from lcsim.engines.adapter import EngineAdapter
 from lcsim.engines.registry import installed_engines, select_adapter
 from lcsim.model.catalogue import BlockType
-from lcsim.model.data import EMPTY_DATA_INDEX, DataIndex
+from lcsim.model.data import DataIndex, read_data_index
 from lcsim.model.edits import apply_edits, check_edits, first_unstorable
 from lcsim.model.issues import Issue
 from lcsim.model.loading import LoadResult, load_document, load_text
 from lcsim.model.schema import schema_pass
+from lcsim.service.commit import CommitFailed, Planned, replace_in_order
 from lcsim.service.errors import MALFORMED, PROJECT_FOLDER, ServiceError, malformed
 from lcsim.service.events import ProjectEvents
 from lcsim.service.projects_store import (
@@ -66,7 +69,6 @@ __all__ = [
     "Written",
     "admit",
     "base_revision",
-    "no_data",
 ]
 
 _log = logging.getLogger(__name__)
@@ -80,12 +82,6 @@ _SCHEMA_CODES = ("E100", "E101")
 
 # A revision as the query parameter writes it (at most 18 digits, so it fits 64 bits).
 _WHOLE = re.compile(r"-?[0-9]{1,18}")
-
-
-def no_data(_folder: Path) -> DataIndex:
-    """The column index of a project with nothing imported; the import endpoint
-    (AKS-113) gives the store the index of the project's ``data/`` folder instead."""
-    return EMPTY_DATA_INDEX
 
 
 def _no_seed() -> int:
@@ -148,7 +144,8 @@ class ModelStore:
 
     ``adapters`` are the installed adapters, for engine selection, the component types of
     ``add_component`` and the adapter's ``validate``; ``events`` are told of every write;
-    ``data_index`` gives the column index of a project's ``data/`` folder.
+    ``data_index`` gives the column index of a project's ``data/`` folder (``read_data_index``
+    by default).
     """
 
     def __init__(
@@ -156,22 +153,26 @@ class ModelStore:
         projects: ProjectRegistry,
         adapters: Mapping[str, EngineAdapter],
         events: ProjectEvents,
-        data_index: Callable[[Path], DataIndex] = no_data,
+        data_index: Callable[[Path], DataIndex] = read_data_index,
     ) -> None:
         self.projects = projects
         self.adapters = adapters
         self.events = events
         self.data_index = data_index
         self._guard = threading.Lock()
-        self._locks: dict[str, threading.Lock] = {}
+        self._locks: dict[str, threading.RLock] = {}
 
     # --- reading ---------------------------------------------------------------------
 
-    @contextmanager
-    def _locked(self, pid: str) -> Iterator[None]:
+    def _lock_for(self, pid: str) -> threading.RLock:
         with self._guard:
-            lock = self._locks.setdefault(pid, threading.Lock())
-        with lock:
+            return self._locks.setdefault(pid, threading.RLock())
+
+    @contextmanager
+    def locked(self, pid: str) -> Iterator[None]:
+        """Holds project ``pid``'s write lock: no write of its model or data is under way
+        meanwhile. Re-entrant, so a holder may call the store's own methods."""
+        with self._lock_for(pid):
             yield
 
     def _record(self, pid: str) -> tuple[Path, ProjectRecord]:
@@ -222,9 +223,14 @@ class ModelStore:
             )
         return _Stored(document, raw)
 
+    def project_folder(self, pid: str) -> Path:
+        """The folder of project ``pid``: 404 with E185 for an unknown project, 400 with
+        E186 for one whose ``project.json`` cannot be read."""
+        return self._record(pid)[0]
+
     def read(self, pid: str) -> dict[str, Any]:
         """``{model, revision}`` of project ``pid``."""
-        with self._locked(pid):
+        with self.locked(pid):
             folder, record = self._record(pid)
             return {"model": self._stored(folder).document, "revision": record.model_revision}
 
@@ -232,36 +238,42 @@ class ModelStore:
         """The bytes of project ``pid``'s admitted ``model.json``, read while no write of it
         is under way, for a run to copy byte for byte (AKS-112); E186 when it cannot be
         used."""
-        with self._locked(pid):
+        with self.locked(pid):
             folder, _record = self._record(pid)
             return self._stored(folder).data
 
     def revision(self, pid: str) -> int:
         """The current revision of project ``pid``."""
-        with self._locked(pid):
+        with self.locked(pid):
             return self._record(pid)[1].model_revision
 
     # --- validating ------------------------------------------------------------------
 
-    def _load(self, folder: Path, text: bytes | None, document: object = None) -> LoadResult:
+    def _load(
+        self, pid: str, folder: Path, text: bytes | None, document: object = None
+    ) -> LoadResult:
+        """Loads a model against the project's column index. The project's write lock is
+        held, since the meaning pass hashes the data files: a data import renames its file
+        before its index, and must never be seen between the two (AKS-113)."""
         engines = installed_engines(self.adapters)
-        data = self.data_index(folder / "data")
-        if text is not None:
-            return load_text(text, seed_source=_no_seed, data=data, engines=engines)
-        return load_document(document, seed_source=_no_seed, data=data, engines=engines)
+        with self.locked(pid):
+            data = self.data_index(folder / "data")
+            if text is not None:
+                return load_text(text, seed_source=_no_seed, data=data, engines=engines)
+            return load_document(document, seed_source=_no_seed, data=data, engines=engines)
 
     def validate(self, pid: str) -> dict[str, Any]:
         """``{revision, issues}`` of the saved model: when it is JSON, the admission gate
         first (its E100 alone when it fails), then the schema pass, the meaning pass and
         the adapter's ``validate`` when the first two find no error."""
-        with self._locked(pid):
+        with self.locked(pid):
             folder, record = self._record(pid)
             raw = self._raw(folder)
         with contextlib.suppress(ValueError):
             admitted = admit(self._parse(raw))
             if isinstance(admitted, Issue):
                 return {"revision": record.model_revision, "issues": [admitted.as_dict()]}
-        result = self._load(folder, raw)
+        result = self._load(pid, folder, raw)
         issues = list(result.issues)
         if result.model is not None:
             selection = select_adapter(result.model.domain, result.model.run.engine, self.adapters)
@@ -303,50 +315,25 @@ class ModelStore:
             )
         # The record was read by the strict reader, so it can be written back (PR #36).
         project_data = encode_json(asdict(replace(record, model_revision=revision)))
-        suffix = f".{os.getpid()}.{threading.get_ident()}.tmp"
-        model_path, project_path = folder / MODEL_FILE, folder / PROJECT_FILE
-        model_temp = folder / f".{MODEL_FILE}{suffix}"
-        project_temp = folder / f".{PROJECT_FILE}{suffix}"
-        unsaved = _folder_error(
-            f"The project folder '{folder}' cannot be written, so the model was not saved."
-        )
         try:
-            try:
-                model_temp.write_bytes(data)
-                project_temp.write_bytes(project_data)
-                os.replace(model_temp, model_path)
-            except OSError:
-                _log.warning("Writing the model of %s failed.", folder, exc_info=True)
-                raise unsaved from None
-            try:
-                os.replace(project_temp, project_path)  # the commit
-            except OSError:
-                _log.warning("Committing the model of %s failed.", folder, exc_info=True)
-                self._put_back(model_path, model_temp, previous)
-                raise unsaved from None
-        finally:
-            for temporary in (model_temp, project_temp):
-                with contextlib.suppress(OSError):
-                    temporary.unlink()
+            replace_in_order(
+                [
+                    Planned(folder / MODEL_FILE, data, previous),
+                    # The commit; it is never put back, being last.
+                    Planned(folder / PROJECT_FILE, project_data, None),
+                ]
+            )
+        except CommitFailed:
+            raise _folder_error(
+                f"The project folder '{folder}' cannot be written, so the model was not saved."
+            ) from None
         self.events.model_written(pid, revision, client)
         return revision
-
-    @staticmethod
-    def _put_back(model_path: Path, temporary: Path, previous: bytes | None) -> None:
-        """Put the model a failed commit replaced back in place."""
-        try:
-            if previous is None:
-                model_path.unlink()
-                return
-            temporary.write_bytes(previous)
-            os.replace(temporary, model_path)
-        except OSError:
-            _log.error("The previous model of %s could not be put back.", model_path, exc_info=True)
 
     def put(self, pid: str, body: bytes, base_revision: int | None, client: str) -> Written:
         """Save the model file ``body`` when it passes the schema pass and is admitted."""
         folder = self.projects.folder(pid)
-        loaded = self._load(folder, body)
+        loaded = self._load(pid, folder, body)
         schema = [issue for issue in loaded.issues if issue.code in _SCHEMA_CODES]
         if schema:
             raise ServiceError(
@@ -364,7 +351,7 @@ class ModelStore:
                 "The model file does not pass the schema pass, so it was not saved.",
                 [admitted],
             )
-        with self._locked(pid):
+        with self.locked(pid):
             folder, record = self._record(pid)
             self._check_revision(folder, record, base_revision)
             try:
@@ -391,7 +378,7 @@ class ModelStore:
         if shape:
             raise malformed([*shape])
         assert isinstance(edits, list)
-        with self._locked(pid):
+        with self.locked(pid):
             folder, record = self._record(pid)
             self._check_revision(folder, record, base_revision)
             stored = self._stored(folder)
@@ -420,7 +407,7 @@ class ModelStore:
                 )
                 raise ServiceError(400, EDIT_REJECTED, issue.message, [issue])
             revision = self._commit(pid, folder, record, admitted, stored.data, client)
-        return Written(outcome.model, revision, self._load(folder, None, outcome.model).issues)
+        return Written(outcome.model, revision, self._load(pid, folder, None, outcome.model).issues)
 
 
 def base_revision(text: str | None) -> int | None:

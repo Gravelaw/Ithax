@@ -13,6 +13,7 @@ from starlette.requests import HTTPConnection
 
 from lcsim.engines.adapter import EngineAdapter
 from lcsim.service.config import ServiceConfig
+from lcsim.service.data_store import DataStore
 from lcsim.service.events import ProjectEvents
 from lcsim.service.hardware import Hardware, TierName
 from lcsim.service.lifetime import Lifetime
@@ -26,8 +27,8 @@ __all__ = ["ServiceState", "service_state"]
 @dataclass(frozen=True)
 class ServiceState:
     """The configuration, lifetime, hardware and active tier, the installed adapters,
-    the project registry, the projects' models, the project events and the runs of one
-    service."""
+    the project registry, the projects' models, the project events, the runs and the
+    imported data of one service."""
 
     config: ServiceConfig
     lifetime: Lifetime
@@ -38,6 +39,7 @@ class ServiceState:
     models: ModelStore
     events: ProjectEvents
     runs: RunService
+    data: DataStore
 
 
 def service_state(connection: HTTPConnection) -> ServiceState:
