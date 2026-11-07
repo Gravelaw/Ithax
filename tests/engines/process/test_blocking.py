@@ -107,7 +107,8 @@ def test_a_server_accepts_while_a_unit_is_free_or_its_queue_has_room(
     if queue_capacity is not None:
         settings["queue_capacity"] = queue_capacity
     block = block_server(make_context(0.0, 1.0), **settings)
-    block.busy = busy
+    # Units holding an item (``held``), each of them busy here (no pool, no failure).
+    block.busy = block.held = busy
     block.waiting.extend(Item(0.0, 0.0) for _ in range(waiting))
     assert block.accepts() is accepts
     assert block.waiting_items() == waiting

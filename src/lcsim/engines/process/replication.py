@@ -84,7 +84,8 @@ def build_blocks(
     seed: int,
     replication: int,
 ) -> list[Block]:
-    """The scenario's blocks, connected, each with its own stream."""
+    """The scenario's blocks, connected and bound to the blocks they name, each with its own
+    stream."""
     blocks: dict[str, Block] = {}
     for component in scenario["components"]:
         component_id = component["id"]
@@ -99,6 +100,8 @@ def build_blocks(
         origin, port = connection["from"].split(".", 1)
         destination = connection["to"].split(".", 1)[0]
         blocks[origin].connect(port, blocks[destination])
+    for block in blocks.values():
+        block.bind(blocks)
     return list(blocks.values())
 
 

@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 from conftest import ModelMaker, constant, line, model_document
 
+from lcsim.engines.process.blocks import BLOCK_TYPES
 from lcsim.engines.process.translate import (
     INPUT_FILE,
     engine_input,
@@ -21,6 +22,7 @@ from lcsim.engines.process.translate import (
     resolve_setting,
     write_input,
 )
+from lcsim.model.catalogue import PROCESS_TYPES
 from lcsim.model.distributions import DataNotYetSupportedError
 from lcsim.model.loading import build_document, load_document
 from lcsim.model.model import Distribution, Model, ParamRef, SettingValue
@@ -191,16 +193,6 @@ def test_an_unknown_experiment_is_refused() -> None:
         engine_input(load(copy.deepcopy(COFFEE_SHOP)), "other")
 
 
-def test_block_types_not_built_yet_are_refused(make_model: ModelMaker) -> None:
-    """``resource_pool``, ``schedule`` and ``failure`` arrive with AKS-107."""
-    components, connections = line(constant("1 min"), constant("30 s"))
-    components.append({"id": "staff", "type": "resource_pool", "params": {"capacity": 1}})
-    with pytest.raises(
-        NotImplementedError, match=r"'resource_pool' blocks yet \(component 'staff'\).*M4"
-    ):
-        engine_input(make_model(components, connections), "e")
-
-
 def test_a_store_translates(make_model: ModelMaker) -> None:
     """``store`` runs since AKS-106: its stock levels as whole numbers and its lead time as
     a distribution of SI floats."""
@@ -295,12 +287,55 @@ def test_the_m2_block_types_and_queue_capacity_translate(make_model: ModelMaker)
     assert settings["check"] == {"routes": ["a", "b"], "rule": "shortest_queue"}
 
 
-def test_a_server_s_pool_is_refused_until_m4(make_model: ModelMaker) -> None:
+def test_every_block_type_of_the_catalogue_runs() -> None:
+    """Since AKS-107 the adapter runs every type of spec 2's block reference, so
+    ``translate`` refuses none (only an ``empirical`` with ``data``, E162, below)."""
+    assert set(BLOCK_TYPES) == set(PROCESS_TYPES)
+
+
+def test_a_pool_a_schedule_and_a_failure_translate(make_model: ModelMaker) -> None:
+    """A server's ``pool``, a ``resource_pool``, a ``schedule`` with its default ``period``
+    and a ``failure``, in SI units."""
     components, connections = line(constant("1 min"), constant("30 s"))
     components[1]["params"]["pool"] = "staff"
-    components.append({"id": "staff", "type": "resource_pool", "params": {"capacity": 1}})
-    with pytest.raises(NotImplementedError, match=r"'pool' setting yet.*M4"):
-        engine_input(make_model(components, connections), "e")
+    components += [
+        {"id": "staff", "type": "resource_pool", "params": {"capacity": 2}},
+        {
+            "id": "rota",
+            "type": "schedule",
+            "params": {
+                "target": "staff",
+                "shifts": [{"start": "8 h", "end": "16 h", "capacity": 1}],
+            },
+        },
+        {
+            "id": "breakdown",
+            "type": "failure",
+            "params": {
+                "target": "till",
+                "time_to_failure": {"dist": "exponential", "mean": "100 min"},
+                "time_to_repair": constant("25 min"),
+            },
+        },
+    ]
+    settings = {
+        component["id"]: component["settings"]
+        for component in engine_input(make_model(components, connections), "e")["scenarios"][0][
+            "components"
+        ]
+    }
+    assert settings["till"]["pool"] == "staff"
+    assert settings["staff"] == {"capacity": 2}
+    assert settings["rota"] == {
+        "target": "staff",
+        "shifts": [{"start": 28_800.0, "end": 57_600.0, "capacity": 1}],
+        "period": 86_400.0,
+    }
+    assert settings["breakdown"] == {
+        "target": "till",
+        "time_to_failure": {"dist": "exponential", "mean": 6_000.0},
+        "time_to_repair": {"dist": "constant", "value": 1_500.0},
+    }
 
 
 def test_an_empirical_with_data_cannot_be_translated_before_m6() -> None:
