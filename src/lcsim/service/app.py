@@ -8,7 +8,8 @@ A later area adds its router to ``ROUTERS``. The app has no ``/docs``, ``/redoc`
 routers' and nothing leaves the machine.
 
 When ``config.on_idle`` is set, the app's lifespan watches the lifetime and calls it once
-the service has been idle for ``config.idle_timeout_s`` (spec 3 "Lifetime").
+the service has been idle for ``config.idle_timeout_s`` (spec 3 "Lifetime"), counted from
+when it starts serving at the earliest.
 """
 
 from __future__ import annotations
@@ -68,6 +69,10 @@ def create_app(config: ServiceConfig) -> FastAPI:
 
     @contextlib.asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        # The idle count starts when serving starts: building the app and starting the
+        # server are not idle time, and on a slow machine they could use up a short limit,
+        # so the service would exit at its first check (CI on PR #35).
+        lifetime.touch()
         task = None
         if config.on_idle is not None:
             task = asyncio.create_task(watch(lifetime, config.idle_check_s, config.on_idle))

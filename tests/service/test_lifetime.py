@@ -100,8 +100,8 @@ def test_a_request_without_the_token_does_not_keep_the_service_up(
 ) -> None:
     clock = Clock()
     app = create_app(dataclasses.replace(config, clock=clock))
-    clock.now += 600
     with TestClient(app, base_url=BASE_URL) as client:
+        clock.now += 600
         assert client.get("/v1/system").status_code == 401
     assert app.state.service.lifetime.idle_for() == 600
 
@@ -117,3 +117,23 @@ def test_without_on_idle_nothing_is_watched(config: ServiceConfig) -> None:
     quick = dataclasses.replace(config, idle_timeout_s=0.01, idle_check_s=0.001)
     with TestClient(create_app(quick), base_url=BASE_URL, headers=AUTH) as client:
         assert client.get("/v1/system").status_code == 200
+
+
+def test_the_idle_count_starts_when_the_service_starts_serving(config: ServiceConfig) -> None:
+    """A slow start (here longer than the limit, between building the app and serving)
+    is not idleness: the count starts when serving starts, so the service never exits at
+    its first check, just after publishing service.json (CI failure on PR #35: a 1.2 s
+    limit, a slow runner and a refused connection)."""
+    clock = Clock()
+    idle = threading.Event()
+    app = create_app(
+        dataclasses.replace(
+            config, clock=clock, idle_timeout_s=10, idle_check_s=0.01, on_idle=idle.set
+        )
+    )
+    clock.now += 60
+    with TestClient(app, base_url=BASE_URL, headers=AUTH):
+        assert not idle.wait(0.2)
+        assert app.state.service.lifetime.idle_for() == 0
+        clock.now += 10
+        assert idle.wait(5)
