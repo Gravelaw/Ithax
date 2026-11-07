@@ -14,7 +14,6 @@ several threads (FastAPI runs plain routes in a thread pool).
 from __future__ import annotations
 
 import contextlib
-import json
 import logging
 import os
 import threading
@@ -28,6 +27,7 @@ from typing import Any, Literal
 from lcsim.model.migration import FORMAT_VERSION
 from lcsim.service.errors import NOT_FOUND, PROJECT_FOLDER, ServiceError
 from lcsim.service.paths import canonical, same_folder
+from lcsim.strict_json import encode_json, read_json_file
 
 __all__ = [
     "LAYOUT_VERSION",
@@ -112,10 +112,11 @@ def _is_uuid4(text: str) -> bool:
 
 def read_project(folder: Path) -> ProjectRecord | None:
     """The ``project.json`` of ``folder``, or ``None`` when it is missing, unreadable or
-    does not hold the five fields with the right kinds (``id`` a UUID4 string)."""
+    does not hold the five fields with the right kinds (``id`` a UUID4 string); a file the
+    service could not write back (``lcsim.strict_json.read_json``) cannot be read."""
     try:
-        loaded = json.loads((folder / PROJECT_FILE).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        loaded = read_json_file(folder / PROJECT_FILE)
+    except (OSError, ValueError):  # also a file that could not be written back (PR #36)
         return None
     if not isinstance(loaded, dict) or not all(key in loaded for key in _FIELDS):
         return None
@@ -127,18 +128,6 @@ def read_project(folder: Path) -> ProjectRecord | None:
     if not (texts and whole and _is_uuid4(loaded["id"])):
         return None
     return ProjectRecord(**{key: loaded[key] for key in _FIELDS})
-
-
-def encode_json(value: object) -> bytes:
-    """The exact bytes the service writes for ``value``: JSON indented by two spaces and
-    ending in a newline, encoded as strict UTF-8. ``ValueError`` when that is impossible:
-    a NaN or an infinity, or text that is not valid Unicode (a lone surrogate such as
-    ``"\\ud800"``, which a JSON escape can carry); ``UnicodeEncodeError`` is one."""
-    try:
-        text = json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
-    except (TypeError, RecursionError) as error:
-        raise ValueError("the value cannot be written as JSON") from error
-    return text.encode("utf-8")
 
 
 def write_json(path: Path, value: object) -> None:
@@ -186,7 +175,7 @@ class ProjectRegistry:
 
     def _load(self) -> dict[str, str]:
         try:
-            loaded = json.loads(self._file.read_text(encoding="utf-8"))
+            loaded = read_json_file(self._file)
         except FileNotFoundError:
             return {}
         except (OSError, ValueError):

@@ -258,3 +258,12 @@ def test_get_system_with_unknown_graphics_and_memory(tmp_path: Path) -> None:
             "tier": "low",
             "workers": 2,
         }
+
+
+@pytest.mark.parametrize("text", ['{"other": "\\ud800"}', '{"other": 1e999}', '{"other": NaN}'])
+def test_a_settings_file_that_cannot_be_written_back_is_replaced(tmp_path: Path, text: str) -> None:
+    """Review of PR #36: such a file made the first start raise while storing the tier."""
+    (tmp_path / SETTINGS_FILE).write_text(text)
+    hardware = Hardware(cores=8, memory=16 * 1024**3, graphics=())
+    assert active_tier(tmp_path, hardware) == "mid"
+    assert json.loads((tmp_path / SETTINGS_FILE).read_text()) == {"tier": "mid"}

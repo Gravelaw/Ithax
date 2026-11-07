@@ -295,13 +295,8 @@ class ModelStore:
         ``model.json`` it replaces (``None`` when there was none), put back when the
         commit fails."""
         revision = record.model_revision + 1
-        try:
-            project_data = encode_json(asdict(replace(record, model_revision=revision)))
-        except ValueError:
-            raise _folder_error(
-                f"The {PROJECT_FILE} in '{folder}' holds text that cannot be written back, "
-                "so the model was not saved."
-            ) from None
+        # The record was read by the strict reader, so it can be written back (PR #36).
+        project_data = encode_json(asdict(replace(record, model_revision=revision)))
         suffix = f".{os.getpid()}.{threading.get_ident()}.tmp"
         model_path, project_path = folder / MODEL_FILE, folder / PROJECT_FILE
         model_temp = folder / f".{MODEL_FILE}{suffix}"
