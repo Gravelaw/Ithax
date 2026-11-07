@@ -24,7 +24,8 @@ from conftest import (
     series_of_model,
 )
 
-from lcsim.engines.process.blocks import BLOCK_TYPES, Context, Item, Queue
+from lcsim.engines.process.blocks import BLOCK_TYPES, Context, Item, Queue, Stopped, Transfers
+from lcsim.engines.process.statistics import TimeWeighted, Window
 from lcsim.model.catalogue import PROCESS_TYPES
 from lcsim.model.streams import generator_for
 
@@ -241,6 +242,33 @@ def test_a_full_queue_feeding_itself_holds_its_item(make_context: ContextMaker) 
     block.receive(Item(0.0, 0.0))
     assert block.waiting_items() == 1 and len(block.blocked) == 1
     assert not block.accepts()
+
+
+@pytest.mark.parametrize(
+    "settings", [{"capacity": 2}, {"capacity": 1, "on_full": "discard"}], ids=["block", "discard"]
+)
+def test_a_queue_feeding_itself_can_still_be_stopped(settings: dict[str, Any]) -> None:
+    """Review of PR #27: a queue whose ``out`` leads back to its own ``in`` with room for
+    the item circles it forever at one instant. Each pass must be a transfer step, so the
+    replication's ``should_stop`` is asked and the loop ends with ``Stopped``."""
+    asked: list[int] = []
+
+    def should_stop() -> bool:
+        asked.append(1)
+        return True
+
+    window = Window(0.0, 10.0)
+    context = Context(
+        env=simpy.Environment(),
+        window=window,
+        wip=TimeWeighted(window),
+        transfers=Transfers(should_stop),
+    )
+    block = Queue("line", settings, context, generator_for(7, 0, "line"))
+    block.connect("out", block)
+    with pytest.raises(Stopped):
+        block.receive(Item(0.0, 0.0))
+    assert asked == [1]
 
 
 def test_a_full_queue_blocks_the_server_upstream(make_model: ModelMaker) -> None:

@@ -548,11 +548,15 @@ class Queue(Block):
 
     def _advance(self) -> None:
         """Moves units on while the next block accepts them; when it refuses, waits in its
-        ``blocked`` line."""
+        ``blocked`` line. Only the units held when it starts are moved: a unit arriving
+        meanwhile (a queue that feeds itself) gets an offer of its own among the
+        transfers, so an endless zero-time loop still reaches ``should_stop``."""
         target = self.target("out")
         self._advancing = True
         try:
-            while self.waiting and not self._stalled:
+            for _ in range(len(self.waiting)):
+                if self._stalled:
+                    break
                 if target.accepts():
                     self._take()
                 else:
