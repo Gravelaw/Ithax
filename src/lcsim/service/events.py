@@ -9,8 +9,9 @@ of AKS-112 in its own threads) and reach each listener's loop through
 
 - ``model_written(pid, revision, client)``: ``{"type": "model", "revision", "client"}``,
   on every write of the model (AKS-111);
-- ``run_changed(pid, run_id, state)``: ``{"type": "run", "run_id", "state"}``, on every
-  run state change (published by AKS-112).
+- ``run_changed(pid, run_id, state)``: ``{"type": "run", "run_id", "state"}``, when a run
+  is created (``queued``) and on every run state change (``lcsim.service.run_service``,
+  AKS-112).
 
 The WebSocket first checks the token message (``authenticate_websocket``), then sends
 ``{"type": "model", "revision": N, "client": null}`` with the current revision, then every
@@ -29,7 +30,7 @@ from typing import Any
 
 from starlette.websockets import WebSocket
 
-__all__ = ["Event", "Listener", "ProjectEvents", "forward"]
+__all__ = ["Event", "Listener", "ProjectEvents", "forward", "until_closed"]
 
 Event = Mapping[str, Any]
 
@@ -96,7 +97,7 @@ class ProjectEvents:
         self.publish(pid, {"type": "run", "run_id": run_id, "state": state})
 
 
-async def _until_closed(websocket: WebSocket) -> None:
+async def until_closed(websocket: WebSocket) -> None:
     """Read and ignore what the client sends, until it leaves."""
     while (await websocket.receive())["type"] != "websocket.disconnect":
         pass
@@ -106,7 +107,7 @@ async def forward(websocket: WebSocket, listener: Listener, revision: int) -> No
     """Send ``listener``'s events until the client leaves, leaving out a ``model`` event
     the first message already covered (a write between listening and reading the
     revision)."""
-    leaving = asyncio.ensure_future(_until_closed(websocket))
+    leaving = asyncio.ensure_future(until_closed(websocket))
     try:
         while True:
             getting = asyncio.ensure_future(listener.next())

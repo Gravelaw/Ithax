@@ -227,6 +227,14 @@ class ModelStore:
             folder, record = self._record(pid)
             return {"model": self._stored(folder).document, "revision": record.model_revision}
 
+    def model_file(self, pid: str) -> bytes:
+        """The bytes of project ``pid``'s admitted ``model.json``, read while no write of it
+        is under way, for a run to copy byte for byte (AKS-112); E186 when it cannot be
+        used."""
+        with self._locked(pid):
+            folder, _record = self._record(pid)
+            return self._stored(folder).data
+
     def revision(self, pid: str) -> int:
         """The current revision of project ``pid``."""
         with self._locked(pid):
