@@ -1,0 +1,16 @@
+[
+  {
+    "metric": "batch.wait.mean",
+    "value": 120.0,
+    "method": "three_se",
+    "source": "Poisson arrivals at rate lambda into a batch of size n: the k-th item of a batch waits for the n - k later arrivals, mean (n - k)/lambda, so the mean over the batch is (n - 1)/(2 lambda) = 4/(2 x 1/60 per second) = 120 s (2 min); docs/research/spec-2-benchmark-sources.md",
+    "milestone": "M4"
+  },
+  {
+    "metric": "exit.throughput",
+    "value": 0.016666666666666666,
+    "method": "three_se",
+    "source": "Batching and unbatching lose no item, so the sink passes the arrival rate: lambda = 1/60 per second (60 per hour)",
+    "milestone": "M4"
+  }
+]
