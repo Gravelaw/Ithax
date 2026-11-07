@@ -1,9 +1,11 @@
-"""The W201 flow rates against the blocks that now run (spec 1 "Validation"; AKS-105).
+"""The W201 flow rates against the blocks that now run (spec 1 "Validation"; AKS-105,
+AKS-106).
 
 Validation propagates a mean rate from each source: a batch divides it by ``size``, an
 unbatch multiplies it by the size of what it receives, and a loss point (a discarding
 ``queue``, a source feeding a block that can refuse an item) stops it, since less than the
-offered rate gets through. These tests run deterministic models in the adapter and check
+offered rate gets through. A store stops it too: what passes depends on its orders. These
+tests run deterministic models in the adapter and check
 the rates the blocks really pass against ``flow_rates``.
 """
 
@@ -116,3 +118,40 @@ def test_a_source_feeding_a_batch_is_not_a_loss_point(make_model: ModelMaker) ->
     model = make_model(components, chain("arrivals", "pack", "till", "exit"), length="3000 s")
     assert flow_rates(model)["till"] == Fraction(1, 120)
     assert metrics_of_model(model)["arrivals.discarded"] == 0.0
+
+
+def test_a_store_stops_the_rate_because_its_orders_set_what_gets_through(
+    make_model: ModelMaker,
+) -> None:
+    """Spec 1 "Validation": W201 is skipped for every server downstream of a store (AKS-106).
+    Arrivals every 60 s into an empty store with ``reorder_point`` 0 that orders one unit at
+    a time (lead time 120 s), then a server of service 90 s, 1,200 s. Passed on, the
+    source's rate would load the server at 1.5 and raise W201; but the store lets one item
+    through per delivery, at 120, 240, ..., 1,080 s, so the server keeps up: no item waits.
+    Every one of the 20 arrivals finds no stock."""
+    components = [
+        source(),
+        {
+            "id": "shelf",
+            "type": "store",
+            "params": {
+                "initial": 0,
+                "reorder_point": 0,
+                "order_quantity": 1,
+                "lead_time": constant("120 s"),
+            },
+        },
+        {"id": "till", "type": "server", "params": {"capacity": 1, "service": constant("90 s")}},
+        sink(),
+    ]
+    model = make_model(components, chain("arrivals", "shelf", "till", "exit"), length="1200 s")
+    rates = flow_rates(model)
+    assert rates["shelf"] == Fraction(1, 60)
+    assert rates["till"] is None and rates["exit"] is None
+    assert load_issues(model) == []
+    metrics = metrics_of_model(model)
+    assert metrics["shelf.orders"] == 10 / 1200  # at 0, 120, ..., 1,080 s
+    assert metrics["shelf.stockouts"] == 20.0
+    assert metrics["till.wait.mean"] == 0.0
+    assert metrics["till.queue_length.max"] == 0.0
+    assert metrics["exit.count"] == 9.0  # at 210, 330, ..., 1,170 s

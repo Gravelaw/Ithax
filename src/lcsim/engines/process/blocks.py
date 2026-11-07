@@ -1,5 +1,5 @@
 """The process blocks on SimPy: ``source``, ``server``, ``delay``, ``branch``, ``queue``,
-``batch``, ``unbatch`` and ``sink`` (spec 2 "Block reference").
+``batch``, ``unbatch``, ``store`` and ``sink`` (spec 2 "Block reference").
 
 SimPy schedules every event: a source is a SimPy process that waits one interarrival time
 between items, and a service or a delay is a SimPy timeout whose callback ends it. The
@@ -18,7 +18,8 @@ receives the item and ``then()`` runs at the same instant; otherwise the move wa
 target's ``blocked`` line, first in, first out, and runs as soon as the target calls
 ``space_freed()``, at that same instant. A server's ``then`` releases its unit, so a unit
 holding a refused item stays busy; a delay, a branch, a batch and an unbatch have nothing to
-release. A queue does not ``send``: it offers its next item and, when refused, waits in the
+release, and neither does a store, whose item took its unit of stock on arrival. A queue
+does not ``send``: it offers its next item and, when refused, waits in the
 target's ``blocked`` line with a step that takes the item its discipline picks at the
 moment space frees. A source does not send either: it discards an item its next block
 refuses (spec 2 "Source when blocked").
@@ -37,8 +38,9 @@ target's ``accepts()`` is always read against what it holds.
 
 Random numbers come only from the component's own stream (spec 1 "Random streams"): a
 source draws each interarrival time after creating an item, a server draws each service
-time when that service starts, a delay draws each time when the item arrives, and a
-``probability`` branch draws once per item when it arrives.
+time when that service starts, a delay draws each time when the item arrives, a
+``probability`` branch draws once per item when it arrives, and a store draws each lead
+time when it places the order.
 
 Settings arrive as the process adapter's engine input holds them
 (``lcsim.engines.process.translate``): SI floats, whole numbers, words, and distributions
@@ -73,6 +75,7 @@ __all__ = [
     "Sink",
     "Source",
     "Stopped",
+    "Store",
     "Transfers",
     "Unbatch",
     "sampler_from_json",
@@ -685,6 +688,83 @@ class Unbatch(Block):
             self.send(part, target, _nothing)
 
 
+class Store(Block):
+    """Stock of one kind, drawn one unit per item (spec 2 "Block reference" and "Store").
+
+    Each item arriving takes one unit of stock and is sent on at once; an item the next
+    block refuses keeps its unit and waits in that block's ``blocked`` line. An item that
+    finds the stock at zero is a stock-out, counted when it arrives, and waits, first in
+    first out, for a delivery. The store reviews its stock at time 0 (``start``) and after
+    each withdrawal: when the stock on hand plus on order is at or below
+    ``reorder_point``, it places one order of ``order_quantity``, drawing its lead time from
+    the store's own stream then; several orders may be outstanding. It always accepts.
+
+    A delivery runs as one ``Transfers`` step: it adds the units and withdraws one for each
+    waiting item it can serve, in order, and their moves on are later steps, so no call
+    nests one level per block downstream."""
+
+    outputs = ("out",)
+
+    def configure(self, settings: Mapping[str, Any]) -> None:
+        self.reorder_point = int(settings["reorder_point"])
+        self.order_quantity = int(settings["order_quantity"])
+        self.lead_time = sampler_from_json(settings["lead_time"])
+        self.on_hand = int(settings["initial"])
+        self.on_order = 0
+        # Items waiting for stock, oldest first.
+        self.waiting: deque[Item] = deque()
+        self.stock = TimeWeighted(self.context.window, float(self.on_hand))
+        self.stockouts = 0
+        self.orders = 0
+
+    def start(self) -> None:
+        self._review()
+
+    def waiting_items(self) -> int:
+        return len(self.waiting)
+
+    def receive(self, item: Item) -> None:
+        item.arrived = self.now
+        if self.on_hand > 0:
+            self._withdraw(item)
+        else:
+            if self.context.window.observes(self.now):
+                self.stockouts += 1
+            self.waiting.append(item)
+
+    def _withdraw(self, item: Item) -> None:
+        self.on_hand -= 1
+        self.stock.set(self.now, self.on_hand)
+        self._review()
+        self.send(item, self.target("out"), _nothing)
+
+    def _review(self) -> None:
+        if self.on_hand + self.on_order > self.reorder_point:
+            return
+        self.on_order += self.order_quantity
+        if self.context.window.observes(self.now):
+            self.orders += 1
+        delivery = self.context.env.timeout(self.lead_time(self.rng))
+        delivery.callbacks.append(lambda _event: self.context.transfers.run(self._deliver))
+
+    def _deliver(self) -> None:
+        self.on_order -= self.order_quantity
+        self.on_hand += self.order_quantity
+        self.stock.set(self.now, self.on_hand)
+        while self.waiting and self.on_hand > 0:
+            self._withdraw(self.waiting.popleft())
+
+    def metrics(self) -> dict[str, float]:
+        return {
+            "stock.mean": self.stock.mean(),
+            "stockouts": float(self.stockouts),
+            "orders": self.orders / self.context.window.period,
+        }
+
+    def levels(self) -> dict[str, float]:
+        return {"stock": float(self.on_hand)}
+
+
 class Sink(Block):
     """Removes the unit and records its statistics; a batch counts once, with its own
     creation time, and every item it holds leaves work in progress."""
@@ -718,6 +798,7 @@ BLOCK_TYPES: Mapping[str, type[Block]] = MappingProxyType(
         "queue": Queue,
         "batch": Batch,
         "unbatch": Unbatch,
+        "store": Store,
         "sink": Sink,
     }
 )
