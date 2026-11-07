@@ -27,6 +27,7 @@ from typing import Any, Literal
 
 from lcsim.model.migration import FORMAT_VERSION
 from lcsim.service.errors import NOT_FOUND, PROJECT_FOLDER, ServiceError
+from lcsim.service.paths import canonical, same_folder
 
 __all__ = [
     "LAYOUT_VERSION",
@@ -147,10 +148,10 @@ class ProjectRegistry:
         data_dir: Path,
         new_id: Callable[[], str] = lambda: str(uuid.uuid4()),
     ) -> None:
-        # Absolute, so that the paths in projects.json do not depend on the working
-        # directory (review of PR #34).
-        self.config_dir = config_dir.absolute()
-        self.data_dir = data_dir.absolute()
+        # Canonical, so that the paths in projects.json do not depend on the working
+        # directory or on an alias (review of PR #34).
+        self.config_dir = canonical(config_dir)
+        self.data_dir = canonical(data_dir)
         self._new_id = new_id
         self._lock = threading.Lock()
 
@@ -215,7 +216,7 @@ class ProjectRegistry:
         """Create a project named ``name`` with the default model of ``domain`` in
         ``path`` (absolute; missing or empty) or under the data folder, and register it."""
         pid = self._new_id()
-        folder = self.data_dir / "projects" / pid if path is None else path
+        folder = self.data_dir / "projects" / pid if path is None else canonical(path)
         if folder.exists() and (not folder.is_dir() or any(folder.iterdir())):
             raise _folder_error(
                 f"'{folder}' is not an empty folder, so a project cannot be created there."
@@ -237,7 +238,11 @@ class ProjectRegistry:
         return self.view(pid, folder, record)
 
     def open(self, path: Path) -> dict[str, Any]:
-        """Register the existing project folder ``path`` (absolute) and return it."""
+        """Register the existing project folder ``path`` (absolute) and return it. A
+        folder registered already, under any name for it, is returned unchanged; one
+        holding a registered project's id while that project's folder still holds it is a
+        copy (E186); otherwise the registration moves to ``path``."""
+        path = canonical(path)
         if not path.is_dir():
             raise ServiceError(404, NOT_FOUND, f"There is no folder '{path}'.")
         record = read_project(path)
@@ -249,14 +254,15 @@ class ProjectRegistry:
         with self._lock:
             projects = self._load()
             known = projects.get(record.id)
-            if known is not None and Path(known) != path:
+            if known is not None and same_folder(Path(known), path):
+                return self.view(record.id, Path(known), record)
+            if known is not None:
                 other = read_project(Path(known))
                 if other is not None and other.id == record.id:
                     raise _folder_error(
                         f"The project in '{path}' has the same id as the one open in "
                         f"'{known}', so it is a copy; open it from one folder only."
                     )
-            if known is None or Path(known) != path:
-                projects[record.id] = str(path)
-                self._save(projects)
+            projects[record.id] = str(path)
+            self._save(projects)
         return self.view(record.id, path, record)

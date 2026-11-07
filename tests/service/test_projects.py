@@ -3,9 +3,10 @@
 errors, ``domain`` on creation)."""
 
 import json
+import os
 import re
 import uuid
-from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
+from pathlib import Path, PureWindowsPath
 
 import pytest
 from starlette.testclient import TestClient
@@ -13,7 +14,6 @@ from starlette.testclient import TestClient
 from lcsim.engines.registry import select_adapter
 from lcsim.model.loading import load_text
 from lcsim.model.migration import FORMAT_VERSION
-from lcsim.service.projects import fully_qualified
 from lcsim.service.projects_store import (
     LAYOUT_VERSION,
     MODEL_FILE,
@@ -413,31 +413,13 @@ def test_the_registry_makes_its_folders_absolute(
 # --- fully qualified paths (review of PR #34: Windows drive-relative paths) -------------
 
 
-@pytest.mark.parametrize(
-    ("flavour", "path", "qualified"),
-    [
-        (PureWindowsPath, r"C:\projects\demo", True),
-        (PureWindowsPath, r"\\server\share\demo", True),
-        (PureWindowsPath, r"\projects\demo", False),
-        (PureWindowsPath, r"C:projects\demo", False),
-        (PureWindowsPath, r"projects\demo", False),
-        (PurePosixPath, "/projects/demo", True),
-        (PurePosixPath, "projects/demo", False),
-    ],
-)
-def test_a_path_is_fully_qualified_only_with_its_drive_or_share(
-    flavour: type[PurePath], path: str, qualified: bool
-) -> None:
-    assert fully_qualified(path, flavour) is qualified
-
-
 @pytest.mark.parametrize("path", [r"\projects\demo", r"C:projects\demo"])
 def test_both_project_endpoints_refuse_a_windows_path_without_drive_or_share(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, path: str
 ) -> None:
     """``os.path.isabs`` on Windows takes ``\\projects\\demo`` as absolute although it has no
     drive, so it would be persisted and later name a folder on whichever drive is current."""
-    monkeypatch.setattr("lcsim.service.projects.PATH_FLAVOUR", PureWindowsPath)
+    monkeypatch.setattr("lcsim.service.paths.PATH_FLAVOUR", PureWindowsPath)
     for route, body in (
         ("/v1/projects", {"name": "Demo", "path": path}),
         ("/v1/projects/open", {"path": path}),
@@ -447,3 +429,69 @@ def test_both_project_endpoints_refuse_a_windows_path_without_drive_or_share(
         assert_error(response.json(), "E184")
         assert response.json()["issues"][0]["path"] == "/path"
     assert client.get("/v1/projects").json() == []
+
+
+# --- canonical paths and aliases (review of PR #34, third path finding) ----------------
+
+
+def _link(target: Path, alias: Path) -> Path:
+    try:
+        os.symlink(target, alias, target_is_directory=True)
+    except (OSError, NotImplementedError):  # pragma: no cover - depends on the platform
+        pytest.skip("this system cannot create symbolic links")
+    return alias
+
+
+def test_opening_a_registered_project_through_an_alias_is_the_same_project(
+    client: TestClient, tmp_path: Path
+) -> None:
+    real = tmp_path / "real"
+    project = client.post("/v1/projects", json={"name": "P", "path": str(real)}).json()
+    before = registry_file(client).read_text(encoding="utf-8")
+    alias = _link(real, tmp_path / "alias")
+    response = client.post("/v1/projects/open", json={"path": str(alias)})
+    assert response.status_code == 200, response.json()
+    assert response.json() == project
+    assert registry_file(client).read_text(encoding="utf-8") == before
+
+
+def test_projects_json_stores_the_resolved_path(client: TestClient, tmp_path: Path) -> None:
+    real = tmp_path / "real"
+    real.mkdir()
+    alias = _link(real, tmp_path / "alias")
+    project = client.post("/v1/projects", json={"name": "P", "path": str(alias / "p")}).json()
+    assert project["path"] == str(real / "p")
+    stored = json.loads(registry_file(client).read_text(encoding="utf-8"))
+    assert stored == {project["id"]: str(real / "p")}
+    # Opening it unregistered through the alias also stores the resolved path.
+    registry_file(client).unlink()
+    opened = client.post("/v1/projects/open", json={"path": str(alias / "p")}).json()
+    assert opened["path"] == str(real / "p")
+
+
+def test_the_service_folders_are_resolved(tmp_path: Path) -> None:
+    from lcsim.service.config import ServiceConfig
+
+    real = tmp_path / "real"
+    real.mkdir()
+    alias = _link(real, tmp_path / "alias")
+    config = ServiceConfig(config_dir=alias / "c", data_dir=alias / "d", port=1, token="t")
+    assert (config.config_dir, config.data_dir) == (real / "c", real / "d")
+    registry = ProjectRegistry(alias / "c", alias / "d")
+    assert (registry.config_dir, registry.data_dir) == (real / "c", real / "d")
+
+
+def test_a_copy_reached_through_an_alias_is_still_400_with_e186(
+    client: TestClient, tmp_path: Path
+) -> None:
+    original = tmp_path / "original"
+    client.post("/v1/projects", json={"name": "P", "path": str(original)})
+    copy = tmp_path / "copy"
+    copy.mkdir()
+    (copy / PROJECT_FILE).write_text(
+        (original / PROJECT_FILE).read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    alias = _link(copy, tmp_path / "alias")
+    response = client.post("/v1/projects/open", json={"path": str(alias)})
+    assert response.status_code == 400
+    assert_error(response.json(), "E186")

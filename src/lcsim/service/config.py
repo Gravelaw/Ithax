@@ -19,6 +19,7 @@ from pathlib import Path
 
 from lcsim.engines.adapter import EngineAdapter
 from lcsim.service.hardware import Hardware
+from lcsim.service.paths import canonical
 
 __all__ = [
     "APP_FOLDER",
@@ -120,7 +121,7 @@ def default_data_dir(
 @dataclass(frozen=True)
 class ServiceConfig:
     """What one service instance needs; ``config_dir`` and ``data_dir`` are made
-    absolute.
+    canonical (``lcsim.service.paths``).
 
     ``port`` is the port the service listens on, for the ``Host`` check; ``token`` the
     bearer token. ``allowed_origins`` are the WebSocket ``Origin`` values let through
@@ -146,8 +147,8 @@ class ServiceConfig:
     def __post_init__(self) -> None:
         # Absolute, so that paths stored in projects.json do not depend on the working
         # directory (review of PR #34).
-        object.__setattr__(self, "config_dir", Path(self.config_dir).absolute())
-        object.__setattr__(self, "data_dir", Path(self.data_dir).absolute())
+        object.__setattr__(self, "config_dir", canonical(self.config_dir))
+        object.__setattr__(self, "data_dir", canonical(self.data_dir))
         if not 0 < self.port < 65536:
             raise ValueError(f"port {self.port!r} is not from 1 to 65535")
         if not self.token:

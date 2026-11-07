@@ -8,8 +8,7 @@ a ``template`` is 404 with E185 until the templates arrive (M10).
 
 from __future__ import annotations
 
-import os
-from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
@@ -17,10 +16,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lcsim.model.issues import Issue
 from lcsim.service.errors import NOT_FOUND, ServiceError, malformed
+from lcsim.service.paths import canonical, fully_qualified
 from lcsim.service.projects_store import Domain
 from lcsim.service.state import ServiceState, service_state
 
-__all__ = ["PATH_FLAVOUR", "CreateProject", "OpenProject", "fully_qualified", "router"]
+__all__ = ["CreateProject", "OpenProject", "router"]
 
 router = APIRouter(prefix="/v1/projects")
 
@@ -46,22 +46,8 @@ class OpenProject(BaseModel):
     path: str
 
 
-#: The path rules of the platform the service runs on; a test replaces it to check
-#: Windows paths on any platform.
-PATH_FLAVOUR: type[PurePath] = PureWindowsPath if os.name == "nt" else PurePosixPath
-
-
-def fully_qualified(path: str, flavour: type[PurePath] | None = None) -> bool:
-    """Whether ``path`` names one folder wherever the service is started: on Windows a
-    drive and a root (``C:\\projects``) or a share (``\\\\server\\share``), elsewhere a
-    root. ``os.path.isabs`` also takes ``\\projects`` on Windows, which has no drive and
-    names a folder on whichever drive is current (review of PR #34)."""
-    return (flavour or PATH_FLAVOUR)(path).is_absolute()
-
-
 def _absolute(path: str) -> Path:
-    """``path`` as a normalised absolute path; 400 with E184 when it is not fully
-    qualified."""
+    """``path`` as its canonical path; 400 with E184 when it is not fully qualified."""
     if not fully_qualified(path):
         raise malformed(
             [
@@ -75,7 +61,7 @@ def _absolute(path: str) -> Path:
                 )
             ]
         )
-    return Path(os.path.normpath(path))
+    return canonical(path)
 
 
 @router.get("")
