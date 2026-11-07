@@ -11,8 +11,9 @@ floats, distributions as objects of SI floats, and the catalogue's defaults fill
 with a fixed key order and Python's shortest round-trip float text.
 
 The adapter runs every type of spec 2's block reference (``BLOCK_TYPES`` holds every
-type of the model layer's catalogue since M4). An ``empirical`` with ``data`` raises
-``DataNotYetSupportedError`` (E162) until M6, which validation reports before any run.
+type of the model layer's catalogue since M4). An ``empirical`` with ``data`` is written with
+the values the run target read from its column, in seconds (``lcsim.runs.snapshots``;
+AKS-113); one whose column has not been read raises ``DataNotReadError`` (E162).
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from lcsim.model.catalogue import PROCESS_TYPES
-from lcsim.model.distributions import DataNotYetSupportedError
+from lcsim.model.distributions import DataNotReadError
 from lcsim.model.model import (
     Component,
     Distribution,
@@ -146,8 +147,8 @@ def resolve_setting(
 def _distribution(
     model: Model, distribution: Distribution, values: Mapping[str, ParameterValue]
 ) -> dict[str, JsonValue]:
-    if distribution.data is not None:
-        raise DataNotYetSupportedError(distribution.data)
+    if distribution.data is not None and distribution.values is None:
+        raise DataNotReadError(distribution.data)
     resolved: dict[str, JsonValue] = {"dist": distribution.dist}
     for name, scalar in distribution.fields.items():
         resolved[name] = _float(resolve_setting(model, scalar, values))

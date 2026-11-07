@@ -10,6 +10,10 @@ so the fields agree (E160) and every reference names a parameter (E150).
 ``sampler_from_numbers`` makes the same sampler from fields already resolved to SI floats,
 as an engine's own input holds them (the process adapter's ``engine/input.json``).
 
+An ``empirical`` with ``data`` samples the column a run target read into the distribution's
+``values``, in seconds, beside its ``data`` reference (``lcsim.runs.snapshots``; AKS-113);
+one whose column has not been read raises ``DataNotReadError`` (E162).
+
 Every distribution setting in Phase 1 is a time, and every sample below 0 s is set to 0 s,
 whatever the distribution (spec 1 "Distributions", proposed default, owner to confirm).
 
@@ -29,18 +33,19 @@ import numpy
 from lcsim.model.model import DataRef, Distribution, Model, ParameterValue, ParamRef, Scalar
 from lcsim.model.units import Quantity
 
-__all__ = ["DataNotYetSupportedError", "Sampler", "sampler_for", "sampler_from_numbers"]
+__all__ = ["DataNotReadError", "Sampler", "sampler_for", "sampler_from_numbers"]
 
 # One sample from the generator given, in SI units, never below 0.
 Sampler: TypeAlias = Callable[[numpy.random.Generator], float]
 
 
-class DataNotYetSupportedError(Exception):
-    """An ``empirical`` with ``data`` cannot be sampled until the import endpoint (M6).
+class DataNotReadError(Exception):
+    """An ``empirical`` with ``data`` whose column has not been read: only a run target
+    reads it, from the bytes of the file it hashes (spec 1 "Distributions"; AKS-113).
 
     Carries a spec 1 code, a message and a hint, so the caller turns it into an issue with
-    ``lcsim.model.issues.Issue.from_problem``. E162 is the code validation already gives
-    every ``data`` reference until M6 (spec 1 "Distributions").
+    ``lcsim.model.issues.Issue.from_problem``. E162 is the code of a data reference that
+    cannot be used.
     """
 
     code: ClassVar[str] = "E162"
@@ -49,10 +54,9 @@ class DataNotYetSupportedError(Exception):
         self.data = data
         self.message = (
             f"the 'empirical' distribution reads column '{data.column}' of '{data.file}', "
-            "and sampling from imported data is not available until milestone M6 "
-            "(the import endpoint)."
+            "which has not been read: a run reads it from the project's data/ folder."
         )
-        self.hint = "Write the values inline with 'values' for now."
+        self.hint = "Start the model as a run, or write the values inline with 'values'."
         super().__init__(self.message)
 
 
@@ -72,7 +76,8 @@ def sampler_for(
 ) -> Sampler:
     """The sampler of ``distribution``, with its parameter references resolved.
 
-    Raises ``DataNotYetSupportedError`` (E162) for an ``empirical`` with ``data``, and
+    Raises ``DataNotReadError`` (E162) for an ``empirical`` with ``data`` whose column has
+    not been read into its ``values``, and
     ``ValueError`` for a ``dist`` spec 1 does not list, which loading never builds.
     """
     overrides = values or {}
@@ -84,8 +89,8 @@ def sampler_for(
             )
         return _magnitude(scalar)
 
-    if distribution.dist == "empirical" and distribution.data is not None:
-        raise DataNotYetSupportedError(distribution.data)
+    if distribution.data is not None and distribution.values is None:
+        raise DataNotReadError(distribution.data)
     fields = {name: number(scalar) for name, scalar in distribution.fields.items()}
     listed = (
         [number(scalar) for scalar in distribution.values]

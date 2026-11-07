@@ -9,8 +9,9 @@ run only (the search method and the Optuna version; AKS-109) and ``error`` on a 
 only.
 
 Times are ISO 8601 UTC to the millisecond, ending in ``Z``. ``fraction`` is the run's
-progress: 0 when queued, then each progress fraction, 1 at ``done``. ``data_files`` stays
-empty until M6.
+progress: 0 when queued, then each progress fraction, 1 at ``done``. ``data_files`` has one
+``{component, setting, file, column, sha256}`` per ``empirical`` ``data`` reference
+(AKS-113), and is empty for a model without one.
 
 The file is written through a temporary file in the same folder and ``os.replace``, so a
 reader sees the old manifest or the new one, never part of one. ``ManifestWriter`` writes
@@ -99,12 +100,14 @@ def new_manifest(
     seed: int | None,
     optimizer: dict[str, str | None] | None = None,
     target: str = "local",
+    data_files: Sequence[dict[str, str]] = (),
 ) -> dict[str, Any]:
     """The manifest of a run just created: ``queued``, on the ``local`` target, with no
-    progress and no data files. An optimization run has no experiment and draws nothing,
-    so its ``experiment_id`` and ``seed`` are ``None`` and its ``scenario_ids`` empty
-    (AKS-108). A search run adds ``optimizer`` (AKS-109). ``target`` is the run target the
-    run was started on (AKS-112: the request's, when it gave one)."""
+    progress; ``data_files`` lists its ``data`` references (AKS-113). An optimization
+    run has no experiment and draws nothing, so its ``experiment_id`` and ``seed`` are
+    ``None`` and its ``scenario_ids`` empty (AKS-108). A search run adds ``optimizer``
+    (AKS-109). ``target`` is the run target the run was started on (AKS-112: the
+    request's, when it gave one)."""
     info = generator_info()
     manifest: dict[str, Any] = {
         "run_id": run_id,
@@ -124,7 +127,7 @@ def new_manifest(
         "format_version": format_version,
         "seed": seed,
         "fraction": 0.0,
-        "data_files": [],
+        "data_files": [dict(entry) for entry in data_files],
     }
     if optimizer is not None:
         manifest["optimizer"] = dict(optimizer)
