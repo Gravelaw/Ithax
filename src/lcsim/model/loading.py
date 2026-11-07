@@ -18,14 +18,20 @@ Order of work:
 
 Building reports, with its spec 1 code, every problem that stops a value from being
 converted: E102 (no single engine for the ``domain``, checked first with
-``lcsim.model.validation.engine_issues``), E120 (unknown type), E121 (unknown setting),
-E122 (required setting missing), E123 (a value of the wrong kind), E130 (a connection end
-that is not ``<id>.<port>``), E140 and E141 (quantities), E150 (a scenario setting an
-unknown parameter, whose value cannot be typed without it) and E160 (a distribution that is
-not one of spec 1's). Checks across the model are the meaning pass's: identifiers,
-settings that name components, and the connection graph (AKS-89); parameters, ranges,
-consistency of distribution fields, data references, experiments and metric names
-(AKS-90); warnings follow (AKS-91).
+``lcsim.model.validation.engine_issues`` against the installed engines), E120 (unknown
+type), E121 (unknown setting), E122 (required setting missing), E123 (a value of the wrong
+kind), E130 (a connection end that is not ``<id>.<port>``), E140 and E141 (quantities),
+E150 (a scenario setting an unknown parameter, whose value cannot be typed without it) and
+E160 (a distribution that is not one of spec 1's). Checks across the model are the
+meaning pass's: identifiers, settings that name components, and the connection graph
+(AKS-89); parameters, ranges, consistency of distribution fields, data references,
+experiments and metric names (AKS-90); warnings follow (AKS-91).
+
+The installed engines for E102 are the ``engines`` argument of each function. When it is
+``None`` (the default), they are ``lcsim.engines.registry.installed_engines()``: the
+discovered adapters, and the model layer's stand-in for a domain none handles. The
+registry is imported when first needed, not at module level, because ``lcsim.engines``
+imports the model layer; ``lcsim.model`` therefore imports without ``lcsim.engines``.
 
 A file with any error issue gives no model. Building lists its issues in document order;
 the meaning pass's follow, grouped by rule.
@@ -80,7 +86,7 @@ from lcsim.model.model import (
 )
 from lcsim.model.schema import schema_pass
 from lcsim.model.units import Dimension, Quantity, QuantityError, read_number, read_quantity
-from lcsim.model.validation import engine_issues, meaning_pass
+from lcsim.model.validation import InstalledEngine, engine_issues, meaning_pass
 
 __all__ = [
     "SEED_LIMIT",
@@ -153,6 +159,7 @@ def load_model(
     *,
     seed_source: SeedSource | None = None,
     data: DataIndex = EMPTY_DATA_INDEX,
+    engines: Sequence[InstalledEngine] | None = None,
 ) -> Model:
     """Load the model file at ``path``.
 
@@ -161,9 +168,9 @@ def load_model(
     ``seed_source`` gives the seed of an experiment that has none (default: a random
     integer from 0 to ``SEED_LIMIT`` - 1 from the operating system's generator). ``data``
     is the project's data index (default: nothing imported; the import endpoint builds
-    one at M6).
+    one at M6). ``engines`` are the installed engines (default: the discovered ones).
     """
-    result = load_text(Path(path).read_bytes(), seed_source=seed_source, data=data)
+    result = load_text(Path(path).read_bytes(), seed_source=seed_source, data=data, engines=engines)
     if result.model is None:
         raise ModelLoadError(result.issues)
     return result.model
@@ -174,6 +181,7 @@ def load_text(
     *,
     seed_source: SeedSource | None = None,
     data: DataIndex = EMPTY_DATA_INDEX,
+    engines: Sequence[InstalledEngine] | None = None,
 ) -> LoadResult:
     """Load a model from JSON text; bytes are read as UTF-8, with or without a BOM."""
     if isinstance(text, bytes):
@@ -225,7 +233,7 @@ def load_text(
     # duplicate key is in the document, so a duplicate always yields an issue here.
     if duplicates and (issues := _duplicate_key_issues(document, duplicates)):
         return LoadResult(None, tuple(issues))
-    return load_document(document, seed_source=seed_source, data=data)
+    return load_document(document, seed_source=seed_source, data=data, engines=engines)
 
 
 def load_document(
@@ -233,6 +241,7 @@ def load_document(
     *,
     seed_source: SeedSource | None = None,
     data: DataIndex = EMPTY_DATA_INDEX,
+    engines: Sequence[InstalledEngine] | None = None,
 ) -> LoadResult:
     """Load a model from a parsed JSON document: the schema pass, building, then the
     meaning pass (``lcsim.model.validation``) on a model that builds, with ``data`` as
@@ -241,7 +250,7 @@ def load_document(
     ``document`` is not changed. The model may share the JSON values of a component's
     ``ui`` and of ``run.target`` and ``run.fidelity`` with it.
     """
-    built = build_document(document, seed_source=seed_source)
+    built = build_document(document, seed_source=seed_source, engines=engines)
     if built.model is None:
         return built
     issues = (*built.issues, *meaning_pass(built.model, data))
@@ -250,7 +259,12 @@ def load_document(
     return LoadResult(built.model, issues)
 
 
-def build_document(document: object, *, seed_source: SeedSource | None = None) -> LoadResult:
+def build_document(
+    document: object,
+    *,
+    seed_source: SeedSource | None = None,
+    engines: Sequence[InstalledEngine] | None = None,
+) -> LoadResult:
     """The schema pass and building only, without the meaning pass.
 
     The model it returns has every value converted but is not checked across the model
@@ -261,12 +275,24 @@ def build_document(document: object, *, seed_source: SeedSource | None = None) -
     if schema_issues:
         return LoadResult(None, tuple(schema_issues))
     assert isinstance(document, dict)  # the schema requires an object
-    builder = _Builder(document, seed_source or _random_seed)
+    builder = _Builder(
+        document,
+        seed_source or _random_seed,
+        _installed_engines() if engines is None else engines,
+    )
     model = builder.build()
     issues = tuple(builder.issues)
     if model is None or any(issue.severity == "error" for issue in issues):
         return LoadResult(None, issues)
     return LoadResult(model, issues)
+
+
+def _installed_engines() -> tuple[InstalledEngine, ...]:
+    # Imported here, not at module level: lcsim.engines imports the model layer (see the
+    # module docstring and docs/DECISIONS.md, AKS-97).
+    from lcsim.engines.registry import installed_engines
+
+    return installed_engines()
 
 
 def _random_seed() -> int:
@@ -375,9 +401,15 @@ def _param_ref(value: object) -> ParamRef | None:
 class _Builder:
     """Builds a ``Model`` from a document that passed the schema; collects issues."""
 
-    def __init__(self, document: Mapping[str, Any], seed_source: SeedSource) -> None:
+    def __init__(
+        self,
+        document: Mapping[str, Any],
+        seed_source: SeedSource,
+        engines: Sequence[InstalledEngine],
+    ) -> None:
         self.document = document
         self.seed_source = seed_source
+        self.engines = engines
         self.issues: list[Issue] = []
         self.parameters: dict[str, Parameter] = {}
 
@@ -471,7 +503,7 @@ class _Builder:
         document = self.document
         domain: str = document["domain"]
         engine: str | None = document.get("run", {}).get("engine")
-        engine_problems = engine_issues(domain, engine)
+        engine_problems = engine_issues(domain, engine, self.engines)
         if engine_problems:
             # A model of a domain no engine runs cannot be built: its keys are not known.
             self.issues += engine_problems

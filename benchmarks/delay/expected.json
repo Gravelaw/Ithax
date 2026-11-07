@@ -1,0 +1,16 @@
+[
+  {
+    "metric": "exit.cycle_time.mean",
+    "value": 600.0,
+    "method": "three_se",
+    "source": "A delay has no queue, so each item's time in the system is its sampled delay: mean E(B) = 600 s (10 min)",
+    "milestone": "M2"
+  },
+  {
+    "metric": "model.wip.mean",
+    "value": 5.0,
+    "method": "three_se",
+    "source": "Little's law for the M/G/infinity delay: E(L) = lambda E(B) = (1/120 per second) x 600 s = 5; Adan and Resing, Queueing Systems (2015), sections 3.4 and 11.1",
+    "milestone": "M2"
+  }
+]

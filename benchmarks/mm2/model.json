@@ -1,0 +1,59 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "M/M/2 benchmark",
+    "description": "Spec 2 benchmark M/M/2: exponential arrivals, mean 1 min; two servers, exponential service, mean 1.5 min."
+  },
+  "domain": "process",
+  "components": [
+    {
+      "id": "arrivals",
+      "type": "source",
+      "params": {
+        "interarrival": {
+          "dist": "exponential",
+          "mean": "1 min"
+        }
+      }
+    },
+    {
+      "id": "server",
+      "type": "server",
+      "params": {
+        "capacity": 2,
+        "service": {
+          "dist": "exponential",
+          "mean": "1.5 min"
+        }
+      }
+    },
+    {
+      "id": "exit",
+      "type": "sink",
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": "arrivals.out",
+      "to": "server.in"
+    },
+    {
+      "from": "server.out",
+      "to": "exit.in"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "benchmark",
+      "length": "200 h",
+      "warmup": "10 h",
+      "replications": 100,
+      "seed": 1002
+    }
+  ],
+  "run": {
+    "target": "local",
+    "fidelity": "standard"
+  }
+}

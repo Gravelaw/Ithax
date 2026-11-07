@@ -14,7 +14,13 @@ import pytest
 
 from lcsim.model.catalogue import DOMAINS
 from lcsim.model.issues import Issue
-from lcsim.model.loading import ModelLoadError, build_document, load_document, load_model
+from lcsim.model.loading import (
+    ModelLoadError,
+    build_document,
+    load_document,
+    load_model,
+    load_text,
+)
 from lcsim.model.model import Model
 from lcsim.model.validation import (
     IDENTIFIER_PATTERN,
@@ -134,26 +140,68 @@ def test_the_product_mix_passes_the_meaning_pass() -> None:
 # --- E102: engine lookup (spec 1 "Top-level keys") ----------------------------------------------
 
 
-def test_the_stand_ins_cover_each_phase_1_domain_once() -> None:
-    assert [engine.domains for engine in STAND_IN_ENGINES] == [(domain,) for domain in DOMAINS]
-    assert all(engine.name is None for engine in STAND_IN_ENGINES)
+# The engines a Phase 1 install has from M2: the discovered process adapter ``simpy`` and the
+# model layer's stand-in for ``optimization`` (until M5).
+PHASE_1_ENGINES = (InstalledEngine("simpy", ("process",)), *STAND_IN_ENGINES)
+
+
+def test_a_stand_in_remains_for_optimization_only() -> None:
+    # Spec 1 "Top-level keys": from M2 the process adapter is discovered; the stand-in for
+    # optimization stays until M5.
+    assert STAND_IN_ENGINES == (InstalledEngine(None, ("optimization",)),)
+    assert set(DOMAINS) == {"process", "optimization"}
 
 
 @pytest.mark.parametrize("domain", DOMAINS)
-def test_one_stand_in_runs_each_phase_1_domain(domain: str) -> None:
-    assert engine_issues(domain, None) == []
+def test_one_engine_runs_each_phase_1_domain(domain: str) -> None:
+    assert engine_issues(domain, None, PHASE_1_ENGINES) == []
 
 
 def test_a_stand_in_accepts_any_engine_name() -> None:
-    # A stand-in has no adapter name, so run.engine cannot be checked before M2.
-    assert engine_issues("process", "simpy") == []
-    document = coffee()
-    document["run"]["engine"] = "simpy"
+    # A stand-in has no adapter name, so run.engine cannot be checked for optimization
+    # before M5.
+    assert engine_issues("optimization", "highs", STAND_IN_ENGINES) == []
+    document = copy.deepcopy(PRODUCT_MIX)
+    document["run"] = {"target": "local", "fidelity": "standard", "engine": "highs"}
     assert load_document(document).issues == ()
 
 
+def test_run_engine_is_checked_for_process_from_m2() -> None:
+    # The loader's default engines are the discovered adapters (the installed entry point
+    # ``simpy``) and the optimization stand-in.
+    document = coffee()
+    document["run"]["engine"] = "simpy"
+    assert load_document(document).issues == ()
+    document["run"]["engine"] = "salabim"
+    result = load_document(document)
+    assert result.model is None
+    [issue] = result.issues
+    assert (issue.code, issue.path, issue.component) == ("E102", "/run/engine", None)
+    assert "'salabim'" in issue.message
+    assert issue.hint == "Name one of: 'simpy'."
+
+
+def test_the_loader_takes_the_engines_it_is_given() -> None:
+    [issue] = load_document(coffee(), engines=()).issues
+    assert (issue.code, issue.path) == ("E102", "/domain")
+    assert issue.hint == "Install an engine for this domain."
+    [issue] = build_document(coffee(), engines=TWO_PROCESS_ENGINES).issues
+    assert (issue.code, issue.path) == ("E102", "/run/engine")
+    text = json.dumps(coffee())
+    assert load_text(text, engines=PHASE_1_ENGINES).model is not None
+
+
+def test_load_model_takes_the_engines_it_is_given(tmp_path: Path) -> None:
+    path = tmp_path / "coffee.json"
+    path.write_text(json.dumps(coffee()), encoding="utf-8")
+    assert load_model(path, engines=PHASE_1_ENGINES).meta.name == "Coffee shop"
+    with pytest.raises(ModelLoadError) as raised:
+        load_model(path, engines=STAND_IN_ENGINES)
+    assert [issue.code for issue in raised.value.issues] == ["E102"]
+
+
 def test_no_engine_for_the_domain() -> None:
-    [issue] = engine_issues("physics", None)
+    [issue] = engine_issues("physics", None, PHASE_1_ENGINES)
     assert (issue.code, issue.path, issue.component) == ("E102", "/domain", None)
     assert "'domain'" in issue.message
     assert "'physics'" in issue.message
