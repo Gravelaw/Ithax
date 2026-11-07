@@ -222,3 +222,64 @@ def test_a_field_that_would_overflow_in_seconds_is_left_out() -> None:
             if key not in ("dist", "shape"):
                 seconds(value)
     assert fit_column(values, "s")  # in seconds every field fits
+
+
+def test_a_constant_column_that_overflows_in_seconds_gives_no_candidate() -> None:
+    """The constant path goes through the same final gate as every family (Codex on PR
+    #37, second round)."""
+    assert fit_column(numpy.full(3, 1e308), "min") == []
+    assert fit_column(numpy.full(3, 1e308), "s") == [
+        Candidate({"dist": "constant", "value": "1e+308 s"}, 0.0)
+    ]
+
+
+def test_no_family_survives_when_every_field_would_overflow_in_seconds() -> None:
+    values = numpy.array([1e306, 2e306, 4e306, 8e306])
+    assert fit_column(values, "d") == []
+    assert {str(c.distribution["dist"]) for c in fit_column(values, "s")} >= {"uniform", "normal"}
+
+
+COLUMNS = {
+    "exponential": sample("exponential", 300, mean=2.0),
+    "lognormal": sample("lognormal", 300, mean=3.0, sd=2.0),
+    "normal around zero": sample("normal", 300, mean=0.5, sd=1.0) - 1.0,
+    "two values": numpy.array([1.0, 2.0]),
+    "constant": numpy.full(4, 7.0),
+    "tiny": sample("weibull", 300, shape=1.5, scale=1.0) * 1e-300,
+    "huge": sample("weibull", 300, shape=1.5, scale=1.0) * 1e300,
+    "near the limit in days": numpy.array([1e303, 2e303, 3e303]),
+}
+
+
+@pytest.mark.parametrize("column", sorted(COLUMNS))
+@pytest.mark.parametrize("unit", ["s", "min", "h", "d"])
+def test_every_candidate_validates_when_written_into_a_model(column: str, unit: str) -> None:
+    """Property: whatever the column, every candidate is a distribution the model takes as
+    it is, with no E123, E140, E141 or E16x for its fields."""
+    from lcsim.model.loading import load_document
+
+    for candidate in fit_column(COLUMNS[column], unit):
+        document = {
+            "format_version": "0.1",
+            "meta": {"name": "Fit"},
+            "domain": "process",
+            "parameters": {},
+            "components": [
+                {
+                    "id": "arrivals",
+                    "type": "source",
+                    "params": {"interarrival": dict(candidate.distribution)},
+                },
+                {"id": "exit", "type": "sink", "params": {}},
+            ],
+            "connections": [{"from": "arrivals.out", "to": "exit.in"}],
+            "experiments": [{"id": "base", "length": "8 h", "replications": 2, "seed": 1}],
+            "run": {"target": "local", "fidelity": "standard"},
+        }
+        issues = load_document(document).issues
+        bad = [
+            issue
+            for issue in issues
+            if issue.code in ("E123", "E140", "E141", "E160", "E161", "E162")
+        ]
+        assert bad == [], (candidate, bad)

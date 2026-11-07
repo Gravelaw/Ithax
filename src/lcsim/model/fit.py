@@ -20,9 +20,10 @@ iteration is written here). What this module adds:
   columns such as 10⁻³⁰⁰ or 10³⁰⁰ seconds, which it otherwise fits wrongly.
 - **The mapping** to spec 1's fields, and for the lognormal the closed-form mean and sd of
   the variable from the fitted sigma and mu.
-- **Checks.** A family whose fit raises, warns its way to a value that is not finite, or
-  gives fields spec 1 would refuse (E160: ``sd``, ``shape``, ``scale`` or a positive
-  ``mean`` not above zero, ``min`` > ``mode`` or ``mode`` > ``max``) is left out.
+- **One gate.** A family whose fit raises is left out. Every candidate, the ``constant``
+  one included, then passes one gate, ``_admitted``: it is loaded in a minimal model by the
+  model layer, and left out if loading reports an error, such as a field that is not a
+  finite number of seconds (E141) or fields spec 1 refuses (E160) (Codex on PR #37).
 """
 
 from __future__ import annotations
@@ -38,7 +39,8 @@ from typing import Any
 import numpy
 import scipy.stats
 
-from lcsim.model.data import fits_in_seconds
+from lcsim.model.loading import load_document
+from lcsim.model.migration import FORMAT_VERSION
 
 __all__ = ["SCORE", "Candidate", "fit_column"]
 
@@ -132,15 +134,6 @@ _FAMILIES: Mapping[str, _Family] = MappingProxyType(
     }
 )
 
-# Fields spec 1 requires above zero, by distribution (E160).
-_ABOVE_ZERO: Mapping[str, tuple[str, ...]] = MappingProxyType(
-    {
-        "exponential": ("mean",),
-        "normal": ("sd",),
-        "lognormal": ("mean", "sd"),
-        "weibull": ("shape", "scale"),
-    }
-)
 # Fields that are plain numbers whatever the column's unit.
 _PLAIN = frozenset({"shape"})
 
@@ -155,7 +148,8 @@ def fit_column(values: Sequence[float] | Values, unit: str | None) -> list[Candi
         raise ValueError("a fit needs at least one value, and every value finite")
     low, high = float(numpy.min(column)), float(numpy.max(column))
     if low == high:
-        return [Candidate({"dist": "constant", "value": _field("value", low, unit)}, 0.0)]
+        constant = Candidate({"dist": "constant", "value": _field("value", low, unit)}, 0.0)
+        return [constant] if _admitted(constant, unit) else []
     factor = max(abs(low), abs(high))
     scaled = column / factor
     candidates: list[Candidate] = []
@@ -165,7 +159,7 @@ def fit_column(values: Sequence[float] | Values, unit: str | None) -> list[Candi
         if family.not_negative and (low < 0 or float(column.mean()) <= 0):
             continue
         candidate = _candidate(name, family, scaled, factor, unit)
-        if candidate is not None:
+        if candidate is not None and _admitted(candidate, unit):
             candidates.append(candidate)
     order = {name: number for number, name in enumerate(_FAMILIES)}
     candidates.sort(key=lambda item: (item.score, order[str(item.distribution["dist"])]))
@@ -184,7 +178,7 @@ def _candidate(
         except Exception:  # a fit that fails is left out, never an error (research note)
             _log.info("The %s fit of a column failed.", name, exc_info=True)
             return None
-    if fields is None or not _agrees(name, fields, unit) or not 0.0 <= score <= 1.0:
+    if fields is None or not 0.0 <= score <= 1.0:
         return None
     distribution: dict[str, Any] = {"dist": name}
     distribution.update({key: _field(key, value, unit) for key, value in fields.items()})
@@ -197,20 +191,43 @@ def _score(scipy_name: str, scaled: Values, params: tuple[float, ...]) -> float:
     return float(result.statistic)
 
 
-def _agrees(name: str, fields: Mapping[str, float], unit: str | None) -> bool:
-    """Whether spec 1 takes ``fields`` for ``name``: finite, each time field a finite
-    number of seconds in ``unit`` (E141 otherwise; Codex on PR #37), the positive fields
-    above zero, and ``min`` ≤ ``mode`` ≤ ``max`` (E160)."""
-    if not all(math.isfinite(value) for value in fields.values()):
-        return False
-    if unit is not None and not all(
-        fits_in_seconds(value, unit) for key, value in fields.items() if key not in _PLAIN
-    ):
-        return False
-    if any(fields[key] <= 0 for key in _ABOVE_ZERO.get(name, ())):
-        return False
-    ordered = [fields[key] for key in ("min", "mode", "max") if key in fields]
-    return ordered == sorted(ordered)
+def _admitted(candidate: Candidate, unit: str | None) -> bool:
+    """The one gate every candidate passes, whatever path made it (Codex on PR #37): the
+    candidate is written into a minimal model, in the time setting of a source, and loaded
+    by the model layer itself, which applies the rules it would meet in the user's model
+    (E123, E140 and E141 for each field, so every time a finite number of seconds; E160
+    for the fields that must agree). A candidate of a column without a unit is checked
+    with its plain numbers read as seconds, the only way they could become a time."""
+    distribution = dict(candidate.distribution)
+    if unit is None:
+        distribution = {
+            key: value if key == "dist" or key in _PLAIN else _field(key, value, "s")
+            for key, value in distribution.items()
+        }
+    document = {
+        **_GATE_MODEL,
+        "components": [
+            {"id": "gate", "type": "source", "params": {"interarrival": distribution}},
+            {"id": "exit", "type": "sink", "params": {}},
+        ],
+    }
+    issues = load_document(document).issues
+    return not any(issue.severity == "error" for issue in issues)
+
+
+# The model the gate loads a candidate in: valid as it is, with a source whose
+# `interarrival` is the candidate.
+_GATE_MODEL: Mapping[str, Any] = MappingProxyType(
+    {
+        "format_version": FORMAT_VERSION,
+        "meta": {"name": "Fit gate"},
+        "domain": "process",
+        "parameters": {},
+        "connections": [{"from": "gate.out", "to": "exit.in"}],
+        "experiments": [{"id": "base", "length": "8 h", "replications": 2, "seed": 0}],
+        "run": {"target": "local", "fidelity": "standard"},
+    }
+)
 
 
 def _field(key: str, value: float, unit: str | None) -> float | str:
