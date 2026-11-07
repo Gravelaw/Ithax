@@ -8,7 +8,9 @@ import pytest
 import simpy
 
 from lcsim.engines.process.blocks import Block, Context, Item
+from lcsim.engines.process.replication import Outcome, run_replication
 from lcsim.engines.process.statistics import TimeWeighted, Window
+from lcsim.engines.process.translate import engine_input
 from lcsim.model.loading import load_document
 from lcsim.model.model import Model
 from lcsim.model.streams import generator_for
@@ -126,3 +128,23 @@ def recorder(
     context: Context, *, open: bool = True, queued: int = 0, name: str = "recorder"
 ) -> Recorder:
     return Recorder(name, {"open": open, "queued": queued}, context, generator_for(0, 0, name))
+
+
+def outcome_of_model(model: Model) -> Outcome:
+    """Replication 0 of the model's experiment ``e``, run through the engine input."""
+    outcome = run_replication(engine_input(model, "e"), 0, 0, lambda: False)
+    assert outcome is not None
+    return outcome
+
+
+def metrics_of_model(model: Model) -> dict[str, float]:
+    """Each metric of replication 0 of the model's experiment ``e``, by name."""
+    return {metric: value for metric, value, _ in outcome_of_model(model).rows}
+
+
+def series_of_model(model: Model) -> dict[str, list[tuple[float, float]]]:
+    """Each time series of replication 0 of the model's experiment ``e``, by name."""
+    series: dict[str, list[tuple[float, float]]] = {}
+    for metric, time, value, _ in outcome_of_model(model).series:
+        series.setdefault(metric, []).append((time, value))
+    return series

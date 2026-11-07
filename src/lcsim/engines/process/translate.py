@@ -10,8 +10,8 @@ floats, distributions as objects of SI floats, and the catalogue's defaults fill
 "Components and ports"), so changing them leaves the file byte-equal. The JSON is written
 with a fixed key order and Python's shortest round-trip float text.
 
-The adapter runs ``source``, ``server``, ``delay``, ``branch`` and ``sink``
-(``BLOCK_TYPES``). Any other type and a server's ``pool`` (M4) raise
+The adapter runs ``source``, ``server``, ``delay``, ``branch``, ``queue``, ``batch``,
+``unbatch`` and ``sink`` (``BLOCK_TYPES``). Any other type and a server's ``pool`` (M4) raise
 ``NotImplementedError`` until they are built; an ``empirical`` with ``data`` raises
 ``DataNotYetSupportedError`` (E162) until M6, which validation reports before any run.
 """
