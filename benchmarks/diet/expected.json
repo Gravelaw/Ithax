@@ -1,0 +1,23 @@
+[
+  {
+    "metric": "objective",
+    "value": 2.1777777777777776,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the vertices of the region cut by 0.6x + y <= 2.4, the cost of the feasible point (4, 0): (16/9, 10/9) 98/45, (19/11, 15/11) 2.4 and (4, 0) 2.4; the optimum is the single vertex (16/9, 10/9) with cost 98/45 = 2.1778; docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.x",
+    "value": 1.7777777777777777,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the vertices of the region cut by 0.6x + y <= 2.4, the cost of the feasible point (4, 0): (16/9, 10/9) 98/45, (19/11, 15/11) 2.4 and (4, 0) 2.4; the optimum is the single vertex (16/9, 10/9) with cost 98/45 = 2.1778; docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.y",
+    "value": 1.1111111111111112,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the vertices of the region cut by 0.6x + y <= 2.4, the cost of the feasible point (4, 0): (16/9, 10/9) 98/45, (19/11, 15/11) 2.4 and (4, 0) 2.4; the optimum is the single vertex (16/9, 10/9) with cost 98/45 = 2.1778; docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  }
+]

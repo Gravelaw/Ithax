@@ -1,0 +1,23 @@
+[
+  {
+    "metric": "objective",
+    "value": 2200.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the vertices of the feasible region (fundamental theorem of linear programming): (0, 0) 0, (0, 20) 1,600, (45, 0) 2,025, (24, 14) 2,200; the best is the single vertex (24, 14), unique since the duals 1 and 4 are both positive; docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.chairs",
+    "value": 24.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the vertices of the feasible region (fundamental theorem of linear programming): (0, 0) 0, (0, 20) 1,600, (45, 0) 2,025, (24, 14) 2,200; the best is the single vertex (24, 14), unique since the duals 1 and 4 are both positive; docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  },
+  {
+    "metric": "variables.tables",
+    "value": 14.0,
+    "method": "sig_figs_4",
+    "source": "Enumeration of the vertices of the feasible region (fundamental theorem of linear programming): (0, 0) 0, (0, 20) 1,600, (45, 0) 2,025, (24, 14) 2,200; the best is the single vertex (24, 14), unique since the duals 1 and 4 are both positive; docs/research/spec-2-benchmark-sources.md, M5",
+    "milestone": "M5"
+  }
+]

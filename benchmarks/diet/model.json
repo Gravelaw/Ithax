@@ -1,0 +1,47 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Diet",
+    "description": "Two foods x and y, two nutrients: minimize 0.6x + y with 2x + 4y >= 8 and 5x + y >= 10, x and y not negative (spec 2 Benchmark definitions)."
+  },
+  "domain": "optimization",
+  "variables": [
+    {
+      "id": "x",
+      "type": "continuous",
+      "lower": 0
+    },
+    {
+      "id": "y",
+      "type": "continuous",
+      "lower": 0
+    }
+  ],
+  "objective": {
+    "sense": "minimize",
+    "linear": {
+      "x": 0.6,
+      "y": 1
+    }
+  },
+  "constraints": [
+    {
+      "id": "nutrient_a",
+      "linear": {
+        "x": 2,
+        "y": 4
+      },
+      "op": ">=",
+      "rhs": 8
+    },
+    {
+      "id": "nutrient_b",
+      "linear": {
+        "x": 5,
+        "y": 1
+      },
+      "op": ">=",
+      "rhs": 10
+    }
+  ]
+}
