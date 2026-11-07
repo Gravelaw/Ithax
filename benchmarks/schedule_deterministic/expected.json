@@ -1,0 +1,23 @@
+[
+  {
+    "metric": "server.wait.mean",
+    "value": 28800.0,
+    "method": "exact",
+    "source": "Event-by-event calculation (spec 2 \"Benchmark definitions\"): 24 service starts in the observed period [12 h, 204 h), three a day with waits 15, 8 and 1 h: mean 8 h = 28,800 s",
+    "milestone": "M4"
+  },
+  {
+    "metric": "server.utilization",
+    "value": 0.375,
+    "method": "exact",
+    "source": "Event-by-event calculation: 3 h busy on each of 8 shifts, 24 h, over 8 x 8 = 64 h available",
+    "milestone": "M4"
+  },
+  {
+    "metric": "server.scheduled_fraction",
+    "value": 0.3333333333333333,
+    "method": "exact",
+    "source": "Eight shifts of 8 h at capacity 1, 64 h, over nominal capacity 1 times the 192 h observed period",
+    "milestone": "M4"
+  }
+]

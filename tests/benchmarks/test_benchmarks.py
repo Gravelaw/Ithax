@@ -53,12 +53,18 @@ WORKERS = min(4, os.cpu_count() or 1)
 # Spec 2 "Benchmark definitions": the five M2 cases and the blocks the prototype exercised.
 M2_CASES = {"mm1", "mm2", "tandem", "delay", "branch"}
 M2_BLOCKS = {"source", "server", "delay", "branch", "sink"}
+# Spec 2 acceptance row "Every block has a unit test and appears in a benchmark": M2 for
+# the five prototype blocks, M4 for the rest.
+BLOCK_MILESTONES = {block: "M2" for block in M2_BLOCKS} | {
+    block: "M4"
+    for block in ("queue", "batch", "unbatch", "store", "resource_pool", "schedule", "failure")
+}
 
 # Spec 2 "Benchmark definitions": "Stochastic cases use 100 replications of 200 hours with
 # 10 hours of warm-up unless stated"; the cases that state their own, as (replications,
 # length in hours, warm-up in hours).
 STANDARD_SETTINGS = (100, 200, 10)
-STATED_SETTINGS = {"store_deterministic": (2, 1000, 100)}
+STATED_SETTINGS = {"store_deterministic": (2, 1000, 100), "schedule_deterministic": (2, 204, 12)}
 
 MILESTONE = re.compile(r"^M(\d+)$")
 
@@ -301,6 +307,20 @@ def test_every_m2_block_appears_in_an_m2_benchmark() -> None:
         component["type"] for case in M2_CASES for component in read_case(case)[0]["components"]
     }
     assert M2_BLOCKS <= types
+
+
+def test_every_block_type_appears_in_a_benchmark_at_or_before_its_milestone() -> None:
+    """The same row for every type of the catalogue: each appears in a case whose
+    milestone is not later than the block's (all twelve by M4, AKS-107)."""
+    assert set(BLOCK_MILESTONES) == set(PROCESS_TYPES)
+    found: dict[str, set[str]] = {}
+    for case in CASES:
+        document, expected = read_case(case)
+        milestone = case_milestone(expected)
+        for component in document["components"]:
+            found.setdefault(component["type"], set()).add(milestone)
+    for block, milestone in BLOCK_MILESTONES.items():
+        assert any(is_due(case, milestone) for case in found.get(block, ())), block
 
 
 # ---------------------------------------------------------------------------------------

@@ -1,0 +1,9 @@
+[
+  {
+    "metric": "server.availability",
+    "value": 0.8,
+    "method": "three_se",
+    "source": "Alternating renewal process of up times (mean 100 min) and repairs (mean 25 min) on calendar time: long-run fraction up MTTF/(MTTF + MTTR) = 100/125 = 0.8; as docs/research/spec-2-benchmark-sources.md cites (Wikipedia, \"Availability\")",
+    "milestone": "M4"
+  }
+]
