@@ -11,14 +11,17 @@ license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dynamic = ["version"]
 dependencies = [
+    "defusedxml>=0.7.1",
     "fastapi>=0.162.1",
     "highspy>=1.15.1",
     "jsonschema>=4.26.0",
     "numpy>=2.4.6",
+    "openpyxl>=3.1.5",
     "optuna>=5.0.0",
     "pint>=0.25.3",
     "pyarrow>=26.0.1",
     "pyomo>=6.10.1",
+    "python-multipart>=0.0.33",
     "scipy>=1.17.1",
     "simpy>=4.1.2",
     "uvicorn>=0.54.0",
@@ -89,6 +92,13 @@ ignore_missing_imports = true
 # and AKS-102).
 [[tool.mypy.overrides]]
 module = ["scipy", "scipy.*"]
+ignore_missing_imports = true
+
+# openpyxl 3.1.5 ships no py.typed; types-openpyxl would be one more dev dependency for the
+# one reader lcsim.model.data_files uses, which types what it uses with a Protocol
+# (docs/DECISIONS.md, AKS-113).
+[[tool.mypy.overrides]]
+module = ["openpyxl", "openpyxl.*"]
 ignore_missing_imports = true
 
 # pyomo 6.10.1 ships no py.typed and has no stubs; only lcsim.engines.optimize.solver
