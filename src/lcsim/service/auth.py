@@ -7,7 +7,9 @@ WebSocket upgrade it checks, in this order:
 2. for a WebSocket, an ``Origin``, when present, is one of the allowed origins (none until
    M9), else the upgrade is refused before it is accepted (the server answers 403);
 3. for HTTP, ``Authorization: Bearer <token>`` carries the service's token, else 401 with
-   E182 and ``WWW-Authenticate: Bearer``.
+   E182 and ``WWW-Authenticate: Bearer``;
+4. for HTTP, an ``X-Client`` header, when present, is ``ui``, ``mcp`` or ``script``, else
+   400 with E184 (review of PR #34: no route may see another value).
 
 It also keeps the lifetime's account: an HTTP request and an open WebSocket each hold the
 service. No CORS headers are ever added.
@@ -140,6 +142,13 @@ class Hardening:
             )
             await response(scope, receive, send)
             return
+        client = headers.get("x-client")
+        if client is not None and client not in CLIENTS:
+            refused = malformed([_client_issue(client)])
+            await error_response(refused.status, refused.code, refused.message, refused.issues)(
+                scope, receive, send
+            )
+            return
         with self.lifetime.hold():
             await self.app(scope, receive, send)
 
@@ -183,22 +192,23 @@ async def authenticate_websocket(websocket: WebSocket, token: str, timeout_s: fl
     return False
 
 
+def _client_issue(value: str) -> Issue:
+    return Issue(
+        code="E184",
+        component=None,
+        path="",
+        message=f"The X-Client header is '{value}', which is not ui, mcp or script.",
+        hint="Send X-Client: ui, mcp or script, or leave the header out.",
+    )
+
+
 def request_client(connection: HTTPConnection) -> Client:
     """The ``X-Client`` of a request: ``ui``, ``mcp`` or ``script``, and ``script`` when
-    the header is absent. Another value raises 400 with E184."""
+    the header is absent. Another value raises 400 with E184 (``Hardening`` already
+    refuses such a request before any route runs)."""
     value = connection.headers.get("x-client")
     if value is None:
         return "script"
     if value in CLIENTS:
         return value
-    raise malformed(
-        [
-            Issue(
-                code="E184",
-                component=None,
-                path="",
-                message=f"The X-Client header is '{value}', which is not ui, mcp or script.",
-                hint="Send X-Client: ui, mcp or script, or leave the header out.",
-            )
-        ]
-    )
+    raise malformed([_client_issue(value)])

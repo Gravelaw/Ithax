@@ -307,3 +307,33 @@ def test_another_x_client_is_400_with_e184(config: ServiceConfig) -> None:
     assert response.status_code == 400
     assert_error(response.json(), "E184")
     assert "'browser'" in response.json()["issues"][0]["message"]
+
+
+@pytest.mark.parametrize(("method", "path"), [("GET", "/v1/system"), ("POST", "/v1/projects")])
+def test_every_product_route_refuses_another_x_client(
+    client: TestClient, method: str, path: str
+) -> None:
+    """Review of PR #34: the header is checked for every request, not only by routes that
+    read it, so a bad value never reaches a product route."""
+    response = client.request(method, path, headers={"X-Client": "browser"}, json={"name": "P"})
+    assert response.status_code == 400
+    assert_error(response.json(), "E184")
+    assert client.get("/v1/projects").json() == []
+
+
+def test_x_client_is_checked_after_the_token(app: FastAPI) -> None:
+    with TestClient(app, base_url=BASE_URL) as client:
+        response = client.get("/v1/system", headers={"X-Client": "browser"})
+    assert response.status_code == 401
+
+
+def test_request_client_alone_refuses_another_value() -> None:
+    """Without the middleware (a route mounted elsewhere), the helper still refuses."""
+    from starlette.requests import Request as StarletteRequest
+
+    from lcsim.service.errors import ServiceError
+
+    scope = {"type": "http", "method": "GET", "path": "/", "headers": [(b"x-client", b"robot")]}
+    with pytest.raises(ServiceError) as refused:
+        request_client(StarletteRequest(scope))
+    assert (refused.value.status, refused.value.code) == (400, "E184")
