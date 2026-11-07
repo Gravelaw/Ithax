@@ -5,7 +5,7 @@ errors, ``domain`` on creation)."""
 import json
 import re
 import uuid
-from pathlib import Path
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 
 import pytest
 from starlette.testclient import TestClient
@@ -13,6 +13,7 @@ from starlette.testclient import TestClient
 from lcsim.engines.registry import select_adapter
 from lcsim.model.loading import load_text
 from lcsim.model.migration import FORMAT_VERSION
+from lcsim.service.projects import fully_qualified
 from lcsim.service.projects_store import (
     LAYOUT_VERSION,
     MODEL_FILE,
@@ -407,3 +408,42 @@ def test_the_registry_makes_its_folders_absolute(
     registry = ProjectRegistry(Path("c"), Path("d"))
     assert registry.config_dir == tmp_path / "c"
     assert registry.data_dir == tmp_path / "d"
+
+
+# --- fully qualified paths (review of PR #34: Windows drive-relative paths) -------------
+
+
+@pytest.mark.parametrize(
+    ("flavour", "path", "qualified"),
+    [
+        (PureWindowsPath, r"C:\projects\demo", True),
+        (PureWindowsPath, r"\\server\share\demo", True),
+        (PureWindowsPath, r"\projects\demo", False),
+        (PureWindowsPath, r"C:projects\demo", False),
+        (PureWindowsPath, r"projects\demo", False),
+        (PurePosixPath, "/projects/demo", True),
+        (PurePosixPath, "projects/demo", False),
+    ],
+)
+def test_a_path_is_fully_qualified_only_with_its_drive_or_share(
+    flavour: type[PurePath], path: str, qualified: bool
+) -> None:
+    assert fully_qualified(path, flavour) is qualified
+
+
+@pytest.mark.parametrize("path", [r"\projects\demo", r"C:projects\demo"])
+def test_both_project_endpoints_refuse_a_windows_path_without_drive_or_share(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    """``os.path.isabs`` on Windows takes ``\\projects\\demo`` as absolute although it has no
+    drive, so it would be persisted and later name a folder on whichever drive is current."""
+    monkeypatch.setattr("lcsim.service.projects.PATH_FLAVOUR", PureWindowsPath)
+    for route, body in (
+        ("/v1/projects", {"name": "Demo", "path": path}),
+        ("/v1/projects/open", {"path": path}),
+    ):
+        response = client.post(route, json=body)
+        assert response.status_code == 400, route
+        assert_error(response.json(), "E184")
+        assert response.json()["issues"][0]["path"] == "/path"
+    assert client.get("/v1/projects").json() == []

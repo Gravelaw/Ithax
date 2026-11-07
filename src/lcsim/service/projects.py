@@ -9,7 +9,7 @@ a ``template`` is 404 with E185 until the templates arrive (M10).
 from __future__ import annotations
 
 import os
-from pathlib import Path
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
@@ -20,7 +20,7 @@ from lcsim.service.errors import NOT_FOUND, ServiceError, malformed
 from lcsim.service.projects_store import Domain
 from lcsim.service.state import ServiceState, service_state
 
-__all__ = ["CreateProject", "OpenProject", "router"]
+__all__ = ["PATH_FLAVOUR", "CreateProject", "OpenProject", "fully_qualified", "router"]
 
 router = APIRouter(prefix="/v1/projects")
 
@@ -46,17 +46,32 @@ class OpenProject(BaseModel):
     path: str
 
 
+#: The path rules of the platform the service runs on; a test replaces it to check
+#: Windows paths on any platform.
+PATH_FLAVOUR: type[PurePath] = PureWindowsPath if os.name == "nt" else PurePosixPath
+
+
+def fully_qualified(path: str, flavour: type[PurePath] | None = None) -> bool:
+    """Whether ``path`` names one folder wherever the service is started: on Windows a
+    drive and a root (``C:\\projects``) or a share (``\\\\server\\share``), elsewhere a
+    root. ``os.path.isabs`` also takes ``\\projects`` on Windows, which has no drive and
+    names a folder on whichever drive is current (review of PR #34)."""
+    return (flavour or PATH_FLAVOUR)(path).is_absolute()
+
+
 def _absolute(path: str) -> Path:
-    """``path`` as a normalised absolute path; 400 with E184 when it is relative."""
-    if not os.path.isabs(path):
+    """``path`` as a normalised absolute path; 400 with E184 when it is not fully
+    qualified."""
+    if not fully_qualified(path):
         raise malformed(
             [
                 Issue(
                     code="E184",
                     component=None,
                     path="/path",
-                    message=f"The request field 'path' is '{path}', which is not absolute.",
-                    hint="Give the folder's full path, from the root of its drive.",
+                    message=f"The request field 'path' is '{path}', which is not a full path.",
+                    hint="Give the folder's full path, with its drive on Windows (C:\\...) "
+                    "or its share (\\\\server\\share\\...).",
                 )
             ]
         )
