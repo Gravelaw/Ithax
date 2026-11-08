@@ -334,7 +334,8 @@ export function decisionsOption(
   return {
     animation: false,
     grid: { left: 96, right: 48, top: 16, bottom: 40 },
-    xAxis: { type: "value", min: 0, ...axis(colours, "Value") },
+    // Not cut at zero: a decision may be negative (a free or a negative bound, spec 2).
+    xAxis: { type: "value", ...axis(colours, "Value") },
     yAxis: {
       type: "category",
       inverse: true,

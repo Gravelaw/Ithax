@@ -58,6 +58,11 @@ test("Settings reads and writes every key and shows the service's issues", async
   await enter(page, "Likely range wider than", "0.05");
   await enter(page, "Shortest time judged, in seconds", "30");
   await enter(page, "Lowest rate judged, per second", "0.001");
+  // Emptying a threshold restores its default (review of PR #48).
+  await page.getByRole("textbox", { name: "Idle below", exact: true }).fill("");
+  await page.getByRole("textbox", { name: "Idle below", exact: true }).press("Enter");
+  await expect(page.getByRole("textbox", { name: "Idle below", exact: true })).toHaveValue("0.3");
+  await enter(page, "Idle below", "0.2");
   await page.getByRole("radio", { name: "Dark" }).check();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.getByRole("radio", { name: "125%" }).check();

@@ -214,6 +214,20 @@ describe("Settings writes", () => {
     await waitFor(() => expect(lastPut(fake)).toEqual({ max_concurrent_runs: null }));
   });
 
+  it("restores one threshold's default by leaving it out of the object sent", async () => {
+    const changed: Settings = {
+      ...SETTINGS,
+      finding_thresholds: { ...SETTINGS.finding_thresholds, idle_utilization: 0.2 },
+    };
+    const { fake } = settingsService(changed);
+    const user = await open(fake, changed);
+    await user.clear(screen.getByRole("textbox", { name: "Idle below" }));
+    await user.tab();
+    await waitFor(() => expect(fake.requested("PUT", "/v1/settings")).toHaveLength(1));
+    const { idle_utilization: _cleared, ...kept } = changed.finding_thresholds;
+    expect(lastPut(fake)).toEqual({ finding_thresholds: kept });
+  });
+
   it("writes every preference, whole, at once", async () => {
     const { fake, current } = settingsService();
     const user = await open(fake);

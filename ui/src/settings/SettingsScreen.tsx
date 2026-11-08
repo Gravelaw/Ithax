@@ -128,10 +128,14 @@ export function SettingsScreen({ client }: { client: ApiClient }) {
       },
     );
   };
-  const thresholds = (key: keyof FindingThresholds, value: unknown) =>
+  // The thresholds are sent whole; an emptied one is left out, which restores its default
+  // (`null` is not a threshold the service takes, unlike a top-level key).
+  const thresholds = (key: keyof FindingThresholds, value: unknown) => {
+    const { [key]: _replaced, ...others } = settings.finding_thresholds;
     write({
-      finding_thresholds: { ...settings.finding_thresholds, [key]: value },
+      finding_thresholds: value === null ? others : { ...others, [key]: value },
     } as SettingsChange);
+  };
   const preference = (key: keyof InterfacePreferences, value: unknown) =>
     write({ interface: { ...settings.interface, [key]: value } } as SettingsChange);
 

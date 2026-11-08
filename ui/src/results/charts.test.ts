@@ -162,5 +162,11 @@ describe("an optimization's decisions", () => {
     expect(series?.data).toEqual([24, 14]);
     expect(series?.label.formatter({ value: 2200 })).toBe("2,200");
     expect((option.yAxis as { data: string[] }).data).toEqual(["chairs", "tables"]);
+    // A decision may be negative (a free or negative bound): the axis is not cut at zero.
+    const negative = decisionsOption(
+      { ...solutionOf(planSummary()), variables: [["x", -3]] },
+      colours,
+    );
+    expect((negative.xAxis as { min?: number }).min).toBeUndefined();
   });
 });
