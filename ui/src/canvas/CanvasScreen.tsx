@@ -201,7 +201,7 @@ function buildNodes(
   issues: Issue[],
   previous: BlockNodeType[],
   wanted: string[] | null,
-  readOnly: boolean,
+  locked: boolean,
   renamed: Readonly<Record<string, string>>,
 ): BlockNodeType[] {
   // A renamed block keeps its selection and size under its new id.
@@ -239,7 +239,10 @@ function buildNodes(
       data,
       ariaLabel: blockName(data),
       selected: wanted !== null ? wanted.includes(component.id) : (old?.selected ?? false),
-      draggable: !readOnly,
+      // Locked while read-only or while a write awaits its answer: a node's own flags win
+      // over the flow's (review of PR #45).
+      draggable: !locked,
+      connectable: !locked,
       deletable: false,
     };
     if (old?.measured) node.measured = old.measured;
@@ -434,13 +437,13 @@ function ProcessCanvas({
   useEffect(() => {
     const want = wanted.current;
     setNodes((previous) =>
-      buildNodes(model, types, state.issues, previous, want, readOnly, state.renamed),
+      buildNodes(model, types, state.issues, previous, want, locked, state.renamed),
     );
     setEdges((previous) => buildEdges(model, types, previous, want !== null));
     if (want?.every((id) => components(model).some((item) => item.id === id))) {
       wanted.current = null;
     }
-  }, [model, types, state.issues, readOnly, state.renamed]);
+  }, [model, types, state.issues, locked, state.renamed]);
 
   // A block just added or renamed takes the keyboard focus once it is drawn.
   // React Flow shows a node only once it is measured, so focusing is tried for a few frames.
@@ -678,9 +681,9 @@ function ProcessCanvas({
           positions.set(component.id, at);
         }
       }
-      if (positions.size > 0) void session.move(positions);
+      if (positions.size > 0 && free()) void session.move(positions);
     },
-    [model, session],
+    [model, session, free],
   );
 
   /** `connect`; when it replaces a connection, a notice says so (canvas-interactions.md). */

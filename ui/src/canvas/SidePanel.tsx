@@ -17,11 +17,12 @@ import {
   issueComponent,
   issueSetting,
   portsOf,
+  positionOf,
   readNumber,
   splitEnd,
 } from "./model";
 import { Parameters } from "./Parameters";
-import { componentIn, type EditPlan } from "./plans";
+import type { EditPlan } from "./plans";
 import { CommitInput, type FieldActions, type FieldContext, SettingField } from "./SettingFields";
 
 export interface PanelActions extends FieldActions {
@@ -107,7 +108,10 @@ function BlockPanel({
   const ctx: FieldContext = { model, component, issues: byField, readOnly, actions };
   const ports = portsOf(component, types[component.type]);
   const targets = inputPorts(model, types);
-  const ui = component.ui ?? {};
+  const drawnAt = positionOf(
+    component,
+    components(model).findIndex((item) => item.id === component.id),
+  );
 
   const rename = async (text: string) => {
     const result = await actions.send(`rename ${component.id} to ${text}`, [
@@ -126,8 +130,14 @@ function BlockPanel({
     const value = readNumber(text);
     const id = component.id;
     actions.edit(`move ${id}`, (current) => {
-      const now = componentIn(current, id);
-      return now ? [{ edit: "set_ui", id, ui: { ...(now.ui ?? {}), [axis]: value } }] : null;
+      const all = components(current);
+      const index = all.findIndex((item) => item.id === id);
+      const now = all[index];
+      if (now === undefined) return null;
+      // Both axes are written: a block drawn in the grid (no saved position) keeps the
+      // other axis where it is drawn.
+      const at = positionOf(now, index);
+      return [{ edit: "set_ui", id, ui: { ...(now.ui ?? {}), x: at.x, y: at.y, [axis]: value } }];
     });
   };
 
@@ -178,7 +188,7 @@ function BlockPanel({
               </label>
               <CommitInput
                 id={`block-${axis}`}
-                value={typeof ui[axis] === "number" ? String(ui[axis]) : ""}
+                value={String(drawnAt[axis])}
                 readOnly={readOnly}
                 onCommit={(text) => move(axis, text)}
               />

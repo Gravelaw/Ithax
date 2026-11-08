@@ -108,7 +108,7 @@ function ResourceMark({ component }: { component: Component }) {
   return null;
 }
 
-function BlockNodeView({ data, selected }: NodeProps<BlockNodeType>) {
+function BlockNodeView({ data, selected, isConnectable }: NodeProps<BlockNodeType>) {
   const { component, category } = data;
   const Glyph = iconOf(component.type);
   const routes = component.type === "branch";
@@ -129,6 +129,7 @@ function BlockNodeView({ data, selected }: NodeProps<BlockNodeType>) {
           id={port}
           type="target"
           position={Position.Left}
+          isConnectable={isConnectable}
           className={`port${(data.connected[port]?.length ?? 0) > 0 ? " port-connected" : ""}`}
           style={{ top: portTop(index, data.inputs.length) }}
           title={`Input port ${port} of ${component.id}`}
@@ -152,6 +153,7 @@ function BlockNodeView({ data, selected }: NodeProps<BlockNodeType>) {
           id={port}
           type="source"
           position={Position.Right}
+          isConnectable={isConnectable}
           className={`port${(data.connected[port]?.length ?? 0) > 0 ? " port-connected" : ""}`}
           style={{ top: portTop(index, data.outputs.length) }}
           title={`Output port ${port} of ${component.id}${

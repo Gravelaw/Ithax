@@ -251,6 +251,49 @@ test("the canvas works from the keyboard", async ({ page, service }) => {
   ]);
 });
 
+test("a block cannot be dragged while a write awaits its answer", async ({ page, service }) => {
+  const pid = await openCanvas(page, service, "Busy");
+  await drop(page, "sink", 200, 160, "sink_1");
+  await drop(page, "source", 420, 160, "source_1");
+  const before = (await model(service, pid)).components[0]?.ui;
+  // The service's answer to the next write waits until the test lets it through.
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/model/edits", async (route) => {
+    await held;
+    await route.continue();
+  });
+  await block(page, "source_1").click();
+  await page.getByRole("textbox", { name: "Label (optional)" }).fill("Door");
+  await commit(page);
+  await expect(page.locator(".save-state")).toHaveText("Saving…");
+  const box = await block(page, "sink_1").boundingBox();
+  const other = await block(page, "source_1").boundingBox();
+  if (box === null || other === null) throw new Error("the blocks are not drawn");
+  const apart = async () => {
+    const [a, b] = [
+      await block(page, "sink_1").boundingBox(),
+      await block(page, "source_1").boundingBox(),
+    ];
+    return a && b ? { x: Math.round(b.x - a.x), y: Math.round(b.y - a.y) } : null;
+  };
+  const start = await apart();
+  await page.mouse.move(box.x + 40, box.y + 30);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 140, box.y + 130, { steps: 8 });
+  // The block does not follow the pointer (the view may pan; the blocks stay as they were).
+  expect(await apart()).toEqual(start);
+  await page.mouse.up();
+  release();
+  await settled(page);
+  await page.unroute("**/model/edits");
+  const after = await model(service, pid);
+  expect(after.components[0]?.ui).toEqual(before);
+  expect(after.components[1]).toMatchObject({ label: "Door" });
+});
+
 for (const scheme of ["light", "dark"] as const) {
   test(`the canvas meets WCAG 2.2 AA in the ${scheme} theme`, async ({ page, service }) => {
     await page.emulateMedia({ colorScheme: scheme });

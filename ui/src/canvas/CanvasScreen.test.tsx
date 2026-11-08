@@ -398,6 +398,20 @@ describe("renaming and labels", () => {
 });
 
 describe("moving", () => {
+  it("writes both axes for a block drawn in the grid, from where it is drawn", async () => {
+    const model = coffeeShop();
+    for (const item of model.components ?? []) delete item.ui;
+    const { fake, toolbar, user } = renderCanvas({ model });
+    await select(user, "till");
+    expect(screen.getByRole("textbox", { name: "x" })).toHaveValue("264");
+    expect(screen.getByRole("textbox", { name: "y" })).toHaveValue("40");
+    const x = screen.getByRole("textbox", { name: "x" });
+    await user.clear(x);
+    await user.type(x, "512{Enter}");
+    await settled(toolbar);
+    expect(sentEdits(fake)).toEqual([[{ edit: "set_ui", id: "till", ui: { x: 512, y: 40 } }]]);
+  });
+
   it("moves with the Position fields", async () => {
     const { fake, toolbar, user } = renderCanvas();
     await select(user, "exit");
@@ -1021,6 +1035,22 @@ describe("while a write awaits its answer (review of PR #45)", () => {
     await settled(toolbar);
     expect(service.component("exit")).toMatchObject({ label: "Door", ui: { x: 512, y: 96 } });
     expect(screen.queryByText(NOT_SAVED)).toBeNull();
+  });
+
+  it("does not let a block be dragged, nor ports connected", async () => {
+    const { fake, toolbar, user } = renderCanvas();
+    await select(user, "exit");
+    expect(node("exit")).toHaveClass("draggable");
+    const open = fake.holdWrites();
+    await user.type(screen.getByRole("textbox", { name: "Label (optional)" }), "Door{Enter}");
+    await busyStatus(toolbar);
+    expect(node("exit")).not.toHaveClass("draggable");
+    expect(node("till")).not.toHaveClass("draggable");
+    expect(node("till").querySelector(".port.source")).not.toHaveClass("connectable");
+    open();
+    await settled(toolbar);
+    expect(node("exit")).toHaveClass("draggable");
+    expect(node("till").querySelector(".port.source")).toHaveClass("connectable");
   });
 
   it("never carries a refused draft to another block", async () => {
