@@ -60,7 +60,7 @@ import type { Route } from "../app/router";
 import { LOST_CONTACT, ServiceProblem } from "../components/ServiceProblem";
 import { useSettings } from "../settings/SettingsContext";
 import { type BlockData, BlockNode, type BlockNodeType, blockName } from "./BlockNode";
-import { BusyContext } from "./busy";
+import { BusyContext, RevisionContext } from "./busy";
 import { ConnectDialog, DeleteDialog, type DeletePlan } from "./Dialogs";
 import {
   BLOCK_HEIGHT,
@@ -91,7 +91,7 @@ export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 2;
 export const NOTICE_MS = 8000;
 /** Said when a change is tried while a write awaits its answer: it is not made. */
-export const WAIT = "Wait until the last change is saved, then make it again.";
+export const WAIT = "Not saved: the canvas was saving. Make the change again.";
 
 const nodeTypes = { block: BlockNode };
 const edgeTypes = { reference: ReferenceEdge };
@@ -941,121 +941,122 @@ function ProcessCanvas({
 
   return (
     <BusyContext.Provider value={busy}>
-      <div className={`canvas-screen${placing !== null ? " placing" : ""}`} aria-busy={busy}>
-        {toolbar ? createPortal(tools, toolbar) : tools}
-        <h1 className="visually-hidden">Canvas</h1>
-        <Palette
-          types={types}
-          placing={placing}
-          readOnly={readOnly}
-          onPlace={setPlacing}
-          onAdd={addAtCentre}
-        />
-        <div className="canvas-centre">
-          <div className="canvas-notices" aria-live="polite">
-            {state.failing ? (
-              <p className="notice notice-error">
-                Not saved: the service is not answering. Retrying.
-              </p>
-            ) : null}
-            {state.eventsClosed !== null ? (
-              <p className="notice notice-error">{LOST_CONTACT}</p>
-            ) : null}
-            <ServiceProblem result={refusal} />
-            {notice !== null ? (
-              <p className="notice">
-                <span>{notice}</span>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label="Dismiss"
-                  onClick={() => setNotice(null)}
-                >
-                  <XIcon aria-hidden="true" size={14} />
-                </button>
-              </p>
-            ) : null}
-          </div>
-          <section
-            ref={area}
-            className="canvas-flow"
-            data-region="canvas"
-            aria-label="Canvas"
-            tabIndex={-1}
-            onKeyDownCapture={onCanvasKey}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
-          >
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              nodeTypes={nodeTypes}
-              edgeTypes={edgeTypes}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onNodeDragStop={onNodeDragStop}
-              onConnect={onConnect}
-              isValidConnection={isValidConnection}
-              onPaneClick={onPaneClick}
-              minZoom={MIN_ZOOM}
-              maxZoom={MAX_ZOOM}
-              snapToGrid
-              snapGrid={[8, 8]}
-              deleteKeyCode={null}
-              fitView
-              fitViewOptions={{ maxZoom: 1 }}
-              onlyRenderVisibleElements
-              nodesDraggable={!locked}
-              nodesConnectable={!locked}
-              elementsSelectable
-              connectOnClick
+      <RevisionContext.Provider value={state.revision}>
+        <div className={`canvas-screen${placing !== null ? " placing" : ""}`} aria-busy={busy}>
+          {toolbar ? createPortal(tools, toolbar) : tools}
+          <h1 className="visually-hidden">Canvas</h1>
+          <Palette
+            types={types}
+            placing={placing}
+            readOnly={readOnly}
+            onPlace={setPlacing}
+            onAdd={addAtCentre}
+          />
+          <div className="canvas-centre">
+            <div className="canvas-notices" aria-live="polite">
+              {state.failing ? (
+                <p className="notice notice-error">
+                  Not saved: the service is not answering. Retrying.
+                </p>
+              ) : null}
+              {state.eventsClosed !== null ? (
+                <p className="notice notice-error">{LOST_CONTACT}</p>
+              ) : null}
+              <ServiceProblem result={refusal} />
+              {notice !== null ? (
+                <p className="notice">
+                  <span>{notice}</span>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Dismiss"
+                    onClick={() => setNotice(null)}
+                  >
+                    <XIcon aria-hidden="true" size={14} />
+                  </button>
+                </p>
+              ) : null}
+            </div>
+            <section
+              ref={area}
+              className="canvas-flow"
+              data-region="canvas"
+              aria-label="Canvas"
+              tabIndex={-1}
+              onKeyDownCapture={onCanvasKey}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
             >
-              <Background variant={BackgroundVariant.Dots} gap={16} />
-              <ZoomControls />
-              <MiniMap pannable zoomable ariaLabel="Overview of the model" />
-            </ReactFlow>
-          </section>
-          <ProblemsList
-            ref={problems}
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onNodeDragStop={onNodeDragStop}
+                onConnect={onConnect}
+                isValidConnection={isValidConnection}
+                onPaneClick={onPaneClick}
+                minZoom={MIN_ZOOM}
+                maxZoom={MAX_ZOOM}
+                snapToGrid
+                snapGrid={[8, 8]}
+                deleteKeyCode={null}
+                fitView
+                fitViewOptions={{ maxZoom: 1 }}
+                onlyRenderVisibleElements
+                nodesDraggable={!locked}
+                nodesConnectable={!locked}
+                elementsSelectable
+                connectOnClick
+              >
+                <Background variant={BackgroundVariant.Dots} gap={16} />
+                <ZoomControls />
+                <MiniMap pannable zoomable ariaLabel="Overview of the model" />
+              </ReactFlow>
+            </section>
+            <ProblemsList
+              ref={problems}
+              model={model}
+              issues={state.issues}
+              checking={state.checking}
+              onChoose={chooseProblem}
+            />
+          </div>
+          <SidePanel
+            client={client}
             model={model}
+            selection={selection}
+            types={types}
             issues={state.issues}
-            checking={state.checking}
-            onChoose={chooseProblem}
+            readOnly={readOnly}
+            actions={actions}
           />
+          {deleting !== null ? (
+            <DeleteDialog
+              plan={deleting}
+              onCancel={() => setDeleting(null)}
+              onDelete={confirmDelete}
+            />
+          ) : null}
+          {connectingBlock !== undefined ? (
+            <ConnectDialog
+              block={connectingBlock.id}
+              outputs={portsOf(connectingBlock, types[connectingBlock.type]).outputs}
+              inputs={inputEnds}
+              current={(port) =>
+                connections(model).find((item) => item.from === `${connectingBlock.id}.${port}`)?.to
+              }
+              onCancel={() => setConnecting(null)}
+              onConnect={(from, to) => {
+                setConnecting(null);
+                connectEnds(from, to);
+              }}
+            />
+          ) : null}
         </div>
-        <SidePanel
-          client={client}
-          model={model}
-          selection={selection}
-          types={types}
-          issues={state.issues}
-          readOnly={readOnly}
-          actions={actions}
-          renamed={state.renamed}
-        />
-        {deleting !== null ? (
-          <DeleteDialog
-            plan={deleting}
-            onCancel={() => setDeleting(null)}
-            onDelete={confirmDelete}
-          />
-        ) : null}
-        {connectingBlock !== undefined ? (
-          <ConnectDialog
-            block={connectingBlock.id}
-            outputs={portsOf(connectingBlock, types[connectingBlock.type]).outputs}
-            inputs={inputEnds}
-            current={(port) =>
-              connections(model).find((item) => item.from === `${connectingBlock.id}.${port}`)?.to
-            }
-            onCancel={() => setConnecting(null)}
-            onConnect={(from, to) => {
-              setConnecting(null);
-              connectEnds(from, to);
-            }}
-          />
-        ) : null}
-      </div>
+      </RevisionContext.Provider>
     </BusyContext.Provider>
   );
 }

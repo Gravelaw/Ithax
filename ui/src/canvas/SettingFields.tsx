@@ -14,7 +14,7 @@
 import { WarningCircleIcon } from "@phosphor-icons/react";
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import type { Component, Issue, Model, SettingDescription } from "../api/types";
-import { lock, useBusy } from "./busy";
+import { lock, useBusy, useRevision } from "./busy";
 import {
   components,
   DISTRIBUTIONS,
@@ -68,9 +68,6 @@ export function FieldIssues({ issues }: { issues: Issue[] | undefined }) {
   );
 }
 
-/** Shown under a box whose commit was refused while a write awaited its answer. */
-export const NOT_SAVED = "Not saved: press Enter to save";
-
 /** A text box that commits on Enter or on leaving it, and reverts on Escape. */
 export function CommitInput({
   id,
@@ -90,34 +87,30 @@ export function CommitInput({
   invalid?: boolean;
 }) {
   const busy = useBusy();
+  const revision = useRevision();
   const [text, setText] = useState(value);
-  const editing = useRef(false);
-  // A commit tried while a write awaits its answer is refused like any change: the draft
-  // stays, marked as not saved, and nothing is sent later on its own (review of PR #45).
-  const [unsaved, setUnsaved] = useState(false);
-  // The text this box last sent, until the model answers: leaving the box again is not a
-  // new commit.
+  // A draft never outlives a change of the model shown: whenever the model changes (an
+  // answer, a reload, another client's revision) the box shows the saved value again
+  // (review of PR #45).
+  // The text this box has just sent, so leaving the box while its write is answered is not
+  // a second commit; forgotten when the answer comes.
   const sent = useRef<string | null>(null);
-  useEffect(() => {
-    sent.current = null;
-    if (!editing.current) setText(value);
-  }, [value]);
+  // Compared while rendering, not in an effect: an effect run late (after the first
+  // keystroke) would throw that keystroke away.
+  const [shownFor, setShownFor] = useState({ value, revision });
+  if (shownFor.value !== value || shownFor.revision !== revision) {
+    setShownFor({ value, revision });
+    setText(value);
+  }
   useEffect(() => {
     if (!busy) sent.current = null;
   }, [busy]);
   const commit = () => {
-    if (text === value || text === sent.current) {
-      editing.current = false;
-      setUnsaved(false);
-      return;
-    }
-    if (busy) {
-      setUnsaved(true);
-      return;
-    }
-    editing.current = false;
-    setUnsaved(false);
-    sent.current = text;
+    if (text === value || text === sent.current) return;
+    // While a write awaits its answer the change is refused (the canvas says so) and the
+    // box shows the saved value; nothing is kept to be sent later.
+    if (busy) setText(value);
+    else sent.current = text;
     onCommit(text);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -125,36 +118,22 @@ export function CommitInput({
       event.preventDefault();
       commit();
     } else if (event.key === "Escape") {
-      editing.current = false;
-      setUnsaved(false);
       setText(value);
     }
   };
-  const unsavedId = `${id}-unsaved`;
-  const described = [describedBy, unsaved ? unsavedId : undefined].filter(Boolean).join(" ");
   return (
-    <>
-      <input
-        id={id}
-        type="text"
-        className={`${mono ? "mono" : ""}${unsaved ? " unsaved" : ""}`.trim() || undefined}
-        value={text}
-        readOnly={readOnly}
-        aria-describedby={described || undefined}
-        aria-invalid={invalid ? true : undefined}
-        onChange={(event) => {
-          editing.current = true;
-          setText(event.target.value);
-        }}
-        onBlur={commit}
-        onKeyDown={onKeyDown}
-      />
-      {unsaved ? (
-        <span className="unsaved-mark small" id={unsavedId}>
-          {NOT_SAVED}
-        </span>
-      ) : null}
-    </>
+    <input
+      id={id}
+      type="text"
+      className={mono ? "mono" : undefined}
+      value={text}
+      readOnly={readOnly}
+      aria-describedby={describedBy}
+      aria-invalid={invalid ? true : undefined}
+      onChange={(event) => setText(event.target.value)}
+      onBlur={commit}
+      onKeyDown={onKeyDown}
+    />
   );
 }
 

@@ -14,7 +14,6 @@ import { coffeeShop, emptyModel, ModelService, PID } from "../test/fakeModel";
 import { FakeService, SETTINGS } from "../test/fakes";
 import { CanvasScreen, runBlocked, WAIT } from "./CanvasScreen";
 import { BLOCK_MIME } from "./Palette";
-import { NOT_SAVED } from "./SettingFields";
 import type { SessionState } from "./session";
 
 const PROJECT: Project = {
@@ -1004,39 +1003,6 @@ describe("while a write awaits its answer (review of PR #45)", () => {
     expect(service.component("shifts")?.params.shifts).toEqual([{ capacity: 2 }]);
   });
 
-  it("refuses a commit while a write awaits its answer; the drafts stay, marked, until committed again", async () => {
-    const { fake, service, toolbar, user } = renderCanvas();
-    await select(user, "exit");
-    const open = fake.holdWrites();
-    await user.type(screen.getByRole("textbox", { name: "Label (optional)" }), "Door{Enter}");
-    await busyStatus(toolbar);
-    const x = screen.getByRole("textbox", { name: "x" });
-    await user.clear(x);
-    await user.type(x, "512{Enter}");
-    const y = screen.getByRole("textbox", { name: "y" });
-    await user.clear(y);
-    await user.type(y, "96{Enter}");
-    expect(x).toHaveValue("512");
-    expect(y).toHaveValue("96");
-    expect(x).toHaveAccessibleDescription(NOT_SAVED);
-    expect(y).toHaveAccessibleDescription(NOT_SAVED);
-    open();
-    await settled(toolbar);
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    // Nothing is sent on its own; the drafts are still there, still marked.
-    expect(sentEdits(fake)).toHaveLength(1);
-    expect(screen.getByRole("textbox", { name: "x" })).toHaveValue("512");
-    expect(screen.getAllByText(NOT_SAVED)).toHaveLength(2);
-    await user.click(screen.getByRole("textbox", { name: "x" }));
-    await user.keyboard("{Enter}");
-    await settled(toolbar);
-    await user.click(screen.getByRole("textbox", { name: "y" }));
-    await user.keyboard("{Enter}");
-    await settled(toolbar);
-    expect(service.component("exit")).toMatchObject({ label: "Door", ui: { x: 512, y: 96 } });
-    expect(screen.queryByText(NOT_SAVED)).toBeNull();
-  });
-
   it("does not let a block be dragged, nor ports connected", async () => {
     const { fake, toolbar, user } = renderCanvas();
     await select(user, "exit");
@@ -1053,7 +1019,7 @@ describe("while a write awaits its answer (review of PR #45)", () => {
     expect(node("till").querySelector(".port.source")).toHaveClass("connectable");
   });
 
-  it("never carries a refused draft to another block", async () => {
+  it("refuses a commit, says so, and shows the saved value; nothing is sent later", async () => {
     const { fake, service, toolbar, user } = renderCanvas();
     await select(user, "exit");
     const open = fake.holdWrites();
@@ -1062,42 +1028,72 @@ describe("while a write awaits its answer (review of PR #45)", () => {
     const x = screen.getByRole("textbox", { name: "x" });
     await user.clear(x);
     await user.type(x, "512{Enter}");
-    expect(screen.getByText(NOT_SAVED)).toBeVisible();
-    fireEvent.click(node("till"));
-    await waitFor(() => expect(screen.getByRole("textbox", { name: "Id" })).toHaveValue("till"));
-    expect(screen.getByRole("textbox", { name: "x" })).toHaveValue("240");
-    expect(screen.queryByText(NOT_SAVED)).toBeNull();
+    expect(await screen.findByText(WAIT)).toBeVisible();
+    expect(x).toHaveValue("480");
     open();
     await settled(toolbar);
-    await user.click(screen.getByRole("textbox", { name: "x" }));
-    await user.keyboard("{Enter}");
-    await settled(toolbar);
+    await new Promise((resolve) => setTimeout(resolve, 600));
     expect(sentEdits(fake)).toEqual([[{ edit: "set_label", id: "exit", label: "Door" }]]);
-    expect(service.component("till")?.ui).toEqual({ x: 240, y: 0 });
+    expect(screen.getByRole("textbox", { name: "x" })).toHaveValue("480");
+    expect(service.component("exit")?.ui).toEqual({ x: 480, y: 0 });
+    // Entered again once the canvas is free, it is saved.
+    await user.clear(screen.getByRole("textbox", { name: "x" }));
+    await user.type(screen.getByRole("textbox", { name: "x" }), "512{Enter}");
+    await settled(toolbar);
+    expect(service.component("exit")?.ui).toEqual({ x: 512, y: 0 });
   });
 
-  it("keeps a draft refused during a rename, and saves it to the renamed block when committed again", async () => {
-    const { fake, service, toolbar, user } = renderCanvas();
-    await select(user, "till");
+  it("puts no draft into another row when a row is removed meanwhile", async () => {
+    const { fake, service, toolbar, user } = renderCanvas({
+      model: {
+        ...coffeeShop(),
+        components: [
+          ...(coffeeShop().components ?? []),
+          {
+            id: "shifts",
+            type: "schedule",
+            params: { shifts: [{ capacity: 1 }, { capacity: 2 }, { capacity: 3 }] },
+            ui: { x: 0, y: 200 },
+          },
+        ],
+      },
+    });
+    await select(user, "shifts");
     const open = fake.holdWrites();
-    const id = screen.getByRole("textbox", { name: "Id" });
-    await user.clear(id);
-    await user.type(id, "counter{Enter}");
+    await user.click(screen.getByRole("button", { name: "Remove shifts 1" }));
     await busyStatus(toolbar);
-    await user.type(screen.getByRole("textbox", { name: "Label (optional)" }), "Counter{Enter}");
-    expect(screen.getByText(NOT_SAVED)).toBeVisible();
+    const second = within(screen.getByRole("group", { name: "Shifts 2" })).getByRole("textbox", {
+      name: "Capacity",
+    });
+    await user.clear(second);
+    await user.type(second, "9{Enter}");
+    expect(await screen.findByText(WAIT)).toBeVisible();
     open();
     await settled(toolbar);
-    expect(screen.getByRole("textbox", { name: "Id" })).toHaveValue("counter");
-    expect(screen.getByRole("textbox", { name: "Label (optional)" })).toHaveValue("Counter");
-    await user.click(screen.getByRole("textbox", { name: "Label (optional)" }));
-    await user.keyboard("{Enter}");
-    await settled(toolbar);
-    expect(sentEdits(fake)).toEqual([
-      [{ edit: "rename_component", id: "till", new_id: "counter" }],
-      [{ edit: "set_label", id: "counter", label: "Counter" }],
-    ]);
-    expect(service.component("counter")?.label).toBe("Counter");
+    expect(sentEdits(fake)).toHaveLength(1);
+    expect(service.component("shifts")?.params.shifts).toEqual([{ capacity: 2 }, { capacity: 3 }]);
+    const shown = [1, 2].map((row) =>
+      within(screen.getByRole("group", { name: `Shifts ${row}` })).getByRole("textbox", {
+        name: "Capacity",
+      }),
+    );
+    expect(shown.map((box) => (box as HTMLInputElement).value)).toEqual(["2", "3"]);
+  });
+
+  it("shows the saved value in a box whose draft was not committed when the model changes", async () => {
+    const { fake, service, user } = renderCanvas();
+    await select(user, "exit");
+    const y = screen.getByRole("textbox", { name: "y" });
+    await user.clear(y);
+    await user.type(y, "77");
+    // Another client's change arrives: the model shown changes, and so does the box.
+    service.outsideWrite((model) => {
+      (model.components?.[0] as { label?: string }).label = "In";
+    });
+    act(() => fake.sockets[0]?.emit({ type: "model", revision: service.revision, client: "mcp" }));
+    await waitFor(() => expect(node("arrivals")).toHaveTextContent("In"));
+    expect(screen.getByRole("textbox", { name: "y" })).toHaveValue("0");
+    expect(sentEdits(fake)).toEqual([]);
   });
 
   it("refuses a rename of a block renamed by the write in flight; no id is reused under it", async () => {

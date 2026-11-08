@@ -382,7 +382,6 @@ export function SidePanel({
   issues,
   readOnly,
   actions,
-  renamed = {},
 }: {
   client: ApiClient;
   model: Model;
@@ -391,8 +390,6 @@ export function SidePanel({
   issues: Issue[];
   readOnly: boolean;
   actions: PanelActions;
-  /** The renames of the last accepted write, old id to new (`SessionState.renamed`). */
-  renamed?: Readonly<Record<string, string>>;
 }) {
   const busy = useBusy();
   const count = selection.blocks.length + selection.connections.length;
@@ -428,15 +425,9 @@ export function SidePanel({
     );
   } else if (selection.blocks.length === 1) {
     const component = components(model).find((item) => item.id === selection.blocks[0]);
-    // One panel per block: its key is the block's id before the last write's rename, so a
-    // renamed block keeps its panel (and a draft in it), while another block gets its own,
-    // and no draft is ever carried from one block to another (review of PR #45).
-    const panelKey = component
-      ? (Object.entries(renamed).find(([, to]) => to === component.id)?.[0] ?? component.id)
-      : "";
     body = component ? (
       <BlockPanel
-        key={panelKey}
+        key={component.id}
         client={client}
         model={model}
         component={component}

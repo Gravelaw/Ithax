@@ -836,13 +836,3 @@
   width: auto;
   flex: none;
 }
-
-/* A draft whose commit was refused while a write awaited its answer. */
-.side-panel input.unsaved {
-  border-color: var(--color-warning);
-  border-style: dashed;
-}
-
-.unsaved-mark {
-  color: var(--color-warning);
-}
