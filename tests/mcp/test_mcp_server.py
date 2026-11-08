@@ -6,11 +6,10 @@ module as a real process through the SDK's stdio client, as an assistant starts 
 lets it start the engine service on demand.
 """
 
-import io
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import anyio
 import pytest
@@ -91,31 +90,67 @@ def test_main_help_names_the_program(capsys: pytest.CaptureFixture[str]) -> None
     assert "python -m lcsim.mcp" in capsys.readouterr().out
 
 
+class ClientStreams:
+    """The two ends of a stdio connection as a client holds them: the input sends the
+    given lines, then stays open until an answer to every request has been written, and
+    only then ends, as a real client closes the server's stdin only when it is done.
+
+    Ending the input early is a shutdown: the SDK cancels the requests still in flight
+    when its input ends (``JSONRPCDispatcher.run``), so a test that ends it at once races
+    the server (CI on PR #39: only the answer to the first request arrived on 3.11)."""
+
+    def __init__(self, lines: list[dict[str, Any]]) -> None:
+        self.lines = [json.dumps(line) + "\n" for line in lines]
+        self.expected = {line["id"] for line in lines if "id" in line}
+        self.answers: list[dict[str, Any]] = []
+        self.done = anyio.Event()
+
+    def __aiter__(self) -> "ClientStreams":
+        return self
+
+    async def __anext__(self) -> str:
+        if self.lines:
+            return self.lines.pop(0)
+        await self.done.wait()
+        raise StopAsyncIteration
+
+    async def write(self, text: str) -> None:
+        for line in text.splitlines():
+            self.answers.append(json.loads(line))
+        if self.expected <= {answer.get("id") for answer in self.answers}:
+            self.done.set()
+
+    async def flush(self) -> None:
+        pass
+
+
 def test_serve_stdio_answers_json_rpc_lines(tmp_path: Path) -> None:
     """The stdio loop in process, with the handshake era's three messages and a list."""
-    lines = [
-        {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "protocolVersion": "2025-06-18",
-                "capabilities": {},
-                "clientInfo": {"name": "test", "version": "0"},
+    streams = ClientStreams(
+        [
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {},
+                    "clientInfo": {"name": "test", "version": "0"},
+                },
             },
-        },
-        {"jsonrpc": "2.0", "method": "notifications/initialized"},
-        {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
-    ]
-    stdin = io.StringIO("".join(json.dumps(line) + "\n" for line in lines))
-    stdout = io.StringIO()
+            {"jsonrpc": "2.0", "method": "notifications/initialized"},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+        ]
+    )
     server = build_server(ServiceClient(tmp_path / "c", tmp_path / "d"))
+    file = cast("anyio.AsyncFile[str]", streams)
 
     async def serve() -> None:
-        await serve_stdio(server, stdin=anyio.wrap_file(stdin), stdout=anyio.wrap_file(stdout))
+        with anyio.fail_after(60):
+            await serve_stdio(server, stdin=file, stdout=file)
 
     anyio.run(serve)
-    answers = [json.loads(line) for line in stdout.getvalue().splitlines()]
+    answers = streams.answers
     assert [answer["id"] for answer in answers] == [1, 2]
     assert answers[0]["result"]["protocolVersion"] == "2025-06-18"
     assert answers[0]["result"]["serverInfo"]["name"] == "lcsim"
