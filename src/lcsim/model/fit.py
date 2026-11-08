@@ -20,6 +20,10 @@ iteration is written here). What this module adds:
   columns such as 10⁻³⁰⁰ or 10³⁰⁰ seconds, which it otherwise fits wrongly.
 - **The mapping** to spec 1's fields, and for the lognormal the closed-form mean and sd of
   the variable from the fitted sigma and mu.
+- **The histogram** of the column for the Data screen's chart (spec 3 fit note; AKS-120):
+  Sturges' rule, at most ``MAX_BINS`` bins of equal width from the smallest value to the
+  largest, worked out in units of the largest absolute value so every edge is finite.
+  Counting values into bins is a closed-form summary, not a solver (guide rule 7).
 - **One gate.** A family whose fit raises is left out. Every candidate, the ``constant``
   one included, then passes one gate, ``_admitted``: it is loaded in a minimal model by the
   model layer, and left out if loading reports an error, such as a field that is not a
@@ -42,7 +46,7 @@ import scipy.stats
 from lcsim.model.loading import load_document
 from lcsim.model.migration import FORMAT_VERSION
 
-__all__ = ["SCORE", "Candidate", "fit_column"]
+__all__ = ["MAX_BINS", "SCORE", "Candidate", "fit_column", "histogram", "histogram_bins"]
 
 _log = logging.getLogger(__name__)
 
@@ -235,3 +239,30 @@ def _field(key: str, value: float, unit: str | None) -> float | str:
     if unit is None or key in _PLAIN:
         return value
     return f"{float(value)!r} {unit}"
+
+
+#: The most bins a histogram has (spec 3 fit note).
+MAX_BINS = 50
+
+
+def histogram_bins(count: int) -> int:
+    """Sturges' rule for ``count`` values, ``ceil(log2(count)) + 1``, at most ``MAX_BINS``;
+    worked out on whole numbers, so it is exact for any count."""
+    return min(MAX_BINS, (count - 1).bit_length() + 1)
+
+
+def histogram(values: Values) -> dict[str, list[Any]]:
+    """``{edges, counts}``: ``values`` (finite, at least one) counted in bins of equal width
+    from the smallest to the largest; a bin holds its lower edge and not its upper one, the
+    last bin both. A column whose values are all equal has one bin, both edges its value.
+    The edges are found in units of the largest absolute value, so none overflows."""
+    low = float(numpy.min(values))
+    high = float(numpy.max(values))
+    if low == high:
+        return {"edges": [low, high], "counts": [int(values.size)]}
+    largest = max(abs(low), abs(high))
+    scaled_edges = numpy.linspace(low / largest, high / largest, histogram_bins(values.size) + 1)
+    counts, _ = numpy.histogram(values / largest, bins=scaled_edges)
+    edges = [float(edge) * largest for edge in scaled_edges]
+    edges[0], edges[-1] = low, high
+    return {"edges": edges, "counts": [int(count) for count in counts]}
