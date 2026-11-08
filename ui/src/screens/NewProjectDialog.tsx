@@ -1,13 +1,15 @@
 /**
  * "New empty project" asks a name and Process or Plan (owner design review, "API additions
  * and the open gap"; spec 3 `POST /v1/projects` with `domain`). The service checks the
- * name; its issues are shown as they come.
+ * name; its issues are shown as they come. While Create is pending the dialog sends nothing
+ * more and cannot be dismissed, and once it is gone it reports nothing (review of PR #44).
  */
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Domain, Project } from "../api/types";
 import { Dialog } from "../components/Dialog";
 import { ServiceProblem } from "../components/ServiceProblem";
+import { usePendingRequest } from "../components/usePendingRequest";
 
 export const DOMAINS: readonly { value: Domain; label: string; hint: string }[] = [
   { value: "process", label: "Process (flows and queues)", hint: "Items move through steps." },
@@ -29,26 +31,22 @@ export function NewProjectDialog({
 }) {
   const [name, setName] = useState("");
   const [domain, setDomain] = useState<Domain>("process");
-  const [busy, setBusy] = useState(false);
-  // A second press while the request is pending would create a second project, since each
-  // POST /v1/projects makes a new one; the ref sees it before React re-renders.
-  const pending = useRef(false);
+  const { busy, run } = usePendingRequest();
   const [refused, setRefused] = useState<ApiResult<Project> | null>(null);
 
-  const submit = async (event: FormEvent) => {
+  const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (pending.current) return;
-    pending.current = true;
-    setBusy(true);
-    const result = await client.createProject({ name, domain });
-    pending.current = false;
-    setBusy(false);
-    if (result.kind === "ok") onCreated(result.data);
-    else setRefused(result);
+    void run(
+      () => client.createProject({ name, domain }),
+      (result) => {
+        if (result.kind === "ok") onCreated(result.data);
+        else setRefused(result);
+      },
+    );
   };
 
   return (
-    <Dialog labelledBy="new-project-heading" onEscape={onCancel}>
+    <Dialog labelledBy="new-project-heading" onEscape={busy ? undefined : onCancel}>
       <form onSubmit={submit}>
         <h1 id="new-project-heading" className="heading">
           New empty project
@@ -77,10 +75,15 @@ export function NewProjectDialog({
         </fieldset>
         <ServiceProblem result={refused} />
         <div className="dialog-actions">
-          <button type="button" className="secondary" onClick={onCancel}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={busy ? undefined : onCancel}
+            aria-disabled={busy ? "true" : undefined}
+          >
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={busy}>
+          <button type="submit" className="primary" aria-disabled={busy ? "true" : undefined}>
             Create
           </button>
         </div>

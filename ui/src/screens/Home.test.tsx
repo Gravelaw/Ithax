@@ -146,7 +146,7 @@ describe("Home", () => {
     await userEvent.click(create);
     await userEvent.type(screen.getByRole("textbox", { name: "Name" }), "{Enter}");
     expect(posts).toHaveLength(1);
-    expect(create).toBeDisabled();
+    expect(create).toHaveAttribute("aria-disabled", "true");
     release(new Response(JSON.stringify(created), { status: 200 }));
     await waitFor(() => expect(onOpen).toHaveBeenCalledWith(created));
     expect(posts).toHaveLength(1);
@@ -176,12 +176,12 @@ describe("Home", () => {
     await userEvent.click(open);
     await userEvent.click(open);
     expect(posts).toHaveLength(1);
-    expect(open).toBeDisabled();
+    expect(open).toHaveAttribute("aria-disabled", "true");
     release(
       new Response(JSON.stringify(errorBody("E185", "There is no folder '/x'.")), { status: 404 }),
     );
     expect(await screen.findByRole("alert")).toHaveTextContent("E185");
-    expect(open).toBeEnabled();
+    expect(open).not.toHaveAttribute("aria-disabled");
   });
 
   it("shows the service's issues when it refuses the new project", async () => {

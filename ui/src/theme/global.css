@@ -240,8 +240,8 @@ button {
   border: 1px solid var(--color-border-strong);
 }
 
-.primary:disabled,
-.primary[aria-disabled="true"] {
+.primary[aria-disabled="true"],
+.secondary[aria-disabled="true"] {
   background: var(--color-surface-alt);
   color: var(--color-text-muted);
   cursor: progress;
