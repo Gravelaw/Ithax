@@ -1,6 +1,6 @@
 # Spec 1: Model Format and Engine Contract
 
-> Version 1.0 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 1.1 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 A model is one JSON file that passes a published schema. Every engine is a plugin that implements the same five functions. The interface, the engines and any AI assistant all work through these two contracts.
 
@@ -319,8 +319,9 @@ Every issue is one object:
 | W201 | meaning | Mean arrival rate at a server times its mean service time is at least its capacity, and its queue is unlimited, so the queue will grow without limit |
 | W202 | meaning | Normal distribution will clip about 2% or more of its samples at zero (`mean` < 2 × `sd`) |
 | W210 | run | Results were still changing after warm-up; lengthen `warmup` |
+| W220 | service | A finding threshold in `settings.json` cannot be used: a value that is not a number in its range, a key that is not one of the five thresholds, `finding_thresholds` that is not an object, or a `settings.json` that is not a JSON object the service can read. The default is used for what is refused, and `GET .../summary` lists the issue in `issues`, with `path` the place in `settings.json` (spec 3 "Service rules"; AKS-135, owner to confirm) |
 
-Codes E300 to E399 are reserved for engine-specific issues from `validate(model)`; each adapter documents its own. Errors block a run. Warnings do not. Run and service codes are raised by the experiment manager or the service, and E193 and E194 by the MCP server; they are tested at their milestones, not by validation fixtures.
+Codes E300 to E399 are reserved for engine-specific issues from `validate(model)`; each adapter documents its own. Errors block a run. Warnings do not. Run and service codes are raised by the experiment manager or the service, and E193 and E194 by the MCP server; they are tested at their milestones, not by validation fixtures. A service code's `path` points into the request, or for W220 into `settings.json`, rather than into the model file.
 
 ### Engine adapter interface
 
@@ -532,3 +533,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 
 - 2026-11-08, MCP server (AKS-115), found while building `src/lcsim/mcp/`: "Validation issues" adds E193, raised by the MCP server when the engine service cannot be started, does not answer, or sends an answer the strict reader refuses; the MCP server has no other code of its own, and an input problem in a tool call reuses E184 with `path` at the input (spec 4) (owner to confirm).
 - 2026-11-08, MCP run limit (AKS-134), found while building the write and run tools of `src/lcsim/mcp/`: "Validation issues" adds E194, raised by the MCP server when a project already has two unfinished runs it started (spec 4 "Limits"), and the sentence on run and service codes names it beside E193 (owner to confirm).
+
+2026-11-08, version 1.1, M8 closed (AKS-135); the lines below were added after version 1.0, during the M8 build:
+
+- 2026-11-08, findings in the run summary and user-adjustable thresholds (AKS-135), found while building `src/lcsim/service/finding_settings.py`: "Validation issues" adds W220, a finding threshold in `settings.json` that cannot be used (spec 3 "Service rules"), whose default is then used; the sentence on run and service codes says a service code's `path` points into the request or, for W220, into `settings.json`. A warning, not an error, since nothing is refused but the value: the summary is still answered (owner to confirm).

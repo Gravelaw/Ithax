@@ -21,7 +21,7 @@ __all__ = ["CodedProblem", "Issue", "Severity", "pointer"]
 Severity = Literal["error", "warning"]
 
 # Spec 1: E codes are errors and W codes warnings, three digits each (E100 to E399,
-# W200 to W210 in this version).
+# W200 to W220 in this version).
 _CODE = re.compile(r"[EW][0-9]{3}")
 
 

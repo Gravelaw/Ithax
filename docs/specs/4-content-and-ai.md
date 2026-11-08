@@ -1,10 +1,10 @@
 # Spec 4: Content, Learning and AI Access
 
-> Version 0.4 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.5 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 This spec covers what makes the tool usable by non-experts: ready-made templates, lessons, findings in plain language, and an MCP server so any assistant can build and run models.
 
-> **Warning: untested.** The MCP tools have run against one real assistant, Claude Code with Claude Opus 5.5 (M7, `docs/research/spec-4-mcp-trial-2026-11-08.md`), which changed two descriptions; other assistants may still find names, inputs or descriptions to change. The finding thresholds (0.85, 0.30, 10%) are proposals, checked at M8 on the coffee shop and the three-machine line only (AKS-117). The ten templates are named but not written. Verify each at its milestone and update this spec. See "Known gaps" in the Build guide.
+> **Warning: untested.** The MCP tools have run against one real assistant, Claude Code with Claude Opus 5.5 (M7, `docs/research/spec-4-mcp-trial-2026-11-08.md`), which changed two descriptions; other assistants may still find names, inputs or descriptions to change. The finding thresholds (0.85, 0.30, 10%) are proposals, checked at M8 on the coffee shop and the three-machine line only, on their fixtures (AKS-117) and end to end through the service (AKS-135); the user can change them in `settings.json` (spec 3). The ten templates are named but not written. Verify each at its milestone and update this spec. See "Known gaps" in the Build guide.
 
 ## Scope
 
@@ -78,7 +78,7 @@ Rules for assistant access:
 
 ## Detailed specification
 
-The sections below are binding. Where they differ from the summary above, these win. The MCP server, its tools, limits and acceptance case are built (M7: AKS-115, AKS-134, AKS-116); the finding rules are built (M8: AKS-117) and reach the run summary and `get_results` with AKS-135; the templates and Learn and Build modes are not.
+The sections below are binding. Where they differ from the summary above, these win. The MCP server, its tools, limits and acceptance case are built (M7: AKS-115, AKS-134, AKS-116); the finding rules are built and reach the run summary and `get_results` (M8: AKS-117, AKS-135); the templates and Learn and Build modes are not.
 
 ### Template package
 
@@ -101,7 +101,7 @@ Build mode is a fixed form, not a conversation. Step 1 asks "What do you want to
 
 ### Finding rules
 
-Thresholds are proposed defaults and are user-adjustable.
+Thresholds are proposed defaults and are user-adjustable: `finding_thresholds` in `settings.json` (spec 3 "Service rules", Finding thresholds), read each time the summary makes findings; a value that cannot be used is W220 (spec 1) and its default is used (AKS-135, owner to confirm).
 
 | Finding | Fires when | Wording pattern |
 | --- | --- | --- |
@@ -111,7 +111,7 @@ Thresholds are proposed defaults and are user-adjustable.
 | `not_enough_runs` | For each key metric (every metric named in an objective or constraint, every `<sink>.throughput` and `<sink>.cycle_time.mean`, and `<server>.wait.mean` for the server with the highest utilization): the half-width exceeds 10% of the mean and the mean is at least 60 s (time metrics) or 1 per hour (throughput). One finding per run and scenario, listing the metrics. When two scenarios are compared, it also fires for a key metric whose paired-difference interval includes zero and has a half-width above 10% of the smaller mean | "The estimates for {metrics} are still uncertain: {metric} is {mean} plus or minus {half_width}. About {n_required} replications would be needed for a 10% interval." or "{scenario_a} and {scenario_b} cannot be told apart on {metric} yet." |
 | `optimization_result` | An optimization finishes | "Best found: {settings}. {metric} improved from {before} to {after}." where {before} is the baseline candidate's confirmed objective |
 
-n_required = n × (half_width / (0.1 × mean))², rounded up to the next 10. Findings carry a `scenario` field. Evidence values are in SI units as in `summary.json`; the text uses display units. Test runs live in `tests/findings/fixtures/<rule>_fires.json` and `<rule>_silent.json`, each a finished run (the run folder's `model.json` and `summary.json`, made by `tests/findings/make_fixtures.py`); the coffee shop (till utilization 0.749, wait half-width 3.7% of the mean) is the silent model for `not_enough_runs` and `bottleneck`; the M1 three-machine line (weld utilization 0.901, wait half-width 13.3%) is the firing model for both. M8 repeated the check on these two models (AKS-117) and M10 re-checks all thresholds on the ten templates. Thresholds stay proposals until then.
+n_required = n × (half_width / (0.1 × mean))², rounded up to the next 10. Findings carry a `scenario` field. Evidence values are in SI units as in `summary.json`; the text uses display units. Test runs live in `tests/findings/fixtures/<rule>_fires.json` and `<rule>_silent.json`, each a finished run (the run folder's `model.json` and `summary.json`, made by `tests/findings/make_fixtures.py`); the coffee shop (till utilization 0.749, wait half-width 3.7% of the mean) is the silent model for `not_enough_runs` and `bottleneck`; the M1 three-machine line (weld utilization 0.901, wait half-width 13.3%) is the firing model for both. M8 repeated the check on these two models, on their fixtures (AKS-117) and end to end through the service with the same values (AKS-135), and M10 re-checks all thresholds on the ten templates. Thresholds stay proposals until then.
 
 Checked at M8 (AKS-117), each example's own experiment at seed 12345: on the three-machine line (30 replications of 100 h after 20 h of warm-up) `bottleneck` fires for the weld station at 0.901, and `not_enough_runs` fires for its wait, 15.7 min plus or minus 2.09 min, a half-width of 13.3% of the mean (n_required 60). On the coffee shop (30 replications of 200 h with 10 h of warm-up) neither fires: the till is at 0.749 and its wait is 4.46 min plus or minus 0.163 min, 3.7% of the mean (3.4% in M7's 210 h run). The prototype's check, not retained, gave 0.90 and 26%.
 
@@ -126,7 +126,7 @@ Each finding is one object; the three-machine line's, evidence rounded here:
 How the rules read this table (AKS-117, research note `docs/research/spec-4-findings-wording.md`; each a proposed default, owner to confirm):
 
 - **Input and output.** `lcsim.findings.find(summary, model, thresholds)` reads a finished run's `summary.json` and the model that ran, and computes nothing from the replications: every number is the summary's. It is a pure function (no run, file, network, solver, model or random number). Findings come in a fixed order: `optimization_result`, `unstable`, then for each scenario in the summary's order `bottleneck`, `idle_capacity` (servers in model order) and `not_enough_runs`, then the scenario pairs. `severity` is `info` for `bottleneck`, `idle_capacity` and a found optimum, `warning` for `unstable`, `not_enough_runs` and an optimization without one. `component` and `scenario` are `null` when a finding is not about one.
-- **Thresholds** are an input with the defaults above: the two utilizations from 0 to 1, the share above 0 and at most 1, the floors (60 s, 1 per hour) at least 0.
+- **Thresholds** are an input with the defaults above: the two utilizations from 0 to 1, the share above 0 and at most 1, the floors (60 s, 1 per hour) at least 0. The service takes them from `settings.json` and refuses a value outside these ranges there, as W220, before the rules see it (AKS-135).
 - **`bottleneck`** is judged in each scenario, among servers; ties by the longest mean wait, an undefined wait counting as the shortest, then the first in the model. For a server whose capacity a `schedule` (on it or on its pool) or a `failure` changes, the text says "busy {utilization} of the time it was available"; with no measured wait it ends after "of the time". It fires alongside `unstable` for an unstable server.
 - **`unstable`** is one finding per server named by a W201 issue in `summary.json` `warnings`, with `scenario` `null` (W201 names a case, spec 1) and the issue's `path` and `message` as evidence.
 - **`idle_capacity`** is judged among servers; "no `schedule`" means none on the server or on the pool it names. A server with a `failure` is judged and is "idle {idle} of the time it was available".
@@ -149,7 +149,7 @@ Each tool calls the spec 3 API and returns its response. Inputs and outputs are 
 | `validate_model` | `project_id` | `{revision, issues}` | `POST /v1/projects/{pid}/validate` |
 | `run_model` | `project_id`, optional `experiment_id` (required for a process model, absent for an optimization model, as spec 3 defines) | `{run_id}` | `POST /v1/projects/{pid}/runs` |
 | `get_run_status` | `run_id` | The run as spec 3 shows it: `{run_id, project_id, experiment_id, state, fraction, message, created, started, ended, error}` | `GET /v1/runs/{rid}` |
-| `get_results` | `run_id`, optional `tables` | `{summary, findings, tables}`: `summary` and `findings` as `GET .../summary` gives them, and `tables` an object mapping each requested table name to its rows | `GET /v1/runs/{rid}/summary` plus one `GET /v1/runs/{rid}/tables/{name}?format=json` per requested table |
+| `get_results` | `run_id`, optional `tables` | `{summary, findings, issues, tables}`: `summary`, `findings` and `issues` as `GET .../summary` gives them, and `tables` an object mapping each requested table name to its rows | `GET /v1/runs/{rid}/summary` plus one `GET /v1/runs/{rid}/tables/{name}?format=json` per requested table |
 | `list_engines` | none | Installed adapters and capabilities | `GET /v1/engines` |
 
 Behaviour an assistant can rely on:
@@ -204,7 +204,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 | --- | --- | --- | --- |
 | Every template reproduces its expected values, with at least one `theory` or `benchmark` source | M10 | agent |  |
 | A first-time user completes one Learn walkthrough without outside help (one outside tester; fallback as in spec 3) | M10 | owner |  |
-| Each finding rule fires on its `_fires` fixture and is silent on its `_silent` fixture | M8 | agent | `tests/findings` |
+| Each finding rule fires on its `_fires` fixture and is silent on its `_silent` fixture | M8 | agent | `tests/findings`; end to end through the service, `tests/service/test_summary_findings.py` (AKS-135) |
 | A Build-mode user without data reaches a completed run changing only parameters | M9/M10 | agent via the end-to-end test |  |
 | The scripted MCP case passes | M7 | agent | `tests/mcp/test_coffee_shop_scripted.py` |
 | A real-assistant transcript meets the acceptance case | M7 | owner, or agent if an MCP-capable assistant is available | `docs/research/spec-4-mcp-trial-<date>.md`; met by the agent in `docs/research/spec-4-mcp-trial-2026-11-08.md` |
@@ -226,6 +226,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-08, scripted coffee-shop case and first real-assistant trial (AKS-116), from `tests/mcp/test_coffee_shop_scripted.py` and `docs/research/spec-4-mcp-trial-2026-11-08.md`: "Assistant acceptance case" says the scripted client sets `length` 210 h and `warmup` 10 h, since `length` includes the warm-up (spec 1) and the description asks for 200 h after it. "How the server runs and answers" adds what the trial changed: `create_model`'s and `edit_model`'s descriptions say that `length` includes the warm-up, with the arithmetic, and `edit_model`'s that its issues are loading's and `validate_model` adds the engine's check; every description stays within 4,096 characters; no tool name or input changed. All owner to confirm.
 - 2026-11-08, M7 closed (AKS-116): the warning line says the MCP tools have run against one real assistant, which changed two descriptions; the "Detailed specification" opening line names what M7 built; the acceptance table's real-assistant row names the trial note. Version 0.4.
 
-Lines added after version 0.4, during M8:
+2026-11-08, version 0.5, M8 closed (AKS-135); the lines below were added after version 0.4, during the M8 build:
 
 - 2026-11-08, finding rules and their fixtures (AKS-117), from the research note `docs/research/spec-4-findings-wording.md` and while building `src/lcsim/findings/` and `tests/findings/`: "Finding rules" replaces the coffee shop's half-width of 4.8% with the measured 3.7% (seed 12345, its own 200 h experiment; M7's 210 h run gave 3.4%) and the prototype's three-machine-line check (0.90, half-width 26%) with the M8 measurement (weld 0.901, wait half-width 13.3%, so `bottleneck` and `not_enough_runs` fire, and neither fires for the coffee shop); says the fixtures are finished runs made by `tests/findings/make_fixtures.py`; updates the example finding to the three-machine line's; and adds "How the rules read this table" (input and order, severity, thresholds, ties, "of the time it was available", `unstable` per W201 server with `scenario` null, `idle_capacity` among servers without a schedule on them or their pool, the key metrics, floors, widest metric and largest n_required, the pair form, the optimization wordings, display units; after the review of PR #42, a search's sense is that of the objective its `search` names). "Findings in plain language" says idle capacity is a server's, as the detailed table does. The warning line says the thresholds were checked on two models; the "Detailed specification" opening line says the finding rules are built. All owner to confirm.
+- 2026-11-08, findings in the run summary and `get_results`, user-adjustable thresholds (AKS-135), while wiring `lcsim.findings` into the service and the MCP server: "Finding rules" says where the thresholds come from (`finding_thresholds` in `settings.json`, spec 3, read at each summary, W220 for a value that cannot be used) and that M8 repeated the two-model check end to end through the service with the same values; the Thresholds reading says the service refuses an out-of-range value as W220 before the rules see it; "MCP tools" gives `get_results` the output `{summary, findings, issues, tables}`, and its description's worked example is now the three-machine line with its two findings; the acceptance table's M8 row names the end-to-end test; the warning line and the "Detailed specification" opening line say the findings reach the summary and `get_results`. All owner to confirm.

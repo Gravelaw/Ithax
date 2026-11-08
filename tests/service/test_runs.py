@@ -266,7 +266,13 @@ def test_an_optimization_model_runs_without_a_body_and_has_no_tables(
     assert run["experiment_id"] is None
     summary = client.get(f"/v1/runs/{rid}/summary").json()
     assert summary["summary"]["objective"] == pytest.approx(2200)
-    assert summary["findings"] == []
+    # Spec 4 optimization_result for a mathematical optimization (AKS-117, AKS-135).
+    [finding] = summary["findings"]
+    assert finding["rule"] == "optimization_result"
+    assert finding["text"] == (
+        "Best found: chairs = 24, tables = 14. The objective is 2,200, with wood and labour tight."
+    )
+    assert summary["issues"] == []
     for name in ("replications", "timeseries"):
         response = client.get(f"/v1/runs/{rid}/tables/{name}")
         assert response.status_code == 404
@@ -575,14 +581,17 @@ def test_a_stream_opened_while_a_run_is_finishing_sends_done_exactly_once(
     assert not (folder / LOCK_FILE).exists()
 
 
-def test_the_summary_is_summary_json_with_no_findings_yet(
+def test_the_summary_is_summary_json_with_its_findings_and_issues(
     client: TestClient, done_run: str
 ) -> None:
+    """A run without findings: the gated run has one replication of one metric, so no rule
+    has anything to say (AKS-135; the runs with findings are in test_summary_findings.py)."""
     response = client.get(f"/v1/runs/{done_run}/summary")
     assert response.status_code == 200
     body = response.json()
-    assert set(body) == {"summary", "findings"}
+    assert set(body) == {"summary", "findings", "issues"}
     assert body["findings"] == []
+    assert body["issues"] == []
     assert body["summary"]["experiment"] == "base"
     assert body["summary"]["scenarios"]["default"]["metrics"]["till.wait.mean"]["n"] == 1
 
@@ -967,6 +976,56 @@ def test_a_service_that_stops_marks_its_unfinished_runs_failed_with_e191(
 
 
 # --- Edges ------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "content",
+    [None, b"{", b'{"format_version": "1.0"}', b'{"mean": NaN}', b"[]"],
+    ids=["missing", "not-json", "fails-the-schema", "nan", "not-an-object"],
+)
+def test_a_run_model_the_findings_cannot_read_is_404_not_500(
+    client: TestClient, done_run: str, content: bytes | None
+) -> None:
+    """The rules read the run folder's model.json (AKS-135); one changed outside the product
+    so that it cannot be read or loaded is E185, as for summary.json."""
+    pid = get_run(client, done_run)["project_id"]
+    model_file = run_folder(client, pid, done_run) / "model.json"
+    if content is None:
+        model_file.unlink()
+    else:
+        model_file.write_bytes(content)
+    response = client.get(f"/v1/runs/{done_run}/summary")
+    assert response.status_code == 404, response.text
+    assert_error(response.json(), "E185")
+    assert "model.json" in response.json()["error"]["message"]
+
+
+def test_a_run_model_with_a_meaning_error_is_404_not_500(client: TestClient, done_run: str) -> None:
+    pid = get_run(client, done_run)["project_id"]
+    model = shop()
+    model["connections"].append({"from": "till.out", "to": "nowhere.in"})  # E130
+    (run_folder(client, pid, done_run) / "model.json").write_text(json.dumps(model))
+    response = client.get(f"/v1/runs/{done_run}/summary")
+    assert response.status_code == 404, response.text
+    assert_error(response.json(), "E185")
+
+
+@pytest.mark.parametrize(
+    "summary",
+    [{}, {"warnings": [], "scenarios": {"default": {}}, "differences": []}, {"warnings": 3}, []],
+    ids=["empty", "no-metrics", "warnings-not-a-list", "not-an-object"],
+)
+def test_a_summary_the_rules_cannot_read_is_404_not_500(
+    client: TestClient, done_run: str, summary: object
+) -> None:
+    """A summary.json changed outside the product into JSON that is not a run's summary is
+    E185, as one the strict reader refuses (AKS-135)."""
+    pid = get_run(client, done_run)["project_id"]
+    (run_folder(client, pid, done_run) / "summary.json").write_text(json.dumps(summary))
+    response = client.get(f"/v1/runs/{done_run}/summary")
+    assert response.status_code == 404, response.text
+    assert_error(response.json(), "E185")
+    assert "summary.json" in response.json()["error"]["message"]
 
 
 def test_a_summary_holding_nan_is_404_not_500(client: TestClient, done_run: str) -> None:

@@ -30,8 +30,14 @@
   every run whose process is gone and makes the index match the run folders.
 - **Stopping.** ``stop`` starts no more runs and interrupts every unfinished one (E191),
   then waits for them to end.
+- **Findings** (AKS-135). ``summary`` reads a done run's ``summary.json`` and the run
+  folder's ``model.json`` (the model that ran, never the project's current one), and adds
+  the findings of ``lcsim.findings.find`` at the thresholds of ``settings.json``, read at
+  each call (``lcsim.service.finding_settings``), with the W220 issues of reading them.
+  Nothing is stored: the same files and thresholds give the same findings.
 
-Errors are spec 3 bodies: 404 with E185 (no such project, run or table), 400 with E186 (a
+Errors are spec 3 bodies: 404 with E185 (no such project, run or table, or a run file that
+cannot be read: a ``summary.json`` or ``model.json`` changed outside the product), 400 with E186 (a
 project that cannot be read) or E184, 409 with E188 (not allowed in the run's state).
 """
 
@@ -52,8 +58,13 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from lcsim.engines.adapter import EngineAdapter
+from lcsim.engines.registry import installed_engines
+from lcsim.findings import find
 from lcsim.model.data import read_data_index
 from lcsim.model.issues import Issue
+from lcsim.model.loading import build_document
+from lcsim.model.model import Model
+from lcsim.model.validation import meaning_pass
 from lcsim.runs.ids import RUN_ID_PATTERN
 from lcsim.runs.index import RUNS_FOLDER, RunIndex
 from lcsim.runs.manager import ExperimentChoiceError
@@ -62,7 +73,7 @@ from lcsim.runs.queue import RunQueue
 from lcsim.runs.snapshots import DATA_FOLDER
 from lcsim.runs.states import FINAL_STATES, JobState
 from lcsim.runs.tables import SUMMARY_FILE, TABLE_NAMES, TABLES_FOLDER
-from lcsim.runs.targets import LocalRun, LocalTarget, RunRefused, recover_interrupted
+from lcsim.runs.targets import MODEL_FILE, LocalRun, LocalTarget, RunRefused, recover_interrupted
 from lcsim.service.errors import (
     MALFORMED,
     NOT_ALLOWED,
@@ -72,6 +83,7 @@ from lcsim.service.errors import (
     malformed,
 )
 from lcsim.service.events import ProjectEvents
+from lcsim.service.finding_settings import read_finding_settings
 from lcsim.service.lifetime import Lifetime
 from lcsim.service.model_store import ModelStore
 from lcsim.service.projects_store import PROJECT_FILE, ProjectRegistry, read_project
@@ -180,6 +192,7 @@ class RunService:
         lifetime: Lifetime,
         settings: RunSettings,
         workers: int,
+        config_dir: Path,
     ) -> None:
         self.projects = projects
         self.models = models
@@ -188,6 +201,7 @@ class RunService:
         self.lifetime = lifetime
         self.settings = settings
         self.workers = workers
+        self.config_dir = config_dir
         self.feed = RunFeed()
         self.queue = RunQueue(settings.max_concurrent_runs, on_finished=self._finished)
         self._lock = threading.Lock()
@@ -405,7 +419,8 @@ class RunService:
             raise _not_allowed(f"The run '{rid}' has ended, so it cannot be cancelled.")
         return self.run(rid)
 
-    def _done(self, rid: str) -> Path:
+    def _done(self, rid: str) -> tuple[Path, dict[str, Any]]:
+        """The folder and manifest of run ``rid``, which must be ``done``."""
         folder, manifest = self.find(rid)
         state = self._view(manifest)["state"]
         if state != "done":
@@ -413,16 +428,70 @@ class RunService:
                 f"The run '{rid}' is {state}, so it has no results; they are written when it "
                 "is done."
             )
-        return folder
+        return folder, manifest
+
+    def _run_model(self, rid: str, folder: Path, manifest: Mapping[str, Any]) -> Model:
+        """The model that ran: the run folder's ``model.json``, loaded as the run loaded it
+        except that its ``data`` references are not checked against the project's data
+        again (the project's files may have changed or gone since; the run holds its own
+        copies, and the finding rules read no data). The manifest's seed stands in for a
+        seed the file leaves out. 404 with E185 when it cannot be read or loaded (a file
+        changed outside the product)."""
+        unreadable = _not_found(
+            f"The {MODEL_FILE} of the run '{rid}' cannot be read as the model that ran, so its "
+            "findings cannot be made."
+        )
+        try:
+            document = read_json_file(folder / MODEL_FILE)
+        except (OSError, ValueError):  # the strict reader's refusal is a ValueError
+            raise unreadable from None
+        seed = manifest.get("seed")
+        built = build_document(
+            document,
+            seed_source=lambda: seed if isinstance(seed, int) else 0,
+            engines=installed_engines(self.adapters),
+        )
+        if built.model is None:
+            raise unreadable
+        problems = [
+            issue
+            for issue in meaning_pass(built.model)
+            if issue.severity == "error" and issue.code != "E162"
+        ]
+        if problems:
+            raise unreadable
+        return built.model
 
     def summary(self, rid: str) -> dict[str, Any]:
-        """``{summary, findings}`` of run ``rid`` (findings arrive at M8)."""
-        folder = self._done(rid)
+        """``{summary, findings, issues}`` of run ``rid``: ``summary.json``, the findings of
+        ``lcsim.findings`` for it and the model that ran, at the thresholds of
+        ``settings.json`` read now, and the W220 issues of reading them (AKS-135)."""
+        folder, manifest = self._done(rid)
         try:
             summary = read_json_file(folder / SUMMARY_FILE)
         except (OSError, ValueError):  # the strict reader's refusal is a ValueError
             raise _not_found(f"The {SUMMARY_FILE} of the run '{rid}' cannot be read.") from None
-        return {"summary": summary, "findings": []}
+        model = self._run_model(rid, folder, manifest)
+        settings = read_finding_settings(self.config_dir)
+        not_results = _not_found(
+            f"The {SUMMARY_FILE} of the run '{rid}' does not hold a run's results, so its "
+            "findings cannot be made."
+        )
+        if not isinstance(summary, dict):
+            raise not_results
+        try:
+            findings = find(summary, model, settings.thresholds)
+        except Exception:
+            # The rules read a summary.json the product wrote; one changed outside it into
+            # JSON of another layout cannot be read, which is E185, never a 500. The
+            # traceback goes to the log.
+            _log.warning("The findings of the run %s cannot be made.", rid, exc_info=True)
+            raise not_results from None
+        return {
+            "summary": summary,
+            "findings": [finding.as_dict() for finding in findings],
+            "issues": [issue.as_dict() for issue in settings.issues],
+        }
 
     def table(self, rid: str, name: str, form: str | None) -> Table:
         """Table ``name`` of run ``rid`` in ``form`` (``json`` when ``None``)."""
@@ -445,7 +514,7 @@ class RunService:
             raise _not_found(
                 f"There is no table '{name}'; a run's tables are {' and '.join(TABLE_NAMES)}."
             )
-        folder = self._done(rid)
+        folder, _ = self._done(rid)
         try:
             table = pq.read_table(folder / TABLES_FOLDER / f"{name}.parquet")
         except (OSError, pa.ArrowException):
