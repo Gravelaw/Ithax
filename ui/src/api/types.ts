@@ -151,6 +151,28 @@ export interface Model {
   [key: string]: unknown;
 }
 
+/** A variable of an `optimization` model (spec 2 "Mathematical optimization"); as the file holds it. */
+export interface Variable {
+  id: string;
+  type: unknown;
+  lower?: unknown;
+  upper?: unknown;
+}
+
+/** The objective of an `optimization` model. */
+export interface LinearObjective {
+  sense: unknown;
+  linear: Record<string, unknown>;
+}
+
+/** A constraint of an `optimization` model. */
+export interface LinearConstraint {
+  id: string;
+  linear: Record<string, unknown>;
+  op: unknown;
+  rhs: unknown;
+}
+
 /** `GET /v1/projects/{pid}/model`. */
 export interface ModelBody {
   model: Model;
@@ -194,7 +216,9 @@ export type Edit =
     }
   | { edit: "remove_parameter"; id: string }
   | { edit: "set_ui"; id: string; ui: Record<string, unknown> }
-  | { edit: "set_label"; id: string; label: string | null };
+  | { edit: "set_label"; id: string; label: string | null }
+  | { edit: "set_path"; path: string; value: unknown }
+  | { edit: "remove_path"; path: string };
 
 /** One setting of a component type, as `GET /v1/schema/components/{type}` describes it. */
 export interface SettingDescription {

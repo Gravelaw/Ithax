@@ -20,12 +20,25 @@
  * - **Validation** runs half a second after the last write; a result for an older write
  *   is dropped.
  * - **Other clients.** A `model` event whose revision is newer than the canvas's own, once
- *   its write has answered, reloads the model and clears undo and redo (the review of an
- *   outside change is AKS-137). A 409 with E181 does the same.
+ *   its write has answered, reloads the model and clears undo and redo; a 409 with E181
+ *   does the same. The model shown before is compared with the one read (`review.ts`):
+ *   each change is kept with the item before and after, and its mark is shown while the
+ *   model shown holds the item as the other client left it (AKS-137). Accept hides a mark
+ *   and writes nothing; Reject writes the model shown with the item restored, a whole
+ *   model like undo, one undo step. Both are changes like any other: refused while busy.
  */
 import type { ApiClient, ApiResult, EventSocket } from "../api/client";
 import type { Edit, Issue, Model, ModelWriteBody, ProjectEvent } from "../api/types";
 import { movesIn, type Point } from "./model";
+import {
+  changeSubject,
+  changesBetween,
+  mergeReview,
+  type ReviewItem,
+  restore,
+  restoreAll,
+  shownItems,
+} from "./review";
 
 export const RETRY_MS = 2000;
 export const VALIDATE_MS = 500;
@@ -49,6 +62,17 @@ export type Write =
 /** Builds the write from the model shown; `null` sends nothing. */
 export type Plan = (model: Model) => Write | null;
 
+/** The last outside change: the revisions it spans, and whether a write of ours was refused. */
+export interface Outside {
+  /** The revision shown before the reload, and the one read. */
+  from: number;
+  to: number;
+  /** The canvas's own write was refused with 409 E181. */
+  conflict: boolean;
+  /** Counts outside changes, so a notice dismissed for one shows again for the next. */
+  seq: number;
+}
+
 export interface SessionState {
   status: "loading" | "ready" | "unavailable";
   /** Why the model could not be loaded, as the service said it. */
@@ -71,6 +95,12 @@ export interface SessionState {
   redoLabel: string | null;
   /** How many times another client's change reloaded the model. */
   reloads: number;
+  /** Every change other clients made since the project was opened, for the review marks. */
+  review: readonly ReviewItem[];
+  /** The last outside change, for its notice; `null` until one happens. */
+  outside: Outside | null;
+  /** The client of each `model` event the notice may need, by revision. */
+  writers: Readonly<Record<number, string | null>>;
   /** The events socket closed with this reason (lost contact). */
   eventsClosed: string | null;
   /**
@@ -101,9 +131,26 @@ export const INITIAL_STATE: SessionState = {
   undoLabel: null,
   redoLabel: null,
   reloads: 0,
+  review: [],
+  outside: null,
+  writers: {},
   eventsClosed: null,
   renamed: {},
 };
+
+/** The clients named in the notice of the last outside change, in revision order. */
+export function clientsOf(state: SessionState): string[] {
+  const outside = state.outside;
+  if (outside === null) return [];
+  const found: string[] = [];
+  for (const [revision, client] of Object.entries(state.writers)) {
+    const at = Number(revision);
+    if (at > outside.from && at <= outside.to && client !== null && !found.includes(client)) {
+      found.push(client);
+    }
+  }
+  return found;
+}
 
 /** `merge` is a move that joins the previous move's undo step. */
 type History = "do" | "merge" | "undo" | "redo";
@@ -123,6 +170,8 @@ export class CanvasSession {
   private lastMove: { moved: string; at: number } | null = null;
   /** The newest revision another client announced while the session was busy. */
   private announced = 0;
+  /** The id the next review item gets. */
+  private nextReview = 1;
   private undoLimit: number;
   private readonly setTimer: (callback: () => void, ms: number) => unknown;
   private readonly clearTimer: (handle: unknown) => void;
@@ -300,10 +349,11 @@ export class CanvasSession {
         renamed,
         model: result.data.model,
         revision: result.data.revision,
+        writers: this.keptWriters(result.data.revision),
       });
     } else if (result.kind === "refused" && result.error.code === "E181") {
       this.set({ failing: false, refusal: result });
-      await this.reload();
+      await this.reload(true);
       this.set(done);
     } else {
       this.set({ ...done, refusal: result });
@@ -353,6 +403,9 @@ export class CanvasSession {
   private onEvent(event: ProjectEvent): void {
     if (event.type !== "model" || this.stopped) return;
     this.announced = Math.max(this.announced, event.revision);
+    if (event.revision > this.state.revision || this.inOutside(event.revision)) {
+      this.set({ writers: { ...this.state.writers, [event.revision]: event.client } });
+    }
     if (!this.state.busy) this.afterBusy();
   }
 
@@ -367,8 +420,22 @@ export class CanvasSession {
     }
   }
 
+  private inOutside(revision: number): boolean {
+    const outside = this.state.outside;
+    return outside !== null && revision > outside.from && revision <= outside.to;
+  }
+
+  /** The writers still needed: the last outside change's, and any newer than `revision`. */
+  private keptWriters(revision: number): Record<number, string | null> {
+    const kept: Record<number, string | null> = {};
+    for (const [at, client] of Object.entries(this.state.writers)) {
+      if (Number(at) > revision || this.inOutside(Number(at))) kept[Number(at)] = client;
+    }
+    return kept;
+  }
+
   /** Reads the model again and clears undo and redo (another client changed it). */
-  private async reload(): Promise<void> {
+  private async reload(conflict = false): Promise<void> {
     const before = this.announced;
     let loaded = await this.client.getModel(this.pid);
     while (loaded.kind === "failed" && !this.stopped) {
@@ -387,17 +454,84 @@ export class CanvasSession {
         this.announced > before
           ? Math.max(this.announced, loaded.data.revision)
           : loaded.data.revision;
+      const shown = this.state.model;
+      const from = this.state.revision;
+      const fresh = shown === null ? [] : changesBetween(shown, loaded.data.model);
+      const review = mergeReview(shownItems(this.state.review, shown), fresh, this.nextReview);
+      this.nextReview = Math.max(this.nextReview, ...review.map((item) => item.id + 1));
+      const moved = loaded.data.revision !== from || fresh.length > 0;
+      const outside: Outside | null = moved
+        ? { from, to: loaded.data.revision, conflict, seq: (this.state.outside?.seq ?? 0) + 1 }
+        : this.state.outside;
+      const writers: Record<number, string | null> = {};
+      for (const [at, client] of Object.entries(this.state.writers)) {
+        if (Number(at) > from) writers[Number(at)] = client;
+      }
       this.set({
         failing: false,
         renamed: {},
         model: loaded.data.model,
         revision: loaded.data.revision,
+        review,
+        outside,
+        writers,
       });
     } else {
       this.announced = this.state.revision;
       this.set({ failing: false, refusal: loaded });
     }
     this.scheduleValidate();
+  }
+
+  /** The review marks shown on the model shown. */
+  marks(): ReviewItem[] {
+    return shownItems(this.state.review, this.state.model);
+  }
+
+  /** Hides one mark; writes nothing. `false` when no change is taken now. */
+  accept(id: number): boolean {
+    if (!this.canWrite()) return false;
+    this.set({
+      review: this.state.review.map((item) =>
+        item.id === id ? { ...item, accepted: true } : item,
+      ),
+    });
+    return true;
+  }
+
+  /** Hides every mark shown. */
+  acceptAll(): boolean {
+    if (!this.canWrite()) return false;
+    const shown = new Set(this.marks().map((item) => item.id));
+    this.set({
+      review: this.state.review.map((item) =>
+        shown.has(item.id) ? { ...item, accepted: true } : item,
+      ),
+    });
+    return true;
+  }
+
+  /** Writes the model shown with one marked item as it was: a whole model, one undo step. */
+  reject(id: number): Promise<ApiResult<ModelWriteBody> | null> {
+    const domain = this.state.model?.domain;
+    return this.write((model) => {
+      const item = shownItems(this.state.review, model).find((mark) => mark.id === id);
+      if (item === undefined) return null;
+      return {
+        kind: "model",
+        label: `reject the change to ${changeSubject(item, domain)}`,
+        model: restore(model, item),
+      };
+    });
+  }
+
+  /** Writes the model shown with every marked item as it was, in one write. */
+  rejectAll(): Promise<ApiResult<ModelWriteBody> | null> {
+    return this.write((model) => {
+      const items = shownItems(this.state.review, model);
+      if (items.length === 0) return null;
+      return { kind: "model", label: "reject every change", model: restoreAll(model, items) };
+    });
   }
 
   private invalidateValidation(): void {

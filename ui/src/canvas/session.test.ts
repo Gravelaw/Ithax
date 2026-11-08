@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Edit, Model } from "../api/types";
 import { coffeeShop, ModelService, PID } from "../test/fakeModel";
 import { FakeService } from "../test/fakes";
-import { CanvasSession, MOVE_BURST_MS, RETRY_MS, VALIDATE_MS } from "./session";
+import { CanvasSession, clientsOf, MOVE_BURST_MS, RETRY_MS, VALIDATE_MS } from "./session";
 
 const MODEL = `/v1/projects/${PID}/model`;
 const EDITS = `/v1/projects/${PID}/model/edits`;
@@ -433,5 +433,153 @@ describe("the canvas's session with the service", () => {
     await vi.advanceTimersByTimeAsync(0);
     fake.sockets[0]?.serverClose(1011, "gone");
     expect(session.getState().eventsClosed).toBe("gone");
+  });
+});
+
+describe("the review of an outside change (AKS-137)", () => {
+  async function opened() {
+    const parts = setup();
+    parts.session.start();
+    await vi.advanceTimersByTimeAsync(0);
+    return parts;
+  }
+
+  function outside(
+    fake: FakeService,
+    service: ModelService,
+    change: (model: Model) => void,
+    client: string | null = "mcp",
+  ) {
+    service.outsideWrite(change);
+    fake.sockets[0]?.emit({ type: "model", revision: service.revision, client });
+  }
+
+  const capacity = (model: Model) => {
+    const till = model.components?.find((item) => item.id === "till");
+    if (till) till.params.capacity = 2;
+  };
+
+  it("marks what another client changed and names the client, keeping its own writes out", async () => {
+    const { fake, service, session } = await opened();
+    const own = write(session, [label("till", "T")]);
+    fake.sockets[0]?.emit({ type: "model", revision: 4, client: "ui" });
+    await own;
+    outside(fake, service, capacity, "script");
+    await vi.advanceTimersByTimeAsync(0);
+    const state = session.getState();
+    expect(state.outside).toMatchObject({ from: 4, to: 5, conflict: false });
+    expect(clientsOf(state)).toEqual(["script"]);
+    expect(state.review.map((item) => item.ref)).toEqual([
+      { kind: "list", key: "components", id: "till" },
+    ]);
+    expect(session.marks()).toHaveLength(1);
+    expect(state.undoLabel).toBeNull();
+  });
+
+  it("takes a 409 E181 as an outside change, with the client of the event", async () => {
+    const { fake, service, session } = await opened();
+    service.outsideWrite(capacity);
+    await write(session, [label("till", "T")]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(session.getState().outside).toMatchObject({ from: 3, to: 4, conflict: true });
+    expect(clientsOf(session.getState())).toEqual([]);
+    fake.sockets[0]?.emit({ type: "model", revision: 4, client: "mcp" });
+    expect(clientsOf(session.getState())).toEqual(["mcp"]);
+    expect(session.marks()).toHaveLength(1);
+  });
+
+  it("accepts without writing, and refuses while a write awaits its answer", async () => {
+    const { fake, service, session } = await opened();
+    outside(fake, service, (model) => {
+      capacity(model);
+      model.meta = { name: "Cafe" };
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    const [first, second] = session.marks();
+    const release = fake.holdWrites();
+    const pending = write(session, [label("exit", "E")]);
+    expect(session.accept(first?.id ?? 0)).toBe(false);
+    expect(session.marks()).toHaveLength(2);
+    release();
+    await pending;
+    const writes = fake.requests.length;
+    expect(session.accept(first?.id ?? 0)).toBe(true);
+    expect(session.marks().map((item) => item.id)).toEqual([second?.id]);
+    expect(session.acceptAll()).toBe(true);
+    expect(session.marks()).toEqual([]);
+    expect(fake.requests.length).toBe(writes);
+  });
+
+  it("rejects with a whole-model write and base_revision, one undo step that brings the mark back", async () => {
+    const { fake, service, session } = await opened();
+    outside(fake, service, (model) => {
+      capacity(model);
+      model.components?.push({ id: "queue_1", type: "queue", params: {} });
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    const [changed] = session.marks();
+    await session.reject(changed?.id ?? 0);
+    const put = fake.requested("PUT", MODEL).at(-1);
+    expect(put?.search).toBe("?base_revision=4");
+    expect(service.component("till")?.params.capacity).toEqual({ $param: "tills" });
+    expect(service.component("queue_1")).toBeDefined();
+    expect(session.marks().map((item) => item.ref)).toEqual([
+      { kind: "list", key: "components", id: "queue_1" },
+    ]);
+    expect(session.getState().undoLabel).toBe("reject the change to block till");
+    await session.undo();
+    expect(session.marks()).toHaveLength(2);
+    await session.rejectAll();
+    expect(service.model).toEqual(coffeeShop());
+    expect(session.marks()).toEqual([]);
+  });
+
+  it("ends a mark when the user changes the item, and keeps the others", async () => {
+    const { fake, service, session } = await opened();
+    outside(fake, service, (model) => {
+      capacity(model);
+      model.meta = { name: "Cafe" };
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    await write(session, [label("till", "Mine")]);
+    expect(session.marks().map((item) => item.ref)).toEqual([{ kind: "top", key: "meta" }]);
+  });
+
+  it("adds a later outside change to the marks, keeping an item's first before", async () => {
+    const { fake, service, session } = await opened();
+    outside(fake, service, capacity);
+    await vi.advanceTimersByTimeAsync(0);
+    outside(
+      fake,
+      service,
+      (model) => {
+        const till = model.components?.find((item) => item.id === "till");
+        if (till) till.params.capacity = 3;
+        model.meta = { name: "Cafe" };
+      },
+      "ui",
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(session.getState().outside).toMatchObject({ from: 4, to: 5 });
+    expect(clientsOf(session.getState())).toEqual(["ui"]);
+    expect(session.marks()).toHaveLength(2);
+    const till = session.marks().find((item) => item.ref.kind === "list");
+    await session.reject(till?.id ?? 0);
+    expect(service.component("till")?.params.capacity).toEqual({ $param: "tills" });
+  });
+
+  it("refuses Reject while a write awaits its answer, and for a mark no longer shown", async () => {
+    const { fake, service, session } = await opened();
+    outside(fake, service, capacity);
+    await vi.advanceTimersByTimeAsync(0);
+    const [mark] = session.marks();
+    const release = fake.holdWrites();
+    const pending = write(session, [label("exit", "E")]);
+    expect(await session.reject(mark?.id ?? 0)).toBeNull();
+    expect(await session.rejectAll()).toBeNull();
+    release();
+    await pending;
+    expect(await session.reject(999)).toBeNull();
+    expect(fake.requested("PUT", MODEL)).toHaveLength(0);
   });
 });

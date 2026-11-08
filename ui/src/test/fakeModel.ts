@@ -180,7 +180,46 @@ function apply(model: Model, edit: Edit): string | null {
       else component.label = edit.label;
       return null;
     }
+    case "set_path":
+    case "remove_path":
+      return applyPath(model, edit);
   }
+}
+
+/** `set_path` and `remove_path` on the keys spec 3 lets them reach. */
+function applyPath(
+  model: Model,
+  edit: { edit: "set_path"; path: string; value: unknown } | { edit: "remove_path"; path: string },
+): string | null {
+  const parts = tokens(edit.path);
+  const head = parts[0] ?? "";
+  const reached =
+    ["meta", "run", "objectives", "constraints"].includes(head) ||
+    (["variables", "objective"].includes(head) && model.domain === "optimization");
+  if (!reached) return `The path '${edit.path}' is not one set_path and remove_path may change.`;
+  let here: unknown = model;
+  for (const part of parts.slice(0, -1)) {
+    here = Array.isArray(here)
+      ? here[Number(part)]
+      : (here as Record<string, unknown> | null)?.[part];
+    if (typeof here !== "object" || here === null) return `No '${part}' in '${edit.path}'.`;
+  }
+  const last = parts.at(-1) ?? "";
+  if (Array.isArray(here)) {
+    const index = last === "-" ? here.length : Number(last);
+    if (edit.edit === "remove_path") {
+      if (index >= here.length) return `Nothing at '${edit.path}'.`;
+      here.splice(index, 1);
+    } else if (index === here.length) here.push(edit.value);
+    else here[index] = edit.value;
+    return null;
+  }
+  const record = here as Record<string, unknown>;
+  if (edit.edit === "remove_path") {
+    if (!(last in record)) return `Nothing at '${edit.path}'.`;
+    delete record[last];
+  } else record[last] = edit.value;
+  return null;
 }
 
 export interface ModelServiceOptions {
