@@ -79,11 +79,11 @@ Every product detail traces to a spec. Where the specs were silent, the simplest
 
 | Action | Pointer | Keyboard | Edit sent |
 | --- | --- | --- | --- |
-| Move blocks | Drag a selected block; all selected blocks move together | Arrow keys move the selection by 8 px; Shift+arrow by 40 px | One `set_ui` per moved block, in one batch, when the drag ends, or 500 ms after the last arrow key |
+| Move blocks | Drag a selected block; all selected blocks move together | Arrow keys move the selection by 8 px; Shift+arrow by 40 px | One `set_ui` per moved block, in one batch, when the drag ends; for the keys, one such batch at each press, sent at once (a press while a write awaits its answer is ignored) |
 | Move without dragging | Context menu "Move to…", then one click on the canvas; or type x and y in the side panel's "Position" fields | The "Position" fields | `set_ui` |
 | Snap | Blocks snap to an 8 px grid | Same | |
 
-- **One step per move.** A drag, or a run of arrow presses without a 500 ms pause, is one batch and one undo step **(design choice)**.
+- **One step per move.** A drag is one batch and one undo step; a run of arrow presses on the same blocks without a 500 ms pause is one write per press joining one undo step **(design choice; AKS-136, review of PR #45)**.
 
 ## Deleting
 
