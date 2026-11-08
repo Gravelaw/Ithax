@@ -127,10 +127,14 @@ export function DataScreen({
   );
 }
 
+/**
+ * A fit and the listing it was computed from. It belongs to that listing alone: any change
+ * of the listing (an import, which may change a unit while the bytes and their hash stay
+ * the same, or a removal) is a new listing, so the fit is no longer shown or usable until
+ * the column is fitted again (review of PR #47).
+ */
 interface FitShown {
-  /** The file, its hash at import and the column the fit is of. */
-  file: string;
-  sha256: string;
+  listing: DataFile[];
   body: FitBody;
 }
 
@@ -252,6 +256,8 @@ function DataParts({
   };
 
   const runFit = (target: DataFile, name: string) => {
+    // The listing the fit is asked against; a later listing does not show it.
+    const listing = files;
     void pending.run(
       () => client.fitData(pid, target.name, name),
       (result) => {
@@ -261,7 +267,7 @@ function DataParts({
           return;
         }
         setProblem(null);
-        setFit({ file: target.name, sha256: target.sha256, body: result.data });
+        if (listing !== null) setFit({ listing, body: result.data });
       },
     );
   };
@@ -270,12 +276,11 @@ function DataParts({
     file?.columns.find((item) => item.name === column)?.name ??
     file?.columns.find((item) => item.type === "number")?.name ??
     null;
-  // A fit is shown while its file is as it was fitted.
+  // A fit is shown only with the listing it was computed from, for the column chosen.
   const shownFit =
     fit !== null &&
-    file !== null &&
-    fit.file === file.name &&
-    fit.sha256 === file.sha256 &&
+    fit.listing === files &&
+    fit.body.file === file?.name &&
     fit.body.column === chosenColumn
       ? fit.body
       : null;

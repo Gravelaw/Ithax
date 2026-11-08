@@ -242,6 +242,29 @@ describe("the fit", () => {
     expect(screen.getByRole("img", { name: /fitted normal/ })).toBeVisible();
   });
 
+  it("drops a fit when the unit changes, until the column is fitted again", async () => {
+    const { fake, user } = renderScreen();
+    await screen.findByText("No files imported yet.");
+    await importFile(user);
+    await user.selectOptions(screen.getByRole("combobox", { name: "Unit of minutes" }), "min");
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Unit of minutes" })).toHaveValue("min"),
+    );
+    await user.click(screen.getByRole("button", { name: "Fit a distribution" }));
+    expect(await screen.findByRole("rowheader", { name: "exponential" })).toBeVisible();
+    // The same bytes imported again in seconds: the hash is unchanged, the fit is not valid.
+    await user.selectOptions(screen.getByRole("combobox", { name: "Unit of minutes" }), "s");
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Unit of minutes" })).toHaveValue("s"),
+    );
+    expect(screen.queryByRole("rowheader", { name: "exponential" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Use for" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Use it" })).toBeNull();
+    expect(fake.requested("POST", `${DATA}/times.csv/fit`)).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Fit a distribution" }));
+    expect(await screen.findByRole("rowheader", { name: "exponential" })).toBeVisible();
+  });
+
   it("shows the service's refusal of a fit, such as a column of text", async () => {
     const { fake, user } = renderScreen({ files: [entry("times.csv")] });
     await screen.findByRole("heading", { name: "times.csv" });
