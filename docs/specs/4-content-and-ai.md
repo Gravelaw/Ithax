@@ -1,10 +1,10 @@
 # Spec 4: Content, Learning and AI Access
 
-> Version 0.3 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.4 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 This spec covers what makes the tool usable by non-experts: ready-made templates, lessons, findings in plain language, and an MCP server so any assistant can build and run models.
 
-> **Warning: untested.** The MCP tools have never run against a real assistant; expect their names, inputs and descriptions to change once one uses them. The finding thresholds (0.85, 0.30, 10%) are proposals checked on a single model. The ten templates are named but not written. Verify each at its milestone and update this spec. See "Known gaps" in the Build guide.
+> **Warning: untested.** The MCP tools have run against one real assistant, Claude Code with Claude Opus 5.5 (M7, `docs/research/spec-4-mcp-trial-2026-11-08.md`), which changed two descriptions; other assistants may still find names, inputs or descriptions to change. The finding thresholds (0.85, 0.30, 10%) are proposals checked on a single model. The ten templates are named but not written. Verify each at its milestone and update this spec. See "Known gaps" in the Build guide.
 
 ## Scope
 
@@ -78,7 +78,7 @@ Rules for assistant access:
 
 ## Detailed specification
 
-The sections below are binding. Where they differ from the summary above, these win. None of this has been built.
+The sections below are binding. Where they differ from the summary above, these win. The MCP server, its tools, limits and acceptance case are built (M7: AKS-115, AKS-134, AKS-116); the templates, Learn and Build modes and the finding rules are not.
 
 ### Template package
 
@@ -196,7 +196,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 | Each finding rule fires on its `_fires` fixture and is silent on its `_silent` fixture | M8 | agent | `tests/findings` |
 | A Build-mode user without data reaches a completed run changing only parameters | M9/M10 | agent via the end-to-end test |  |
 | The scripted MCP case passes | M7 | agent | `tests/mcp/test_coffee_shop_scripted.py` |
-| A real-assistant transcript meets the acceptance case | M7 | owner, or agent if an MCP-capable assistant is available | `docs/research/spec-4-mcp-trial-<date>.md` |
+| A real-assistant transcript meets the acceptance case | M7 | owner, or agent if an MCP-capable assistant is available | `docs/research/spec-4-mcp-trial-<date>.md`; met by the agent in `docs/research/spec-4-mcp-trial-2026-11-08.md` |
 | No MCP tool reads or writes outside the project folder | M7 | agent | `tests/mcp/test_mcp_confinement.py` |
 
 ## Changes in this version
@@ -208,8 +208,9 @@ Complete these and record the findings, with sources, in a short note in the rep
 - C26 (ARCH-7, ARCH-8, ARCH-13, TEST-10, TEST-1, TEST-12): MCP tools mapped to endpoints; `run_model` by domain; edit semantics; limits; assistant acceptance case; research items tagged; acceptance table.
 - Verifier follow-up: the summary Build bullet says data import is optional, matching "Build mode".
 
-Lines added after version 0.3, during M7 (the version number is bumped when M7 closes, AKS-116):
+2026-11-08, version 0.4, M7 closed (AKS-116); the lines below were added after version 0.3, during the M7 build:
 
 - 2026-11-08, MCP server and the six read tools (AKS-115), from the research notes `docs/research/spec-4-mcp.md` and `docs/research/spec-4-assistant-tool-design.md` and while building `src/lcsim/mcp/`: "MCP server" says the MCP server, a separate program, exposes the tools, and its table adds `list_projects` and `get_model`, which "MCP tools" already had; "MCP tools" gives the outputs of `list_templates`, `list_projects`, `get_model` and `validate_model` as the spec 3 endpoints return them (each tool returns its endpoint's response, so `list_projects` gives `id` rather than `project_id`, `get_model` the revision with the model, and `validate_model` the revision with the issues), and adds "How the server runs and answers": stdio through the official SDK, `--config-dir` and `--data-dir`, requests only to `/v1` with the token and `X-Client: mcp`, starting the service on demand and waiting up to 30 s, one repeat only for a refused connection or a 401, results as JSON text and `structuredContent`, refusals marked `isError` with the service's body, input problems as E184 at `/<input>`, and E193 when there is no service (new spec 1 code). All owner to confirm.
 - 2026-11-08, MCP write and run tools, run limits and confinement (AKS-134), while building them in `src/lcsim/mcp/`: "MCP tools" gives `create_model` the optional `domain` of `POST /v1/projects` (no edit changes a model's domain, so without it an assistant could not start an optimization model) and its output as that endpoint returns it, the new project with its `id` (as `list_projects` gives `id`), rather than `{project_id, model}`, which no endpoint returns; `get_run_status`'s output is the whole run as `GET /v1/runs/{rid}` returns it, `state`, `fraction` and `message` among its fields; `get_results`'s `tables` is an object keyed by table name; `run_model`'s input cell loses the code marks on the domain names. "How the server runs and answers" adds the kinds of the new inputs (a whole number, an array of text, edits with finite numbers nested at most 100 deep) and the requests the write and run tools make, with how `get_results` composes its answer. "Limits" says how the two-run limit is checked (runs this server started, unfinished while the service says `queued` or `running`, E194, a new spec 1 code, with the unfinished `run_ids`), that the run limits are the service's, how the server keeps to project folders (no tool touches a file; `service.json` is discovery; no `path`, no open), and that there is no data import tool, with spec 3's upload limits. The acceptance table names the confinement test. All owner to confirm.
 - 2026-11-08, scripted coffee-shop case and first real-assistant trial (AKS-116), from `tests/mcp/test_coffee_shop_scripted.py` and `docs/research/spec-4-mcp-trial-2026-11-08.md`: "Assistant acceptance case" says the scripted client sets `length` 210 h and `warmup` 10 h, since `length` includes the warm-up (spec 1) and the description asks for 200 h after it. "How the server runs and answers" adds what the trial changed: `create_model`'s and `edit_model`'s descriptions say that `length` includes the warm-up, with the arithmetic, and `edit_model`'s that its issues are loading's and `validate_model` adds the engine's check; every description stays within 4,096 characters; no tool name or input changed. All owner to confirm.
+- 2026-11-08, M7 closed (AKS-116): the warning line says the MCP tools have run against one real assistant, which changed two descriptions; the "Detailed specification" opening line names what M7 built; the acceptance table's real-assistant row names the trial note. Version 0.4.

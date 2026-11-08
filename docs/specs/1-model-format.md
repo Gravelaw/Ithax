@@ -1,6 +1,6 @@
 # Spec 1: Model Format and Engine Contract
 
-> Version 0.9 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 1.0 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 A model is one JSON file that passes a published schema. Every engine is a plugin that implements the same five functions. The interface, the engines and any AI assistant all work through these two contracts.
 
@@ -528,7 +528,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-07, data import (AKS-113), found while building `src/lcsim/model/data.py`, `data_files.py`, `fit.py`, `src/lcsim/runs/snapshots.py` and the data endpoints of spec 3: "Run folder and results" and "Distributions" disagreed on `data_files` (`{file, sha256}` against file, column and SHA-256 per reference); both now say one entry per reference, `{component, setting, file, column, sha256}`. "Distributions" says how a `data` column is read (types and declared units in the column index, empty cells, the bytes hashed at run creation, values converted to seconds), the snapshot's columns, that only a run made by a run target reads columns, and that E162 also covers a column that does not hold numbers or has no unit for a time; the sampling test names the copied column; the warning line says `empirical` with `data` passed it. "Validation issues" adds E189 for a data file that cannot be imported or a column that cannot be fitted (owner to confirm).
 - 2026-11-07, review of PR #37 (AKS-113): "Distributions" says the column index records a `number` column's `largest` absolute value, and that E162 covers a column with a value that is not a finite number of seconds in its unit, checked as inline quantities are (E141), by validation on `largest` and by a run on the values it copies (`1e308` minutes passed validation and failed only when the engine input was written) (owner to confirm).
 
-Lines added after version 0.9, during M7 (the version number is bumped when M7 closes, AKS-116):
+2026-11-08, version 1.0, M7 closed (AKS-116); the lines below were added after version 0.9, during the M7 build:
 
 - 2026-11-08, MCP server (AKS-115), found while building `src/lcsim/mcp/`: "Validation issues" adds E193, raised by the MCP server when the engine service cannot be started, does not answer, or sends an answer the strict reader refuses; the MCP server has no other code of its own, and an input problem in a tool call reuses E184 with `path` at the input (spec 4) (owner to confirm).
 - 2026-11-08, MCP run limit (AKS-134), found while building the write and run tools of `src/lcsim/mcp/`: "Validation issues" adds E194, raised by the MCP server when a project already has two unfinished runs it started (spec 4 "Limits"), and the sentence on run and service codes names it beside E193 (owner to confirm).
