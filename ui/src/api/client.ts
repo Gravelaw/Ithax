@@ -16,8 +16,11 @@
 import type {
   ComponentType,
   CreateProject,
+  DataFile,
   Edit,
   ErrorBody,
+  FitBody,
+  ImportedFile,
   Issue,
   Model,
   ModelBody,
@@ -104,7 +107,10 @@ export class ApiClient {
     this.onRequest = options.onRequest;
   }
 
-  /** A request to a documented `/v1` path; `body` is sent as JSON when given. */
+  /**
+   * A request to a documented `/v1` path; `body` is sent as JSON when given, or as it is
+   * when it is a form (`multipart/form-data`, the browser writes its boundary).
+   */
   async request<T>(method: Method, path: string, body?: unknown): Promise<ApiResult<T>> {
     if (!path.startsWith("/v1/")) {
       throw new Error(`'${path}' is not a /v1 path of the service`);
@@ -116,7 +122,9 @@ export class ApiClient {
       Accept: "application/json",
     };
     const init: RequestInit = { method, headers, cache: "no-store" };
-    if (body !== undefined) {
+    if (body instanceof FormData) {
+      init.body = body;
+    } else if (body !== undefined) {
       headers["Content-Type"] = "application/json";
       init.body = JSON.stringify(body);
     }
@@ -226,6 +234,46 @@ export class ApiClient {
 
   validate(pid: string): Promise<ApiResult<ValidateBody>> {
     return this.request("POST", `/v1/projects/${encodeURIComponent(pid)}/validate`);
+  }
+
+  /** `GET .../data`: the imported files, in the order first imported. */
+  listData(pid: string): Promise<ApiResult<DataFile[]>> {
+    return this.request("GET", `/v1/projects/${encodeURIComponent(pid)}/data`);
+  }
+
+  /**
+   * `POST .../data`: imports a CSV or Excel file under `name`, with the time unit of any
+   * number column in `units` (`null` for plain numbers).
+   */
+  importData(
+    pid: string,
+    file: Blob,
+    name: string,
+    units?: Readonly<Record<string, string | null>>,
+  ): Promise<ApiResult<ImportedFile>> {
+    const form = new FormData();
+    form.append("file", file, name);
+    if (units !== undefined && Object.keys(units).length > 0) {
+      form.append("units", JSON.stringify(units));
+    }
+    return this.request("POST", `/v1/projects/${encodeURIComponent(pid)}/data`, form);
+  }
+
+  /** `DELETE .../data/{file}`: the files that remain. */
+  deleteData(pid: string, name: string): Promise<ApiResult<DataFile[]>> {
+    return this.request(
+      "DELETE",
+      `/v1/projects/${encodeURIComponent(pid)}/data/${encodeURIComponent(name)}`,
+    );
+  }
+
+  /** `POST .../data/{file}/fit`: the candidates, best first, and the column's histogram. */
+  fitData(pid: string, name: string, column: string): Promise<ApiResult<FitBody>> {
+    return this.request(
+      "POST",
+      `/v1/projects/${encodeURIComponent(pid)}/data/${encodeURIComponent(name)}/fit`,
+      { column },
+    );
   }
 
   projectEvents(pid: string, handlers: SocketHandlers<ProjectEvent>): EventSocket {
