@@ -123,15 +123,14 @@ describe("the run settings of an experiment", () => {
     expect(
       within(toolbar).getByRole("button", { name: "Undo: clear confidence of experiment base" }),
     ).toBeEnabled();
-    // A required field left empty sends nothing.
-    const writes = fake.requests.filter((request) => request.method !== "GET").length;
+    // A required field left empty sends nothing, and shows its saved value again.
+    const writes = fake.requests.filter((request) => !request.path.endsWith("/validate")).length;
     await user.clear(box("Run length"));
     await user.tab();
-    expect(
-      fake.requests.filter(
-        (request) => request.method !== "GET" && !request.path.endsWith("/validate"),
-      ).length,
-    ).toBeLessThanOrEqual(writes);
+    expect(box("Run length")).toHaveValue("8");
+    expect(fake.requests.filter((request) => !request.path.endsWith("/validate"))).toHaveLength(
+      writes,
+    );
   });
 
   it("shows a time of another form as text, and the service's issues at the field", async () => {
@@ -172,6 +171,11 @@ describe("the experiments list", () => {
     expect(lastEdits(fake)).toEqual([{ edit: "set_experiment", id: "long" }]);
     expect(await screen.findByRole("heading", { name: "long" })).toBeVisible();
     expect(box("New experiment id")).toHaveValue("");
+    // An id the model already has is not added over it.
+    await user.type(box("New experiment id"), "long");
+    await user.click(screen.getByRole("button", { name: "Add experiment" }));
+    expect(screen.getByText("The model already has an experiment long.")).toBeVisible();
+    expect(fake.requested("POST", EDITS)).toHaveLength(1);
     await user.click(screen.getByRole("button", { name: "base" }));
     expect(screen.getByRole("heading", { name: "base" })).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Remove experiment base" }));

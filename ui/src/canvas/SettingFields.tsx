@@ -103,7 +103,8 @@ export function CommitInput({
 }: {
   id: string;
   value: string;
-  onCommit: (text: string) => void;
+  /** Takes the text; `false` means nothing is sent for it, and the box shows the saved value. */
+  onCommit: (text: string) => unknown;
   readOnly: boolean;
   mono?: boolean;
   describedBy?: string;
@@ -138,7 +139,10 @@ export function CommitInput({
     // box shows the saved value; nothing is kept to be sent later.
     if (busy) setText(value);
     else sent.current = text;
-    onCommit(text);
+    if (onCommit(text) === false) {
+      sent.current = null;
+      setText(value);
+    }
   };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {

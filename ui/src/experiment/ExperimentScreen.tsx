@@ -143,6 +143,10 @@ function Experiments({ types, ...parts }: Parts & { types: Record<string, Compon
           button="Add experiment"
           readOnly={readOnly}
           onAdd={(id) => {
+            if (experiments.some((item) => item.id === id)) {
+              writes.say(`The model already has an experiment ${id}.`);
+              return;
+            }
             void writes
               .edit(`add experiment ${id}`, (current) =>
                 experimentsOf(current).some((item) => item.id === id)
@@ -294,13 +298,14 @@ function ExperimentFieldInput({
   const label = `set ${field.key} of experiment ${experiment.id}`;
   const set = (typed: unknown) =>
     void writes.edit(label, setFieldPlan(experiment.id, field.key, typed));
-  const clear = () => {
-    if (!field.required) {
-      void writes.replace(
-        `clear ${field.key} of experiment ${experiment.id}`,
-        clearFieldPlan(experiment.id, field.key),
-      );
-    }
+  /** Clears an optional field; a required one is not cleared, and shows its value again. */
+  const clear = (): boolean => {
+    if (field.required) return false;
+    void writes.replace(
+      `clear ${field.key} of experiment ${experiment.id}`,
+      clearFieldPlan(experiment.id, field.key),
+    );
+    return true;
   };
   return (
     <div className="panel-field">
@@ -360,7 +365,7 @@ function QuantityInput({
   invalid: boolean;
   readOnly: boolean;
   onSet: (value: string) => void;
-  onClear: () => void;
+  onClear: () => boolean;
 }) {
   const busy = useBusy();
   const split = splitQuantity(value);
