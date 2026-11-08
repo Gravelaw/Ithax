@@ -424,3 +424,13 @@ def test_field_names_of_a_distribution() -> None:
 
 def test_a_data_reference_has_file_and_column() -> None:
     assert DATA_FIELDS == ("file", "column")
+
+
+def test_every_process_type_has_a_one_sentence_description() -> None:
+    """Spec 1 "Engine adapter interface" and spec 3 ``GET /v1/schema/components/{type}``:
+    a type's description includes one sentence summarising its Behaviour in spec 2's
+    "Block reference" (AKS-110)."""
+    for name, block in PROCESS_TYPES.items():
+        assert block.description, name
+        assert block.description.endswith("."), name
+        assert block.description.count(". ") == 0, name

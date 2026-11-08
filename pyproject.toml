@@ -11,6 +11,7 @@ license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dynamic = ["version"]
 dependencies = [
+    "fastapi>=0.162.1",
     "highspy>=1.15.1",
     "jsonschema>=4.26.0",
     "numpy>=2.4.6",
@@ -20,6 +21,8 @@ dependencies = [
     "pyomo>=6.10.1",
     "scipy>=1.17.1",
     "simpy>=4.1.2",
+    "uvicorn>=0.54.0",
+    "websockets>=17.4",
 ]
 
 [project.optional-dependencies]
@@ -29,6 +32,7 @@ dev = [
     "mypy>=2.4.1",
     "pytest-cov>=7.1",
     "types-jsonschema>=4.26.0.20261006",
+    "httpx2>=2.16.0",
 ]
 
 # Spec 1 "Engine contract": adapters are discovered through this group; the entry-point name

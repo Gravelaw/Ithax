@@ -120,6 +120,9 @@ class BlockType:
     settings: tuple[SettingSpec, ...]
     # Metric names after `<component id>.` (spec 2 "Statistic definitions").
     metrics: tuple[str, ...]
+    # One sentence on what the type does, from spec 2 "Block reference" (its Behaviour
+    # column), served by GET /v1/schema/components/{type} (spec 3; AKS-110).
+    description: str = ""
 
     def setting(self, name: str) -> SettingSpec | None:
         """The setting called ``name``, or ``None`` when the type has no such setting."""
@@ -201,6 +204,10 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                     _number("max_items", required=False, minimum=1),
                 ),
                 metrics=("created", "discarded"),
+                description=(
+                    "Creates one item, waits one interarrival time, and repeats; the first item "
+                    "arrives at first_arrival, and the source stops after max_items items."
+                ),
             ),
             BlockType(
                 "server",
@@ -216,6 +223,10 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                     _reference("pool", ("resource_pool",), required=False),
                 ),
                 metrics=_SERVER_METRICS,
+                description=(
+                    "Items wait in the server's own queue, then hold one unit of capacity for one "
+                    "service time."
+                ),
             ),
             BlockType(
                 "delay",
@@ -224,6 +235,9 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                 outputs_from=None,
                 settings=(_distribution("time"),),
                 metrics=(),
+                description=(
+                    "Holds each item for the sampled time, with no queue and no capacity limit."
+                ),
             ),
             BlockType(
                 "branch",
@@ -243,6 +257,10 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                     ),
                 ),
                 metrics=(),
+                description=(
+                    "Sends each item down one of its routes, by probability or to the shortest "
+                    "queue."
+                ),
             ),
             BlockType(
                 "queue",
@@ -255,6 +273,7 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                     _word("on_full", ("block", "discard"), "block"),
                 ),
                 metrics=("queue_length.mean", "queue_length.max", "wait.mean", "discarded"),
+                description=("A standalone buffer, for use ahead of a batch or branch."),
             ),
             BlockType(
                 "batch",
@@ -266,6 +285,7 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                     _time("timeout", required=False, above_zero=True),
                 ),
                 metrics=("wait.mean",),
+                description=("Collects size items and releases them as one."),
             ),
             BlockType(
                 "unbatch",
@@ -274,6 +294,7 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                 outputs_from=None,
                 settings=(),
                 metrics=(),
+                description=("Splits a batch back into its items."),
             ),
             BlockType(
                 "store",
@@ -287,6 +308,11 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                     _distribution("lead_time"),
                 ),
                 metrics=("stock.mean", "stockouts", "orders"),
+                description=(
+                    "Each arriving item takes one unit of stock and leaves at once, or waits for a"
+                    " delivery when stock is zero; an order of order_quantity is placed when stock"
+                    " on hand plus on order falls to reorder_point."
+                ),
             ),
             BlockType(
                 "resource_pool",
@@ -295,6 +321,7 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                 outputs_from=None,
                 settings=(_number("capacity", minimum=1),),
                 metrics=("utilization",),
+                description=("Shared staff or tools; servers name it in their pool setting."),
             ),
             BlockType(
                 "schedule",
@@ -318,6 +345,7 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                     ),
                 ),
                 metrics=(),
+                description=("Changes the capacity of a server or pool over time."),
             ),
             BlockType(
                 "failure",
@@ -330,6 +358,9 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                     _distribution("time_to_repair"),
                 ),
                 metrics=(),
+                description=(
+                    "Takes a server out of service at random and returns it after repair."
+                ),
             ),
             BlockType(
                 "sink",
@@ -338,6 +369,7 @@ PROCESS_TYPES: Mapping[str, BlockType] = MappingProxyType(
                 outputs_from=None,
                 settings=(),
                 metrics=("throughput", "cycle_time.mean", "count"),
+                description=("Removes the item and records its statistics."),
             ),
         )
     }
