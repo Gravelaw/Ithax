@@ -31,6 +31,7 @@ import type { Route } from "../app/router";
 import { LOST_CONTACT, ServiceProblem } from "../components/ServiceProblem";
 import { BusyContext, lock, RevisionContext, useBusy } from "./busy";
 import { pointer, shown } from "./model";
+import { own } from "./own";
 import { ProblemsList } from "./ProblemsList";
 import {
   addDecision,
@@ -61,22 +62,22 @@ import {
   ReviewCount,
   ReviewList,
 } from "./ReviewParts";
-import { changeKind, type ReviewItem, shownItems } from "./review";
+import { type Change, changeKind } from "./review";
 import { CommitInput, FieldIssues } from "./SettingFields";
-import { type CanvasSession, clientsOf, type SessionState } from "./session";
+import { type CanvasSession, clientsOf, marksOf, type SessionState } from "./session";
 import { NOTICE_MS, runBlocked, SaveState, WAIT } from "./Toolbar";
 
 type View = "table" | "diagram";
 
 /** Builds one change's edits from the model shown; `null` or `[]` sends nothing. */
-type Change = (model: Model) => Edit[] | null;
+type Build = (model: Model) => Edit[] | null;
 
 interface PlanContext {
   model: Model;
   issues: Issue[];
   readOnly: boolean;
-  marks: readonly ReviewItem[];
-  edit(label: string, change: Change): void;
+  marks: readonly Change[];
+  edit(label: string, change: Build): void;
 }
 
 const KINDS: readonly [string, string][] = [
@@ -223,14 +224,14 @@ function AddButton({
   );
 }
 
-function markOf(marks: readonly ReviewItem[], key: string, id: string): ReviewItem | undefined {
+function markOf(marks: readonly Change[], key: string, id: string): Change | undefined {
   return marks.find(
     (item) => item.ref.kind === "list" && item.ref.key === key && item.ref.id === id,
   );
 }
 
 /** The mark cell of a row: its chip and Accept and Reject, or nothing. */
-function MarkCell({ item, subject }: { item: ReviewItem | undefined; subject: string }) {
+function MarkCell({ item, subject }: { item: Change | undefined; subject: string }) {
   if (item === undefined) return <td />;
   return (
     <td className="plan-mark">
@@ -260,7 +261,7 @@ function GhostRows({
       {removed.map((item) => {
         const id = item.ref.kind === "list" ? item.ref.id : "";
         return (
-          <tr key={item.id} className="plan-row plan-ghost">
+          <tr key={item.key} className="plan-row plan-ghost">
             <td colSpan={columns} className="mono">
               {id}
             </td>
@@ -428,7 +429,7 @@ function Goal({ ctx }: { ctx: PlanContext }) {
                 ctx={ctx}
                 path={`/objective/linear${pointer([name])}`}
                 label={`Coefficient of ${name} in the goal`}
-                value={linear[name]}
+                value={own(linear, name)}
                 onCommit={(value) =>
                   ctx.edit(`set ${name} in the goal`, (model) =>
                     coefficientEdits(model, "/objective", name, value),
@@ -537,7 +538,7 @@ function LimitRow({
               ctx={ctx}
               path={`${base}/linear${pointer([name])}`}
               label={`Coefficient of ${name} in ${id}`}
-              value={linear[name]}
+              value={own(linear, name)}
               onCommit={(value) =>
                 ctx.edit(`set ${name} in ${id}`, (model) =>
                   coefficientEdits(model, base, name, value),
@@ -705,7 +706,10 @@ export function PlanScreen({
   const [notice, setNotice] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(0);
   const [focusPath, setFocusPath] = useState<string | null>(null);
-  const marks = useMemo(() => shownItems(state.review, model), [state.review, model]);
+  const marks = useMemo(
+    () => marksOf({ baseline: state.baseline, model }),
+    [state.baseline, model],
+  );
 
   useEffect(() => {
     if (notice === null) return;
@@ -744,7 +748,7 @@ export function PlanScreen({
   }, [session]);
 
   const edit = useCallback(
-    (label: string, change: Change) => {
+    (label: string, change: Build) => {
       if (!free()) return;
       const before = session.getState().model;
       void session.write(editsWrite(label, change)).then((result) => {
@@ -764,11 +768,11 @@ export function PlanScreen({
 
   const review: ReviewActions = useMemo(
     () => ({
-      accept: (id) => {
-        if (free()) session.accept(id);
+      accept: (key) => {
+        if (free()) session.accept(key);
       },
-      reject: (id) => {
-        if (free()) void session.reject(id);
+      reject: (key) => {
+        if (free()) void session.reject(key);
       },
       acceptAll: () => {
         if (free()) session.acceptAll();

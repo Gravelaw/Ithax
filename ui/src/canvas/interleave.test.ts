@@ -99,8 +99,8 @@ function perform(session: CanvasSession, action: Action): Promise<unknown> {
     const marks = session.marks();
     const mark = marks[action.pick % Math.max(marks.length, 1)];
     if (mark === undefined) return Promise.resolve(session.canWrite() ? "none" : null);
-    if (action.kind === "reject") return session.reject(mark.id);
-    return Promise.resolve(session.accept(mark.id) ? "accepted" : null);
+    if (action.kind === "reject") return session.reject(mark.key);
+    return Promise.resolve(session.accept(mark.key) ? "accepted" : null);
   }
   if (action.kind === "undo") return session.undo();
   if (action.kind === "redo") return session.redo();
@@ -199,7 +199,7 @@ async function slow(
   }
   release();
   await idle(session);
-  const marks = session.marks().map((item) => item.ref);
+  const marks = session.marks().map((item) => item.key);
   session.stop();
   return { accepted, model: service.model, marks };
 }
@@ -208,7 +208,7 @@ async function oneByOne(actions: Action[]): Promise<{ model: Model; marks: unkno
   const { service, session } = await open();
   for (const action of actions) await perform(session, action);
   await idle(session);
-  const marks = session.marks().map((item) => item.ref);
+  const marks = session.marks().map((item) => item.key);
   session.stop();
   return { model: service.model, marks };
 }

@@ -12,6 +12,7 @@ import type {
   Model,
   SettingDescription,
 } from "../api/types";
+import { own } from "./own";
 
 /** The palette's groups and the block shapes (`docs/design/design-system.md` "Block styles"). */
 export type Category = "flow" | "work" | "resource" | "other";
@@ -112,7 +113,7 @@ export function portsOf(
   if (type === undefined) return { inputs: [], outputs: [] };
   let outputs = type.outputs;
   if (type.outputs_from !== null) {
-    const listed = component.params[type.outputs_from];
+    const listed = own(component.params, type.outputs_from);
     outputs = Array.isArray(listed)
       ? listed.filter((item): item is string => typeof item === "string")
       : [];
@@ -194,8 +195,7 @@ export function valueAt(root: unknown, segments: readonly (string | number)[]): 
   let value: unknown = root;
   for (const segment of segments) {
     if (Array.isArray(value)) value = value[Number(segment)];
-    else if (typeof value === "object" && value !== null)
-      value = (value as Record<string, unknown>)[String(segment)];
+    else if (typeof value === "object" && value !== null) value = own(value, String(segment));
     else return undefined;
   }
   return value;
@@ -259,8 +259,8 @@ export function withoutSetting(
 /** A copy of `model` without a parameter field, such as `min` (no edit removes one). */
 export function withoutParameterField(model: Model, id: string, field: string): Model {
   const copy = structuredClone(model);
-  const parameter = copy.parameters?.[id];
-  if (parameter) delete (parameter as unknown as Record<string, unknown>)[field];
+  const parameter = own<Record<string, unknown>>(copy.parameters, id);
+  if (parameter) delete parameter[field];
   return copy;
 }
 
@@ -320,9 +320,9 @@ export function typeLine(component: Component): string {
     failure: "target",
     branch: "rule",
   };
-  const name = key[component.type];
-  if (name === undefined || params[name] === undefined) return component.type;
-  const value = params[name];
+  const name = own<string>(key, component.type);
+  const value = name === undefined ? undefined : own(params, name);
+  if (name === undefined || value === undefined) return component.type;
   if (component.type === "source" && typeof value === "object" && value !== null) {
     const mean = (value as Record<string, unknown>).mean;
     if (mean !== undefined) return `source · every ${shown(mean)}`;

@@ -308,3 +308,71 @@ describe("an outside change to a plan", () => {
     expect(within(toolbar).getByRole("button", { name: "1 change to review" })).toBeVisible();
   });
 });
+
+describe("names Object.prototype also has (review of PR #46)", () => {
+  function odd(): Model {
+    return JSON.parse(`{
+      "format_version": "0.1", "meta": {"name": "Odd"}, "domain": "optimization",
+      "variables": [
+        {"id": "constructor", "type": "continuous"}, {"id": "__proto__", "type": "continuous"},
+        {"id": "toString", "type": "continuous"}, {"id": "hasOwnProperty", "type": "continuous"}
+      ],
+      "objective": {"sense": "maximize", "linear": {"toString": 3}},
+      "constraints": [{"id": "cap", "linear": {"__proto__": 2}, "op": "<=", "rhs": 9}]
+    }`) as Model;
+  }
+
+  it("shows, sets and removes decisions and coefficients by those names", {
+    timeout: 20_000,
+  }, async () => {
+    const { fake, service, toolbar, user } = renderPlan(odd());
+    await settled(toolbar);
+    expect(box("Coefficient of constructor in the goal")).toHaveValue("");
+    expect(box("Coefficient of toString in the goal")).toHaveValue("3");
+    expect(box("Coefficient of __proto__ in cap")).toHaveValue("2");
+    expect(box("Coefficient of hasOwnProperty in cap")).toHaveValue("");
+    await user.type(box("Coefficient of hasOwnProperty in the goal"), "5{Enter}");
+    await settled(toolbar);
+    expect(lastEdits(fake)).toEqual([
+      { edit: "set_path", path: "/objective/linear/hasOwnProperty", value: 5 },
+    ]);
+    expect(
+      Object.hasOwn((service.model.objective as { linear: object }).linear, "hasOwnProperty"),
+    ).toBe(true);
+    // No coefficient anywhere: only the decision goes.
+    await user.click(screen.getByRole("button", { name: "Remove decision constructor" }));
+    await settled(toolbar);
+    expect(lastEdits(fake)).toEqual([{ edit: "remove_path", path: "/variables/0" }]);
+    // A coefficient in a limit goes with its decision.
+    await user.click(screen.getByRole("button", { name: "Remove decision __proto__" }));
+    await settled(toolbar);
+    expect(lastEdits(fake)).toEqual([
+      { edit: "remove_path", path: "/variables/0" },
+      { edit: "remove_path", path: "/constraints/0/linear/__proto__" },
+    ]);
+    expect((service.model.variables as { id: string }[]).map((item) => item.id)).toEqual([
+      "toString",
+      "hasOwnProperty",
+    ]);
+  });
+
+  it("marks and rejects another client's change to such a coefficient", async () => {
+    const { fake, service, toolbar, user } = renderPlan(odd());
+    await settled(toolbar);
+    service.outsideWrite((model) => {
+      Object.defineProperty((model.objective as { linear: object }).linear, "constructor", {
+        value: 7,
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+    });
+    act(() => fake.sockets[0]?.emit({ type: "model", revision: service.revision, client: "mcp" }));
+    const list = await screen.findByRole("region", { name: "1 change to review" });
+    expect(list).toHaveTextContent("Changed: the goal (linear constructor: (none) → 7)");
+    await user.click(within(list).getByRole("button", { name: "Reject the change to the goal" }));
+    await settled(toolbar);
+    expect((service.model.objective as { linear: object }).linear).toEqual({ toString: 3 });
+    expect(screen.queryByRole("region", { name: /to review/ })).toBeNull();
+  });
+});

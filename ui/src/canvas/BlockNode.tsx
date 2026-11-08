@@ -3,7 +3,7 @@
  * states", "Port styles"). Its shape says its category (capsule, rounded box, tag), an icon
  * disc and a title say what it is, badges count its issues (a round badge for errors, a
  * triangle for warnings), and its ports are the type's (a branch's routes on the right).
- * After an outside change a block carries its review mark (Added, Changed, Renamed) with
+ * After an outside change a block carries its review mark (Added, Changed) with
  * Accept and Reject on hover or focus; a removed block is drawn as a ghost (`GhostNode`).
  */
 import {
@@ -26,8 +26,9 @@ import { Handle, type Node, type NodeProps, Position, useUpdateNodeInternals } f
 import { memo, useEffect } from "react";
 import type { Component } from "../api/types";
 import { type Category, shown, typeLine } from "./model";
+import { own } from "./own";
 import { MarkButtons, MarkChip } from "./ReviewParts";
-import { type ChangeKind, changeKind, type ReviewItem } from "./review";
+import { type Change, type ChangeKind, changeKind } from "./review";
 
 export const ICONS: Record<string, Icon> = {
   source: SignInIcon,
@@ -45,7 +46,7 @@ export const ICONS: Record<string, Icon> = {
 };
 
 export function iconOf(type: string): Icon {
-  return ICONS[type] ?? CubeIcon;
+  return own<Icon>(ICONS, type) ?? CubeIcon;
 }
 
 export interface BlockData extends Record<string, unknown> {
@@ -60,7 +61,7 @@ export interface BlockData extends Record<string, unknown> {
   /** The messages of its issues, for the badge's title. */
   messages: string;
   /** Its review mark after an outside change, if any. */
-  review?: ReviewItem;
+  review?: Change;
 }
 
 export type BlockNodeType = Node<BlockData, "block">;
@@ -69,7 +70,7 @@ export type BlockNodeType = Node<BlockData, "block">;
 export interface GhostData extends Record<string, unknown> {
   component: Component;
   category: Category;
-  review: ReviewItem;
+  review: Change;
 }
 
 export type GhostNodeType = Node<GhostData, "ghost">;
@@ -78,7 +79,6 @@ const MARK_WORDS: Readonly<Record<ChangeKind, string>> = {
   added: "added",
   changed: "changed",
   removed: "removed",
-  renamed: "renamed",
 };
 
 /** "till, server, capacity 1, 1 error" (`docs/design/accessibility.md` "Screen readers"). */
@@ -164,7 +164,7 @@ function BlockNodeView({ id, data, selected, isConnectable }: NodeProps<BlockNod
           type="target"
           position={Position.Left}
           isConnectable={isConnectable}
-          className={`port${(data.connected[port]?.length ?? 0) > 0 ? " port-connected" : ""}`}
+          className={`port${(own<string[]>(data.connected, port)?.length ?? 0) > 0 ? " port-connected" : ""}`}
           style={{ top: portTop(index, data.inputs.length) }}
           title={`Input port ${port} of ${component.id}`}
         />
@@ -183,10 +183,7 @@ function BlockNodeView({ id, data, selected, isConnectable }: NodeProps<BlockNod
       <Badge data={data} />
       {data.review && mark ? (
         <span className="block-review-mark">
-          <MarkChip
-            kind={mark}
-            title={data.review.ref.kind === "rename" ? `Was ${data.review.ref.was}` : undefined}
-          />
+          <MarkChip kind={mark} />
           <MarkButtons item={data.review} subject={`block ${component.id}`} />
         </span>
       ) : null}
@@ -197,10 +194,12 @@ function BlockNodeView({ id, data, selected, isConnectable }: NodeProps<BlockNod
           type="source"
           position={Position.Right}
           isConnectable={isConnectable}
-          className={`port${(data.connected[port]?.length ?? 0) > 0 ? " port-connected" : ""}`}
+          className={`port${(own<string[]>(data.connected, port)?.length ?? 0) > 0 ? " port-connected" : ""}`}
           style={{ top: portTop(index, data.outputs.length) }}
           title={`Output port ${port} of ${component.id}${
-            data.connected[port]?.length ? `, connected to ${data.connected[port]?.join(", ")}` : ""
+            own<string[]>(data.connected, port)?.length
+              ? `, connected to ${own<string[]>(data.connected, port)?.join(", ")}`
+              : ""
           }`}
         >
           {routes ? <span className="port-label mono">{port}</span> : null}

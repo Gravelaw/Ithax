@@ -21,7 +21,9 @@ import { createContext, useContext } from "react";
 import type { Model } from "../api/types";
 import { lock, useBusy } from "./busy";
 import { shown } from "./model";
+import { own } from "./own";
 import {
+  type Change,
   type ChangeKind,
   changeKind,
   changeSubject,
@@ -29,14 +31,13 @@ import {
   type FieldChange,
   fieldChanges,
   fieldName,
-  type ReviewItem,
 } from "./review";
 import type { Outside } from "./session";
 
 /** What the marks' buttons do; given by the screen, which knows the session. */
 export interface ReviewActions {
-  accept(id: number): void;
-  reject(id: number): void;
+  accept(key: string): void;
+  reject(key: string): void;
   acceptAll(): void;
   rejectAll(): void;
   /** Read-only (a write gets no answer): the buttons are disabled. */
@@ -67,7 +68,7 @@ const CLIENT_WORDS: Readonly<Record<string, string>> = {
 export function whoChanged(clients: readonly string[]): string {
   if (clients.length === 0) return "by another program";
   return clients
-    .map((client) => CLIENT_WORDS[client] ?? `by another program (${client})`)
+    .map((client) => own<string>(CLIENT_WORDS, client) ?? `by another program (${client})`)
     .join(" and ");
 }
 
@@ -113,7 +114,6 @@ const WORDS: Readonly<Record<ChangeKind, string>> = {
   added: "Added",
   changed: "Changed",
   removed: "Removed",
-  renamed: "Renamed",
 };
 
 /** A mark's chip: an icon and its word, so it does not rely on colour. */
@@ -128,7 +128,7 @@ export function MarkChip({ kind, title }: { kind: ChangeKind; title?: string }) 
 }
 
 /** Accept and Reject for one change. */
-export function MarkButtons({ item, subject }: { item: ReviewItem; subject: string }) {
+export function MarkButtons({ item, subject }: { item: Change; subject: string }) {
   const actions = useReview();
   const busy = useBusy();
   const stop = (event: { stopPropagation: () => void }) => event.stopPropagation();
@@ -142,7 +142,7 @@ export function MarkButtons({ item, subject }: { item: ReviewItem; subject: stri
         onPointerDown={stop}
         onClick={(event) => {
           stop(event);
-          actions.accept(item.id);
+          actions.accept(item.key);
         }}
       >
         <CheckIcon aria-hidden="true" size={14} />
@@ -156,7 +156,7 @@ export function MarkButtons({ item, subject }: { item: ReviewItem; subject: stri
         onPointerDown={stop}
         onClick={(event) => {
           stop(event);
-          actions.reject(item.id);
+          actions.reject(item.key);
         }}
       >
         <ArrowCounterClockwiseIcon aria-hidden="true" size={14} />
@@ -186,7 +186,7 @@ export function ChangedFields({ fields }: { fields: readonly FieldChange[] }) {
 }
 
 /** The changes of one marked block, for its side panel. */
-export function BlockReview({ item, model }: { item: ReviewItem; model: Model }) {
+export function BlockReview({ item, model }: { item: Change; model: Model }) {
   const kind = changeKind(item);
   const subject = changeSubject(item, model.domain);
   return (
@@ -195,11 +195,6 @@ export function BlockReview({ item, model }: { item: ReviewItem; model: Model })
         <MarkChip kind={kind} /> by another client
       </h2>
       {kind === "changed" ? <ChangedFields fields={fieldChanges(item.before, item.after)} /> : null}
-      {kind === "renamed" && item.ref.kind === "rename" ? (
-        <p>
-          Was <span className="mono">{item.ref.was}</span>.
-        </p>
-      ) : null}
       <MarkButtons item={item} subject={subject} />
     </section>
   );
@@ -215,11 +210,11 @@ export function ReviewList({
   onShow,
   shows = (item) => changeKind(item) !== "removed",
 }: {
-  marks: readonly ReviewItem[];
+  marks: readonly Change[];
   model: Model;
-  onShow?: (item: ReviewItem) => void;
+  onShow?: (item: Change) => void;
   /** Whether `onShow` can show a change; by default every change but a removal. */
-  shows?: (item: ReviewItem) => boolean;
+  shows?: (item: Change) => boolean;
 }) {
   const actions = useReview();
   const busy = useBusy();
@@ -253,7 +248,7 @@ export function ReviewList({
         {marks.map((item) => {
           const subject = changeSubject(item, model.domain);
           return (
-            <li key={item.id} className={`review-row mark-row-${changeKind(item)}`}>
+            <li key={item.key} className={`review-row mark-row-${changeKind(item)}`}>
               {onShow && shows(item) ? (
                 <button type="button" className="link review-text" onClick={() => onShow(item)}>
                   {describeChange(item, model.domain)}

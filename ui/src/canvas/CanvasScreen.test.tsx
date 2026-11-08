@@ -853,7 +853,7 @@ describe("why Run waits", () => {
     undoLabel: null,
     redoLabel: null,
     reloads: 0,
-    review: [],
+    baseline: null,
     outside: null,
     writers: {},
     eventsClosed: null,
@@ -1279,5 +1279,40 @@ describe("reviewing an outside change (AKS-137)", () => {
     await user.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByText(/had just been changed/)).toBeNull();
     expect(within(toolbar).getByRole("button", { name: "1 change to review" })).toBeVisible();
+  });
+
+  it("marks, rejects and accepts parameters named like Object.prototype's members (review of PR #46)", async () => {
+    const model = coffeeShop();
+    model.components?.push({ id: "odd", type: "constructor", params: {}, ui: { x: 0, y: 300 } });
+    const { fake, service, toolbar, user } = renderCanvas({ model });
+    await settled(toolbar);
+    expect(node("odd")).toHaveAttribute("aria-label", "odd, constructor");
+    service.outsideWrite((written) => {
+      written.parameters = JSON.parse(
+        `{"tills": {"value": 1, "type": "integer", "min": 1, "max": 5},
+          "constructor": {"value": 1, "type": "integer"}, "__proto__": {"value": 2, "type": "integer"},
+          "toString": {"value": 3, "type": "integer"}, "hasOwnProperty": {"value": 4, "type": "integer"}}`,
+      );
+    });
+    act(() => fake.sockets[0]?.emit({ type: "model", revision: service.revision, client: "mcp" }));
+    const list = await within(panel()).findByRole("region", { name: "4 changes to review" });
+    expect(within(list).getByText("Added: parameter __proto__")).toBeVisible();
+    await user.click(
+      within(list).getByRole("button", { name: "Reject the change to parameter constructor" }),
+    );
+    await settled(toolbar);
+    expect(Object.hasOwn(service.model.parameters ?? {}, "constructor")).toBe(false);
+    expect(Object.hasOwn(service.model.parameters ?? {}, "__proto__")).toBe(true);
+    await user.click(
+      within(panel()).getByRole("button", { name: "Reject the change to parameter __proto__" }),
+    );
+    await settled(toolbar);
+    expect(Object.keys(service.model.parameters ?? {})).toEqual([
+      "tills",
+      "toString",
+      "hasOwnProperty",
+    ]);
+    await user.click(within(panel()).getByRole("button", { name: "Accept all" }));
+    expect(within(toolbar).queryByRole("button", { name: /changes? to review/ })).toBeNull();
   });
 });

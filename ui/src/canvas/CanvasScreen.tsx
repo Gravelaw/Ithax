@@ -11,7 +11,7 @@
  * Undo and redo write whole models. Validation follows each write by half a second; its
  * issues mark the blocks and fill the problems list. Run waits for a saved, checked model
  * without errors. After another client's write the canvas names the client in a notice and
- * marks what it added, changed, renamed or removed (`review.ts`, `ReviewParts.tsx`), each
+ * marks what it added, changed or removed (`review.ts`, `ReviewParts.tsx`), each
  * with Accept and Reject; the side panel lists the marks when nothing is selected. An
  * `optimization` model has the Table and Diagram views of `PlanScreen.tsx` instead.
  */
@@ -86,15 +86,16 @@ import {
   snap,
   splitEnd,
 } from "./model";
+import { own, record } from "./own";
 import { BLOCK_MIME, Palette } from "./Palette";
 import { PlanScreen } from "./PlanScreen";
 import { ProblemsList } from "./ProblemsList";
 import { type EditPlan, editsWrite, modelWrite } from "./plans";
 import { ReferenceEdge } from "./ReferenceEdge";
 import { OutsideNotice, type ReviewActions, ReviewContext, ReviewCount } from "./ReviewParts";
-import { type ReviewItem, shownItems } from "./review";
+import type { Change } from "./review";
 import { type PanelActions, type Selection, SidePanel } from "./SidePanel";
-import { clientsOf, type SessionState } from "./session";
+import { clientsOf, marksOf, type SessionState } from "./session";
 import { NOTICE_MS, runBlocked, SaveState, WAIT } from "./Toolbar";
 import { undoSteps, useSession } from "./useSession";
 
@@ -206,20 +207,19 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 /** The marks on blocks, by the block's id now; and the removed blocks, by their old id. */
-function blockMarks(marks: readonly ReviewItem[]): {
-  live: Map<string, ReviewItem>;
-  removed: ReviewItem[];
-  connections: Map<string, ReviewItem>;
-  gone: ReviewItem[];
+function blockMarks(marks: readonly Change[]): {
+  live: Map<string, Change>;
+  removed: Change[];
+  connections: Map<string, Change>;
+  gone: Change[];
 } {
-  const live = new Map<string, ReviewItem>();
-  const removed: ReviewItem[] = [];
-  const linked = new Map<string, ReviewItem>();
-  const gone: ReviewItem[] = [];
+  const live = new Map<string, Change>();
+  const removed: Change[] = [];
+  const linked = new Map<string, Change>();
+  const gone: Change[] = [];
   for (const item of marks) {
     const { ref } = item;
-    if (ref.kind === "rename") live.set(ref.id, item);
-    else if (ref.kind === "list" && ref.key === "components") {
+    if (ref.kind === "list" && ref.key === "components") {
       if (item.after === undefined) removed.push(item);
       else live.set(ref.id, item);
     } else if (ref.kind === "list" && ref.key === "connections") {
@@ -241,14 +241,14 @@ function buildNodes(
   marks: ReturnType<typeof blockMarks>,
 ): CanvasNode[] {
   // A renamed block keeps its selection and size under its new id.
-  const before = new Map(previous.map((node) => [renamed[node.id] ?? node.id, node]));
+  const before = new Map(previous.map((node) => [own<string>(renamed, node.id) ?? node.id, node]));
   const all = components(model);
   const linked = connections(model);
   const blocks = all.map((component, index): BlockNodeType => {
-    const ports = portsOf(component, types[component.type]);
-    const own = issues.filter((issue) => issueComponent(issue, model) === component.id);
-    const errors = own.filter((issue) => issue.severity === "error").length;
-    const connected: Record<string, string[]> = {};
+    const ports = portsOf(component, own(types, component.type));
+    const mine = issues.filter((issue) => issueComponent(issue, model) === component.id);
+    const errors = mine.filter((issue) => issue.severity === "error").length;
+    const connected = record<string[]>();
     for (const connection of linked) {
       const from = splitEnd(connection.from);
       const to = splitEnd(connection.to);
@@ -264,8 +264,8 @@ function buildNodes(
       outputs: ports.outputs,
       connected,
       errors,
-      warnings: own.length - errors,
-      messages: own.map((issue) => `${issue.code} ${issue.message}`).join("\n"),
+      warnings: mine.length - errors,
+      messages: mine.map((issue) => `${issue.code} ${issue.message}`).join("\n"),
     };
     const mark = marks.live.get(component.id);
     if (mark) data.review = mark;
@@ -327,8 +327,8 @@ function buildEdges(
     const source = byId.get(from[0]);
     const target = byId.get(to[0]);
     if (!source || !target) return;
-    if (!portsOf(source, types[source.type]).outputs.includes(from[1])) return;
-    if (!portsOf(target, types[target.type]).inputs.includes(to[1])) return;
+    if (!portsOf(source, own(types, source.type)).outputs.includes(from[1])) return;
+    if (!portsOf(target, own(types, target.type)).inputs.includes(to[1])) return;
     const id = `c${index}:${connection.from}>${connection.to}`;
     const mark = marks.connections.get(connection.from);
     const kind = mark ? (mark.before === undefined ? "added" : "changed") : null;
@@ -360,7 +360,7 @@ function buildEdges(
       if (ghosts.has(id))
         return { node: `ghost:${id}`, handle: side === "outputs" ? "ghost-out" : "ghost-in" };
       const component = byId.get(id);
-      if (!component || !portsOf(component, types[component.type])[side].includes(port))
+      if (!component || !portsOf(component, own(types, component.type))[side].includes(port))
         return null;
       return { node: id, handle: port };
     };
@@ -485,7 +485,10 @@ function ProcessCanvas({
   const area = useRef<HTMLElement>(null);
   const drawn = useRef(new Set<string>());
   drawn.current = new Set(nodes.map((node) => node.id));
-  const marks = useMemo(() => shownItems(state.review, model), [state.review, model]);
+  const marks = useMemo(
+    () => marksOf({ baseline: state.baseline, model }),
+    [state.baseline, model],
+  );
   const marked = useMemo(() => blockMarks(marks), [marks]);
   const [dismissed, setDismissed] = useState(0);
   const [openReview, setOpenReview] = useState(0);
@@ -557,7 +560,7 @@ function ProcessCanvas({
       // Until the drawing catches up, a block renamed by the last write is found by its new id.
       blocks: nodes
         .filter((node) => node.selected)
-        .map((node) => state.renamed[node.id] ?? node.id),
+        .map((node) => own<string>(state.renamed, node.id) ?? node.id),
       connections: edges
         .filter((edge) => edge.selected && edge.type !== "reference")
         .map((edge) => (edge.data as { index: number }).index),
@@ -913,11 +916,11 @@ function ProcessCanvas({
 
   const review: ReviewActions = useMemo(
     () => ({
-      accept: (id) => {
-        if (free()) session.accept(id);
+      accept: (key) => {
+        if (free()) session.accept(key);
       },
-      reject: (id) => {
-        if (free()) void session.reject(id);
+      reject: (key) => {
+        if (free()) void session.reject(key);
       },
       acceptAll: () => {
         if (free()) session.acceptAll();
@@ -931,10 +934,9 @@ function ProcessCanvas({
   );
 
   /** A row of the changes list selects its block, when the change is a block's. */
-  const showChange = (item: ReviewItem) => {
+  const showChange = (item: Change) => {
     const { ref } = item;
-    const id =
-      ref.kind === "rename" || (ref.kind === "list" && ref.key === "components") ? ref.id : null;
+    const id = ref.kind === "list" && ref.key === "components" ? ref.id : null;
     if (id !== null && components(model).some((component) => component.id === id)) centreOn(id);
   };
 
@@ -958,7 +960,7 @@ function ProcessCanvas({
   const connectingBlock =
     connecting === null ? undefined : components(model).find((item) => item.id === connecting);
   const inputEnds = components(model).flatMap((component) =>
-    portsOf(component, types[component.type]).inputs.map((port) => `${component.id}.${port}`),
+    portsOf(component, own(types, component.type)).inputs.map((port) => `${component.id}.${port}`),
   );
 
   const tools = (
@@ -1156,7 +1158,7 @@ function ProcessCanvas({
             {connectingBlock !== undefined ? (
               <ConnectDialog
                 block={connectingBlock.id}
-                outputs={portsOf(connectingBlock, types[connectingBlock.type]).outputs}
+                outputs={portsOf(connectingBlock, own(types, connectingBlock.type)).outputs}
                 inputs={inputEnds}
                 current={(port) =>
                   connections(model).find((item) => item.from === `${connectingBlock.id}.${port}`)

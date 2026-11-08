@@ -29,6 +29,7 @@ import {
   valueAt,
   words,
 } from "./model";
+import { hasOwn, own } from "./own";
 import { clearPlan, componentIn, type EditPlan, settingLabel, settingPlan } from "./plans";
 
 export type { EditPlan } from "./plans";
@@ -322,7 +323,8 @@ function ValueField({
       const component = componentIn(model, id);
       if (component === undefined) return null;
       const current = paramOf(valueAt(component.params, segments));
-      const parameter = current === null ? undefined : model.parameters?.[current];
+      const parameter =
+        current === null ? undefined : own<{ value: unknown }>(model.parameters, current);
       return parameter !== undefined ? [settingEdit(component, segments, parameter.value)] : null;
     });
   };
@@ -410,7 +412,7 @@ function DistributionField({
       ? (value as Record<string, unknown>)
       : null;
   const dist = typeof object?.dist === "string" ? object.dist : "";
-  const fields = DISTRIBUTIONS[dist] ?? [];
+  const fields = own<(typeof DISTRIBUTIONS)[string]>(DISTRIBUTIONS, dist) ?? [];
   const choose = (next: string) => {
     if (next === "") {
       if (!required) clear(ctx, segments);
@@ -423,8 +425,9 @@ function DistributionField({
           ? (current as Record<string, unknown>)
           : {};
       const kept: Record<string, unknown> = { dist: next };
-      for (const field of DISTRIBUTIONS[next] ?? []) {
-        if (saved[field.name] !== undefined) kept[field.name] = saved[field.name];
+      for (const field of own<(typeof DISTRIBUTIONS)[string]>(DISTRIBUTIONS, next) ?? []) {
+        const was = own(saved, field.name);
+        if (was !== undefined) kept[field.name] = was;
       }
       return kept;
     });
@@ -442,7 +445,7 @@ function DistributionField({
           <option value="" disabled={required}>
             {required ? "Choose a distribution" : "Not set"}
           </option>
-          {dist !== "" && DISTRIBUTIONS[dist] === undefined ? (
+          {dist !== "" && !hasOwn(DISTRIBUTIONS, dist) ? (
             <option value={dist}>{dist}</option>
           ) : null}
           {Object.keys(DISTRIBUTIONS).map((name) => (

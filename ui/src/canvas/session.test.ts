@@ -454,9 +454,22 @@ describe("the review of an outside change (AKS-137)", () => {
     fake.sockets[0]?.emit({ type: "model", revision: service.revision, client });
   }
 
-  const capacity = (model: Model) => {
-    const till = model.components?.find((item) => item.id === "till");
-    if (till) till.params.capacity = 2;
+  const capacity =
+    (value = 2) =>
+    (model: Model) => {
+      const till = model.components?.find((item) => item.id === "till");
+      if (till) till.params.capacity = value;
+    };
+
+  const renamed = (from: string, to: string) => (model: Model) => {
+    const found = model.components?.find((item) => item.id === from);
+    if (found) found.id = to;
+    for (const connection of model.connections ?? []) {
+      if (connection.from.startsWith(`${from}.`))
+        connection.from = to + connection.from.slice(from.length);
+      if (connection.to.startsWith(`${from}.`))
+        connection.to = to + connection.to.slice(from.length);
+    }
   };
 
   it("marks what another client changed and names the client, keeping its own writes out", async () => {
@@ -464,21 +477,18 @@ describe("the review of an outside change (AKS-137)", () => {
     const own = write(session, [label("till", "T")]);
     fake.sockets[0]?.emit({ type: "model", revision: 4, client: "ui" });
     await own;
-    outside(fake, service, capacity, "script");
+    outside(fake, service, capacity(), "script");
     await vi.advanceTimersByTimeAsync(0);
     const state = session.getState();
     expect(state.outside).toMatchObject({ from: 4, to: 5, conflict: false });
     expect(clientsOf(state)).toEqual(["script"]);
-    expect(state.review.map((item) => item.ref)).toEqual([
-      { kind: "list", key: "components", id: "till" },
-    ]);
-    expect(session.marks()).toHaveLength(1);
+    expect(session.marks().map((item) => item.key)).toEqual(["list:components:till"]);
     expect(state.undoLabel).toBeNull();
   });
 
   it("takes a 409 E181 as an outside change, with the client of the event", async () => {
     const { fake, service, session } = await opened();
-    service.outsideWrite(capacity);
+    service.outsideWrite(capacity());
     await write(session, [label("till", "T")]);
     await vi.advanceTimersByTimeAsync(0);
     expect(session.getState().outside).toMatchObject({ from: 3, to: 4, conflict: true });
@@ -488,73 +498,77 @@ describe("the review of an outside change (AKS-137)", () => {
     expect(session.marks()).toHaveLength(1);
   });
 
-  it("accepts without writing, and refuses while a write awaits its answer", async () => {
+  it("accepts into the baseline without writing, and refuses while a write awaits its answer", async () => {
     const { fake, service, session } = await opened();
     outside(fake, service, (model) => {
-      capacity(model);
+      capacity()(model);
       model.meta = { name: "Cafe" };
     });
     await vi.advanceTimersByTimeAsync(0);
     const [first, second] = session.marks();
     const release = fake.holdWrites();
     const pending = write(session, [label("exit", "E")]);
-    expect(session.accept(first?.id ?? 0)).toBe(false);
+    expect(session.accept(first?.key ?? "")).toBe(false);
+    expect(session.acceptAll()).toBe(false);
     expect(session.marks()).toHaveLength(2);
     release();
     await pending;
     const writes = fake.requests.length;
-    expect(session.accept(first?.id ?? 0)).toBe(true);
-    expect(session.marks().map((item) => item.id)).toEqual([second?.id]);
+    expect(session.accept(first?.key ?? "")).toBe(true);
+    expect(session.marks().map((item) => item.key)).toEqual([second?.key]);
     expect(session.acceptAll()).toBe(true);
     expect(session.marks()).toEqual([]);
+    expect(session.getState().baseline).toBeNull();
     expect(fake.requests.length).toBe(writes);
   });
 
-  it("rejects with a whole-model write and base_revision, one undo step that brings the mark back", async () => {
+  it("rejects one item with a whole-model write and base_revision, as one undo step", async () => {
     const { fake, service, session } = await opened();
     outside(fake, service, (model) => {
-      capacity(model);
+      capacity()(model);
       model.components?.push({ id: "queue_1", type: "queue", params: {} });
     });
     await vi.advanceTimersByTimeAsync(0);
-    const [changed] = session.marks();
-    await session.reject(changed?.id ?? 0);
+    await session.reject("list:components:till");
     const put = fake.requested("PUT", MODEL).at(-1);
     expect(put?.search).toBe("?base_revision=4");
     expect(service.component("till")?.params.capacity).toEqual({ $param: "tills" });
     expect(service.component("queue_1")).toBeDefined();
-    expect(session.marks().map((item) => item.ref)).toEqual([
-      { kind: "list", key: "components", id: "queue_1" },
-    ]);
+    expect(session.marks().map((item) => item.key)).toEqual(["list:components:queue_1"]);
     expect(session.getState().undoLabel).toBe("reject the change to block till");
-    await session.undo();
-    expect(session.marks()).toHaveLength(2);
+    // Reject all writes the baseline.
     await session.rejectAll();
+    expect(fake.requested("PUT", MODEL).at(-1)?.body).toEqual(coffeeShop());
     expect(service.model).toEqual(coffeeShop());
     expect(session.marks()).toEqual([]);
   });
 
-  it("ends a mark when the user changes the item, and keeps the others", async () => {
+  it("folds the user's own writes into the baseline, ending the mark of an item it changes", async () => {
     const { fake, service, session } = await opened();
     outside(fake, service, (model) => {
-      capacity(model);
+      capacity()(model);
       model.meta = { name: "Cafe" };
     });
     await vi.advanceTimersByTimeAsync(0);
     await write(session, [label("till", "Mine")]);
-    expect(session.marks().map((item) => item.ref)).toEqual([{ kind: "top", key: "meta" }]);
+    await write(session, [label("exit", "Door")]);
+    expect(session.marks().map((item) => item.key)).toEqual(["top:meta"]);
+    // Reject all keeps the user's own changes: only the outside change goes.
+    await session.rejectAll();
+    expect(service.model.meta).toEqual({ name: "Shop" });
+    expect(service.component("exit")?.label).toBe("Door");
+    expect(service.component("till")?.label).toBe("Mine");
   });
 
-  it("adds a later outside change to the marks, keeping an item's first before", async () => {
+  it("compares later outside changes with the same baseline, so they compose", async () => {
     const { fake, service, session } = await opened();
-    outside(fake, service, capacity);
+    outside(fake, service, capacity(2));
     await vi.advanceTimersByTimeAsync(0);
     outside(
       fake,
       service,
       (model) => {
-        const till = model.components?.find((item) => item.id === "till");
-        if (till) till.params.capacity = 3;
+        capacity(3)(model);
         model.meta = { name: "Cafe" };
       },
       "ui",
@@ -562,24 +576,48 @@ describe("the review of an outside change (AKS-137)", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(session.getState().outside).toMatchObject({ from: 4, to: 5 });
     expect(clientsOf(session.getState())).toEqual(["ui"]);
-    expect(session.marks()).toHaveLength(2);
-    const till = session.marks().find((item) => item.ref.kind === "list");
-    await session.reject(till?.id ?? 0);
+    expect(session.marks().map((item) => item.key)).toEqual(["top:meta", "list:components:till"]);
+    await session.reject("list:components:till");
     expect(service.component("till")?.params.capacity).toEqual({ $param: "tills" });
+    // A change the other client puts back is no longer marked.
+    outside(fake, service, (model) => {
+      model.meta = { name: "Shop" };
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(session.marks()).toEqual([]);
+    expect(session.getState().baseline).toBeNull();
   });
 
-  it("refuses Reject while a write awaits its answer, and for a mark no longer shown", async () => {
+  it("shows renames a to b to c as Removed a and Added c, and Reject all restores a", async () => {
     const { fake, service, session } = await opened();
-    outside(fake, service, capacity);
+    outside(fake, service, renamed("till", "b"));
+    await vi.advanceTimersByTimeAsync(0);
+    outside(fake, service, renamed("b", "c"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(session.marks().map((item) => item.key)).toEqual([
+      "list:components:c",
+      "list:components:till",
+      "list:connections:arrivals.out",
+      "list:connections:c.out",
+      "list:connections:till.out",
+    ]);
+    await session.rejectAll();
+    expect(service.model).toEqual(coffeeShop());
+    expect(session.marks()).toEqual([]);
+  });
+
+  it("refuses Reject while a write awaits its answer, and for a mark not shown", async () => {
+    const { fake, service, session } = await opened();
+    outside(fake, service, capacity());
     await vi.advanceTimersByTimeAsync(0);
     const [mark] = session.marks();
     const release = fake.holdWrites();
     const pending = write(session, [label("exit", "E")]);
-    expect(await session.reject(mark?.id ?? 0)).toBeNull();
+    expect(await session.reject(mark?.key ?? "")).toBeNull();
     expect(await session.rejectAll()).toBeNull();
     release();
     await pending;
-    expect(await session.reject(999)).toBeNull();
+    expect(await session.reject("list:components:nothing")).toBeNull();
     expect(fake.requested("PUT", MODEL)).toHaveLength(0);
   });
 });

@@ -21,24 +21,18 @@
  *   is dropped.
  * - **Other clients.** A `model` event whose revision is newer than the canvas's own, once
  *   its write has answered, reloads the model and clears undo and redo; a 409 with E181
- *   does the same. The model shown before is compared with the one read (`review.ts`):
- *   each change is kept with the item before and after, and its mark is shown while the
- *   model shown holds the item as the other client left it (AKS-137). Accept hides a mark
- *   and writes nothing; Reject writes the model shown with the item restored, a whole
- *   model like undo, one undo step. Both are changes like any other: refused while busy.
+ *   does the same. The model shown before the first outside change not yet reviewed is
+ *   kept as the baseline, with the user's own writes folded in; the marks are always the
+ *   comparison of the baseline with the model shown (`review.ts`, AKS-137). Accept puts
+ *   the item as shown into the baseline and writes nothing; Reject writes the model shown
+ *   with the item as in the baseline, Reject all writes the baseline, each a whole model
+ *   like undo and one undo step. All are changes like any other: refused while busy.
  */
 import type { ApiClient, ApiResult, EventSocket } from "../api/client";
 import type { Edit, Issue, Model, ModelWriteBody, ProjectEvent } from "../api/types";
 import { movesIn, type Point } from "./model";
-import {
-  changeSubject,
-  changesBetween,
-  mergeReview,
-  type ReviewItem,
-  restore,
-  restoreAll,
-  shownItems,
-} from "./review";
+import { record } from "./own";
+import { absorb, adopt, type Change, changeSubject, changesBetween, restore } from "./review";
 
 export const RETRY_MS = 2000;
 export const VALIDATE_MS = 500;
@@ -95,8 +89,12 @@ export interface SessionState {
   redoLabel: string | null;
   /** How many times another client's change reloaded the model. */
   reloads: number;
-  /** Every change other clients made since the project was opened, for the review marks. */
-  review: readonly ReviewItem[];
+  /**
+   * The model before the first outside change not yet reviewed, with the user's own writes
+   * since folded in; `null` when nothing is to be reviewed. The marks compare it with
+   * `model`.
+   */
+  baseline: Model | null;
   /** The last outside change, for its notice; `null` until one happens. */
   outside: Outside | null;
   /** The client of each `model` event the notice may need, by revision. */
@@ -131,7 +129,7 @@ export const INITIAL_STATE: SessionState = {
   undoLabel: null,
   redoLabel: null,
   reloads: 0,
-  review: [],
+  baseline: null,
   outside: null,
   writers: {},
   eventsClosed: null,
@@ -152,6 +150,18 @@ export function clientsOf(state: SessionState): string[] {
   return found;
 }
 
+/** The baseline, or `null` once nothing differs from `model`. */
+function settle(baseline: Model, model: Model): Model | null {
+  return changesBetween(baseline, model).length === 0 ? null : baseline;
+}
+
+/** The review marks of a state: its baseline compared with the model shown. */
+export function marksOf(state: Pick<SessionState, "baseline" | "model">): Change[] {
+  return state.baseline === null || state.model === null
+    ? []
+    : changesBetween(state.baseline, state.model);
+}
+
 /** `merge` is a move that joins the previous move's undo step. */
 type History = "do" | "merge" | "undo" | "redo";
 
@@ -170,8 +180,6 @@ export class CanvasSession {
   private lastMove: { moved: string; at: number } | null = null;
   /** The newest revision another client announced while the session was busy. */
   private announced = 0;
-  /** The id the next review item gets. */
-  private nextReview = 1;
   private undoLimit: number;
   private readonly setTimer: (callback: () => void, ms: number) => unknown;
   private readonly clearTimer: (handle: unknown) => void;
@@ -335,12 +343,18 @@ export class CanvasSession {
     const done = { saving: false, busy: false, failing: false };
     if (result.kind === "ok") {
       this.record(history, write.label, before, result.data.model, moved);
-      const renamed: Record<string, string> = {};
+      const renamed = record<string>();
       if (write.kind === "edits") {
         for (const edit of write.edits) {
           if (edit.edit === "rename_component") renamed[edit.id] = edit.new_id;
         }
       }
+      // The user's own change is never marked: it goes into the baseline too.
+      const baseline = this.state.baseline;
+      const kept =
+        baseline === null
+          ? null
+          : settle(absorb(baseline, before, result.data.model), result.data.model);
       // The model and the end of the wait in one change, so the screen never draws the
       // new model while still refusing changes, nor the reverse.
       this.set({
@@ -349,6 +363,7 @@ export class CanvasSession {
         renamed,
         model: result.data.model,
         revision: result.data.revision,
+        baseline: kept,
         writers: this.keptWriters(result.data.revision),
       });
     } else if (result.kind === "refused" && result.error.code === "E181") {
@@ -457,8 +472,9 @@ export class CanvasSession {
       const shown = this.state.model;
       const from = this.state.revision;
       const fresh = shown === null ? [] : changesBetween(shown, loaded.data.model);
-      const review = mergeReview(shownItems(this.state.review, shown), fresh, this.nextReview);
-      this.nextReview = Math.max(this.nextReview, ...review.map((item) => item.id + 1));
+      // The baseline stays the model before the first outside change not yet reviewed.
+      const base = this.state.baseline ?? shown;
+      const baseline = base === null ? null : settle(base, loaded.data.model);
       const moved = loaded.data.revision !== from || fresh.length > 0;
       const outside: Outside | null = moved
         ? { from, to: loaded.data.revision, conflict, seq: (this.state.outside?.seq ?? 0) + 1 }
@@ -472,7 +488,7 @@ export class CanvasSession {
         renamed: {},
         model: loaded.data.model,
         revision: loaded.data.revision,
-        review,
+        baseline,
         outside,
         writers,
       });
@@ -483,39 +499,37 @@ export class CanvasSession {
     this.scheduleValidate();
   }
 
-  /** The review marks shown on the model shown. */
-  marks(): ReviewItem[] {
-    return shownItems(this.state.review, this.state.model);
+  /** The review marks: the baseline compared with the model shown. */
+  marks(): Change[] {
+    return marksOf(this.state);
   }
 
-  /** Hides one mark; writes nothing. `false` when no change is taken now. */
-  accept(id: number): boolean {
+  /** Takes one marked item as shown into the baseline; writes nothing. */
+  accept(key: string): boolean {
     if (!this.canWrite()) return false;
-    this.set({
-      review: this.state.review.map((item) =>
-        item.id === id ? { ...item, accepted: true } : item,
-      ),
-    });
+    const { baseline, model } = this.state;
+    const item = this.marks().find((mark) => mark.key === key);
+    if (baseline === null || model === null || item === undefined) return true;
+    this.set({ baseline: settle(adopt(baseline, item), model) });
     return true;
   }
 
-  /** Hides every mark shown. */
+  /** Takes the model shown as the baseline: no marks remain. */
   acceptAll(): boolean {
     if (!this.canWrite()) return false;
-    const shown = new Set(this.marks().map((item) => item.id));
-    this.set({
-      review: this.state.review.map((item) =>
-        shown.has(item.id) ? { ...item, accepted: true } : item,
-      ),
-    });
+    this.set({ baseline: null });
     return true;
   }
 
-  /** Writes the model shown with one marked item as it was: a whole model, one undo step. */
-  reject(id: number): Promise<ApiResult<ModelWriteBody> | null> {
+  /** Writes the model shown with one marked item as in the baseline: one undo step. */
+  reject(key: string): Promise<ApiResult<ModelWriteBody> | null> {
     const domain = this.state.model?.domain;
     return this.write((model) => {
-      const item = shownItems(this.state.review, model).find((mark) => mark.id === id);
+      const baseline = this.state.baseline;
+      const item =
+        baseline === null
+          ? undefined
+          : changesBetween(baseline, model).find((mark) => mark.key === key);
       if (item === undefined) return null;
       return {
         kind: "model",
@@ -525,12 +539,13 @@ export class CanvasSession {
     });
   }
 
-  /** Writes the model shown with every marked item as it was, in one write. */
+  /** Writes the baseline: every marked item as it was, in one write and one undo step. */
   rejectAll(): Promise<ApiResult<ModelWriteBody> | null> {
-    return this.write((model) => {
-      const items = shownItems(this.state.review, model);
-      if (items.length === 0) return null;
-      return { kind: "model", label: "reject every change", model: restoreAll(model, items) };
+    return this.write(() => {
+      const baseline = this.state.baseline;
+      return baseline === null
+        ? null
+        : { kind: "model", label: "reject every change", model: baseline };
     });
   }
 

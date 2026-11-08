@@ -23,10 +23,11 @@ import {
   readNumber,
   splitEnd,
 } from "./model";
+import { own } from "./own";
 import { Parameters } from "./Parameters";
 import type { EditPlan } from "./plans";
 import { BlockReview, ReviewList } from "./ReviewParts";
-import type { ReviewItem } from "./review";
+import type { Change } from "./review";
 import { CommitInput, type FieldActions, type FieldContext, SettingField } from "./SettingFields";
 
 export interface PanelActions extends FieldActions {
@@ -75,7 +76,7 @@ export function useComponentType(client: ApiClient, type: string): ApiResult<Com
 function inputPorts(model: Model, types: Record<string, ComponentType>): string[] {
   const ends: string[] = [];
   for (const component of components(model)) {
-    for (const port of portsOf(component, types[component.type]).inputs) {
+    for (const port of portsOf(component, own(types, component.type)).inputs) {
       ends.push(`${component.id}.${port}`);
     }
   }
@@ -110,7 +111,7 @@ function BlockPanel({
     if (setting !== null) byField.set(setting, [...(byField.get(setting) ?? []), issue]);
   }
   const ctx: FieldContext = { model, component, issues: byField, readOnly, actions };
-  const ports = portsOf(component, types[component.type]);
+  const ports = portsOf(component, own(types, component.type));
   const targets = inputPorts(model, types);
   const drawnAt = positionOf(
     component,
@@ -356,7 +357,7 @@ function BlocksTable({
                 <td>{component.type}</td>
                 <td className="mono">
                   {goes.join(", ") ||
-                    (portsOf(component, types[component.type]).outputs.length ? "—" : "")}
+                    (portsOf(component, own(types, component.type)).outputs.length ? "—" : "")}
                 </td>
                 <td>{count}</td>
                 <td>
@@ -397,8 +398,8 @@ export function SidePanel({
   readOnly: boolean;
   actions: PanelActions;
   /** The review marks shown: listed with nothing selected, and on a marked block. */
-  marks?: readonly ReviewItem[];
-  onShowChange?: (item: ReviewItem) => void;
+  marks?: readonly Change[];
+  onShowChange?: (item: Change) => void;
 }) {
   const busy = useBusy();
   const count = selection.blocks.length + selection.connections.length;
@@ -411,8 +412,7 @@ export function SidePanel({
           model={model}
           {...(onShowChange ? { onShow: onShowChange } : {})}
           shows={(item) =>
-            item.ref.kind === "rename" ||
-            (item.ref.kind === "list" && item.ref.key === "components" && item.after !== undefined)
+            item.ref.kind === "list" && item.ref.key === "components" && item.after !== undefined
           }
         />
         <Parameters
@@ -445,9 +445,7 @@ export function SidePanel({
     const component = components(model).find((item) => item.id === selection.blocks[0]);
     const mark = marks.find(
       (item) =>
-        (item.ref.kind === "rename" ||
-          (item.ref.kind === "list" && item.ref.key === "components")) &&
-        item.ref.id === component?.id,
+        item.ref.kind === "list" && item.ref.key === "components" && item.ref.id === component?.id,
     );
     body = component ? (
       <>

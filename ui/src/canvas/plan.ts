@@ -11,6 +11,7 @@
  */
 import type { Edit, LinearConstraint, Model, Variable } from "../api/types";
 import { pointer, readNumber, shown } from "./model";
+import { hasOwn, own } from "./own";
 import { sameValue } from "./review";
 
 type Plain = Record<string, unknown>;
@@ -40,7 +41,8 @@ export function constraintsOf(model: Model): Row<LinearConstraint>[] {
 
 /** The objective's coefficients, or `{}` when it has none that can be read. */
 export function linearOf(holder: unknown): Plain {
-  return isPlain(holder) && isPlain(holder.linear) ? holder.linear : {};
+  const linear = own(holder, "linear");
+  return isPlain(holder) && isPlain(linear) ? linear : {};
 }
 
 function idText(item: { id?: unknown }): string {
@@ -77,7 +79,8 @@ export function goalSentence(model: Model): string {
 
 /** "5 × chairs + 20 × tables ≤ 400". */
 export function limitText(limit: LinearConstraint): string {
-  const op = typeof limit.op === "string" ? (OPS[limit.op] ?? limit.op) : shown(limit.op);
+  const op =
+    typeof limit.op === "string" ? (own<string>(OPS, limit.op) ?? limit.op) : shown(limit.op);
   return `${terms(linearOf(limit))} ${op} ${shown(limit.rhs)}`;
 }
 
@@ -120,7 +123,7 @@ function valueAtPath(model: Model, path: string): unknown {
   for (const part of path.split("/").slice(1)) {
     const key = part.replace(/~1/g, "/").replace(/~0/g, "~");
     if (Array.isArray(here)) here = here[Number(key)];
-    else if (isPlain(here)) here = here[key];
+    else if (isPlain(here)) here = own(here, key);
     else return undefined;
   }
   return here;
@@ -183,7 +186,7 @@ export function renameDecision(model: Model, index: number, text: string): Edit[
   const taken = variables.some((other, at) => at !== index && isPlain(other) && other.id === text);
   if (typeof from !== "string" || taken) return edits;
   const objective = linearOf(model.objective);
-  if (from in objective && isPlain(model.objective)) {
+  if (hasOwn(objective, from) && isPlain(model.objective)) {
     edits.push({
       edit: "set_path",
       path: "/objective/linear",
@@ -192,7 +195,7 @@ export function renameDecision(model: Model, index: number, text: string): Edit[
   }
   for (const { index: at, item } of constraintsOf(model)) {
     const linear = linearOf(item);
-    if (from in linear) {
+    if (hasOwn(linear, from)) {
       edits.push({
         edit: "set_path",
         path: `/constraints/${at}/linear`,
@@ -210,11 +213,11 @@ export function removeDecision(model: Model, index: number): Edit[] | null {
   const edits: Edit[] = [{ edit: "remove_path", path: `/variables/${index}` }];
   const name = isPlain(variable) ? variable.id : undefined;
   if (typeof name !== "string") return edits;
-  if (name in linearOf(model.objective)) {
+  if (hasOwn(linearOf(model.objective), name)) {
     edits.push({ edit: "remove_path", path: `/objective/linear${pointer([name])}` });
   }
   for (const { index: at, item } of constraintsOf(model)) {
-    if (name in linearOf(item)) {
+    if (hasOwn(linearOf(item), name)) {
       edits.push({ edit: "remove_path", path: `/constraints/${at}/linear${pointer([name])}` });
     }
   }

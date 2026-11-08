@@ -2,60 +2,52 @@
  * The review of an outside change (spec 3 "Canvas behaviour", External edits;
  * `docs/design/canvas-interactions.md` "Reviewing an outside change"; owner review choice 2).
  *
- * When another client's write reloads the model, the model shown before is compared with
- * the one read, item by item: components by `id`, connections by `from`, parameters by
- * name, experiments, `objectives`, variables and constraints by `id`, and every other
- * top-level key (an `optimization` model's `objective`, `meta`, `run`, ...) as one item. A
- * list that is not a list of objects with distinct ids is one item; key order and list
- * order are not changes. A component removed and one added that equals it once
- * `rename_component`'s rewrite is applied is one rename, and the references the rename
- * rewrote are compared as renamed, so they are not marked.
+ * The session keeps one baseline: the model shown before the first outside change not yet
+ * reviewed, with the user's own writes since folded in. The marks are always the plain
+ * comparison of that baseline with the model shown, item by item by stable id: components
+ * by `id`, connections by `from`, parameters by name, experiments, `objectives`, variables
+ * and constraints by `id`, and every other top-level key (an `optimization` model's
+ * `objective`, `meta`, `run`, ...) as one item. A list that is not a list of objects with
+ * distinct ids is one item; key order and list order are not changes. A rename is a
+ * removal and an addition. Nothing is composed: a later outside change only changes the
+ * model shown, and the comparison is made again (review of PR #46).
  *
- * Each change keeps the item before and after. Its mark is shown while the model shown
- * holds the item as the other client left it and the user has not accepted it. Rejecting
- * writes the model shown with the item as it was before (spec 3: a whole-model write).
- * Everything here is pure: the session keeps the list and makes the writes.
+ * Every lookup by a name the model holds reads own properties only (`own.ts`).
  */
-import type { Component, Model } from "../api/types";
+import type { Model } from "../api/types";
 import { pointer, shown } from "./model";
+import { hasOwn, own, record, setOwn } from "./own";
 
 /** Where an item lives in the model. */
 export type ItemRef =
   | { kind: "list"; key: string; id: string }
   | { kind: "map"; key: string; id: string }
-  | { kind: "top"; key: string }
-  | { kind: "rename"; was: string; id: string };
+  | { kind: "top"; key: string };
 
 export interface Change {
+  /** Stable for the item: what the buttons that act on it name. */
+  key: string;
   ref: ItemRef;
-  /** The item before the other client's write; `undefined` when it was not there. */
+  /** The item in the baseline; `undefined` when it was not there. */
   before: unknown;
-  /** The item as the other client left it; `undefined` when it removed it. */
+  /** The item in the model shown; `undefined` when it is gone. */
   after: unknown;
-  /** A removed list item's place in its list, to put it back there. */
+  /** The item's place in the baseline's list, to put it back there. */
   index?: number;
 }
 
-export interface ReviewItem extends Change {
-  /** Stable for the open project, for the buttons that act on it. */
-  id: number;
-  accepted: boolean;
-}
-
-export type ChangeKind = "added" | "changed" | "removed" | "renamed";
+export type ChangeKind = "added" | "changed" | "removed";
 
 /** The lists compared item by item, and the field that names an item in each. */
-const LISTS: Readonly<Record<string, string>> = {
+const LISTS: Readonly<Record<string, string>> = Object.assign(record<string>(), {
   components: "id",
   connections: "from",
   experiments: "id",
   objectives: "id",
   variables: "id",
   constraints: "id",
-};
+});
 const MAPS: readonly string[] = ["parameters"];
-/** The settings that name another component, which `rename_component` rewrites (spec 3). */
-const REFERENCES: readonly string[] = ["pool", "target"];
 
 type Plain = Record<string, unknown>;
 
@@ -73,269 +65,141 @@ export function sameValue(a: unknown, b: unknown): boolean {
   if (isPlain(a) && isPlain(b)) {
     const keys = Object.keys(a);
     if (keys.length !== Object.keys(b).length) return false;
-    return keys.every((key) => Object.hasOwn(b, key) && sameValue(a[key], b[key]));
+    return keys.every((key) => hasOwn(b, key) && sameValue(own(a, key), own(b, key)));
   }
   return false;
 }
 
 /** A list whose entries are objects with distinct text ids in `field`, else `null`. */
-function keyed(value: unknown, field: string): Map<string, Plain> | null {
+function keyed(value: unknown, field: string): Map<string, { item: Plain; index: number }> | null {
   if (value === undefined) return new Map();
   if (!Array.isArray(value)) return null;
-  const found = new Map<string, Plain>();
-  for (const entry of value) {
-    if (!isPlain(entry) || typeof entry[field] !== "string") return null;
-    const id = entry[field] as string;
-    if (found.has(id)) return null;
-    found.set(id, entry);
+  const found = new Map<string, { item: Plain; index: number }>();
+  for (const [index, entry] of value.entries()) {
+    const id = isPlain(entry) ? own(entry, field) : undefined;
+    if (typeof id !== "string" || found.has(id)) return null;
+    found.set(id, { item: entry as Plain, index });
   }
   return found;
 }
 
 function mapOf(value: unknown): Plain | null {
-  if (value === undefined) return {};
+  if (value === undefined) return record();
   return isPlain(value) ? value : null;
 }
 
-function endRenamed(end: unknown, from: string, to: string): unknown {
-  return typeof end === "string" && end.startsWith(`${from}.`) ? to + end.slice(from.length) : end;
+function keyOf(ref: ItemRef): string {
+  return ref.kind === "top" ? `top:${ref.key}` : `${ref.kind}:${ref.key}:${ref.id}`;
 }
 
-/** A component as `rename_component` leaves it: its own id, and its references to `from`. */
-function renamedComponent(component: Plain, from: string, to: string): Plain {
-  const copy = structuredClone(component);
-  if (copy.id === from) copy.id = to;
-  const params = copy.params;
-  if (isPlain(params)) {
-    for (const key of REFERENCES) if (params[key] === from) params[key] = to;
-  }
-  return copy;
-}
-
-/**
- * The model as `rename_component` from `from` to `to` leaves it (spec 3 "Model edits",
- * Names): the component's id, connection ends, `pool` and `target` settings that name it,
- * and objective and constraint metrics that start with `<from>.`.
- */
-export function renameIn(model: Model, from: string, to: string): Model {
-  const copy = structuredClone(model);
-  if (Array.isArray(copy.components)) {
-    copy.components = copy.components.map((component) =>
-      isPlain(component)
-        ? (renamedComponent(component, from, to) as unknown as Component)
-        : component,
-    );
-  }
-  if (Array.isArray(copy.connections)) {
-    for (const connection of copy.connections) {
-      if (!isPlain(connection)) continue;
-      connection.from = endRenamed(connection.from, from, to) as string;
-      connection.to = endRenamed(connection.to, from, to) as string;
-    }
-  }
-  for (const key of ["objectives", "constraints"]) {
-    const list = copy[key];
-    if (!Array.isArray(list)) continue;
-    for (const entry of list) {
-      if (isPlain(entry) && "metric" in entry) entry.metric = endRenamed(entry.metric, from, to);
-    }
-  }
-  return copy;
-}
-
-/** Pairs of a removed and an added component that are one rename. */
-function renamesBetween(before: Model, after: Model): [string, string][] {
-  const old = keyed(before.components, "id");
-  const now = keyed(after.components, "id");
-  if (old === null || now === null) return [];
-  const added = [...now.keys()].filter((id) => !old.has(id));
-  const used = new Set<string>();
-  const pairs: [string, string][] = [];
-  for (const [was, component] of old) {
-    if (now.has(was)) continue;
-    const id = added.find(
-      (candidate) =>
-        !used.has(candidate) &&
-        sameValue(renamedComponent(component, was, candidate), now.get(candidate)),
-    );
-    if (id === undefined) continue;
-    used.add(id);
-    pairs.push([was, id]);
-  }
-  return pairs;
+function change(ref: ItemRef, before: unknown, after: unknown, index?: number): Change {
+  return { key: keyOf(ref), ref, before, after, ...(index !== undefined ? { index } : {}) };
 }
 
 /** The changes from `before` to `after`, in the order of `after`'s keys and items. */
 export function changesBetween(before: Model, after: Model): Change[] {
-  const renames = renamesBetween(before, after);
-  // Compared as renamed, so what a rename rewrote is not marked as well.
-  const base = renames.reduce((model, [was, id]) => renameIn(model, was, id), before);
-  const keys = [...Object.keys(after), ...Object.keys(base).filter((key) => !(key in after))];
+  const keys = [...Object.keys(after), ...Object.keys(before).filter((key) => !hasOwn(after, key))];
   const changes: Change[] = [];
   for (const key of keys) {
-    const field = LISTS[key];
+    const was = own(before, key);
+    const now = own(after, key);
+    const field = own<string>(LISTS, key);
     if (field !== undefined) {
-      const old = keyed(base[key], field);
-      const now = keyed(after[key], field);
-      if (old !== null && now !== null) {
-        for (const [id, item] of now) {
-          const was = old.get(id);
-          if (!sameValue(was, item))
-            changes.push({ ref: { kind: "list", key, id }, before: was, after: item });
-        }
-        [...old.keys()].forEach((id, index) => {
-          if (!now.has(id)) {
-            changes.push({
-              ref: { kind: "list", key, id },
-              before: old.get(id),
-              after: undefined,
-              index,
-            });
+      const old = keyed(was, field);
+      const fresh = keyed(now, field);
+      if (old !== null && fresh !== null) {
+        for (const [id, { item }] of fresh) {
+          const earlier = old.get(id);
+          if (!sameValue(earlier?.item, item)) {
+            changes.push(change({ kind: "list", key, id }, earlier?.item, item, earlier?.index));
           }
-        });
+        }
+        for (const [id, { item, index }] of old) {
+          if (!fresh.has(id))
+            changes.push(change({ kind: "list", key, id }, item, undefined, index));
+        }
         continue;
       }
     }
     if (MAPS.includes(key)) {
-      const old = mapOf(base[key]);
-      const now = mapOf(after[key]);
-      if (old !== null && now !== null) {
-        const names = [...Object.keys(now), ...Object.keys(old).filter((name) => !(name in now))];
+      const old = mapOf(was);
+      const fresh = mapOf(now);
+      if (old !== null && fresh !== null) {
+        const names = [
+          ...Object.keys(fresh),
+          ...Object.keys(old).filter((name) => !hasOwn(fresh, name)),
+        ];
         for (const id of names) {
-          if (!sameValue(old[id], now[id])) {
-            changes.push({ ref: { kind: "map", key, id }, before: old[id], after: now[id] });
+          if (!sameValue(own(old, id), own(fresh, id))) {
+            changes.push(change({ kind: "map", key, id }, own(old, id), own(fresh, id)));
           }
         }
         continue;
       }
     }
-    if (!sameValue(base[key], after[key])) {
-      changes.push({ ref: { kind: "top", key }, before: base[key], after: after[key] });
-    }
-  }
-  for (const [was, id] of renames) {
-    const old = keyed(before.components, "id")?.get(was);
-    const now = keyed(after.components, "id")?.get(id);
-    changes.push({ ref: { kind: "rename", was, id }, before: old, after: now });
+    if (!sameValue(was, now)) changes.push(change({ kind: "top", key }, was, now));
   }
   return changes;
 }
 
-export function changeKind(change: Change): ChangeKind {
-  if (change.ref.kind === "rename") return "renamed";
-  if (change.before === undefined) return "added";
-  if (change.after === undefined) return "removed";
+export function changeKind(item: Change): ChangeKind {
+  if (item.before === undefined) return "added";
+  if (item.after === undefined) return "removed";
   return "changed";
 }
 
 function listFind(list: unknown, field: string, id: string): number {
   if (!Array.isArray(list)) return -1;
-  return list.findIndex((entry) => isPlain(entry) && entry[field] === id);
+  return list.findIndex((entry) => isPlain(entry) && own(entry, field) === id);
 }
 
-/** The item `ref` names in `model`, or `undefined`. */
-export function itemAt(model: Model, ref: ItemRef): unknown {
-  if (ref.kind === "rename") {
-    if (listFind(model.components, "id", ref.was) >= 0) return undefined;
-    const list = model.components;
-    const at = listFind(list, "id", ref.id);
-    return at >= 0 ? (list as unknown[])[at] : undefined;
-  }
-  if (ref.kind === "top") return model[ref.key];
-  if (ref.kind === "map") {
-    const map = model[ref.key];
-    return isPlain(map) ? map[ref.id] : undefined;
-  }
-  const list = model[ref.key];
-  const at = listFind(list, LISTS[ref.key] ?? "id", ref.id);
-  return at >= 0 ? (list as unknown[])[at] : undefined;
-}
-
-/** Whether a change's mark is shown on `model`. */
-export function isShown(item: ReviewItem, model: Model): boolean {
-  return !item.accepted && sameValue(itemAt(model, item.ref), item.after);
-}
-
-/** The marks shown on `model`, in their order. */
-export function shownItems(review: readonly ReviewItem[], model: Model | null): ReviewItem[] {
-  return model === null ? [] : review.filter((item) => isShown(item, model));
-}
-
-/** `model` with the item of `change` as it was before the other client's write. */
-export function restore(model: Model, change: Change): Model {
-  const { ref } = change;
-  if (ref.kind === "rename") return renameIn(model, ref.id, ref.was);
+/** A copy of `model` with the item `ref` names set to `value` (`undefined` removes it). */
+export function putItem(model: Model, ref: ItemRef, value: unknown, index?: number): Model {
   const copy = structuredClone(model);
-  const before = structuredClone(change.before);
+  const item = structuredClone(value);
   if (ref.kind === "top") {
-    if (before === undefined) delete copy[ref.key];
-    else copy[ref.key] = before;
+    if (item === undefined) delete copy[ref.key];
+    else setOwn(copy, ref.key, item);
     return copy;
   }
   if (ref.kind === "map") {
-    const map = isPlain(copy[ref.key]) ? (copy[ref.key] as Plain) : {};
-    if (before === undefined) delete map[ref.id];
-    else map[ref.id] = before;
-    copy[ref.key] = map;
+    const map: Plain = isPlain(own(copy, ref.key)) ? (own(copy, ref.key) as Plain) : {};
+    if (item === undefined) delete map[ref.id];
+    else setOwn(map, ref.id, item);
+    setOwn(copy, ref.key, map);
     return copy;
   }
-  const list = Array.isArray(copy[ref.key]) ? (copy[ref.key] as unknown[]) : [];
-  const at = listFind(list, LISTS[ref.key] ?? "id", ref.id);
-  if (before === undefined) {
+  const found = own(copy, ref.key);
+  const list = Array.isArray(found) ? found : [];
+  const at = listFind(list, own<string>(LISTS, ref.key) ?? "id", ref.id);
+  if (item === undefined) {
     if (at >= 0) list.splice(at, 1);
-  } else if (at >= 0) list[at] = before;
-  else list.splice(Math.min(change.index ?? list.length, list.length), 0, before);
-  copy[ref.key] = list;
+  } else if (at >= 0) list[at] = item;
+  else list.splice(Math.min(index ?? list.length, list.length), 0, item);
+  setOwn(copy, ref.key, list);
   return copy;
 }
 
-/** `model` with every change restored: the other items first, then the renames. */
-export function restoreAll(model: Model, changes: readonly Change[]): Model {
-  const ordered = [
-    ...changes.filter((change) => change.ref.kind !== "rename"),
-    ...changes.filter((change) => change.ref.kind === "rename"),
-  ];
-  return ordered.reduce(restore, model);
+/** `model` with the item of `item` as it is in the baseline (Reject). */
+export function restore(model: Model, item: Change): Model {
+  return putItem(model, item.ref, item.before, item.index);
 }
 
-function refKey(ref: ItemRef): string {
-  return ref.kind === "rename"
-    ? `rename:${ref.was}>${ref.id}`
-    : `${ref.kind}:${ref.key}:${"id" in ref ? ref.id : ""}`;
+/** The baseline with the item of `item` as it is in the model shown (Accept). */
+export function adopt(baseline: Model, item: Change): Model {
+  return putItem(baseline, item.ref, item.after);
 }
 
 /**
- * The marks after a later outside change: `fresh` compares the model shown with the one
- * read. An item already marked keeps its first `before`, so Reject restores it as it was
- * before the first outside change; one the other client put back loses its mark. Items
- * made or replaced get ids from `nextId` on.
+ * The baseline after one of the user's own writes, `before` to `after`: each item that
+ * write changed is taken into the baseline as the write left it, so the user's changes
+ * are never marked, and a marked item the user changed is the user's from then on.
  */
-export function mergeReview(
-  existing: readonly ReviewItem[],
-  fresh: readonly Change[],
-  nextId: number,
-): ReviewItem[] {
-  const result: (ReviewItem | null)[] = [...existing];
-  let id = nextId;
-  for (const change of fresh) {
-    const key = refKey(change.ref);
-    const at = result.findIndex((item) => item !== null && refKey(item.ref) === key);
-    const earlier = at >= 0 ? result[at] : null;
-    const merged: Change = earlier
-      ? {
-          ...change,
-          before: earlier.before,
-          ...(earlier.index !== undefined ? { index: earlier.index } : {}),
-        }
-      : change;
-    const item = sameValue(merged.before, merged.after)
-      ? null
-      : { ...merged, id: 0, accepted: false };
-    if (item !== null) item.id = id++;
-    if (at >= 0) result[at] = item;
-    else if (item !== null) result.push(item);
-  }
-  return result.filter((item) => item !== null);
+export function absorb(baseline: Model, before: Model, after: Model): Model {
+  return changesBetween(before, after).reduce(
+    (model, item) => putItem(model, item.ref, item.after),
+    baseline,
+  );
 }
 
 export interface FieldChange {
@@ -347,31 +211,40 @@ export interface FieldChange {
 /** The leaves that differ between two items, as JSON Pointers into the item. */
 export function fieldChanges(before: unknown, after: unknown, at: string[] = []): FieldChange[] {
   if (isPlain(before) && isPlain(after)) {
-    const keys = [...Object.keys(before), ...Object.keys(after).filter((key) => !(key in before))];
-    return keys.flatMap((key) => fieldChanges(before[key], after[key], [...at, key]));
+    const keys = [
+      ...Object.keys(before),
+      ...Object.keys(after).filter((key) => !hasOwn(before, key)),
+    ];
+    return keys.flatMap((key) => fieldChanges(own(before, key), own(after, key), [...at, key]));
   }
   return sameValue(before, after) ? [] : [{ path: pointer(at), before, after }];
 }
 
-const NOUNS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
-  process: {
-    components: "block",
-    connections: "connection",
-    parameters: "parameter",
-    experiments: "experiment",
-    objectives: "objective",
-    constraints: "constraint",
+const NOUNS: Readonly<Record<string, Readonly<Record<string, string>>>> = Object.assign(
+  record<Readonly<Record<string, string>>>(),
+  {
+    process: Object.assign(record<string>(), {
+      components: "block",
+      connections: "connection",
+      parameters: "parameter",
+      experiments: "experiment",
+      objectives: "objective",
+      constraints: "constraint",
+    }),
+    optimization: Object.assign(record<string>(), {
+      variables: "decision",
+      constraints: "limit",
+      objective: "the goal",
+    }),
   },
-  optimization: { variables: "decision", constraints: "limit", objective: "the goal" },
-};
+);
 
 /** What a change is about, in the model's words: "block till", "the goal", "meta". */
-export function changeSubject(change: Change, domain: unknown): string {
-  const { ref } = change;
-  const nouns = NOUNS[String(domain)] ?? NOUNS.process ?? {};
-  if (ref.kind === "rename") return `block ${ref.was}`;
-  if (ref.kind === "top") return nouns[ref.key] ?? ref.key;
-  return `${nouns[ref.key] ?? ref.key} ${ref.id}`;
+export function changeSubject(item: Change, domain: unknown): string {
+  const { ref } = item;
+  const nouns = own<Record<string, string>>(NOUNS, String(domain)) ?? own(NOUNS, "process");
+  const noun = own<string>(nouns, ref.key) ?? ref.key;
+  return ref.kind === "top" ? noun : `${noun} ${ref.id}`;
 }
 
 function valueText(value: unknown): string {
@@ -384,19 +257,23 @@ export function fieldName(path: string): string {
   return inner.slice(1).replaceAll("/", " ") || "value";
 }
 
+const WORDS: Readonly<Record<ChangeKind, string>> = {
+  added: "Added",
+  changed: "Changed",
+  removed: "Removed",
+};
+
 /** One line for a change: "Changed: block till (capacity: 1 → 2)". */
-export function describeChange(change: Change, domain: unknown): string {
-  const kind = changeKind(change);
-  const word = kind[0]?.toUpperCase() + kind.slice(1);
-  const subject = changeSubject(change, domain);
-  if (change.ref.kind === "rename") return `${word}: ${subject} → ${change.ref.id}`;
-  if (kind !== "changed") return `${word}: ${subject}`;
-  const fields = fieldChanges(change.before, change.after);
+export function describeChange(item: Change, domain: unknown): string {
+  const kind = changeKind(item);
+  const subject = changeSubject(item, domain);
+  if (kind !== "changed") return `${WORDS[kind]}: ${subject}`;
+  const fields = fieldChanges(item.before, item.after);
   const parts = fields
     .slice(0, 3)
     .map(
       (field) => `${fieldName(field.path)}: ${valueText(field.before)} → ${valueText(field.after)}`,
     );
   if (fields.length > 3) parts.push(`${fields.length - 3} more`);
-  return `${word}: ${subject} (${parts.join("; ")})`;
+  return `${WORDS[kind]}: ${subject} (${parts.join("; ")})`;
 }
