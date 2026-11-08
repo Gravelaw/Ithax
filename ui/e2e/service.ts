@@ -27,7 +27,7 @@ export interface Service {
   stop(): Promise<void>;
 }
 
-function python(): string {
+export function python(): string {
   if (process.env.LCSIM_PYTHON) return process.env.LCSIM_PYTHON;
   const venv = join(
     REPOSITORY,
