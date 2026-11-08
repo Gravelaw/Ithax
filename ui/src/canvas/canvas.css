@@ -1175,3 +1175,30 @@
 .plan-card-title svg {
   color: var(--color-accent);
 }
+
+/* "Try a change" beside a number or time (AKS-120). */
+.try-change {
+  align-self: flex-start;
+  font-size: 0.75rem;
+}
+
+.try-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-alt);
+}
+
+.try-form input {
+  width: 100%;
+}
+
+.try-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}

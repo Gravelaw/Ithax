@@ -181,6 +181,45 @@ function apply(model: Model, edit: Edit): string | null {
       else component.label = edit.label;
       return null;
     }
+    case "set_experiment": {
+      model.experiments ??= [];
+      const { edit: _kind, id, ...fields } = edit;
+      let found = model.experiments.find((item) => item.id === id);
+      if (found === undefined) {
+        found = { id, length: "8 h", warmup: "0 s", replications: 30 };
+        model.experiments.push(found);
+      }
+      Object.assign(found, structuredClone(fields));
+      return null;
+    }
+    case "remove_experiment": {
+      const found = model.experiments?.find((item) => item.id === edit.id);
+      if (found === undefined) return `There is no experiment '${edit.id}'.`;
+      model.experiments = model.experiments?.filter((item) => item !== found) ?? [];
+      return null;
+    }
+    case "set_scenario": {
+      const experiment = model.experiments?.find((item) => item.id === edit.experiment_id);
+      if (experiment === undefined) return `There is no experiment '${edit.experiment_id}'.`;
+      const unknown = Object.keys(edit.set).find((name) => !hasOwn(model.parameters, name));
+      if (unknown !== undefined) return `'${unknown}' is not a parameter of the model.`;
+      experiment.scenarios ??= [];
+      const scenarios = experiment.scenarios as { id: string; set: unknown }[];
+      const found = scenarios.find((item) => item.id === edit.id);
+      if (found === undefined) scenarios.push({ id: edit.id, set: structuredClone(edit.set) });
+      else found.set = structuredClone(edit.set);
+      return null;
+    }
+    case "remove_scenario": {
+      const experiment = model.experiments?.find((item) => item.id === edit.experiment_id);
+      if (experiment === undefined) return `There is no experiment '${edit.experiment_id}'.`;
+      const scenarios = (experiment.scenarios ?? []) as { id: string }[];
+      if (!scenarios.some((item) => item.id === edit.id)) {
+        return `The experiment '${edit.experiment_id}' has no scenario '${edit.id}'.`;
+      }
+      experiment.scenarios = scenarios.filter((item) => item.id !== edit.id);
+      return null;
+    }
     case "set_path":
     case "remove_path":
       return applyPath(model, edit);
@@ -196,7 +235,8 @@ function applyPath(
   const head = parts[0] ?? "";
   const reached =
     ["meta", "run", "objectives", "constraints"].includes(head) ||
-    (["variables", "objective"].includes(head) && model.domain === "optimization");
+    (["variables", "objective"].includes(head) && model.domain === "optimization") ||
+    (head === "experiments" && /^(0|[1-9][0-9]*)$/.test(parts[1] ?? "") && parts[2] === "search");
   if (!reached) return `The path '${edit.path}' is not one set_path and remove_path may change.`;
   let here: unknown = model;
   for (const part of parts.slice(0, -1)) {

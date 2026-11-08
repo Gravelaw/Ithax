@@ -12,9 +12,18 @@
  * names it.
  */
 import { WarningCircleIcon } from "@phosphor-icons/react";
-import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
+import type { ApiResult } from "../api/client";
 import type { Component, Issue, Model, SettingDescription } from "../api/types";
-import { lock, useBusy, useRevision } from "./busy";
+import { lock, useBusy, useDraft, useRevision } from "./busy";
 import {
   components,
   DISTRIBUTIONS,
@@ -31,14 +40,25 @@ import {
 } from "./model";
 import { hasOwn, own } from "./own";
 import { clearPlan, componentIn, type EditPlan, settingLabel, settingPlan } from "./plans";
+import { type ParameterKind, tryChangeEdits } from "./tryChange";
 
 export type { EditPlan } from "./plans";
+
+/** What "Try a change" needs: the experiment chosen in the top bar, a write and a notice. */
+export interface TryChangeActions {
+  /** The experiment the option is added to; `null` when the model has none. */
+  experiment: string | null;
+  send(label: string, edits: EditPlan): Promise<ApiResult<unknown> | null>;
+  say(text: string): void;
+}
 
 /** What a field does to the model: one batch of edits, or a whole model (clearing). */
 export interface FieldActions {
   edit(label: string, edits: EditPlan): void;
   /** A whole model built from the model shown; `null` sends nothing. */
   replace(label: string, build: (model: Model) => Model | null): void;
+  /** "Try a change" beside a number or time; absent where it is not offered. */
+  tryChange?: TryChangeActions;
 }
 
 export interface FieldContext {
@@ -79,6 +99,7 @@ export function CommitInput({
   describedBy,
   invalid,
   label,
+  placeholder,
 }: {
   id: string;
   value: string;
@@ -89,6 +110,8 @@ export function CommitInput({
   invalid?: boolean;
   /** Its accessible name, where no `<label>` names it (a table cell). */
   label?: string;
+  /** Shown while the box is empty, such as the value used when it is left empty. */
+  placeholder?: string;
 }) {
   const busy = useBusy();
   const revision = useRevision();
@@ -134,6 +157,7 @@ export function CommitInput({
       readOnly={readOnly}
       aria-describedby={describedBy}
       aria-label={label}
+      placeholder={placeholder}
       aria-invalid={invalid ? true : undefined}
       onChange={(event) => setText(event.target.value)}
       onBlur={commit}
@@ -385,7 +409,126 @@ function ValueField({
         )}
       </div>
       <ParameterLink ctx={ctx} segments={segments} value={value} fieldId={id} onUnlink={unlink} />
+      <TryChange
+        ctx={ctx}
+        segments={segments}
+        value={value}
+        name={title}
+        kind={time ? "quantity" : setting.integer ? "integer" : "number"}
+      />
     </Field>
+  );
+}
+
+/**
+ * "Try a change" (`canvas-interactions.md` "Trying a change"): a small form asking the value
+ * to try and a name for the option; adding it makes the field a parameter and adds a
+ * scenario on the experiment chosen in the top bar, in one batch (`tryChange.ts`). The form
+ * is a draft: it closes whenever the model shown changes.
+ */
+function TryChange({
+  ctx,
+  segments,
+  value,
+  name,
+  kind,
+}: {
+  ctx: FieldContext;
+  segments: Segments;
+  value: unknown;
+  name: string;
+  kind: ParameterKind;
+}) {
+  const busy = useBusy();
+  const base = useId();
+  const actions = ctx.actions.tryChange;
+  const bound = paramOf(value);
+  const current =
+    bound === null ? value : own<{ value?: unknown }>(ctx.model.parameters, bound)?.value;
+  const [open, setOpen] = useDraft(false);
+  const [tried, setTried] = useDraft<string | null>(null);
+  const [option, setOption] = useDraft("");
+  if (actions === undefined || value === undefined) return null;
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="link try-change"
+        aria-label={`Try a change to ${name}`}
+        disabled={ctx.readOnly}
+        onClick={() => setOpen(true)}
+      >
+        Try a change
+      </button>
+    );
+  }
+  const experiment = actions.experiment;
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (experiment === null) {
+      actions.say(
+        "Add an experiment on the Experiment screen first: the option is one of its scenarios.",
+      );
+      return;
+    }
+    const plan = {
+      component: ctx.component.id,
+      segments,
+      kind,
+      experiment,
+      option: option.trim() === "" ? "option" : option,
+      tried: tried ?? shown(current),
+    };
+    void actions
+      .send(`try a change to ${ctx.component.id}${pointer(segments)}`, (model) =>
+        tryChangeEdits(model, plan),
+      )
+      .then((result) => {
+        if (result?.kind === "ok") {
+          actions.say(
+            `Added an option to experiment ${experiment}. Compare it on the Experiment screen.`,
+          );
+        }
+      });
+  };
+  return (
+    <form className="try-form" aria-labelledby={`${base}-title`} onSubmit={submit}>
+      <p className="subheading" id={`${base}-title`}>
+        Try a change to {name}
+      </p>
+      <label htmlFor={`${base}-value`} className="field-label">
+        What value do you want to try?
+      </label>
+      <input
+        id={`${base}-value`}
+        value={tried ?? shown(current)}
+        readOnly={ctx.readOnly}
+        onChange={(event) => setTried(event.target.value)}
+      />
+      <label htmlFor={`${base}-name`} className="field-label">
+        Name for the option
+      </label>
+      <input
+        id={`${base}-name`}
+        value={option}
+        placeholder="Faster coffee machine"
+        readOnly={ctx.readOnly}
+        onChange={(event) => setOption(event.target.value)}
+      />
+      <p className="hint">
+        {experiment === null
+          ? "The model has no experiment to add the option to."
+          : `Added as a scenario of experiment ${experiment}, beside the current model.`}
+      </p>
+      <div className="try-actions">
+        <button type="submit" className="secondary small-button" {...lock(ctx.readOnly, busy)}>
+          Add the option
+        </button>
+        <button type="button" className="link" onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 

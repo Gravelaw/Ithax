@@ -549,6 +549,15 @@ export class CanvasSession {
     });
   }
 
+  /**
+   * Validates the model shown again, at once: what validation reads besides the model
+   * changed (an imported or removed data file, which `empirical` `data` references name).
+   */
+  revalidate(): void {
+    if (this.stopped || this.state.status !== "ready") return;
+    this.scheduleValidate(0);
+  }
+
   private invalidateValidation(): void {
     this.validation += 1;
     if (this.validateTimer !== null) this.clearTimer(this.validateTimer);

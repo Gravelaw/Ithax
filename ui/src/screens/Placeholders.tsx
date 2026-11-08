@@ -1,6 +1,6 @@
 /**
- * The screens later M9 tickets build (Data and Experiment AKS-120, Run monitor, Results and
- * Settings AKS-138). Settings already holds About, which the first-start notice names.
+ * The screens a later M9 ticket builds (Run monitor, Results and Settings, AKS-138).
+ * Settings already holds About, which the first-start notice names.
  */
 
 export const LATER = "This screen arrives in a later build.";

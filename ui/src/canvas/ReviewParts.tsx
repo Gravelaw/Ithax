@@ -72,26 +72,38 @@ export function whoChanged(clients: readonly string[]): string {
     .join(" and ");
 }
 
-/** The one-line notice of an outside change (`canvas-interactions.md` "External edits"). */
-export function outsideText(outside: Outside, clients: readonly string[]): string {
+/** What the Canvas says it did after an outside change. */
+export const CANVAS_RELOADED = "The canvas has been reloaded; undo history was cleared.";
+
+/**
+ * The one-line notice of an outside change (`canvas-interactions.md` "External edits");
+ * `reloaded` says what the screen did (another screen than the Canvas names the model).
+ */
+export function outsideText(
+  outside: Outside,
+  clients: readonly string[],
+  reloaded: string = CANVAS_RELOADED,
+): string {
   const who = whoChanged(clients);
   return outside.conflict
     ? `Your last change was not saved because the model had just been changed ${who}. Please make it again.`
-    : `The model was changed ${who}. The canvas has been reloaded; undo history was cleared.`;
+    : `The model was changed ${who}. ${reloaded}`;
 }
 
 export function OutsideNotice({
   outside,
   clients,
+  reloaded,
   onDismiss,
 }: {
   outside: Outside;
   clients: readonly string[];
+  reloaded?: string;
   onDismiss: () => void;
 }) {
   return (
     <p className="notice notice-outside">
-      <span>{outsideText(outside, clients)}</span>
+      <span>{outsideText(outside, clients, reloaded)}</span>
       <button type="button" className="icon-button" aria-label="Dismiss" onClick={onDismiss}>
         <XIcon aria-hidden="true" size={14} />
       </button>
