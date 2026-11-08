@@ -166,6 +166,45 @@ test("a coffee shop built by pointer equals the example except ui", async ({
   );
 });
 
+test("a renamed branch route can be connected by pointer, and its line is drawn", async ({
+  page,
+  service,
+}) => {
+  const pid = await openCanvas(page, service, "Routes");
+  await drop(page, "branch", 160, 160, "branch_1");
+  await drop(page, "sink", 520, 160, "sink_1");
+  await block(page, "branch_1").click();
+  const routes = page.getByRole("textbox", { name: "Routes" });
+  await routes.fill("left, right");
+  await routes.press("Enter");
+  await settled(page);
+  await expect(block(page, "branch_1").locator(".port.source")).toHaveCount(2);
+  // The routes change after React Flow has measured the ports: "right" becomes "other".
+  await routes.fill("left, other");
+  await routes.press("Enter");
+  await settled(page);
+  const other = block(page, "branch_1").locator(
+    '.react-flow__handle.source[data-handleid="other"]',
+  );
+  await expect(other).toBeVisible();
+  const from = await other.boundingBox();
+  const to = await block(page, "sink_1").locator(".react-flow__handle.port.target").boundingBox();
+  if (from === null || to === null) throw new Error("no ports");
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 });
+  await page.mouse.up();
+  await settled(page);
+  expect((await model(service, pid)).connections).toEqual([
+    { from: "branch_1.other", to: "sink_1.in" },
+  ]);
+  await expect(page.locator(".react-flow__edge")).toHaveCount(1);
+  await expect(page.locator(".react-flow__edge path.react-flow__edge-path")).toHaveAttribute(
+    "d",
+    /\d/,
+  );
+});
+
 test("another client's write reloads the canvas; undo and redo write whole models", async ({
   page,
   service,

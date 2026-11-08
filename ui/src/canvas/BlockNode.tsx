@@ -20,8 +20,8 @@ import {
   WarehouseIcon,
   WrenchIcon,
 } from "@phosphor-icons/react";
-import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { memo } from "react";
+import { Handle, type Node, type NodeProps, Position, useUpdateNodeInternals } from "@xyflow/react";
+import { memo, useEffect } from "react";
 import type { Component } from "../api/types";
 import { type Category, shown, typeLine } from "./model";
 
@@ -108,8 +108,16 @@ function ResourceMark({ component }: { component: Component }) {
   return null;
 }
 
-function BlockNodeView({ data, selected, isConnectable }: NodeProps<BlockNodeType>) {
+function BlockNodeView({ id, data, selected, isConnectable }: NodeProps<BlockNodeType>) {
   const { component, category } = data;
+  // React Flow measures a node's handles once and keeps them; when the ports change (a
+  // branch's routes renamed, added or removed) it is told to measure them again, or a new
+  // port could not be connected nor a line drawn from it (review of PR #45).
+  const updateInternals = useUpdateNodeInternals();
+  const portKey = `${data.inputs.join(",")}|${data.outputs.join(",")}`;
+  useEffect(() => {
+    if (portKey) updateInternals(id);
+  }, [id, portKey, updateInternals]);
   const Glyph = iconOf(component.type);
   const routes = component.type === "branch";
   return (
