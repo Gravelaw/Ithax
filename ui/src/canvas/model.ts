@@ -74,6 +74,16 @@ export function moveEdit(component: Component, to: Point): Edit {
   return { edit: "set_ui", id: component.id, ui: { ...(component.ui ?? {}), x: to.x, y: to.y } };
 }
 
+/** `set_ui` for each moved block, from its `ui` in `model` (the model a write is sent on). */
+export function movesIn(model: Model, positions: ReadonlyMap<string, Point>): Edit[] {
+  const edits: Edit[] = [];
+  for (const [id, at] of positions) {
+    const component = components(model).find((item) => item.id === id);
+    if (component) edits.push(moveEdit(component, at));
+  }
+  return edits;
+}
+
 /** Where a new block goes when added from the keyboard: down 24 px until it overlaps none. */
 export function freePlace(model: Model, centre: Point): Point {
   const placed = components(model).map(positionOf);

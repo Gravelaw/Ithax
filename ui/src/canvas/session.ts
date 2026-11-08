@@ -18,9 +18,12 @@
  */
 import type { ApiClient, ApiResult, EventSocket } from "../api/client";
 import type { Edit, Issue, Model, ModelWriteBody, ProjectEvent } from "../api/types";
+import { movesIn, type Point } from "./model";
 
 export const RETRY_MS = 2000;
 export const VALIDATE_MS = 500;
+/** A burst of arrow presses with no pause this long is one move (one undo step). */
+export const MOVE_BURST_MS = 500;
 
 /** One undo step: the model before and after one write. */
 export interface Step {
@@ -96,7 +99,8 @@ export class CanvasSession {
   private validateTimer: unknown = null;
   private socket: EventSocket | null = null;
   private stopped = false;
-  private readonly hooks = new Set<() => void>();
+  private readonly pendingMoves = new Map<string, Point>();
+  private moveTimer: unknown = null;
   private undoLimit: number;
   private readonly setTimer: (callback: () => void, ms: number) => unknown;
   private readonly clearTimer: (handle: unknown) => void;
@@ -152,22 +156,45 @@ export class CanvasSession {
   }
 
   /**
-   * Calls `hook` when the session stops, before it stops taking writes, so a write the
-   * screen is holding back (a keyboard move) is still sent. Returns a function that
-   * removes the hook.
+   * Moves blocks as part of a burst (arrow keys): the positions wait, merged, until no move
+   * has come for `MOVE_BURST_MS`, and are then sent as one batch, one undo step. Anything
+   * else the session is asked to do (a write, undo, redo, a reload for another client's
+   * revision, stopping) sends the waiting move first, through `flushMoves`, so it is never
+   * lost, reordered after a later action, or undone in its place (review of PR #45).
    */
-  beforeStop(hook: () => void): () => void {
-    this.hooks.add(hook);
-    return () => this.hooks.delete(hook);
+  move(positions: ReadonlyMap<string, Point>): void {
+    if (this.state.status !== "ready" || this.state.failing || this.stopped) return;
+    for (const [id, at] of positions) this.pendingMoves.set(id, at);
+    if (this.moveTimer !== null) this.clearTimer(this.moveTimer);
+    this.moveTimer = this.setTimer(() => {
+      this.moveTimer = null;
+      this.flushMoves();
+    }, MOVE_BURST_MS);
+    this.set({ saving: true });
+  }
+
+  /** Sends the waiting move now, if there is one. */
+  flushMoves(): void {
+    if (this.moveTimer !== null) this.clearTimer(this.moveTimer);
+    this.moveTimer = null;
+    if (this.pendingMoves.size === 0) return;
+    const positions = new Map(this.pendingMoves);
+    this.pendingMoves.clear();
+    const ids = [...positions.keys()];
+    const label = ids.length === 1 ? `move ${ids[0]}` : `move ${ids.length} blocks`;
+    void this.queue("do", (model) => {
+      const edits = movesIn(model, positions);
+      return edits.length === 0 ? null : { kind: "edits", label, edits };
+    });
   }
 
   /**
-   * Stops: the hooks run first; writes already queued are still sent once (without retries
-   * when they get no answer), then the events socket closes.
+   * Stops: a waiting move is sent first; writes already queued are still sent once
+   * (without retries when they get no answer), then the events socket closes.
    */
   stop(): void {
     if (this.stopped) return;
-    for (const hook of [...this.hooks]) hook();
+    this.flushMoves();
     this.stopped = true;
     if (this.validateTimer !== null) this.clearTimer(this.validateTimer);
     void this.chain.finally(() => this.socket?.close());
@@ -202,6 +229,7 @@ export class CanvasSession {
     if (this.state.status !== "ready" || this.state.failing || this.stopped) {
       return Promise.resolve(null);
     }
+    this.flushMoves();
     this.writes += 1;
     this.invalidateValidation();
     this.set({ saving: true });
@@ -209,7 +237,7 @@ export class CanvasSession {
     this.chain = job.catch(() => undefined);
     return job.finally(() => {
       this.writes -= 1;
-      this.set({ saving: this.writes > 0 });
+      this.set({ saving: this.writes > 0 || this.pendingMoves.size > 0 });
     });
   }
 
@@ -272,6 +300,7 @@ export class CanvasSession {
 
   private onEvent(event: ProjectEvent): void {
     if (event.type !== "model" || this.stopped) return;
+    this.flushMoves();
     // Held until the canvas's own writes have answered, so its own revisions are known.
     this.chain = this.chain.then(async () => {
       if (this.state.status === "ready" && event.revision > this.state.revision) {

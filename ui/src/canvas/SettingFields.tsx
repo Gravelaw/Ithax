@@ -39,7 +39,8 @@ export type EditPlan = Edit[] | ((model: Model) => Edit[] | null);
 /** What a field does to the model: one batch of edits, or a whole model (clearing). */
 export interface FieldActions {
   edit(label: string, edits: EditPlan): void;
-  replace(label: string, build: (model: Model) => Model): void;
+  /** A whole model, built when the write is sent; `null` sends nothing. */
+  replace(label: string, build: (model: Model) => Model | null): void;
 }
 
 /** The component of that id in `model`, or undefined. */
@@ -95,12 +96,22 @@ export function CommitInput({
 }) {
   const [text, setText] = useState(value);
   const editing = useRef(false);
+  // The text last committed from this box, or last shown from the model: a commit is sent
+  // when the text differs from it, not from what the model held when drawn (a value typed
+  // and then cleared before the first answer is cleared; review of PR #45).
+  const committed = useRef(value);
   useEffect(() => {
-    if (!editing.current) setText(value);
+    if (!editing.current) {
+      setText(value);
+      committed.current = value;
+    }
   }, [value]);
   const commit = () => {
     editing.current = false;
-    if (text !== value) onCommit(text);
+    if (text !== committed.current) {
+      committed.current = text;
+      onCommit(text);
+    }
   };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {
@@ -108,7 +119,7 @@ export function CommitInput({
       commit();
     } else if (event.key === "Escape") {
       editing.current = false;
-      setText(value);
+      setText(committed.current);
     }
   };
   return (
@@ -195,11 +206,14 @@ function write(
   });
 }
 
+/** Clears the value at `segments`, if the model holds one when the write is sent. */
 function clear(ctx: FieldContext, segments: Segments): void {
-  if (valueAt(ctx.component.params, segments) === undefined) return;
-  ctx.actions.replace(`clear ${ctx.component.id}${pointer(segments)}`, (model) =>
-    withoutSetting(model, ctx.component.id, segments),
-  );
+  const id = ctx.component.id;
+  ctx.actions.replace(`clear ${id}${pointer(segments)}`, (model) => {
+    const component = componentIn(model, id);
+    if (component === undefined || valueAt(component.params, segments) === undefined) return null;
+    return withoutSetting(model, id, segments);
+  });
 }
 
 /** "Use parameter": a tick box and a picker of the model's parameters. */
@@ -217,8 +231,15 @@ function ParameterLink({
   onUnlink: () => void;
 }) {
   const bound = paramOf(value);
-  const [linking, setLinking] = useState(false);
-  const on = bound !== null || linking;
+  // The user's own choice until the model answers with a new value: whether the box is
+  // ticked, and the parameter chosen (review of PR #45).
+  const [draft, setDraft] = useState<{ on: boolean; id: string | null } | null>(null);
+  const boundText = JSON.stringify(value);
+  useEffect(() => {
+    if (boundText !== undefined) setDraft(null);
+  }, [boundText]);
+  const on = draft?.on ?? bound !== null;
+  const chosen = draft === null ? bound : draft.id;
   const ids = Object.keys(ctx.model.parameters ?? {});
   const name = words(String(segments.at(-1)));
   return (
@@ -230,10 +251,10 @@ function ParameterLink({
           checked={on}
           disabled={ctx.readOnly}
           onChange={(event) => {
-            if (event.target.checked) setLinking(true);
+            if (event.target.checked) setDraft({ on: true, id: null });
             else {
-              setLinking(false);
-              if (bound !== null) onUnlink();
+              setDraft({ on: false, id: null });
+              onUnlink();
             }
           }}
         />
@@ -243,11 +264,11 @@ function ParameterLink({
         <select
           id={`${fieldId}-param`}
           aria-label={`Parameter for ${name}`}
-          value={bound ?? ""}
+          value={chosen ?? ""}
           disabled={ctx.readOnly}
           onChange={(event) => {
             if (event.target.value !== "") {
-              setLinking(false);
+              setDraft({ on: true, id: event.target.value });
               write(ctx, segments, { $param: event.target.value });
             }
           }}
@@ -346,12 +367,11 @@ function ValueField({
                 // The number as saved when this write is sent: one typed just before
                 // (committed on leaving its box) is kept, never the number last shown.
                 const chosen = event.target.value;
-                if (split !== null) {
-                  write(ctx, segments, (current: unknown) => {
-                    const saved = splitQuantity(current);
-                    return saved ? `${saved.number} ${chosen}` : undefined;
-                  });
-                }
+                // An unset value is written with this unit when its number is committed.
+                write(ctx, segments, (current: unknown) => {
+                  const saved = splitQuantity(current);
+                  return saved ? `${saved.number} ${chosen}` : undefined;
+                });
               }}
             >
               {TIME_UNITS.map((name) => (

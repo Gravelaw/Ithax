@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Edit, Model } from "../api/types";
 import { coffeeShop, ModelService, PID } from "../test/fakeModel";
 import { FakeService } from "../test/fakes";
-import { CanvasSession, RETRY_MS, VALIDATE_MS } from "./session";
+import { CanvasSession, MOVE_BURST_MS, RETRY_MS, VALIDATE_MS } from "./session";
 
 const MODEL = `/v1/projects/${PID}/model`;
 const EDITS = `/v1/projects/${PID}/model/edits`;
@@ -279,29 +279,99 @@ describe("the canvas's session with the service", () => {
     expect(session.getState()).toMatchObject({ revision: 5, undoLabel: null, refusal: result });
   });
 
-  it("runs its stop hooks first, still sends the writes queued, then closes", async () => {
+  it("sends a burst of moves as one write, half a second after the last", async () => {
     const { fake, service, session } = setup();
     session.start();
     await vi.advanceTimersByTimeAsync(0);
-    const release = session.beforeStop(() => {
-      void write(session, [label("till", "T")]);
-    });
-    const removed = session.beforeStop(() => {
-      throw new Error("a removed hook ran");
-    });
-    removed();
-    void write(session, [label("exit", "E")]);
+    session.move(new Map([["exit", { x: 488, y: 0 }]]));
+    expect(session.getState().saving).toBe(true);
+    await vi.advanceTimersByTimeAsync(MOVE_BURST_MS - 100);
+    session.move(new Map([["exit", { x: 496, y: 0 }]]));
+    await vi.advanceTimersByTimeAsync(MOVE_BURST_MS - 1);
+    expect(fake.requested("POST", EDITS)).toHaveLength(0);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fake.requested("POST", EDITS).map((request) => request.body)).toEqual([
+      { edits: [{ edit: "set_ui", id: "exit", ui: { x: 496, y: 0 } }], base_revision: 3 },
+    ]);
+    expect(service.component("exit")?.ui).toEqual({ x: 496, y: 0 });
+    expect(session.getState()).toMatchObject({ saving: false, undoLabel: "move exit" });
+  });
+
+  it("sends a waiting move before a write, so the write follows it", async () => {
+    const { fake, session } = setup();
+    session.start();
+    await vi.advanceTimersByTimeAsync(0);
+    session.move(new Map([["exit", { x: 8, y: 8 }]]));
+    await write(session, [label("till", "T")], "label till");
+    expect(fake.requested("POST", EDITS).map((request) => request.body)).toEqual([
+      { edits: [{ edit: "set_ui", id: "exit", ui: { x: 8, y: 8 } }], base_revision: 3 },
+      { edits: [label("till", "T")], base_revision: 4 },
+    ]);
+    await vi.advanceTimersByTimeAsync(MOVE_BURST_MS);
+    expect(fake.requested("POST", EDITS)).toHaveLength(2);
+  });
+
+  it("undo during a burst undoes the move, not the step before it", async () => {
+    const { fake, service, session } = setup();
+    session.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await write(session, [label("till", "T")], "label till");
+    session.move(new Map([["exit", { x: 8, y: 8 }]]));
+    await session.undo();
+    expect(fake.requested("POST", EDITS)).toHaveLength(2);
+    expect(service.component("exit")?.ui).toEqual({ x: 480, y: 0 });
+    expect(service.component("till")?.label).toBe("T");
+    expect(session.getState()).toMatchObject({ undoLabel: "label till", redoLabel: "move exit" });
+    await vi.advanceTimersByTimeAsync(MOVE_BURST_MS * 2);
+    expect(fake.requested("POST", EDITS)).toHaveLength(2);
+    expect(session.getState().redoLabel).toBe("move exit");
+  });
+
+  it("redo during a burst sends the move, which is a new action and clears redo", async () => {
+    const { fake, service, session } = setup();
+    session.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await write(session, [label("till", "T")], "label till");
+    await session.undo();
+    session.move(new Map([["exit", { x: 8, y: 8 }]]));
+    expect(await session.redo()).toBeNull();
+    expect(service.component("exit")?.ui).toEqual({ x: 8, y: 8 });
+    expect(service.component("till")?.label).toBeUndefined();
+    expect(fake.requested("PUT", MODEL)).toHaveLength(1);
+    expect(session.getState()).toMatchObject({ undoLabel: "move exit", redoLabel: null });
+  });
+
+  it("sends a waiting move before reloading for another client's revision", async () => {
+    const { fake, service, session } = setup();
+    session.start();
+    await vi.advanceTimersByTimeAsync(0);
+    session.move(new Map([["exit", { x: 8, y: 8 }]]));
+    service.outsideWrite(() => undefined);
+    fake.sockets[0]?.emit({ type: "model", revision: 4, client: "mcp" });
+    await vi.advanceTimersByTimeAsync(0);
+    // Its base revision is stale now, so the service refuses it and the canvas reloads.
+    expect(fake.requested("POST", EDITS)).toHaveLength(1);
+    expect(fake.requested("GET", MODEL).length).toBeGreaterThanOrEqual(2);
+    expect(session.getState()).toMatchObject({ revision: 4, undoLabel: null });
+  });
+
+  it("sends a waiting move and the writes queued when it stops, then closes", async () => {
+    const { fake, service, session } = setup();
+    session.start();
+    await vi.advanceTimersByTimeAsync(0);
+    void write(session, [label("till", "T")]);
+    session.move(new Map([["exit", { x: 8, y: 8 }]]));
     session.stop();
     session.stop();
     expect(await write(session, [label("arrivals", "A")])).toBeNull();
-    await vi.advanceTimersByTimeAsync(0);
+    session.move(new Map([["till", { x: 0, y: 0 }]]));
+    await vi.advanceTimersByTimeAsync(MOVE_BURST_MS);
     expect(fake.requested("POST", EDITS).map((request) => request.body)).toEqual([
-      { edits: [label("exit", "E")], base_revision: 3 },
-      { edits: [label("till", "T")], base_revision: 4 },
+      { edits: [label("till", "T")], base_revision: 3 },
+      { edits: [{ edit: "set_ui", id: "exit", ui: { x: 8, y: 8 } }], base_revision: 4 },
     ]);
     expect(service.revision).toBe(5);
     expect(fake.sockets[0]?.closedWith).toBe(1000);
-    release();
   });
 
   it("does not retry a write with no answer once stopped", async () => {

@@ -33,9 +33,12 @@ function ParameterRow({
   const base = useId();
   const set = (field: "value" | "min" | "max", text: string) => {
     if (text.trim() === "") {
-      if (field !== "value" && parameter[field] !== undefined) {
+      // Cleared if the parameter holds it when the write is sent.
+      if (field !== "value") {
         actions.replace(`clear ${field} of parameter ${id}`, (model) =>
-          withoutParameterField(model, id, field),
+          model.parameters?.[id]?.[field] === undefined
+            ? null
+            : withoutParameterField(model, id, field),
         );
       }
       return;

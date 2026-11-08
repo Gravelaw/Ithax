@@ -70,7 +70,7 @@ import {
   freePlace,
   issueComponent,
   issueCounts,
-  moveEdit,
+  movesIn,
   nextId,
   type Point,
   portsOf,
@@ -89,8 +89,6 @@ import { undoSteps, useSession } from "./useSession";
 
 export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 2;
-/** A burst of arrow presses with no pause this long is one move (one undo step). */
-export const MOVE_BURST_MS = 500;
 export const NOTICE_MS = 8000;
 
 const nodeTypes = { block: BlockNode };
@@ -297,16 +295,6 @@ function buildEdges(
   return edges;
 }
 
-/** `set_ui` for each moved block, from its `ui` in `model` (the model a write is sent on). */
-export function movesIn(model: Model, positions: Map<string, Point>): Edit[] {
-  const edits: Edit[] = [];
-  for (const [id, at] of positions) {
-    const component = components(model).find((item) => item.id === id);
-    if (component) edits.push(moveEdit(component, at));
-  }
-  return edits;
-}
-
 /** Why Run is not available, and which pointer it shows (owner review choice 9). */
 export function runBlocked(
   state: SessionState,
@@ -428,8 +416,6 @@ function ProcessCanvas({
   const [experiment, setExperiment] = useState<string>("");
   const wanted = useRef<string[] | null>(null);
   const [focusAfter, setFocusAfter] = useState<string | null>(null);
-  const moved = useRef(new Map<string, Point>());
-  const moveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shownLocally = useRef<ApiResult<unknown> | null>(null);
   const problems = useRef<HTMLElement>(null);
   const area = useRef<HTMLElement>(null);
@@ -640,39 +626,23 @@ function ProcessCanvas({
     doDelete(plan);
   };
 
-  const flushMove = useCallback(() => {
-    if (moveTimer.current !== null) clearTimeout(moveTimer.current);
-    moveTimer.current = null;
-    const positions = new Map(moved.current);
-    moved.current.clear();
-    if (positions.size === 0) return;
-    const ids = [...positions.keys()];
-    void send(ids.length === 1 ? `move ${ids[0]}` : `move ${ids.length} blocks`, (current) =>
-      movesIn(current, positions),
-    );
-  }, [send]);
+  // A keyboard move waiting for its burst to end is sent when the screen goes; the
+  // session also sends it before anything else it is asked to do, and when it stops.
+  useEffect(() => () => session.flushMoves(), [session]);
 
-  // A keyboard move still waiting for its burst to end is saved before the canvas closes:
-  // when this screen goes, and before the session stops (review of PR #45).
-  useEffect(() => {
-    const release = session.beforeStop(flushMove);
-    return () => {
-      flushMove();
-      release();
-    };
-  }, [session, flushMove]);
-
+  /** Arrow keys: the blocks move at once on screen; the session sends the burst as one write. */
   const moveSelection = (dx: number, dy: number) => {
-    setNodes((previous) =>
-      previous.map((node) => {
+    setNodes((previous) => {
+      const positions = new Map<string, Point>();
+      const next = previous.map((node) => {
         if (!node.selected) return node;
         const position = { x: node.position.x + dx, y: node.position.y + dy };
-        moved.current.set(node.id, position);
+        positions.set(node.id, position);
         return { ...node, position };
-      }),
-    );
-    if (moveTimer.current !== null) clearTimeout(moveTimer.current);
-    moveTimer.current = setTimeout(flushMove, MOVE_BURST_MS);
+      });
+      session.move(positions);
+      return next;
+    });
   };
 
   const onNodesChange = useCallback((changes: NodeChange<BlockNodeType>[]) => {
@@ -870,7 +840,10 @@ function ProcessCanvas({
       void send(label, edits);
     },
     replace: (label, build) => {
-      void session.write((current) => ({ kind: "model", label, model: build(current) }));
+      void session.write((current) => {
+        const model = build(current);
+        return model === null ? null : { kind: "model", label, model };
+      });
     },
     select: selectBlocks,
     remove: requestDelete,
