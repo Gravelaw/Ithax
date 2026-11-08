@@ -1,9 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { Settings } from "../api/types";
+import { LOST_CONTACT } from "../components/ServiceProblem";
 import { NOTICE_TEXT } from "../screens/FirstStartNotice";
 import { LATER } from "../screens/Placeholders";
+import { ModelService } from "../test/fakeModel";
 import { errorBody, SETTINGS, startedService } from "../test/fakes";
 import { Boot, CONNECTING, NO_TOKEN, NOT_ANSWERING, NoToken } from "./Boot";
 
@@ -95,8 +97,9 @@ describe("boot", () => {
 });
 
 describe("the frame", () => {
-  it("opens a new project on the Canvas, whose events socket shows its revision", async () => {
+  it("opens a new project on the Canvas, which loads its model and listens to its events", async () => {
     const { fake } = boot(seen);
+    new ModelService(fake);
     const created = {
       id: "p1",
       name: "Shop",
@@ -110,16 +113,16 @@ describe("the frame", () => {
     await userEvent.click(await screen.findByRole("button", { name: "New empty project" }));
     await userEvent.type(screen.getByRole("textbox", { name: "Name" }), "Shop");
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
-    expect(await screen.findByRole("heading", { name: "Canvas" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Canvas" })).toBeInTheDocument();
     expect(window.location.hash).toBe("#/canvas/p1");
     expect(screen.getByRole("banner")).toHaveTextContent("Shop");
+    // The Canvas's tools sit in the top bar.
+    expect(await within(screen.getByRole("banner")).findByText("Saved")).toBeInTheDocument();
     const socket = fake.sockets[0];
     socket?.open();
     expect(socket?.sent).toEqual([JSON.stringify({ token: "test-token" })]);
-    socket?.emit({ type: "model", revision: 0, client: null });
-    expect(await screen.findByText("Model saved at revision 0.")).toBeInTheDocument();
     socket?.serverClose(1008, "E185");
-    expect(await screen.findByText("E185")).toBeInTheDocument();
+    expect(await screen.findByText(LOST_CONTACT)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Data" }));
     expect(screen.getByRole("heading", { name: "Data" })).toBeVisible();
     expect(screen.getByText(LATER)).toBeVisible();
@@ -145,8 +148,9 @@ describe("the frame", () => {
     };
     window.location.hash = "#/canvas/p2";
     const { fake } = boot(seen);
+    new ModelService(fake, { pid: "p2" });
     fake.answer("GET /v1/projects", [listed]);
-    expect(await screen.findByRole("heading", { name: "Canvas" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Canvas" })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("Line"));
     window.location.hash = "#/results/gone";
     window.dispatchEvent(new HashChangeEvent("hashchange"));

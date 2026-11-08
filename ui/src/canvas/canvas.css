@@ -1,0 +1,838 @@
+/*
+ * The Canvas screen (docs/design/design-system.md "Spacing and layout", "Block styles",
+ * "Port styles", "Line styles"; docs/design/wireframes/01-canvas.svg). Colours are token
+ * variables only; React Flow's own variables are set from them.
+ */
+
+.main.main-canvas {
+  padding: 0;
+  overflow: hidden;
+}
+
+.canvas-message {
+  padding: var(--space-5) var(--space-6);
+}
+
+.canvas-screen {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr) 20rem;
+  height: 100%;
+  min-height: 0;
+}
+
+.canvas-screen.placing .react-flow__pane {
+  cursor: crosshair;
+}
+
+/* Top bar tools. */
+
+.canvas-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.save-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 5rem;
+  color: var(--color-text-muted);
+}
+
+.save-saved {
+  color: var(--color-success);
+}
+
+.save-failing {
+  color: var(--color-error);
+}
+
+.secondary.tool {
+  min-height: 2rem;
+  padding: 0 var(--space-3);
+  font-weight: 400;
+}
+
+.secondary:disabled,
+.danger:disabled {
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+  cursor: not-allowed;
+}
+
+.experiment-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.experiment-picker select,
+.side-panel select,
+.dialog select {
+  min-height: 2rem;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.run-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.primary.run[aria-disabled="true"] {
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+}
+
+.primary.run[data-blocked="errors"] {
+  cursor: not-allowed;
+}
+
+.primary.run[data-blocked="busy"] {
+  cursor: progress;
+}
+
+.run-reason {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.run-reason-error {
+  color: var(--color-error);
+}
+
+/* Shared small controls. */
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.danger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.25rem;
+  padding: 0 var(--space-4);
+  border: none;
+  border-radius: 999px;
+  background: var(--color-error);
+  color: var(--color-surface);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.small-button {
+  min-height: 1.75rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.tick {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 1.5rem;
+  cursor: pointer;
+}
+
+.tick input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-accent);
+}
+
+/* Palette. */
+
+.palette {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3);
+  overflow-y: auto;
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+  z-index: 1;
+}
+
+.palette-filter {
+  min-height: 2rem;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.palette-group {
+  margin: var(--space-3) 0 var(--space-1);
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.palette-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 2.25rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: grab;
+  text-align: left;
+}
+
+.palette-item[aria-pressed="true"] {
+  outline: 2px solid var(--color-accent);
+  background: var(--color-surface-alt);
+}
+
+.palette-disc,
+.block-disc {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 50%;
+}
+
+.palette-disc {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.cat-flow .palette-disc,
+.block-flow .block-disc {
+  background: color-mix(in srgb, var(--color-cat-flow) 18%, transparent);
+  color: var(--color-cat-flow);
+}
+
+.cat-work .palette-disc,
+.block-work .block-disc {
+  background: color-mix(in srgb, var(--color-cat-work) 18%, transparent);
+  color: var(--color-cat-work);
+}
+
+.cat-resource .palette-disc,
+.block-resource .block-disc {
+  background: color-mix(in srgb, var(--color-cat-resource) 18%, transparent);
+  color: var(--color-cat-resource);
+}
+
+.cat-other .palette-disc,
+.block-other .block-disc {
+  background: color-mix(in srgb, var(--color-edge) 18%, transparent);
+  color: var(--color-edge);
+}
+
+/* The canvas and the problems list. */
+
+.canvas-centre {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.canvas-notices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+}
+
+.canvas-notices:not(:empty) {
+  padding: var(--space-2) var(--space-3);
+}
+
+.canvas-notices .problem {
+  margin-top: 0;
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-left: 4px solid var(--color-accent);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+}
+
+.notice-error {
+  border-left-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.canvas-flow {
+  position: relative;
+  min-height: 0;
+}
+
+.react-flow {
+  --xy-background-color-default: var(--color-canvas);
+  --xy-background-pattern-dots-color-default: var(--color-canvas-grid);
+  --xy-edge-stroke-default: var(--color-edge);
+  --xy-edge-stroke-width-default: 2.5;
+  --xy-edge-stroke-selected-default: var(--color-accent);
+  --xy-connectionline-stroke-default: var(--color-accent);
+  --xy-connectionline-stroke-width-default: 2;
+  --xy-attribution-background-color-default: var(--color-surface);
+  --xy-minimap-background-color-default: var(--color-surface);
+  --xy-minimap-mask-background-color-default: color-mix(
+    in srgb,
+    var(--color-canvas-grid) 45%,
+    transparent
+  );
+  --xy-minimap-mask-stroke-color-default: var(--color-accent);
+  --xy-minimap-mask-stroke-width-default: 1.5;
+  --xy-minimap-node-background-color-default: var(--color-border-strong);
+  --xy-minimap-node-stroke-color-default: var(--color-border-strong);
+  --xy-handle-background-color-default: var(--color-edge);
+  --xy-handle-border-color-default: var(--color-surface);
+  --xy-selection-background-color-default: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  --xy-selection-border-default: 1px dotted var(--color-accent);
+  color: var(--color-text);
+}
+
+.react-flow__attribution a {
+  color: var(--color-text-muted);
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:focus-visible .react-flow__edge-path {
+  stroke-width: 3;
+}
+
+.react-flow__edge:focus-visible {
+  outline: none;
+}
+
+.react-flow__edge:focus-visible .react-flow__edge-path {
+  stroke: var(--color-focus);
+}
+
+.react-flow__minimap {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+}
+
+.zoom-controls {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.zoom-level {
+  min-width: 3.5rem;
+  min-height: 2rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+/* Blocks. */
+
+.react-flow__node-block {
+  border-radius: 999px;
+}
+
+.react-flow__node-block:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 4px;
+}
+
+.block {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 11rem;
+  min-height: 4rem;
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-3);
+  border: 1.5px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.block-flow {
+  border-radius: 999px;
+  border-color: color-mix(in srgb, var(--color-cat-flow) 50%, var(--color-border-strong));
+}
+
+.block-work {
+  border-radius: var(--radius-card);
+  border-color: color-mix(in srgb, var(--color-cat-work) 50%, var(--color-border-strong));
+}
+
+.block-resource {
+  border-radius: 0.25rem 1rem 1rem 0.25rem;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--color-cat-resource) 50%, var(--color-border-strong));
+}
+
+.block-other {
+  border-radius: var(--radius-card);
+  border-color: var(--color-edge);
+}
+
+.block:hover {
+  border-width: 2px;
+}
+
+.block-selected {
+  outline: 2.5px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.block.block-error {
+  border: 2px solid var(--color-error);
+}
+
+.block-disc {
+  width: 2.125rem;
+  height: 2.125rem;
+}
+
+.block-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.block-title {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.block-type {
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  position: absolute;
+  top: -0.625rem;
+  right: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.badge-error {
+  color: var(--color-error);
+}
+
+.badge-warning {
+  color: var(--color-warning);
+}
+
+.badge-count {
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--color-surface);
+}
+
+.badge-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: var(--color-error);
+  color: var(--color-surface);
+}
+
+.badge-triangle {
+  border-radius: 0;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  background: var(--color-warning);
+  padding-top: 0.25rem;
+}
+
+.resource-count {
+  position: absolute;
+  top: 0.25rem;
+  right: 1.25rem;
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-cat-resource) 18%, transparent);
+  font-weight: 700;
+}
+
+.resource-strip {
+  position: absolute;
+  top: 0.375rem;
+  right: 1rem;
+  width: 2.75rem;
+  height: 0.5rem;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--color-cat-resource) 0 0.625rem,
+    transparent 0.625rem 0.75rem
+  );
+}
+
+.resource-stripes {
+  position: absolute;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  right: 0.25rem;
+  width: 0.5rem;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-cat-resource) 0 2px,
+    transparent 2px 6px
+  );
+}
+
+/* Ports: 12 px circles with a 24 x 24 px hit area. */
+
+.react-flow__handle.port {
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 2px solid var(--color-surface);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 2px var(--color-edge);
+}
+
+.react-flow__handle.port.port-connected {
+  background: var(--color-edge);
+}
+
+.react-flow__handle.port::before {
+  content: "";
+  position: absolute;
+  inset: -0.375rem;
+}
+
+.react-flow__handle.port.connectingto,
+.react-flow__handle.port.valid,
+.connecting .react-flow__handle-left.port {
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+.port-label {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.react-flow__handle.ref-handle {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Reference lines. */
+
+.react-flow__edge-path.reference {
+  stroke: var(--color-cat-resource);
+  stroke-width: 1.5;
+}
+
+.reference-dot {
+  fill: var(--color-cat-resource);
+}
+
+.reference-chip {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-cat-resource);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  pointer-events: none;
+}
+
+.reference-chip svg {
+  color: var(--color-cat-resource);
+}
+
+/* Problems list. */
+
+/* 160 px high whatever it holds, so the canvas keeps its size (design-system.md). */
+.problems {
+  display: flex;
+  flex-direction: column;
+  height: 10rem;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+}
+
+.problems-closed {
+  height: auto;
+}
+
+.problems-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.problems-head .icon-button {
+  margin-left: auto;
+}
+
+.problem-rows {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.problem-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  border: none;
+  border-radius: var(--radius-control);
+  text-align: left;
+  cursor: pointer;
+}
+
+.problem-row.error {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.problem-row.warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.problem-row .hint {
+  color: inherit;
+}
+
+.problem-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.problem-title {
+  font-weight: 700;
+}
+
+/* Side panel. */
+
+.side-panel {
+  overflow-y: auto;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+  z-index: 1;
+}
+
+.panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.panel-section + .panel-section {
+  margin-top: var(--space-5);
+}
+
+.panel-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.panel-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.side-panel input:not([type="checkbox"]),
+.dialog input:not([type="checkbox"]) {
+  min-height: 2rem;
+  min-width: 0;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.side-panel input[aria-invalid="true"] {
+  border-color: var(--color-error);
+}
+
+.value-row,
+.quantity {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.quantity input {
+  flex: 1;
+  width: 100%;
+}
+
+.bound {
+  padding: var(--space-1) 0;
+}
+
+.param-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.distribution,
+.group,
+.row-group,
+.parameter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.parameter-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.add-parameter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.field-issues {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.field-issue {
+  display: flex;
+  gap: var(--space-1);
+  font-size: 0.75rem;
+}
+
+.field-issue.error {
+  color: var(--color-error);
+}
+
+.field-issue.warning {
+  color: var(--color-warning);
+}
+
+.field-issue .hint {
+  color: inherit;
+}
+
+.blocks-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.blocks-table th,
+.blocks-table td {
+  padding: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.blocks-table th {
+  background: var(--color-surface-alt);
+}
+
+/* Below 1024 px the side panel narrows; the canvas keeps its room (WCAG 1.4.10). */
+@media (max-width: 64rem) {
+  .canvas-screen {
+    grid-template-columns: 11rem minmax(0, 1fr) 16rem;
+  }
+}
+
+.react-flow__minimap-svg {
+  width: 10rem;
+  height: 6rem;
+}
+
+.panel-pair > *,
+.parameter-grid > * {
+  min-width: 0;
+}
+
+.side-panel .panel-field input:not([type="checkbox"]),
+.side-panel .panel-field select,
+.parameter-grid input,
+.parameter-grid select {
+  width: 100%;
+}
+
+.side-panel .quantity select {
+  width: auto;
+  flex: none;
+}

@@ -12,11 +12,16 @@ export const TOKEN = "test-token";
 export interface Recorded {
   method: string;
   path: string;
+  /** The query, such as `?base_revision=3`, or `""`. */
+  search: string;
   headers: Record<string, string>;
   body: unknown;
 }
 
-export type Handler = (body: unknown) => { status: number; body: unknown } | "unreachable";
+export type Handler = (
+  body: unknown,
+  url: URL,
+) => { status: number; body: unknown } | "unreachable";
 
 export function errorBody(code: string, message: string, issues: unknown[] = []) {
   return { error: { code, message }, issues };
@@ -61,10 +66,10 @@ export class FakeService {
     const method = init?.method ?? "GET";
     const headers = Object.fromEntries(new Headers(init?.headers).entries());
     const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined;
-    this.requests.push({ method, path: url.pathname, headers, body });
+    this.requests.push({ method, path: url.pathname, search: url.search, headers, body });
     const handler = this.handlers.get(`${method} ${url.pathname}`);
     const answer = handler
-      ? handler(body)
+      ? handler(body, url)
       : { status: 404, body: errorBody("E185", `The service has no '${url.pathname}'.`) };
     if (answer === "unreachable") throw new TypeError("Failed to fetch");
     return new Response(JSON.stringify(answer.body), {

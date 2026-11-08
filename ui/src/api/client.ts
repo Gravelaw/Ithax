@@ -14,16 +14,22 @@
  *   not its JSON), which the interface reports as lost contact.
  */
 import type {
+  ComponentType,
   CreateProject,
+  Edit,
   ErrorBody,
   Issue,
+  Model,
   ModelBody,
+  ModelWriteBody,
   Project,
   ProjectEvent,
+  SchemaBody,
   SettingsBody,
   SettingsChange,
   SystemInfo,
   Template,
+  ValidateBody,
 } from "./types";
 
 export type ApiResult<T> =
@@ -192,6 +198,34 @@ export class ApiClient {
 
   getModel(pid: string): Promise<ApiResult<ModelBody>> {
     return this.request("GET", `/v1/projects/${encodeURIComponent(pid)}/model`);
+  }
+
+  getSchema(): Promise<ApiResult<SchemaBody>> {
+    return this.request("GET", "/v1/schema");
+  }
+
+  getComponentType(type: string): Promise<ApiResult<ComponentType>> {
+    return this.request("GET", `/v1/schema/components/${encodeURIComponent(type)}`);
+  }
+
+  /** A whole model with `?base_revision=N` (spec 3: undo and redo write stored models). */
+  putModel(pid: string, model: Model, baseRevision: number): Promise<ApiResult<ModelWriteBody>> {
+    return this.request(
+      "PUT",
+      `/v1/projects/${encodeURIComponent(pid)}/model?base_revision=${baseRevision}`,
+      model,
+    );
+  }
+
+  editModel(pid: string, edits: Edit[], baseRevision: number): Promise<ApiResult<ModelWriteBody>> {
+    return this.request("POST", `/v1/projects/${encodeURIComponent(pid)}/model/edits`, {
+      edits,
+      base_revision: baseRevision,
+    });
+  }
+
+  validate(pid: string): Promise<ApiResult<ValidateBody>> {
+    return this.request("POST", `/v1/projects/${encodeURIComponent(pid)}/validate`);
   }
 
   projectEvents(pid: string, handlers: SocketHandlers<ProjectEvent>): EventSocket {

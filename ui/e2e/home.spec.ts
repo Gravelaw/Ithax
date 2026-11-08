@@ -23,9 +23,7 @@ async function create(page: Page, name: string, kind: RegExp): Promise<string> {
   await dialog.getByRole("textbox", { name: "Name" }).fill(name);
   await dialog.getByRole("radio", { name: kind }).check();
   await dialog.getByRole("button", { name: "Create" }).click();
-  // The Canvas placeholder's events socket answered with the first revision: the token
-  // message and the interface's Origin passed.
-  await expect(page.getByText("Model saved at revision 0.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Canvas" })).toBeAttached();
   await expect(page.getByRole("banner")).toContainText(name);
   return decodeURIComponent(new URL(page.url()).hash.split("/").pop() ?? "");
 }
@@ -67,8 +65,24 @@ test("Home creates Process and Plan projects and lists them", async ({
     expect(request.headers.authorization, request.path).toBe(`Bearer ${service.token}`);
     expect(request.headers["x-client"], request.path).toBe("ui");
   }
-  expect(new Set(sent.map((request) => `${request.method} ${request.path}`))).toEqual(
-    new Set(["GET /v1/settings", "GET /v1/projects", "GET /v1/templates", "POST /v1/projects"]),
+  expect(
+    new Set(
+      sent.map(
+        (request) =>
+          `${request.method} ${request.path.replace(/\/projects\/[0-9a-f-]{36}\//, "/projects/{pid}/")}`,
+      ),
+    ),
+  ).toEqual(
+    new Set([
+      "GET /v1/settings",
+      "GET /v1/projects",
+      "GET /v1/templates",
+      "POST /v1/projects",
+      // The Canvas opens each project: its model, the component types, a validation.
+      "GET /v1/schema",
+      "GET /v1/projects/{pid}/model",
+      "POST /v1/projects/{pid}/validate",
+    ]),
   );
   expect(outside).toEqual([]);
 });
@@ -85,7 +99,7 @@ test("Home opens a project folder, and shows the service's refusal", async ({ pa
   await expect(dialog.getByRole("alert")).toContainText("E185");
   await dialog.getByRole("textbox", { name: "Folder" }).fill(folder);
   await dialog.getByRole("button", { name: "Open" }).click();
-  await expect(page.getByText("Model saved at revision 0.")).toBeVisible();
+  await expect(page.locator(".save-state")).toHaveText("Saved");
   await expect(page.getByRole("banner")).toContainText("Line");
 });
 
@@ -112,7 +126,7 @@ test("Home works from the keyboard alone", async ({ page, service }) => {
   await expect(page.getByRole("radio", { name: /Plan/ })).toBeChecked();
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Enter");
-  await expect(page.getByText("Model saved at revision 0.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Canvas" })).toBeAttached();
   await page.keyboard.press("F6");
   await page.keyboard.press("ArrowUp");
   await page.keyboard.press("Enter");

@@ -1,0 +1,368 @@
+{
+  "source": {
+    "type": "source",
+    "domain": "process",
+    "engine": "simpy",
+    "description": "Creates one item, waits one interarrival time, and repeats; the first item arrives at first_arrival, and the source stops after max_items items.",
+    "inputs": [],
+    "outputs": ["out"],
+    "outputs_from": null,
+    "settings": [
+      {
+        "name": "interarrival",
+        "kind": "distribution",
+        "required": true,
+        "dimension": "time"
+      },
+      {
+        "name": "first_arrival",
+        "kind": "quantity",
+        "required": false,
+        "dimension": "time",
+        "minimum": 0
+      },
+      {
+        "name": "max_items",
+        "kind": "number",
+        "required": false,
+        "integer": true,
+        "minimum": 1
+      }
+    ],
+    "metrics": ["created", "discarded"]
+  },
+  "server": {
+    "type": "server",
+    "domain": "process",
+    "engine": "simpy",
+    "description": "Items wait in the server's own queue, then hold one unit of capacity for one service time.",
+    "inputs": ["in"],
+    "outputs": ["out"],
+    "outputs_from": null,
+    "settings": [
+      {
+        "name": "capacity",
+        "kind": "number",
+        "required": true,
+        "integer": true,
+        "minimum": 1
+      },
+      {
+        "name": "service",
+        "kind": "distribution",
+        "required": true,
+        "dimension": "time"
+      },
+      {
+        "name": "queue_capacity",
+        "kind": "number",
+        "required": false,
+        "integer": true,
+        "minimum": 0
+      },
+      {
+        "name": "discipline",
+        "kind": "identifier",
+        "required": false,
+        "choices": ["fifo", "lifo"],
+        "default": "fifo"
+      },
+      {
+        "name": "pool",
+        "kind": "identifier",
+        "required": false,
+        "refers_to": ["resource_pool"]
+      }
+    ],
+    "metrics": [
+      "wait.mean",
+      "utilization",
+      "availability",
+      "scheduled_fraction",
+      "queue_length.mean",
+      "queue_length.max"
+    ]
+  },
+  "delay": {
+    "type": "delay",
+    "domain": "process",
+    "engine": "simpy",
+    "description": "Holds each item for the sampled time, with no queue and no capacity limit.",
+    "inputs": ["in"],
+    "outputs": ["out"],
+    "outputs_from": null,
+    "settings": [
+      {
+        "name": "time",
+        "kind": "distribution",
+        "required": true,
+        "dimension": "time"
+      }
+    ],
+    "metrics": []
+  },
+  "branch": {
+    "type": "branch",
+    "domain": "process",
+    "engine": "simpy",
+    "description": "Sends each item down one of its routes, by probability or to the shortest queue.",
+    "inputs": ["in"],
+    "outputs": [],
+    "outputs_from": "routes",
+    "settings": [
+      {
+        "name": "routes",
+        "kind": "identifier",
+        "required": true,
+        "many": true,
+        "min_items": 1
+      },
+      {
+        "name": "rule",
+        "kind": "identifier",
+        "required": true,
+        "choices": ["probability", "shortest_queue"]
+      },
+      {
+        "name": "weights",
+        "kind": "object",
+        "required": false,
+        "keyed_by": "routes",
+        "values": {
+          "name": "weight",
+          "kind": "number",
+          "required": true,
+          "minimum": 0
+        },
+        "required_when": ["rule", "probability"]
+      }
+    ],
+    "metrics": []
+  },
+  "queue": {
+    "type": "queue",
+    "domain": "process",
+    "engine": "simpy",
+    "description": "A standalone buffer, for use ahead of a batch or branch.",
+    "inputs": ["in"],
+    "outputs": ["out"],
+    "outputs_from": null,
+    "settings": [
+      {
+        "name": "capacity",
+        "kind": "number",
+        "required": true,
+        "integer": true,
+        "minimum": 1
+      },
+      {
+        "name": "discipline",
+        "kind": "identifier",
+        "required": false,
+        "choices": ["fifo", "lifo"],
+        "default": "fifo"
+      },
+      {
+        "name": "on_full",
+        "kind": "identifier",
+        "required": false,
+        "choices": ["block", "discard"],
+        "default": "block"
+      }
+    ],
+    "metrics": ["queue_length.mean", "queue_length.max", "wait.mean", "discarded"]
+  },
+  "batch": {
+    "type": "batch",
+    "domain": "process",
+    "engine": "simpy",
+    "description": "Collects size items and releases them as one.",
+    "inputs": ["in"],
+    "outputs": ["out"],
+    "outputs_from": null,
+    "settings": [
+      {
+        "name": "size",
+        "kind": "number",
+        "required": true,
+        "integer": true,
+        "minimum": 1
+      },
+      {
+        "name": "timeout",
+        "kind": "quantity",
+        "required": false,
+        "dimension": "time",
+        "minimum": 0,
+        "exclusive_minimum": true
+      }
+    ],
+    "metrics": ["wait.mean"]
+  },
+  "unbatch": {
+    "type": "unbatch",
+    "domain": "process",
+    "engine": "simpy",
+    "description": "Splits a batch back into its items.",
+    "inputs": ["in"],
+    "outputs": ["out"],
+    "outputs_from": null,
+    "settings": [],
+    "metrics": []
+  },
+  "store": {
+    "type": "store",
+    "domain": "process",
+    "engine": "simpy",
+    "description": "Each arriving item takes one unit of stock and leaves at once, or waits for a delivery when stock is zero; an order of order_quantity is placed when stock on hand plus on order falls to reorder_point.",
+    "inputs": ["in"],
+    "outputs": ["out"],
+    "outputs_from": null,
+    "settings": [
+      {
+        "name": "initial",
+        "kind": "number",
+        "required": true,
+        "integer": true,
+        "minimum": 0
+      },
+      {
+        "name": "reorder_point",
+        "kind": "number",
+        "required": true,
+        "integer": true,
+        "minimum": 0
+      },
+      {
+        "name": "order_quantity",
+        "kind": "number",
+        "required": true,
+        "integer": true,
+        "minimum": 1
+      },
+      {
+        "name": "lead_time",
+        "kind": "distribution",
+        "required": true,
+        "dimension": "time"
+      }
+    ],
+    "metrics": ["stock.mean", "stockouts", "orders"]
+  },
+  "resource_pool": {
+    "type": "resource_pool",
+    "domain": "process",
+    "engine": "simpy",
+    "description": "Shared staff or tools; servers name it in their pool setting.",
+    "inputs": [],
+    "outputs": [],
+    "outputs_from": null,
+    "settings": [
+      {
+        "name": "capacity",
+        "kind": "number",
+        "required": true,
+        "integer": true,
+        "minimum": 1
+      }
+    ],
+    "metrics": ["utilization"]
+  },
+  "schedule": {
+    "type": "schedule",
+    "domain": "process",
+    "engine": "simpy",
+    "description": "Changes the capacity of a server or pool over time.",
+    "inputs": [],
+    "outputs": [],
+    "outputs_from": null,
+    "settings": [
+      {
+        "name": "target",
+        "kind": "identifier",
+        "required": true,
+        "refers_to": ["server", "resource_pool"]
+      },
+      {
+        "name": "shifts",
+        "kind": "object",
+        "required": true,
+        "many": true,
+        "fields": [
+          {
+            "name": "start",
+            "kind": "quantity",
+            "required": true,
+            "dimension": "time",
+            "minimum": 0
+          },
+          {
+            "name": "end",
+            "kind": "quantity",
+            "required": true,
+            "dimension": "time",
+            "minimum": 0
+          },
+          {
+            "name": "capacity",
+            "kind": "number",
+            "required": true,
+            "integer": true,
+            "minimum": 0
+          }
+        ]
+      },
+      {
+        "name": "period",
+        "kind": "quantity",
+        "required": false,
+        "dimension": "time",
+        "minimum": 0,
+        "exclusive_minimum": true,
+        "default": "86400 s"
+      }
+    ],
+    "metrics": []
+  },
+  "failure": {
+    "type": "failure",
+    "domain": "process",
+    "engine": "simpy",
+    "description": "Takes a server out of service at random and returns it after repair.",
+    "inputs": [],
+    "outputs": [],
+    "outputs_from": null,
+    "settings": [
+      {
+        "name": "target",
+        "kind": "identifier",
+        "required": true,
+        "refers_to": ["server"]
+      },
+      {
+        "name": "time_to_failure",
+        "kind": "distribution",
+        "required": true,
+        "dimension": "time"
+      },
+      {
+        "name": "time_to_repair",
+        "kind": "distribution",
+        "required": true,
+        "dimension": "time"
+      }
+    ],
+    "metrics": []
+  },
+  "sink": {
+    "type": "sink",
+    "domain": "process",
+    "engine": "simpy",
+    "description": "Removes the item and records its statistics.",
+    "inputs": ["in"],
+    "outputs": [],
+    "outputs_from": null,
+    "settings": [],
+    "metrics": ["throughput", "cycle_time.mean", "count"]
+  }
+}

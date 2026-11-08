@@ -1,13 +1,7 @@
 /**
- * The screens later M9 tickets build (Canvas AKS-136 and AKS-137, Data and Experiment
- * AKS-120, Run monitor, Results and Settings AKS-138). The Canvas placeholder already opens
- * the project's events socket, so the token message and the interface's `Origin` are
- * exercised end to end; Settings already holds About, which the first-start notice names.
+ * The screens later M9 tickets build (Data and Experiment AKS-120, Run monitor, Results and
+ * Settings AKS-138). Settings already holds About, which the first-start notice names.
  */
-import { useEffect, useState } from "react";
-import type { ApiClient } from "../api/client";
-import type { Project, ProjectEvent } from "../api/types";
-import { LOST_CONTACT } from "../components/ServiceProblem";
 
 export const LATER = "This screen arrives in a later build.";
 
@@ -18,46 +12,6 @@ export function ScreenPlaceholder({ title }: { title: string }) {
         {title}
       </h1>
       <p className="muted">{LATER}</p>
-    </section>
-  );
-}
-
-export function CanvasPlaceholder({
-  client,
-  project,
-}: {
-  client: ApiClient;
-  project: Project | null;
-}) {
-  const projectId = project?.id ?? null;
-  const [revision, setRevision] = useState<number | null>(null);
-  const [closed, setClosed] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (projectId === null) return;
-    setRevision(null);
-    setClosed(null);
-    const socket = client.projectEvents(projectId, {
-      onEvent: (event: ProjectEvent) => {
-        if (event.type === "model") setRevision(event.revision);
-      },
-      onClose: (code, reason) => {
-        if (code !== 1000) setClosed(reason || LOST_CONTACT);
-      },
-    });
-    return () => socket.close();
-  }, [client, projectId]);
-
-  return (
-    <section className="placeholder" aria-labelledby="screen-heading">
-      <h1 id="screen-heading" className="title">
-        Canvas
-      </h1>
-      <p className="muted">{LATER}</p>
-      <p role="status">
-        {revision === null ? "Connecting to the project…" : `Model saved at revision ${revision}.`}
-      </p>
-      {closed !== null ? <p role="alert">{closed}</p> : null}
     </section>
   );
 }
