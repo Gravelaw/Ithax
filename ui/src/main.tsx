@@ -14,7 +14,7 @@ import { Boot, NoToken } from "./app/Boot";
 import { installTheme } from "./theme/tokens";
 
 installTheme(document);
-const token = takeToken({ location, history, storage: sessionStorage });
+const token = takeToken({ location, history, storage: () => window.sessionStorage });
 const container = document.getElementById("root");
 if (container === null) throw new Error("index.html has no #root");
 createRoot(container).render(

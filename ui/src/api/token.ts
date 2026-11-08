@@ -15,7 +15,9 @@ const FRAGMENT = /^#token=([A-Za-z0-9_-]+)$/;
 export interface TokenSources {
   location: Pick<Location, "hash" | "pathname" | "search">;
   history: Pick<History, "replaceState">;
-  storage: Pick<Storage, "getItem" | "setItem">;
+  /** The tab's storage, reached lazily: reading `window.sessionStorage` itself throws a
+   * `SecurityError` when the browser denies storage (review of PR #44). */
+  storage: () => Pick<Storage, "getItem" | "setItem">;
 }
 
 /** The token from the address's fragment, then removed from it; else the stored one. */
@@ -25,14 +27,14 @@ export function takeToken({ location, history, storage }: TokenSources): string 
     const token = match[1];
     history.replaceState(null, "", `${location.pathname}${location.search}`);
     try {
-      storage.setItem(TOKEN_KEY, token);
+      storage().setItem(TOKEN_KEY, token);
     } catch {
-      // Storage refused (a private window): the page works until it is reloaded.
+      // Storage denied or refused: the page works until it is reloaded.
     }
     return token;
   }
   try {
-    return storage.getItem(TOKEN_KEY);
+    return storage().getItem(TOKEN_KEY);
   } catch {
     return null;
   }

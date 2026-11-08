@@ -7,10 +7,10 @@ function sources(hash: string, stored: string | null = null) {
   return {
     location: { hash, pathname: "/v1/ui/", search: "" },
     history: { replaceState: vi.fn() },
-    storage: {
+    storage: () => ({
       getItem: (key: string) => store.get(key) ?? null,
       setItem: (key: string, value: string) => store.set(key, value),
-    },
+    }),
     store,
   };
 }
@@ -35,14 +35,27 @@ describe("takeToken", () => {
   });
 
   it("works when storage refuses", () => {
-    const given = sources("#token=t1");
-    given.storage.setItem = () => {
-      throw new Error("refused");
-    };
+    const refusing = () => ({
+      getItem: () => {
+        throw new Error("refused");
+      },
+      setItem: () => {
+        throw new Error("refused");
+      },
+    });
+    const given = { ...sources("#token=t1"), storage: refusing };
     expect(takeToken(given)).toBe("t1");
-    given.storage.getItem = () => {
-      throw new Error("refused");
+    expect(takeToken({ ...given, location: { ...given.location, hash: "" } })).toBeNull();
+  });
+
+  it("takes the fragment's token when reaching storage itself throws", () => {
+    // Reading window.sessionStorage throws a SecurityError when the browser denies storage.
+    const denied = () => {
+      throw new DOMException("denied", "SecurityError");
     };
+    const given = { ...sources("#token=t2"), storage: denied };
+    expect(takeToken(given)).toBe("t2");
+    expect(given.history.replaceState).toHaveBeenCalledOnce();
     expect(takeToken({ ...given, location: { ...given.location, hash: "" } })).toBeNull();
   });
 });

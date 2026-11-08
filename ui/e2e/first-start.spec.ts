@@ -62,3 +62,19 @@ test("the interface's files carry a policy that keeps the page to the service", 
     "GNU AFFERO GENERAL PUBLIC LICENSE",
   );
 });
+
+test("the page starts with the launcher's token when the browser denies storage", async ({
+  page,
+  service,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "sessionStorage", {
+      get() {
+        throw new DOMException("Storage is denied.", "SecurityError");
+      },
+    });
+  });
+  await page.goto(service.url);
+  await expect(page.getByRole("dialog", { name: "Welcome" })).toBeVisible();
+  expect(page.url()).toBe(`${service.origin}/v1/ui/`);
+});
