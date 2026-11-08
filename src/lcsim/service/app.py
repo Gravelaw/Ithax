@@ -7,6 +7,10 @@ A later area adds its router to ``ROUTERS``. The app has no ``/docs``, ``/redoc`
 ``docs/research/spec-3-service-framework-check.md``), so its routes are exactly the
 routers' and nothing leaves the machine.
 
+The lifespan also starts the runs (``RunService.start``: E191 for orphaned runs, every
+project's run index) and stops them when the service stops (``RunService.stop``: E191 for
+unfinished runs; AKS-112).
+
 When ``config.on_idle`` is set, the app's lifespan watches the lifetime and calls it once
 the service has been idle for ``config.idle_timeout_s`` (spec 3 "Lifetime"), counted from
 when it starts serving at the earliest.
@@ -20,19 +24,22 @@ from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, FastAPI
 from fastapi.routing import iter_route_contexts
+from starlette.concurrency import run_in_threadpool
 from starlette.routing import WebSocketRoute
 
 from lcsim import __version__
 from lcsim.engines.registry import installed_adapters
-from lcsim.service import engines, models, projects, system, templates
+from lcsim.service import engines, models, projects, runs, system, templates
 from lcsim.service.auth import Hardening
 from lcsim.service.config import ServiceConfig
 from lcsim.service.errors import AsciiJSONResponse, install_error_handlers
 from lcsim.service.events import ProjectEvents
-from lcsim.service.hardware import active_tier, detect_hardware
+from lcsim.service.hardware import active_tier, detect_hardware, tier_workers
 from lcsim.service.lifetime import Lifetime, watch
 from lcsim.service.model_store import ModelStore
 from lcsim.service.projects_store import ProjectRegistry
+from lcsim.service.run_service import RunService
+from lcsim.service.run_settings import read_run_settings
 from lcsim.service.state import ServiceState
 
 __all__ = ["ROUTERS", "create_app", "route_table"]
@@ -44,6 +51,7 @@ ROUTERS: tuple[APIRouter, ...] = (
     templates.router,
     projects.router,
     models.router,
+    runs.router,
 )
 
 # FastAPI's built-in telemetry, all off: no spans, metrics or logs, and no exporter even if
@@ -64,15 +72,26 @@ def create_app(config: ServiceConfig) -> FastAPI:
     adapters = installed_adapters() if config.adapters is None else config.adapters
     registry = ProjectRegistry(config.config_dir, config.data_dir)
     events = ProjectEvents()
+    tier = active_tier(config.config_dir, hardware)
+    model_store = ModelStore(registry, adapters, events)
     state = ServiceState(
         config=config,
         lifetime=lifetime,
         hardware=hardware,
-        tier=active_tier(config.config_dir, hardware),
+        tier=tier,
         adapters=adapters,
         projects=registry,
-        models=ModelStore(registry, adapters, events),
+        models=model_store,
         events=events,
+        runs=RunService(
+            projects=registry,
+            models=model_store,
+            events=events,
+            adapters=adapters,
+            lifetime=lifetime,
+            settings=read_run_settings(config.config_dir),
+            workers=tier_workers(tier, hardware.cores),
+        ),
     )
 
     @contextlib.asynccontextmanager
@@ -80,6 +99,7 @@ def create_app(config: ServiceConfig) -> FastAPI:
         # The idle count starts when serving starts: building the app and starting the
         # server are not idle time, and on a slow machine they could use up a short limit,
         # so the service would exit at its first check (CI on PR #35).
+        await run_in_threadpool(state.runs.start)
         lifetime.touch()
         task = None
         if config.on_idle is not None:
@@ -91,6 +111,7 @@ def create_app(config: ServiceConfig) -> FastAPI:
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
+            await run_in_threadpool(state.runs.stop)
 
     app = FastAPI(
         title="lcsim engine service",

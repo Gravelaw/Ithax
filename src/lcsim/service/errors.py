@@ -13,7 +13,8 @@ The service codes (spec 1 "Validation issues", AKS-110, owner to confirm):
 - E184: request malformed (400);
 - E185: not found (404), or a method a path does not take (405);
 - E186: a project folder that cannot be used (400);
-- E187: the service failed while answering (500).
+- E187: the service failed while answering (500);
+- E188: an action the run's current state does not allow (409; AKS-112).
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from lcsim.model.issues import Issue, pointer
 __all__ = [
     "INTERNAL",
     "MALFORMED",
+    "NOT_ALLOWED",
     "NOT_FOUND",
     "PROJECT_FOLDER",
     "REFUSED",
@@ -52,6 +54,7 @@ MALFORMED = "E184"
 NOT_FOUND = "E185"
 PROJECT_FOLDER = "E186"
 INTERNAL = "E187"
+NOT_ALLOWED = "E188"
 
 _log = logging.getLogger(__name__)
 

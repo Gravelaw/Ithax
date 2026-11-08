@@ -30,6 +30,12 @@ per candidate evaluation, each in its own subfolder of ``engine/`` (``search-<n>
 the whole run. The run folder's ``summary.json`` and ``tables/`` are the best candidate's
 confirmation with the ``search`` object, and the manifest names the search method and the
 Optuna version in ``optimizer``.
+
+For the service (AKS-112): ``on_state`` is told of every state change after the manifest is
+written, and ``on_progress`` of every progress report with its message; ``create`` takes a
+``target`` that overrides the file's ``run.target`` and is recorded in the manifest;
+``cancel`` says whether it was accepted; ``interrupt`` stops a run as a cancel does but ends
+it ``failed`` with E191, for a service that stops while the run is unfinished.
 """
 
 from __future__ import annotations
@@ -59,10 +65,9 @@ from lcsim.runs.limits import Limits, descendant_ids, limit_exceeded, process_tr
 from lcsim.runs.lock import LOCK_FILE, RunLock, is_held, take_lock
 from lcsim.runs.manager import check_experiment, collect_summary
 from lcsim.runs.manifest import (
-    MANIFEST_FILE,
     ManifestWriter,
     new_manifest,
-    read_manifest,
+    read_run_manifest,
     utc_text,
     write_manifest,
 )
@@ -84,7 +89,9 @@ __all__ = [
     "MODEL_FILE",
     "LocalRun",
     "LocalTarget",
+    "ProgressHook",
     "RunRefused",
+    "StateHook",
     "describe_bytes",
     "describe_seconds",
     "now",
@@ -109,6 +116,12 @@ MEMORY_POLL_S = 1.0
 #: The signal that ends a forcibly stopped worker's own processes (SIGKILL where it
 #: exists; Windows has none, and has no /proc to find them either).
 _KILL = getattr(signal, "SIGKILL", signal.SIGTERM)
+
+
+#: Told of every state change of a run, after its manifest is written (AKS-112).
+StateHook = Callable[["LocalRun", JobState], None]
+#: Told of every progress report of a run: its fraction and message (AKS-112).
+ProgressHook = Callable[["LocalRun", float, str], None]
 
 
 def now() -> datetime:
@@ -140,11 +153,21 @@ def describe_bytes(size: int) -> str:
     return f"{size} B"
 
 
-def _target_issue(target: object) -> Issue | None:
-    """E172 for a ``run.target`` this build cannot run (spec 1 "Run targets")."""
+def _target_issue(target: object, *, requested: bool = False) -> Issue | None:
+    """E172 for a run target this build cannot run (spec 1 "Run targets"): the file's
+    ``run.target``, or with ``requested`` the ``target`` of the request (AKS-112)."""
     if target == "local":
         return None
     shown = f"'{target}'" if isinstance(target, str) else str(target)
+    if requested:
+        return Issue(
+            code="E172",
+            component=None,
+            path="/target",
+            message=f"The run target {shown} named in the request is not available on this "
+            "build: only 'local' runs before M11.",
+            hint="Send 'target' as 'local', or leave it out.",
+        )
     return Issue(
         code="E172",
         component=None,
@@ -205,6 +228,9 @@ class LocalTarget:
     ``workers`` is passed to the adapter's ``run`` (spec 3: the cores of the active tier).
     ``client`` (``ui``, ``mcp`` or ``script``) and ``project_id`` go into the manifest; the
     service sets them from M6. ``adapters`` defaults to the installed adapters.
+    ``on_state`` and ``on_progress`` are told of each run's state changes and progress
+    reports (AKS-112); they are called while the run's lock is held, so they must be quick
+    and must not call back into the run.
     """
 
     def __init__(
@@ -219,6 +245,8 @@ class LocalTarget:
         cancel_grace_s: float = CANCEL_GRACE_S,
         limit_grace_s: float = LIMIT_GRACE_S,
         kill_grace_s: float = KILL_GRACE_S,
+        on_state: StateHook | None = None,
+        on_progress: ProgressHook | None = None,
     ) -> None:
         self.runs_root = runs_root
         self.workers = workers
@@ -229,12 +257,15 @@ class LocalTarget:
         self.cancel_grace_s = cancel_grace_s
         self.limit_grace_s = limit_grace_s
         self.kill_grace_s = kill_grace_s
+        self.on_state = on_state
+        self.on_progress = on_progress
 
     def create(
         self,
         model_file: bytes,
         experiment_id: str | None = None,
         *,
+        target: str | None = None,
         seed_source: SeedSource | None = None,
     ) -> LocalRun:
         """Checks a run of experiment ``experiment_id`` of the model file ``model_file``
@@ -242,8 +273,10 @@ class LocalTarget:
         ``queued``.
 
         Raises ``RunRefused`` when any check finds an error (nothing is created) and
-        ``ValueError`` for an experiment the model does not have, an experiment id for an
-        optimization model or none for a process model. ``seed_source`` gives the seed of an
+        ``ExperimentChoiceError`` (a ``ValueError``) for an experiment the model does not
+        have, an experiment id for an optimization model or none for a process model.
+        ``target``, when given, replaces the file's ``run.target`` (spec 3 ``POST .../runs``;
+        E172 at ``/target`` unless it is ``local``). ``seed_source`` gives the seed of an
         experiment the file leaves without one.
         """
         engines = None if self.adapters is None else installed_engines(self.adapters)
@@ -251,7 +284,10 @@ class LocalTarget:
         if loaded.model is None:
             raise RunRefused(loaded.issues)
         model = loaded.model
-        target_issue = _target_issue(model.run.target)
+        if target is None:
+            target_issue = _target_issue(model.run.target)
+        else:
+            target_issue = _target_issue(target, requested=True)
         if target_issue is not None:
             raise RunRefused((target_issue,))
         selection = select_adapter(model.domain, model.run.engine, self.adapters)
@@ -285,6 +321,7 @@ class LocalRun:
         self._mutex = threading.RLock()
         self._cancel = multiprocessing.get_context("spawn").Event()
         self._cancelled_at: float | None = None
+        self._interrupted = False
         self._started_at = 0.0
         self._memory_noted = False
         self._on_report: Callable[[float, str], None] = self._record_progress
@@ -321,6 +358,7 @@ class LocalRun:
                 engine_name=adapter.name,
                 engine_version=adapter.version,
                 format_version=model.format_version,
+                target="local",
                 seed=None if experiment is None else experiment.seed,
                 optimizer=None
                 if experiment is None or experiment.search is None
@@ -359,19 +397,38 @@ class LocalRun:
             if state in FINAL_STATES and self._lock is not None:
                 self._lock.release(remove=True)
                 self._lock = None
+            if self._target.on_state is not None:
+                self._target.on_state(self, state)
 
-    def cancel(self) -> None:
+    def cancel(self) -> bool:
         """Cancels the run: a queued run is ``cancelled`` at once; a running run's token is
-        set and the run ends ``cancelled``. A finished run is left as it is."""
+        set and the run ends ``cancelled``. Returns whether the cancel was accepted: a
+        finished run is left as it is and gives ``False``; a running run gives ``True``,
+        also for a repeat."""
         with self._mutex:
             if self.state == "queued":
                 self._cancel.set()
-                self.move("cancelled")
-            elif self.state == "running" and self._cancelled_at is None:
+                self._end_cancelled()
+                return True
+            if self.state != "running":
+                return False
+            if self._cancelled_at is None:
                 # Only the first cancel starts the grace: a repeat must not postpone it.
                 self._cancelled_at = time.monotonic()
                 self._cancel.set()
                 self.log("cancel requested")
+            return True
+
+    def interrupt(self) -> None:
+        """Stops the run because the service is stopping: as ``cancel``, but the run ends
+        ``failed`` with E191 instead of ``cancelled`` (spec 3 "Runs outlive the interface";
+        AKS-112). A finished run is left as it is."""
+        with self._mutex:
+            if self.state in FINAL_STATES:
+                return
+            self._interrupted = True
+            self.log("the service is stopping")
+            self.cancel()
 
     def _fail(self, issue: Issue, details: str) -> JobState:
         self.log(details.rstrip("\n"))
@@ -386,6 +443,21 @@ class LocalRun:
                 return self.state
             self.move("running")
             self._started_at = time.monotonic()
+        try:
+            return self._drive()
+        except Exception:
+            # Not the adapter's error (those are handled where they arise) but this process's,
+            # such as a hook that raised: the run must still end, or it would stay
+            # ``running`` and hold the service (AKS-112). The worker is told to stop.
+            self._cancel.set()
+            details = "driving the run raised:\n" + traceback.format_exc()
+            with self._mutex:
+                if self.state in FINAL_STATES:
+                    raise
+                return self._fail(_engine_error(self._adapter.name), details)
+
+    def _drive(self) -> JobState:
+        """``execute`` once the run is ``running``."""
         if self._search:
             return self._execute_search()
         engine = self._adapter.name
@@ -481,11 +553,19 @@ class LocalRun:
         return self._finish(result.best_results, summary)
 
     def _record_progress(self, fraction: float, message: str) -> None:
-        """Writes a progress fraction to the manifest (at most once a second)."""
+        """Writes a progress fraction to the manifest (at most once a second) and tells
+        ``on_progress``."""
         with self._mutex:  # cancel() may write from another thread
             self._manifest.progress(fraction)
+            if self._target.on_progress is not None:
+                self._target.on_progress(self, fraction, message)
 
     def _end_cancelled(self) -> JobState:
+        """Ends a run whose token was set: ``cancelled``, or ``failed`` with E191 when the
+        service stopped it."""
+        if self._interrupted:
+            self.move("failed", error=_interrupted().as_dict())
+            return "failed"
         self.move("cancelled")
         return "cancelled"
 
@@ -519,7 +599,16 @@ class LocalRun:
         pid = worker.pid
         assert pid is not None  # set by start()
         self.log(f"worker started, process {pid}")
-        report, exceeded = self._watch(worker, pid, receive)
+        try:
+            report, exceeded = self._watch(worker, pid, receive)
+        except BaseException:
+            # Watching failed (a hook raised): the worker must not outlive the run, so it is
+            # told to stop, given the limit grace, then ended with what it started (review
+            # of PR #36).
+            self._cancel.set()
+            self._stop(worker, pid, self._target.limit_grace_s)
+            receive.close()
+            raise
         receive.close()
         exit_code = worker.exitcode
         self.log(f"worker ended, exit status {exit_code}")
@@ -612,21 +701,21 @@ def recover_interrupted(runs_root: Path) -> list[str]:
     """E191: marks ``failed`` every run in ``runs_root`` whose manifest says ``queued`` or
     ``running`` and whose process is gone (its ``worker.lock`` can be taken, or is
     missing); returns their ``run_id`` values in order. The service calls this on start.
+    A folder that is not a run (``read_run_manifest``) is left as it is (AKS-112).
     """
     if not runs_root.is_dir():
         return []
     marked: list[str] = []
     for folder in sorted(runs_root.iterdir()):
-        if not (folder / MANIFEST_FILE).is_file():
-            continue
-        if read_manifest(folder)["state"] not in ("queued", "running"):
+        found = read_run_manifest(folder)
+        if found is None or found["state"] not in ("queued", "running"):
             continue
         # The service runs this on start, before it starts any run, and is the only one
         # (spec 3 "One service per user"), so no live run finishes between these reads.
         lock_path = folder / LOCK_FILE
         if is_held(lock_path):
             continue
-        manifest = read_manifest(folder)
+        manifest = found
         check_move(manifest["state"], "failed")
         manifest.update(state="failed", ended=utc_text(now()), error=_interrupted().as_dict())
         write_manifest(folder, manifest)

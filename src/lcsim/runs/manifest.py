@@ -15,6 +15,11 @@ empty until M6.
 The file is written through a temporary file in the same folder and ``os.replace``, so a
 reader sees the old manifest or the new one, never part of one. ``ManifestWriter`` writes
 on every update (a state change) and at most once a second on progress.
+
+``read_run_manifest`` reads a manifest that may have been changed outside the product: it
+gives ``None`` for a folder that is not a run (no manifest, one that is not JSON, or one
+without a ``run_id`` naming the folder, a ``state`` of the five and a ``created`` text), so
+no such folder can stop the service (AKS-112).
 """
 
 from __future__ import annotations
@@ -30,6 +35,8 @@ from typing import Any
 
 import lcsim
 from lcsim.model.streams import generator_info
+from lcsim.runs.states import JOB_STATES
+from lcsim.strict_json import MAX_WHOLE, read_json_file, real_in, whole_in
 
 __all__ = [
     "MANIFEST_FILE",
@@ -38,6 +45,7 @@ __all__ = [
     "ManifestWriter",
     "new_manifest",
     "read_manifest",
+    "read_run_manifest",
     "utc_text",
     "write_manifest",
 ]
@@ -90,11 +98,13 @@ def new_manifest(
     format_version: str,
     seed: int | None,
     optimizer: dict[str, str | None] | None = None,
+    target: str = "local",
 ) -> dict[str, Any]:
     """The manifest of a run just created: ``queued``, on the ``local`` target, with no
     progress and no data files. An optimization run has no experiment and draws nothing,
     so its ``experiment_id`` and ``seed`` are ``None`` and its ``scenario_ids`` empty
-    (AKS-108). A search run adds ``optimizer`` (AKS-109)."""
+    (AKS-108). A search run adds ``optimizer`` (AKS-109). ``target`` is the run target the
+    run was started on (AKS-112: the request's, when it gave one)."""
     info = generator_info()
     manifest: dict[str, Any] = {
         "run_id": run_id,
@@ -105,7 +115,7 @@ def new_manifest(
         "created": utc_text(created),
         "started": None,
         "ended": None,
-        "target": "local",
+        "target": target,
         "host": host,
         "client": client,
         "engine": {"name": engine_name, "version": engine_version},
@@ -139,6 +149,41 @@ def read_manifest(folder: Path) -> dict[str, Any]:
     """The manifest in ``folder``."""
     data: dict[str, Any] = json.loads((folder / MANIFEST_FILE).read_text(encoding="utf-8"))
     return data
+
+
+def read_run_manifest(folder: Path) -> dict[str, Any] | None:
+    """The manifest in ``folder`` when it is a run's: a JSON object whose ``run_id`` is the
+    folder's name, whose ``state`` is a job state, whose ``created`` is text, whose
+    ``project_id``, ``experiment_id``, ``started`` and ``ended`` are text or ``null``, whose
+    ``fraction`` is a number from 0 to 1 and whose ``seed`` is ``null`` or a whole number
+    from 0 to ``MAX_WHOLE``, read by the
+    strict reader (``lcsim.strict_json``: no ``NaN``, infinity or text that is not valid
+    Unicode, which the product never writes and no response may carry); otherwise
+    ``None``."""
+    try:
+        data = read_json_file(folder / MANIFEST_FILE)
+    except (OSError, ValueError):
+        return None
+    if (
+        isinstance(data, dict)
+        and data.get("run_id") == folder.name
+        and data.get("state") in JOB_STATES
+        and isinstance(data.get("created"), str)
+        and all(_text_or_null(data.get(key)) for key in _TEXT_OR_NULL)
+        # Typed and bounded (review of PR #36): a fraction from 0 to 1, a seed from 0.
+        and real_in(data.get("fraction"), 0.0, 1.0) is not None
+        and (data.get("seed") is None or whole_in(data["seed"], 0, MAX_WHOLE) is not None)
+    ):
+        return data
+    return None
+
+
+#: The manifest fields the run endpoints show that are text or ``null``.
+_TEXT_OR_NULL = ("project_id", "experiment_id", "started", "ended")
+
+
+def _text_or_null(value: object) -> bool:
+    return value is None or isinstance(value, str)
 
 
 class ManifestWriter:

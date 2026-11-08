@@ -48,8 +48,8 @@ class DummyAdapter:
     def __init__(self) -> None:
         self.calls: list[tuple[str, int]] = []
         self.issues: list[Issue] = []
-        self.on_translate: Callable[[], None] | None = None
-        self.on_collect: Callable[[], None] | None = None
+        self.on_translate: Callable[[], object] | None = None
+        self.on_collect: Callable[[], object] | None = None
 
     def capabilities(self) -> Capabilities:
         self.calls.append(("capabilities", os.getpid()))
