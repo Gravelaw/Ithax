@@ -3,7 +3,7 @@
  * `POST /v1/projects/open`). The folder is typed as a full path: the desktop shell's folder
  * picker comes with the shell (M11). The service checks the path; its issues are shown.
  */
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Project } from "../api/types";
 import { Dialog } from "../components/Dialog";
@@ -19,11 +19,18 @@ export function OpenProjectDialog({
   onCancel: () => void;
 }) {
   const [path, setPath] = useState("");
+  const [busy, setBusy] = useState(false);
+  const pending = useRef(false);
   const [refused, setRefused] = useState<ApiResult<Project> | null>(null);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
     const result = await client.openProject(path);
+    pending.current = false;
+    setBusy(false);
     if (result.kind === "ok") onOpened(result.data);
     else setRefused(result);
   };
@@ -51,7 +58,7 @@ export function OpenProjectDialog({
           <button type="button" className="secondary" onClick={onCancel}>
             Cancel
           </button>
-          <button type="submit" className="primary">
+          <button type="submit" className="primary" disabled={busy}>
             Open
           </button>
         </div>

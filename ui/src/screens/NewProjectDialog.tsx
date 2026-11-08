@@ -3,7 +3,7 @@
  * and the open gap"; spec 3 `POST /v1/projects` with `domain`). The service checks the
  * name; its issues are shown as they come.
  */
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Domain, Project } from "../api/types";
 import { Dialog } from "../components/Dialog";
@@ -30,12 +30,18 @@ export function NewProjectDialog({
   const [name, setName] = useState("");
   const [domain, setDomain] = useState<Domain>("process");
   const [busy, setBusy] = useState(false);
+  // A second press while the request is pending would create a second project, since each
+  // POST /v1/projects makes a new one; the ref sees it before React re-renders.
+  const pending = useRef(false);
   const [refused, setRefused] = useState<ApiResult<Project> | null>(null);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (pending.current) return;
+    pending.current = true;
     setBusy(true);
     const result = await client.createProject({ name, domain });
+    pending.current = false;
     setBusy(false);
     if (result.kind === "ok") onCreated(result.data);
     else setRefused(result);
@@ -74,7 +80,7 @@ export function NewProjectDialog({
           <button type="button" className="secondary" onClick={onCancel}>
             Cancel
           </button>
-          <button type="submit" className="primary" aria-disabled={busy ? "true" : undefined}>
+          <button type="submit" className="primary" disabled={busy}>
             Create
           </button>
         </div>

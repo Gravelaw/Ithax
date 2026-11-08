@@ -1,8 +1,9 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { ApiClient } from "../api/client";
 import type { Project } from "../api/types";
-import { errorBody, FakeService, issue } from "../test/fakes";
+import { errorBody, FakeService, issue, ORIGIN, TOKEN } from "../test/fakes";
 import { BUILD_LATER, BUILD_UNAVAILABLE, EMPTY_GALLERY, Home, NO_PROJECTS } from "./Home";
 
 function project(id: string, name: string, available = true): Project {
@@ -116,6 +117,71 @@ describe("Home", () => {
       name: "Plan A",
       domain: "optimization",
     });
+  });
+
+  it("sends one creation however often Create is pressed while it is pending", async () => {
+    const onOpen = vi.fn();
+    const created = project("one", "Once");
+    let release: (response: Response) => void = () => {};
+    const fake = service();
+    const posts: string[] = [];
+    const client = new ApiClient({
+      origin: ORIGIN,
+      token: TOKEN,
+      fetch: (input, init) => {
+        if (init?.method === "POST") {
+          posts.push(String(input));
+          return new Promise<Response>((resolve) => {
+            release = resolve;
+          });
+        }
+        return fake.fetch(input, init);
+      },
+    });
+    render(<Home client={client} onOpen={onOpen} />);
+    await userEvent.click(await screen.findByRole("button", { name: "New empty project" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Name" }), "Once");
+    const create = screen.getByRole("button", { name: "Create" });
+    await userEvent.click(create);
+    await userEvent.click(create);
+    await userEvent.type(screen.getByRole("textbox", { name: "Name" }), "{Enter}");
+    expect(posts).toHaveLength(1);
+    expect(create).toBeDisabled();
+    release(new Response(JSON.stringify(created), { status: 200 }));
+    await waitFor(() => expect(onOpen).toHaveBeenCalledWith(created));
+    expect(posts).toHaveLength(1);
+  });
+
+  it("sends one open however often Open is pressed while it is pending", async () => {
+    let release: (response: Response) => void = () => {};
+    const fake = service();
+    const posts: string[] = [];
+    const client = new ApiClient({
+      origin: ORIGIN,
+      token: TOKEN,
+      fetch: (input, init) => {
+        if (init?.method === "POST") {
+          posts.push(String(input));
+          return new Promise<Response>((resolve) => {
+            release = resolve;
+          });
+        }
+        return fake.fetch(input, init);
+      },
+    });
+    render(<Home client={client} onOpen={() => {}} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Open a project folder" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Folder" }), "/x");
+    const open = screen.getByRole("button", { name: "Open" });
+    await userEvent.click(open);
+    await userEvent.click(open);
+    expect(posts).toHaveLength(1);
+    expect(open).toBeDisabled();
+    release(
+      new Response(JSON.stringify(errorBody("E185", "There is no folder '/x'.")), { status: 404 }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("E185");
+    expect(open).toBeEnabled();
   });
 
   it("shows the service's issues when it refuses the new project", async () => {
