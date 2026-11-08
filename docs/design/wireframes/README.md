@@ -23,7 +23,8 @@ The approved look itself (block shapes per category, after-run overlay, results 
 | Headline card that says why; charts per run kind; table of all trials | `../canvas-interactions.md` "Learn mode on the canvas", `../design-system.md` "Charts" | `06-results.svg` |
 | Undo steps, Ask before deleting, Motion, Colour-blind safe charts, Restore all defaults | `../canvas-interactions.md`, `../design-system.md`, `../accessibility.md` | `07-settings.svg` |
 | Optimization models: Table view and Diagram view | `../canvas-interactions.md` "The model and the canvas" | a new wireframe at M9 |
-| Plain words ("repeat runs", "likely range") | `../design-system.md` "Type" | all screens |
+| Plain words ("repeat runs", "likely range") | `../design-system.md` "Type" | all screens; `02-home.svg`, `02c-new-project.svg` and `08-first-start-notice.svg` checked at M9 (AKS-119): they use no technical term |
+| "New empty project" asks Process or Plan; Home before the templates (empty gallery, Build unavailable with its reason) | `../../DECISIONS.md` "Owner design review", "API additions and the open gap"; spec 3 `POST /v1/projects` | **drawn at M9 (AKS-119):** `02c-new-project.svg` |
 
 Values in the drawings are examples. Numbers taken from the specs are marked as such in the drawing; `{braced}` text is a placeholder for a value that does not exist yet (template minutes, engine versions, fit scores).
 
@@ -33,6 +34,7 @@ Values in the drawings are examples. Numbers taken from the specs are marked as 
 | [`01b-canvas-learn.svg`](01b-canvas-learn.svg) | 2 Canvas, Learn mode | The step card and the highlighted block | `../canvas-interactions.md` "Learn mode on the canvas", `../flows.md` "Learn mode" |
 | [`01c-canvas-states.svg`](01c-canvas-states.svg) | 2 Canvas | Block and port states: default, selected, focus, error, warning, Learn highlight, branch routes, port-less resource blocks with reference lines, connecting | `../design-system.md` "Block styles" |
 | [`02-home.svg`](02-home.svg) | 1 Home | Learn and Build entries, template gallery, recent projects | `../flows.md` "Shared start" |
+| [`02c-new-project.svg`](02c-new-project.svg) | 1 Home, New empty project | Home before the templates (Learn, Build unavailable with its reason, the gallery's empty state, recent projects) and the New empty project dialog: a name, Process or Plan, and a refusal shown as the service wrote it | `../flows.md` "Shared start"; spec 3 `POST /v1/projects` |
 | [`02b-build-form.svg`](02b-build-form.svg) | 1 Home, Build mode form | The two-step fixed form of spec 4 "Build mode" | `../flows.md` "Build mode" |
 | [`03-data.svg`](03-data.svg) | 3 Data | Imported files, columns and preview, distribution fit and "Use for" | `../flows.md` steps B5b to B7b |
 | [`04-experiment.svg`](04-experiment.svg) | 4 Experiment | Run length, warm-up, replications, seed, confidence, record interval; scenarios; objectives, constraints and search | `../flows.md` step B9 |
@@ -45,7 +47,7 @@ Values in the drawings are examples. Numbers taken from the specs are marked as 
 
 | Spec 3 screen requirement | Wireframe |
 | --- | --- |
-| Home: recent projects, template gallery, Learn or Build entry (Build mode form as in spec 4) | `02-home.svg`, `02b-build-form.svg` |
+| Home: recent projects, template gallery, Learn or Build entry (Build mode form as in spec 4) | `02-home.svg`, `02b-build-form.svg`, `02c-new-project.svg` |
 | Canvas: drag blocks from a palette, connect them, edit properties in a side panel; validation errors appear on the offending block | `01-canvas.svg`, `01c-canvas-states.svg` |
 | Data: import CSV or Excel, map columns, fit a distribution to a column | `03-data.svg` ("map columns" is the column picker plus "Use for", which maps a column to a block setting) |
 | Experiment: run length, replications, scenarios, optimization setup | `04-experiment.svg` |
