@@ -12,6 +12,11 @@
  *   steps kept is set by the caller (Settings, `undo_steps`).
  * - **Validation** runs half a second after the last write; a result for an older write
  *   is dropped.
+ * - **Moves** (arrow keys, a drag's end) are writes like any other, sent at once and so
+ *   retried like any other. A move of the same blocks within half a second of the previous
+ *   one joins that move's undo step, so a burst of arrow presses is one undo step; until a
+ *   move's answer arrives, `predicted` holds where it puts each block, so the drawing never
+ *   jumps back while moves are queued (review of PR #45).
  * - **Other clients.** A `model` event whose revision is newer than the canvas's own, once
  *   its writes have answered, reloads the model and clears undo and redo (the review of an
  *   outside change is AKS-137). A 409 with E181 does the same.
@@ -22,7 +27,7 @@ import { movesIn, type Point } from "./model";
 
 export const RETRY_MS = 2000;
 export const VALIDATE_MS = 500;
-/** A burst of arrow presses with no pause this long is one move (one undo step). */
+/** Moves of the same blocks less than this apart are one undo step (a burst of arrows). */
 export const MOVE_BURST_MS = 500;
 
 /** One undo step: the model before and after one write. */
@@ -30,6 +35,8 @@ export interface Step {
   label: string;
   before: Model;
   after: Model;
+  /** For a move: the blocks it moved, so a following move of them can join it. */
+  moved?: string;
 }
 
 /** What one user action writes: edits, or a whole model. */
@@ -62,12 +69,15 @@ export interface SessionState {
   reloads: number;
   /** The events socket closed with this reason (lost contact). */
   eventsClosed: string | null;
+  /** Where queued moves put blocks, by id, until each move's answer arrives. */
+  predicted: Readonly<Record<string, Point>>;
 }
 
 export interface SessionOptions {
   undoLimit: number;
   setTimer?: (callback: () => void, ms: number) => unknown;
   clearTimer?: (handle: unknown) => void;
+  now?: () => number;
 }
 
 const INITIAL: SessionState = {
@@ -84,9 +94,11 @@ const INITIAL: SessionState = {
   redoLabel: null,
   reloads: 0,
   eventsClosed: null,
+  predicted: {},
 };
 
-type History = "do" | "undo" | "redo";
+/** `merge` is a move that joins the previous move's undo step. */
+type History = "do" | "merge" | "undo" | "redo";
 
 export class CanvasSession {
   private state: SessionState = INITIAL;
@@ -99,8 +111,12 @@ export class CanvasSession {
   private validateTimer: unknown = null;
   private socket: EventSocket | null = null;
   private stopped = false;
-  private readonly pendingMoves = new Map<string, Point>();
-  private moveTimer: unknown = null;
+  /** Predicted positions, each with the move that set it. */
+  private readonly predicted = new Map<string, { at: Point; move: number }>();
+  private moves = 0;
+  /** The last move action: which blocks, and when it was asked for. */
+  private lastMove: { moved: string; at: number } | null = null;
+  private readonly now: () => number;
   private undoLimit: number;
   private readonly setTimer: (callback: () => void, ms: number) => unknown;
   private readonly clearTimer: (handle: unknown) => void;
@@ -114,6 +130,7 @@ export class CanvasSession {
     this.setTimer = options.setTimer ?? ((callback, ms) => setTimeout(callback, ms));
     this.clearTimer =
       options.clearTimer ?? ((handle) => clearTimeout(handle as ReturnType<typeof setTimeout>));
+    this.now = options.now ?? (() => Date.now());
   }
 
   readonly subscribe = (listener: () => void): (() => void) => {
@@ -156,45 +173,48 @@ export class CanvasSession {
   }
 
   /**
-   * Moves blocks as part of a burst (arrow keys): the positions wait, merged, until no move
-   * has come for `MOVE_BURST_MS`, and are then sent as one batch, one undo step. Anything
-   * else the session is asked to do (a write, undo, redo, a reload for another client's
-   * revision, stopping) sends the waiting move first, through `flushMoves`, so it is never
-   * lost, reordered after a later action, or undone in its place (review of PR #45).
+   * Moves blocks to `positions`, sent at once as one write of `set_ui` (built when it is
+   * sent). With `burst`, a move of the same blocks less than `MOVE_BURST_MS` after the
+   * previous one joins that move's undo step.
    */
-  move(positions: ReadonlyMap<string, Point>): void {
-    if (this.state.status !== "ready" || this.state.failing || this.stopped) return;
-    for (const [id, at] of positions) this.pendingMoves.set(id, at);
-    if (this.moveTimer !== null) this.clearTimer(this.moveTimer);
-    this.moveTimer = this.setTimer(() => {
-      this.moveTimer = null;
-      this.flushMoves();
-    }, MOVE_BURST_MS);
-    this.set({ saving: true });
-  }
-
-  /** Sends the waiting move now, if there is one. */
-  flushMoves(): void {
-    if (this.moveTimer !== null) this.clearTimer(this.moveTimer);
-    this.moveTimer = null;
-    if (this.pendingMoves.size === 0) return;
-    const positions = new Map(this.pendingMoves);
-    this.pendingMoves.clear();
+  move(
+    positions: ReadonlyMap<string, Point>,
+    burst = true,
+  ): Promise<ApiResult<ModelWriteBody> | null> {
+    if (this.state.status !== "ready" || this.state.failing || this.stopped) {
+      return Promise.resolve(null);
+    }
     const ids = [...positions.keys()];
+    const moved = [...ids].sort().join(" ");
+    const now = this.now();
+    const joins = burst && this.lastMove?.moved === moved && now - this.lastMove.at < MOVE_BURST_MS;
+    this.lastMove = burst ? { moved, at: now } : null;
+    const move = ++this.moves;
+    for (const [id, at] of positions) this.predicted.set(id, { at, move });
+    this.set({ predicted: this.predictions() });
     const label = ids.length === 1 ? `move ${ids[0]}` : `move ${ids.length} blocks`;
-    void this.queue("do", (model) => {
+    const plan: Plan = (model) => {
       const edits = movesIn(model, positions);
       return edits.length === 0 ? null : { kind: "edits", label, edits };
+    };
+    return this.queue(joins ? "merge" : "do", plan, moved).finally(() => {
+      for (const id of ids) {
+        if (this.predicted.get(id)?.move === move) this.predicted.delete(id);
+      }
+      this.set({ predicted: this.predictions() });
     });
   }
 
+  private predictions(): Record<string, Point> {
+    return Object.fromEntries([...this.predicted].map(([id, entry]) => [id, entry.at]));
+  }
+
   /**
-   * Stops: a waiting move is sent first; writes already queued are still sent once
+   * Stops: writes already queued are still sent once
    * (without retries when they get no answer), then the events socket closes.
    */
   stop(): void {
     if (this.stopped) return;
-    this.flushMoves();
     this.stopped = true;
     if (this.validateTimer !== null) this.clearTimer(this.validateTimer);
     void this.chain.finally(() => this.socket?.close());
@@ -208,10 +228,12 @@ export class CanvasSession {
 
   /** Sends one user action. `null` when the canvas is read-only or not loaded. */
   write(plan: Plan): Promise<ApiResult<ModelWriteBody> | null> {
+    this.lastMove = null;
     return this.queue("do", plan);
   }
 
   undo(): Promise<ApiResult<ModelWriteBody> | null> {
+    this.lastMove = null;
     return this.queue("undo", () => {
       const step = this.undoStack.at(-1);
       return step ? { kind: "model", label: step.label, model: step.before } : null;
@@ -219,29 +241,37 @@ export class CanvasSession {
   }
 
   redo(): Promise<ApiResult<ModelWriteBody> | null> {
+    this.lastMove = null;
     return this.queue("redo", () => {
       const step = this.redoStack.at(-1);
       return step ? { kind: "model", label: step.label, model: step.after } : null;
     });
   }
 
-  private queue(history: History, plan: Plan): Promise<ApiResult<ModelWriteBody> | null> {
+  private queue(
+    history: History,
+    plan: Plan,
+    moved?: string,
+  ): Promise<ApiResult<ModelWriteBody> | null> {
     if (this.state.status !== "ready" || this.state.failing || this.stopped) {
       return Promise.resolve(null);
     }
-    this.flushMoves();
     this.writes += 1;
     this.invalidateValidation();
     this.set({ saving: true });
-    const job = this.chain.then(() => this.send(history, plan));
+    const job = this.chain.then(() => this.send(history, plan, moved));
     this.chain = job.catch(() => undefined);
     return job.finally(() => {
       this.writes -= 1;
-      this.set({ saving: this.writes > 0 || this.pendingMoves.size > 0 });
+      this.set({ saving: this.writes > 0 });
     });
   }
 
-  private async send(history: History, plan: Plan): Promise<ApiResult<ModelWriteBody> | null> {
+  private async send(
+    history: History,
+    plan: Plan,
+    moved?: string,
+  ): Promise<ApiResult<ModelWriteBody> | null> {
     const before = this.state.model;
     if (before === null) return null;
     const base = this.state.revision;
@@ -262,7 +292,7 @@ export class CanvasSession {
       result = await request();
     }
     if (result.kind === "ok") {
-      this.record(history, write.label, before, result.data.model);
+      this.record(history, write.label, before, result.data.model, moved);
       this.set({
         failing: false,
         refusal: null,
@@ -279,9 +309,22 @@ export class CanvasSession {
     return result;
   }
 
-  private record(history: History, label: string, before: Model, after: Model): void {
-    if (history === "do") {
-      this.undoStack.push({ label, before, after });
+  private record(
+    history: History,
+    label: string,
+    before: Model,
+    after: Model,
+    moved?: string,
+  ): void {
+    const top = this.undoStack.at(-1);
+    if (history === "merge" && top !== undefined && top.moved === moved) {
+      // The burst's step keeps the model from before its first move.
+      top.after = after;
+      this.redoStack = [];
+    } else if (history === "do" || history === "merge") {
+      const step: Step = { label, before, after };
+      if (moved !== undefined) step.moved = moved;
+      this.undoStack.push(step);
       this.redoStack = [];
       this.trim();
     } else if (history === "undo") {
@@ -300,7 +343,6 @@ export class CanvasSession {
 
   private onEvent(event: ProjectEvent): void {
     if (event.type !== "model" || this.stopped) return;
-    this.flushMoves();
     // Held until the canvas's own writes have answered, so its own revisions are known.
     this.chain = this.chain.then(async () => {
       if (this.state.status === "ready" && event.revision > this.state.revision) {

@@ -407,16 +407,23 @@ describe("moving", () => {
     expect(sentEdits(fake)).toEqual([[{ edit: "set_ui", id: "exit", ui: { x: 512, y: 0 } }]]);
   });
 
-  it("makes a burst of arrow presses one write; Shift moves 40 px", async () => {
-    const { fake, toolbar, user } = renderCanvas();
+  it("sends each arrow press at once, a burst being one undo step; Shift moves 40 px", async () => {
+    const { fake, service, toolbar, user } = renderCanvas();
     await select(user, "exit");
     fireEvent.keyDown(node("exit"), { key: "ArrowRight" });
     fireEvent.keyDown(node("exit"), { key: "ArrowRight" });
     fireEvent.keyDown(node("exit"), { key: "ArrowUp", shiftKey: true });
-    await waitFor(() => expect(sentEdits(fake)).toHaveLength(1), { timeout: 2000 });
-    expect(sentEdits(fake)).toEqual([[{ edit: "set_ui", id: "exit", ui: { x: 496, y: -40 } }]]);
+    await waitFor(() => expect(sentEdits(fake)).toHaveLength(3));
+    expect(sentEdits(fake)).toEqual([
+      [{ edit: "set_ui", id: "exit", ui: { x: 488, y: 0 } }],
+      [{ edit: "set_ui", id: "exit", ui: { x: 496, y: 0 } }],
+      [{ edit: "set_ui", id: "exit", ui: { x: 496, y: -40 } }],
+    ]);
     await settled(toolbar);
-    expect(within(toolbar).getByRole("button", { name: "Undo: move exit" })).toBeEnabled();
+    await user.click(within(toolbar).getByRole("button", { name: "Undo: move exit" }));
+    await settled(toolbar);
+    expect(service.component("exit")?.ui).toEqual({ x: 480, y: 0 });
+    expect(within(toolbar).getByRole("button", { name: "Undo" })).toBeDisabled();
   });
 });
 
@@ -838,6 +845,7 @@ describe("why Run waits", () => {
     redoLabel: null,
     reloads: 0,
     eventsClosed: null,
+    predicted: {},
   };
   const error: Issue = {
     code: "E122",
@@ -935,7 +943,7 @@ describe("writes queued behind a slow answer (review of PR #45)", () => {
     expect(service.component("shifts")?.params.shifts).toEqual([{}, {}]);
   });
 
-  it("saves a keyboard move still waiting for its burst to end when the canvas closes", async () => {
+  it("saves a keyboard move made just before the canvas closes", async () => {
     const { fake, service, user } = renderCanvas();
     await select(user, "exit");
     fireEvent.keyDown(node("exit"), { key: "ArrowDown" });
@@ -1080,23 +1088,47 @@ describe("every editor reads the saved value when its write is sent (review of P
   });
 });
 
-describe("a keyboard move still in its burst (review of PR #45)", () => {
-  it("Ctrl+Z during the burst undoes the move, and nothing is saved after", async () => {
+describe("keyboard moves (review of PR #45)", () => {
+  const shownX = (id: string) =>
+    Number(/translate\(([-0-9.]+)px/.exec(node(id).style.transform)?.[1] ?? Number.NaN);
+
+  it("keeps a block where the queued presses put it while their answers come in", async () => {
+    const { fake, service, toolbar, user } = renderCanvas();
+    await select(user, "exit");
+    const start = shownX("exit");
+    const open = fake.holdWrites();
+    fireEvent.keyDown(node("exit"), { key: "ArrowRight" });
+    fireEvent.keyDown(node("exit"), { key: "ArrowRight" });
+    await waitFor(() => expect(shownX("exit")).toBe(start + 16));
+    // The first answer redraws the model (x 488) under the second, queued, press.
+    await fake.releaseOne();
+    await waitFor(() => expect(service.component("exit")?.ui).toEqual({ x: 488, y: 0 }));
+    await waitFor(() => expect(within(toolbar).getByRole("status")).toHaveTextContent("Saving"));
+    expect(shownX("exit")).toBe(start + 16);
+    open();
+    await settled(toolbar);
+    expect(service.component("exit")?.ui).toEqual({ x: 496, y: 0 });
+    expect(shownX("exit")).toBe(start + 16);
+  });
+
+  it("Ctrl+Z right after a burst undoes the whole burst, and nothing is saved after", async () => {
     const { fake, service, toolbar, user } = renderCanvas();
     await select(user, "exit");
     await user.type(screen.getByRole("textbox", { name: "Label (optional)" }), "Door{Enter}");
     await settled(toolbar);
     fireEvent.keyDown(node("exit"), { key: "ArrowDown" });
+    fireEvent.keyDown(node("exit"), { key: "ArrowDown" });
     fireEvent.keyDown(document.body, { key: "z", ctrlKey: true });
     await waitFor(() => expect(fake.requested("PUT", MODEL)).toHaveLength(1));
     await settled(toolbar);
     await new Promise((resolve) => setTimeout(resolve, 700));
-    expect(sentEdits(fake)).toHaveLength(2);
+    expect(sentEdits(fake)).toHaveLength(3);
     expect(service.component("exit")).toMatchObject({ label: "Door", ui: { x: 480, y: 0 } });
     expect(within(toolbar).getByRole("button", { name: "Redo: move exit" })).toBeEnabled();
+    expect(within(toolbar).getByRole("button", { name: "Undo: label exit" })).toBeEnabled();
   });
 
-  it("Delete during the burst sends the move first, then the delete", async () => {
+  it("Delete right after a press sends the move first, then the delete", async () => {
     const settings = {
       ...SETTINGS,
       interface: { ...SETTINGS.interface, ask_before_deleting: false },
@@ -1115,5 +1147,23 @@ describe("a keyboard move still in its burst (review of PR #45)", () => {
     await user.click(within(toolbar).getByRole("button", { name: "Undo: delete exit" }));
     await settled(toolbar);
     expect(service.component("exit")?.ui).toEqual({ x: 488, y: 0 });
+  });
+
+  it("a press while the service does not answer is saved once it answers", async () => {
+    const { service, toolbar, user } = renderCanvas();
+    await select(user, "exit");
+    const start = shownX("exit");
+    service.unreachable = true;
+    fireEvent.keyDown(node("exit"), { key: "ArrowRight" });
+    await waitFor(() => expect(within(toolbar).getByRole("status")).toHaveTextContent("Not saved"));
+    // Read-only meanwhile: the block stays where the press put it, and a press does nothing.
+    fireEvent.keyDown(node("exit"), { key: "ArrowRight" });
+    expect(shownX("exit")).toBe(start + 8);
+    service.unreachable = false;
+    await waitFor(() => expect(within(toolbar).getByRole("status")).toHaveTextContent("Saved"), {
+      timeout: 4000,
+    });
+    expect(service.component("exit")?.ui).toEqual({ x: 488, y: 0 });
+    expect(shownX("exit")).toBe(start + 8);
   });
 });

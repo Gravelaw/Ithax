@@ -28,6 +28,7 @@ const NONE: SessionState = {
   redoLabel: null,
   reloads: 0,
   eventsClosed: null,
+  predicted: {},
 };
 
 const nothing = () => () => undefined;

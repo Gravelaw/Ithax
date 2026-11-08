@@ -70,7 +70,6 @@ import {
   freePlace,
   issueComponent,
   issueCounts,
-  movesIn,
   nextId,
   type Point,
   portsOf,
@@ -200,6 +199,7 @@ function buildNodes(
   previous: BlockNodeType[],
   wanted: string[] | null,
   readOnly: boolean,
+  predicted: Readonly<Record<string, Point>>,
 ): BlockNodeType[] {
   const before = new Map(previous.map((node) => [node.id, node]));
   const all = components(model);
@@ -231,7 +231,10 @@ function buildNodes(
     const node: BlockNodeType = {
       id: component.id,
       type: "block",
-      position: old?.dragging ? old.position : positionOf(component, index),
+      // A queued move's position until its answer, so a redraw never jumps back.
+      position: old?.dragging
+        ? old.position
+        : (predicted[component.id] ?? positionOf(component, index)),
       data,
       ariaLabel: blockName(data),
       selected: wanted !== null ? wanted.includes(component.id) : (old?.selected ?? false),
@@ -425,12 +428,14 @@ function ProcessCanvas({
   // The drawing follows the model, the issues and the selection.
   useEffect(() => {
     const want = wanted.current;
-    setNodes((previous) => buildNodes(model, types, state.issues, previous, want, readOnly));
+    setNodes((previous) =>
+      buildNodes(model, types, state.issues, previous, want, readOnly, state.predicted),
+    );
     setEdges((previous) => buildEdges(model, types, previous, want !== null));
     if (want?.every((id) => components(model).some((item) => item.id === id))) {
       wanted.current = null;
     }
-  }, [model, types, state.issues, readOnly]);
+  }, [model, types, state.issues, readOnly, state.predicted]);
 
   // A block just added or renamed takes the keyboard focus once it is drawn.
   // React Flow shows a node only once it is measured, so focusing is tried for a few frames.
@@ -626,23 +631,23 @@ function ProcessCanvas({
     doDelete(plan);
   };
 
-  // A keyboard move waiting for its burst to end is sent when the screen goes; the
-  // session also sends it before anything else it is asked to do, and when it stops.
-  useEffect(() => () => session.flushMoves(), [session]);
-
-  /** Arrow keys: the blocks move at once on screen; the session sends the burst as one write. */
+  /**
+   * Arrow keys: each press is a move sent at once from where the block is drawn (its last
+   * saved or queued position); presses close together are one undo step (the session).
+   */
   const moveSelection = (dx: number, dy: number) => {
-    setNodes((previous) => {
-      const positions = new Map<string, Point>();
-      const next = previous.map((node) => {
-        if (!node.selected) return node;
-        const position = { x: node.position.x + dx, y: node.position.y + dy };
-        positions.set(node.id, position);
-        return { ...node, position };
-      });
-      session.move(positions);
-      return next;
-    });
+    const predicted = session.getState().predicted;
+    const all = components(model);
+    const positions = new Map<string, Point>();
+    for (const node of nodes) {
+      if (!node.selected) continue;
+      const index = all.findIndex((item) => item.id === node.id);
+      const component = all[index];
+      if (component === undefined) continue;
+      const from = predicted[node.id] ?? positionOf(component, index);
+      positions.set(node.id, { x: from.x + dx, y: from.y + dy });
+    }
+    if (positions.size > 0) void session.move(positions);
   };
 
   const onNodesChange = useCallback((changes: NodeChange<BlockNodeType>[]) => {
@@ -664,14 +669,9 @@ function ProcessCanvas({
           positions.set(component.id, at);
         }
       }
-      if (positions.size > 0) {
-        const ids = [...positions.keys()];
-        void send(ids.length === 1 ? `move ${ids[0]}` : `move ${ids.length} blocks`, (current) =>
-          movesIn(current, positions),
-        );
-      }
+      if (positions.size > 0) void session.move(positions, false);
     },
-    [model, send],
+    [model, session],
   );
 
   /** `connect`; when it replaces a connection, a notice says so (canvas-interactions.md). */
