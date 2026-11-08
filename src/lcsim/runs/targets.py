@@ -36,6 +36,13 @@ written, and ``on_progress`` of every progress report with its message; ``create
 ``target`` that overrides the file's ``run.target`` and is recorded in the manifest;
 ``cancel`` says whether it was accepted; ``interrupt`` stops a run as a cancel does but ends
 it ``failed`` with E191, for a service that stops while the run is unfinished.
+
+``empirical`` ``data`` (AKS-113): ``LocalTarget`` takes the project's column index
+(``data``). ``create`` loads the file against it and, once every other check has passed,
+reads each ``data`` reference's column from the bytes of its file (``lcsim.runs.snapshots``:
+E162 when the file is missing or changed since its import, and nothing is created); the run
+writes the columns to ``data/<component id>.<setting>.parquet``, records each reference in
+the manifest's ``data_files``, and gives the adapter the model with the columns' values.
 """
 
 from __future__ import annotations
@@ -57,6 +64,7 @@ from typing import Any
 
 from lcsim.engines.adapter import EngineAdapter, Progress, Results
 from lcsim.engines.registry import installed_engines, select_adapter
+from lcsim.model.data import EMPTY_DATA_INDEX, DataIndex
 from lcsim.model.issues import Issue, pointer
 from lcsim.model.loading import SeedSource, load_text
 from lcsim.model.model import Model
@@ -77,6 +85,7 @@ from lcsim.runs.search import (
     search_method,
     search_summary,
 )
+from lcsim.runs.snapshots import ColumnSnapshot, read_columns, with_columns, write_snapshots
 from lcsim.runs.states import FINAL_STATES, JobState, check_move
 from lcsim.runs.tables import write_summary, write_tables
 from lcsim.runs.worker import child_main
@@ -230,7 +239,9 @@ class LocalTarget:
     service sets them from M6. ``adapters`` defaults to the installed adapters.
     ``on_state`` and ``on_progress`` are told of each run's state changes and progress
     reports (AKS-112); they are called while the run's lock is held, so they must be quick
-    and must not call back into the run.
+    and must not call back into the run. ``data`` is the column index of the project's
+    ``data/`` folder (AKS-113; default: nothing imported, so every ``data`` reference is
+    E162).
     """
 
     def __init__(
@@ -247,8 +258,10 @@ class LocalTarget:
         kill_grace_s: float = KILL_GRACE_S,
         on_state: StateHook | None = None,
         on_progress: ProgressHook | None = None,
+        data: DataIndex = EMPTY_DATA_INDEX,
     ) -> None:
         self.runs_root = runs_root
+        self.data = data
         self.workers = workers
         self.limits = Limits() if limits is None else limits
         self.client = client
@@ -280,7 +293,7 @@ class LocalTarget:
         experiment the file leaves without one.
         """
         engines = None if self.adapters is None else installed_engines(self.adapters)
-        loaded = load_text(model_file, seed_source=seed_source, engines=engines)
+        loaded = load_text(model_file, seed_source=seed_source, data=self.data, engines=engines)
         if loaded.model is None:
             raise RunRefused(loaded.issues)
         model = loaded.model
@@ -298,7 +311,10 @@ class LocalTarget:
         if any(issue.severity == "error" for issue in checked):
             raise RunRefused(checked)
         warnings = (*loaded.warnings, *checked)
-        return LocalRun(self, model_file, model, experiment_id, adapter, warnings)
+        columns, refused = read_columns(model, self.data)
+        if refused:
+            raise RunRefused(refused)
+        return LocalRun(self, model_file, model, experiment_id, adapter, warnings, columns)
 
 
 class LocalRun:
@@ -312,9 +328,11 @@ class LocalRun:
         experiment_id: str | None,
         adapter: EngineAdapter,
         warnings: tuple[Issue, ...],
+        columns: tuple[ColumnSnapshot, ...] = (),
     ) -> None:
         self._target = target
-        self._model = model
+        # The model with its `data` columns read (AKS-113): what the adapter is given.
+        self._model = with_columns(model, columns)
         self._experiment_id = experiment_id
         self._adapter = adapter
         self._warnings = warnings
@@ -342,6 +360,7 @@ class LocalRun:
         self.engine_folder = folder / ENGINE_FOLDER
         self._lock: RunLock | None = take_lock(folder / LOCK_FILE)
         (folder / MODEL_FILE).write_bytes(model_file)
+        write_snapshots(folder, columns)
         self.engine_folder.mkdir()
         self._manifest = ManifestWriter(
             folder,
@@ -360,6 +379,7 @@ class LocalRun:
                 format_version=model.format_version,
                 target="local",
                 seed=None if experiment is None else experiment.seed,
+                data_files=[column.record() for column in columns],
                 optimizer=None
                 if experiment is None or experiment.search is None
                 else optimizer_record(search_method(model, experiment.search)),
@@ -377,6 +397,12 @@ class LocalRun:
     def manifest(self) -> dict[str, Any]:
         """A copy of the run's manifest."""
         return self._manifest.data
+
+    @property
+    def model(self) -> Model:
+        """The model the adapter is given: the file's, with the columns of its ``data``
+        references read (AKS-113)."""
+        return self._model
 
     def log(self, text: str) -> None:
         """Appends a line, stamped with the UTC time, to ``log.txt``."""

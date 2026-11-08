@@ -7,6 +7,7 @@ no ``ui``, ``label`` or ``meta``, so changing them leaves the file byte-equal (s
 """
 
 import copy
+import dataclasses
 import json
 from pathlib import Path
 from typing import Any
@@ -23,7 +24,7 @@ from lcsim.engines.process.translate import (
     write_input,
 )
 from lcsim.model.catalogue import PROCESS_TYPES
-from lcsim.model.distributions import DataNotYetSupportedError
+from lcsim.model.distributions import DataNotReadError
 from lcsim.model.loading import build_document, load_document
 from lcsim.model.model import Distribution, Model, ParamRef, SettingValue
 from lcsim.model.units import Dimension, Quantity
@@ -338,8 +339,9 @@ def test_a_pool_a_schedule_and_a_failure_translate(make_model: ModelMaker) -> No
     }
 
 
-def test_an_empirical_with_data_cannot_be_translated_before_m6() -> None:
-    """Validation reports E162 first; building alone gives a model that holds the data."""
+def test_an_empirical_with_data_not_read_cannot_be_translated() -> None:
+    """Building alone gives a model that holds the reference; only a run target reads the
+    column (AKS-113), so translating it before is E162."""
     components, connections = line(
         constant("1 min"), {"dist": "empirical", "data": {"file": "t.csv", "column": "m"}}
     )
@@ -347,6 +349,28 @@ def test_an_empirical_with_data_cannot_be_translated_before_m6() -> None:
     assert built.model is not None
     service = built.model.components[1].settings["service"]
     assert isinstance(service, Distribution) and service.data is not None
-    with pytest.raises(DataNotYetSupportedError) as raised:
+    with pytest.raises(DataNotReadError) as raised:
         engine_input(built.model, "e")
     assert raised.value.code == "E162"
+
+
+def test_an_empirical_with_data_read_by_a_run_translates_its_values() -> None:
+    components, connections = line(
+        constant("1 min"), {"dist": "empirical", "data": {"file": "t.csv", "column": "m"}}
+    )
+    built = build_document(model_document(components, connections), seed_source=lambda: 1)
+    assert built.model is not None
+    till = built.model.components[1]
+    service = till.settings["service"]
+    assert isinstance(service, Distribution)
+    read = dataclasses.replace(service, values=(60.0, 90.0))
+    model = dataclasses.replace(
+        built.model,
+        components=(
+            built.model.components[0],
+            dataclasses.replace(till, settings={**till.settings, "service": read}),
+            *built.model.components[2:],
+        ),
+    )
+    settings = engine_input(model, "e")["scenarios"][0]["components"][1]["settings"]
+    assert settings["service"] == {"dist": "empirical", "values": [60.0, 90.0]}

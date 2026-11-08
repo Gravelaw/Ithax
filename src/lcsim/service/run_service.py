@@ -3,13 +3,15 @@
 
 ``RunService`` is what the run routes call:
 
-- **Starting.** ``submit`` reads the project's ``model.json`` bytes (under the model
-  store's per-project lock, so never a half-made write) and creates the run with the
-  ``local`` target (``lcsim.runs.targets``), its manifest carrying the project's id and the
-  request's client. Submissions are taken one at a time, so the order in which runs are
-  created is the order in which they enter the run queue (``lcsim.runs.queue``) and the
-  project's index (``lcsim.runs.index``). A refused run creates nothing: 422 with the
-  issues (E172 for a target), or 400 with E184 for the experiment.
+- **Starting.** ``submit`` reads the project's ``model.json`` bytes and its column index and
+  creates the run with the ``local`` target (``lcsim.runs.targets``), which copies the
+  columns of its ``data`` references, all while it holds the model store's per-project
+  write lock, so it never meets a half-made model write or data import (AKS-113); the
+  manifest carries the project's id and the request's client. Submissions are taken one
+  at a time, so the order in which runs are created is the order in which they enter the
+  run queue (``lcsim.runs.queue``) and the project's index (``lcsim.runs.index``). A
+  refused run creates nothing: 422 with the issues (E172 for a target), or 400 with E184
+  for the experiment.
 - **Driving.** The queue executes each run in a thread of the service; the run's worker is
   a child process of the service. Each state change is published to the project's events
   (``run`` events) and to the run's feed (``lcsim.service.run_feed``), each progress report
@@ -50,12 +52,14 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from lcsim.engines.adapter import EngineAdapter
+from lcsim.model.data import read_data_index
 from lcsim.model.issues import Issue
 from lcsim.runs.ids import RUN_ID_PATTERN
 from lcsim.runs.index import RUNS_FOLDER, RunIndex
 from lcsim.runs.manager import ExperimentChoiceError
 from lcsim.runs.manifest import read_run_manifest
 from lcsim.runs.queue import RunQueue
+from lcsim.runs.snapshots import DATA_FOLDER
 from lcsim.runs.states import FINAL_STATES, JobState
 from lcsim.runs.tables import SUMMARY_FILE, TABLE_NAMES, TABLES_FOLDER
 from lcsim.runs.targets import LocalRun, LocalTarget, RunRefused, recover_interrupted
@@ -291,6 +295,12 @@ class RunService:
         """Creates a run of the project's model and puts it in the run queue; its
         ``run_id``."""
         folder = self._project(pid)
+        with self.models.locked(pid):
+            return self._submit(pid, folder, experiment_id, target, client)
+
+    def _submit(
+        self, pid: str, folder: Path, experiment_id: str | None, target: str | None, client: str
+    ) -> str:
         model_file = self.models.model_file(pid)
         local = LocalTarget(
             folder / RUNS_FOLDER,
@@ -301,6 +311,7 @@ class RunService:
             adapters=self.adapters,
             on_state=self._on_state,
             on_progress=self._on_progress,
+            data=read_data_index(folder / DATA_FOLDER),
         )
         with self._submitting:
             try:

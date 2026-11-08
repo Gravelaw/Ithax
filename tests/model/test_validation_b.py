@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 
 from lcsim.model.data import DataColumn, DataFile, DataIndex
+from lcsim.model.data_files import ColumnType
 from lcsim.model.issues import Issue
 from lcsim.model.loading import ModelLoadError, build_document, load_document, load_model, load_text
 from lcsim.model.model import Model
@@ -755,7 +756,50 @@ def test_with_nothing_imported_a_data_reference_is_e162_at_file() -> None:
 def test_a_reference_to_an_imported_file_and_column_passes(folder: Path) -> None:
     model = built(with_data())
     assert data_issues(model, index(folder, times())) == []
-    assert data_issues(built(with_data(column="count")), index(folder, times())) == []
+
+
+def test_a_column_of_plain_numbers_for_a_time_is_e162_at_column(folder: Path) -> None:
+    """Every distribution setting in Phase 1 is a time, so a column needs a declared time
+    unit (spec 1 "Distributions", AKS-113)."""
+    issue = only(
+        data_issues(built(with_data(column="count")), index(folder, times())),
+        "E162",
+        f"{SERVICE}/data/column",
+    )
+    assert issue.component == "till"
+    assert issue.message == (
+        "In the 'service' setting of 'till', the 'column' of the data reference is 'count', "
+        "which holds plain numbers, but the setting takes a time."
+    )
+    assert "unit" in issue.hint
+
+
+def test_a_column_whose_values_overflow_in_seconds_is_e162_at_column(folder: Path) -> None:
+    """The check inline quantities go through (spec 1 "Quantities": a value whose SI value
+    is not a finite float), applied to the column's largest value (Codex on PR #37)."""
+    columns = (DataColumn("minutes", "min", "number", 1e308),)
+    issue = only(
+        data_issues(built(with_data()), index(folder, times(columns=columns))),
+        "E162",
+        f"{SERVICE}/data/column",
+    )
+    assert "too large" in issue.message and "seconds" in issue.message
+    fits = (DataColumn("minutes", "s", "number", 1e308),)
+    assert data_issues(built(with_data()), index(folder, times(columns=fits))) == []
+
+
+@pytest.mark.parametrize("kind", ["text", "empty"])
+def test_a_column_that_does_not_hold_numbers_is_e162_at_column(
+    folder: Path, kind: ColumnType
+) -> None:
+    columns = (DataColumn("minutes", "min", kind),)
+    issue = only(
+        data_issues(built(with_data()), index(folder, times(columns=columns))),
+        "E162",
+        f"{SERVICE}/data/column",
+    )
+    expected = "holds text" if kind == "text" else "holds no values"
+    assert expected in issue.message
 
 
 def test_a_file_not_in_the_index_lists_the_imported_files(folder: Path) -> None:
@@ -823,7 +867,7 @@ def test_each_file_is_hashed_once_per_pass(folder: Path, monkeypatch: pytest.Mon
     document = with_data()
     document["components"][0]["params"]["interarrival"] = {
         "dist": "empirical",
-        "data": {"file": "times.csv", "column": "count"},
+        "data": {"file": "times.csv", "column": "minutes"},
     }
     data = index(folder, times())
     calls: list[str] = []

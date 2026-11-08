@@ -29,9 +29,10 @@ from starlette.routing import WebSocketRoute
 
 from lcsim import __version__
 from lcsim.engines.registry import installed_adapters
-from lcsim.service import engines, models, projects, runs, system, templates
+from lcsim.service import data, engines, models, projects, runs, system, templates
 from lcsim.service.auth import Hardening
 from lcsim.service.config import ServiceConfig
+from lcsim.service.data_store import DataStore
 from lcsim.service.errors import AsciiJSONResponse, install_error_handlers
 from lcsim.service.events import ProjectEvents
 from lcsim.service.hardware import active_tier, detect_hardware, tier_workers
@@ -52,6 +53,7 @@ ROUTERS: tuple[APIRouter, ...] = (
     projects.router,
     models.router,
     runs.router,
+    data.router,
 )
 
 # FastAPI's built-in telemetry, all off: no spans, metrics or logs, and no exporter even if
@@ -92,6 +94,7 @@ def create_app(config: ServiceConfig) -> FastAPI:
             settings=read_run_settings(config.config_dir),
             workers=tier_workers(tier, hardware.cores),
         ),
+        data=DataStore(model_store),
     )
 
     @contextlib.asynccontextmanager

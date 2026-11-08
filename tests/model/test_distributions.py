@@ -5,7 +5,9 @@ one stream; the sample mean lies within four standard errors of the theoretical 
 standard error = theoretical standard deviation / √20000, with the theoretical mean and sd
 spec 1 lists for each distribution. Also: every sampled time below 0 s is set to 0 s (the
 AKS-96 reading of M1 owner item 9), parameters are resolved as validation resolves them,
-and an ``empirical`` with ``data`` cannot be sampled until M6 (E162).
+and an ``empirical`` with ``data`` samples the column a run read into it, and cannot be
+sampled before (E162; the sampling test against the copied column is in
+``tests/runs/test_snapshots.py``, AKS-113).
 """
 
 import copy
@@ -21,7 +23,7 @@ import pytest
 
 from lcsim.model.catalogue import DISTRIBUTIONS
 from lcsim.model.distributions import (
-    DataNotYetSupportedError,
+    DataNotReadError,
     Sampler,
     sampler_for,
     sampler_from_numbers,
@@ -320,19 +322,19 @@ def test_a_parameter_in_empirical_values_is_resolved() -> None:
     assert sampler(generator_for(SEED, 0, "x")) == 4.0
 
 
-# --- `empirical` with `data` arrives at M6 -------------------------------------------------------
+# --- `empirical` with `data` (M6, AKS-113) ---------------------------------------------------
 
 
-def test_empirical_with_data_is_not_yet_supported() -> None:
+def test_empirical_with_data_not_read_cannot_be_sampled() -> None:
     distribution = Distribution(
         "empirical", MappingProxyType({}), data=DataRef("times.csv", "minutes")
     )
-    with pytest.raises(DataNotYetSupportedError) as raised:
+    with pytest.raises(DataNotReadError) as raised:
         sampler_for(MODEL, distribution)
     problem = raised.value
     assert problem.code == "E162"
-    assert "M6" in problem.message
     assert "'times.csv'" in problem.message and "'minutes'" in problem.message
+    assert "M6" not in problem.message
     assert problem.hint
     issue = Issue.from_problem(
         problem,
@@ -344,6 +346,20 @@ def test_empirical_with_data_is_not_yet_supported() -> None:
     assert issue.severity == "error"
     assert issue.message.startswith("In the 'service' setting of 'till', ")
     assert "Traceback" not in issue.message and "Error" not in issue.message
+
+
+def test_empirical_with_data_samples_the_values_a_run_read() -> None:
+    """A run target puts the column's values, in seconds, beside the reference."""
+    distribution = Distribution(
+        "empirical",
+        MappingProxyType({}),
+        values=(60.0, 120.0, -5.0),
+        data=DataRef("times.csv", "minutes"),
+    )
+    sampler = sampler_for(MODEL, distribution)
+    rng = generator_for(SEED, 0, "x")
+    drawn = {sampler(rng) for _ in range(200)}
+    assert drawn == {60.0, 120.0, 0.0}  # a value below 0 s is 0 s
 
 
 def test_an_unknown_distribution_is_refused() -> None:
