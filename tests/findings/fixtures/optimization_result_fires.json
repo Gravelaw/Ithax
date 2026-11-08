@@ -1,0 +1,603 @@
+{
+ "about": "benchmarks/machine_count/model.json unchanged: the coffee shop searched over tills 1 to 5 (exhaustive path, budget 10, seed 12345); a search run's summary.json with its search block (spec 2 'Simulation-based optimization').",
+ "model": {
+  "format_version": "0.1",
+  "meta": {
+   "name": "Machine count",
+   "description": "Spec 2 benchmark 'Machine count (simulation-based)': the coffee shop (examples/coffee_shop.json) with tills from 1 to 5, objective minimize till.wait.mean, constraint till.utilization >= 0.35, search budget 10 (the exhaustive path, since the five combinations fit) and the file's seed. Erlang C: 1 till waits 4.500 min at utilization 0.75; 2 tills 0.245 min at 0.375; 3 or more are below 0.35, so the best is 2."
+  },
+  "domain": "process",
+  "parameters": {
+   "tills": {
+    "value": 1,
+    "type": "integer",
+    "min": 1,
+    "max": 5
+   }
+  },
+  "components": [
+   {
+    "id": "arrivals",
+    "type": "source",
+    "params": {
+     "interarrival": {
+      "dist": "exponential",
+      "mean": "2 min"
+     }
+    }
+   },
+   {
+    "id": "till",
+    "type": "server",
+    "params": {
+     "capacity": {
+      "$param": "tills"
+     },
+     "service": {
+      "dist": "exponential",
+      "mean": "1.5 min"
+     }
+    }
+   },
+   {
+    "id": "exit",
+    "type": "sink",
+    "params": {}
+   }
+  ],
+  "connections": [
+   {
+    "from": "arrivals.out",
+    "to": "till.in"
+   },
+   {
+    "from": "till.out",
+    "to": "exit.in"
+   }
+  ],
+  "objectives": [
+   {
+    "id": "wait",
+    "metric": "till.wait.mean",
+    "sense": "minimize"
+   }
+  ],
+  "constraints": [
+   {
+    "id": "busy",
+    "metric": "till.utilization",
+    "op": ">=",
+    "value": 0.35
+   }
+  ],
+  "experiments": [
+   {
+    "id": "base",
+    "length": "200 h",
+    "warmup": "10 h",
+    "replications": 30,
+    "seed": 12345,
+    "search": {
+     "objective": "wait",
+     "budget": 10
+    }
+   }
+  ],
+  "run": {
+   "target": "local",
+   "fidelity": "standard"
+  }
+ },
+ "summary": {
+  "model": "Machine count",
+  "experiment": "base",
+  "fidelity": "standard",
+  "fidelity_label": "Standard: 30 replications of 200 h, 95% confidence",
+  "replications": 30,
+  "confidence": 0.95,
+  "scenarios": {
+   "default": {
+    "set": {
+     "tills": 2
+    },
+    "metrics": {
+     "arrivals.created": {
+      "mean": 5683.433333333333,
+      "half_width": 27.71522034098244,
+      "unit": "1",
+      "n": 30
+     },
+     "arrivals.discarded": {
+      "mean": 0.0,
+      "half_width": 0.0,
+      "unit": "1/s",
+      "n": 30
+     },
+     "till.wait.mean": {
+      "mean": 14.571805443050755,
+      "half_width": 0.4727456436173149,
+      "unit": "s",
+      "n": 30
+     },
+     "till.utilization": {
+      "mean": 0.3743140938720918,
+      "half_width": 0.0023101178780230275,
+      "unit": "1",
+      "n": 30
+     },
+     "till.availability": {
+      "mean": 1.0,
+      "half_width": 0.0,
+      "unit": "1",
+      "n": 30
+     },
+     "till.scheduled_fraction": {
+      "mean": 1.0,
+      "half_width": 0.0,
+      "unit": "1",
+      "n": 30
+     },
+     "till.queue_length.mean": {
+      "mean": 0.12114765789965737,
+      "half_width": 0.00417163619293447,
+      "unit": "1",
+      "n": 30
+     },
+     "till.queue_length.max": {
+      "mean": 7.266666666666667,
+      "half_width": 0.4993747981561663,
+      "unit": "1",
+      "n": 30
+     },
+     "exit.throughput": {
+      "mean": 0.00830930799220273,
+      "half_width": 4.051628438074701e-05,
+      "unit": "1/s",
+      "n": 30
+     },
+     "exit.cycle_time.mean": {
+      "mean": 104.66568483255706,
+      "half_width": 0.6908572430521266,
+      "unit": "s",
+      "n": 30
+     },
+     "exit.count": {
+      "mean": 5683.566666666667,
+      "half_width": 27.71313851643094,
+      "unit": "1",
+      "n": 30
+     },
+     "model.wip.mean": {
+      "mean": 0.869775845643841,
+      "half_width": 0.007876330781379922,
+      "unit": "1",
+      "n": 30
+     }
+    }
+   }
+  },
+  "differences": [],
+  "warnings": [],
+  "search": {
+   "status": "feasible",
+   "best": {
+    "set": {
+     "tills": 2
+    }
+   },
+   "objective": {
+    "metric": "till.wait.mean",
+    "before": 267.63124087748054,
+    "after": 14.571805443050755
+   },
+   "separated": true,
+   "candidates": [
+    {
+     "set": {
+      "tills": 1
+     },
+     "metrics": {
+      "arrivals.created": {
+       "mean": 5683.433333333333,
+       "half_width": 27.71522034098244,
+       "unit": "1",
+       "n": 30
+      },
+      "arrivals.discarded": {
+       "mean": 0.0,
+       "half_width": 0.0,
+       "unit": "1/s",
+       "n": 30
+      },
+      "till.wait.mean": {
+       "mean": 267.63124087748054,
+       "half_width": 9.785767923664459,
+       "unit": "s",
+       "n": 30
+      },
+      "till.utilization": {
+       "mean": 0.7486614165694118,
+       "half_width": 0.004610568804396234,
+       "unit": "1",
+       "n": 30
+      },
+      "till.availability": {
+       "mean": 1.0,
+       "half_width": 0.0,
+       "unit": "1",
+       "n": 30
+      },
+      "till.scheduled_fraction": {
+       "mean": 1.0,
+       "half_width": 0.0,
+       "unit": "1",
+       "n": 30
+      },
+      "till.queue_length.mean": {
+       "mean": 2.2252351574248244,
+       "half_width": 0.08715015126255113,
+       "unit": "1",
+       "n": 30
+      },
+      "till.queue_length.max": {
+       "mean": 21.3,
+       "half_width": 1.337916378336531,
+       "unit": "1",
+       "n": 30
+      },
+      "exit.throughput": {
+       "mean": 0.00830930799220273,
+       "half_width": 4.083185568674124e-05,
+       "unit": "1/s",
+       "n": 30
+      },
+      "exit.cycle_time.mean": {
+       "mean": 357.72389686218696,
+       "half_width": 9.96497803125815,
+       "unit": "s",
+       "n": 30
+      },
+      "exit.count": {
+       "mean": 5683.566666666667,
+       "half_width": 27.928989289730985,
+       "unit": "1",
+       "n": 30
+      },
+      "model.wip.mean": {
+       "mean": 2.973896573994237,
+       "half_width": 0.09062730831498154,
+       "unit": "1",
+       "n": 30
+      }
+     },
+     "feasible": true,
+     "confirmed": true
+    },
+    {
+     "set": {
+      "tills": 2
+     },
+     "metrics": {
+      "arrivals.created": {
+       "mean": 5683.433333333333,
+       "half_width": 27.71522034098244,
+       "unit": "1",
+       "n": 30
+      },
+      "arrivals.discarded": {
+       "mean": 0.0,
+       "half_width": 0.0,
+       "unit": "1/s",
+       "n": 30
+      },
+      "till.wait.mean": {
+       "mean": 14.571805443050755,
+       "half_width": 0.4727456436173149,
+       "unit": "s",
+       "n": 30
+      },
+      "till.utilization": {
+       "mean": 0.3743140938720918,
+       "half_width": 0.0023101178780230275,
+       "unit": "1",
+       "n": 30
+      },
+      "till.availability": {
+       "mean": 1.0,
+       "half_width": 0.0,
+       "unit": "1",
+       "n": 30
+      },
+      "till.scheduled_fraction": {
+       "mean": 1.0,
+       "half_width": 0.0,
+       "unit": "1",
+       "n": 30
+      },
+      "till.queue_length.mean": {
+       "mean": 0.12114765789965737,
+       "half_width": 0.00417163619293447,
+       "unit": "1",
+       "n": 30
+      },
+      "till.queue_length.max": {
+       "mean": 7.266666666666667,
+       "half_width": 0.4993747981561663,
+       "unit": "1",
+       "n": 30
+      },
+      "exit.throughput": {
+       "mean": 0.00830930799220273,
+       "half_width": 4.051628438074701e-05,
+       "unit": "1/s",
+       "n": 30
+      },
+      "exit.cycle_time.mean": {
+       "mean": 104.66568483255706,
+       "half_width": 0.6908572430521266,
+       "unit": "s",
+       "n": 30
+      },
+      "exit.count": {
+       "mean": 5683.566666666667,
+       "half_width": 27.71313851643094,
+       "unit": "1",
+       "n": 30
+      },
+      "model.wip.mean": {
+       "mean": 0.869775845643841,
+       "half_width": 0.007876330781379922,
+       "unit": "1",
+       "n": 30
+      }
+     },
+     "feasible": true,
+     "confirmed": true
+    },
+    {
+     "set": {
+      "tills": 3
+     },
+     "metrics": {
+      "arrivals.created": {
+       "mean": 5681.5,
+       "half_width": 60.84997198748264,
+       "unit": "1",
+       "n": 10
+      },
+      "arrivals.discarded": {
+       "mean": 0.0,
+       "half_width": 0.0,
+       "unit": "1/s",
+       "n": 10
+      },
+      "till.wait.mean": {
+       "mean": 1.6021897627802435,
+       "half_width": 0.18154009980107283,
+       "unit": "s",
+       "n": 10
+      },
+      "till.utilization": {
+       "mean": 0.24892883532931034,
+       "half_width": 0.002496631997550164,
+       "unit": "1",
+       "n": 10
+      },
+      "till.availability": {
+       "mean": 1.0,
+       "half_width": 0.0,
+       "unit": "1",
+       "n": 10
+      },
+      "till.scheduled_fraction": {
+       "mean": 1.0,
+       "half_width": 0.0,
+       "unit": "1",
+       "n": 10
+      },
+      "till.queue_length.mean": {
+       "mean": 0.013307719778363735,
+       "half_width": 0.001496316967656294,
+       "unit": "1",
+       "n": 10
+      },
+      "till.queue_length.max": {
+       "mean": 4.2,
+       "half_width": 0.45243143255964097,
+       "unit": "1",
+       "n": 10
+      },
+      "exit.throughput": {
+       "mean": 0.008305994152046784,
+       "half_width": 8.932840370327236e-05,
+       "unit": "1/s",
+       "n": 10
+      },
+      "exit.cycle_time.mean": {
+       "mean": 91.50831922140664,
+       "half_width": 0.5782835406468894,
+       "unit": "s",
+       "n": 10
+      },
+      "exit.count": {
+       "mean": 5681.3,
+       "half_width": 61.10062813303836,
+       "unit": "1",
+       "n": 10
+      },
+      "model.wip.mean": {
+       "mean": 0.7600942257662947,
+       "half_width": 0.007585305982704859,
+       "unit": "1",
+       "n": 10
+      }
+     },
+     "feasible": false,
+     "confirmed": false
+    },
+    {
+     "set": {
+      "tills": 4
+     },
+     "metrics": {
+      "arrivals.created": {
+       "mean": 5681.5,
+       "half_width": 60.84997198748264,
+       "unit": "1",
+       "n": 10
+      },
+      "arrivals.discarded": {
+       "mean": 0.0,
+       "half_width": 0.0,
+       "unit": "1/s",
+       "n": 10
+      },
+      "till.wait.mean": {
+       "mean": 0.17943832933980983,
+       "half_width": 0.04362520108214671,
+       "unit": "s",
+       "n": 10
+      },
+      "till.utilization": {
+       "mean": 0.18669738438889613,
+       "half_width": 0.0018719498785943367,
+       "unit": "1",
+       "n": 10
+      },
+      "till.availability": {
+       "mean": 1.0,
+       "half_width": 0.0,
+       "unit": "1",
+       "n": 10
+      },
+      "till.scheduled_fraction": {
+       "mean": 1.0,
+       "half_width": 0.0,
+       "unit": "1",
+       "n": 10
+      },
+      "till.queue_length.mean": {
+       "mean": 0.0014911255198201893,
+       "half_width": 0.0003617639043659846,
+       "unit": "1",
+       "n": 10
+      },
+      "till.queue_length.max": {
+       "mean": 2.7,
+       "half_width": 0.4828291119331836,
+       "unit": "1",
+       "n": 10
+      },
+      "exit.throughput": {
+       "mean": 0.008305994152046784,
+       "half_width": 8.932840370327236e-05,
+       "unit": "1/s",
+       "n": 10
+      },
+      "exit.cycle_time.mean": {
+       "mean": 90.0859086555433,
+       "half_width": 0.5514390247493217,
+       "unit": "s",
+       "n": 10
+      },
+      "exit.count": {
+       "mean": 5681.3,
+       "half_width": 61.10062813303836,
+       "unit": "1",
+       "n": 10
+      },
+      "model.wip.mean": {
+       "mean": 0.7482806630754048,
+       "half_width": 0.007410862321937132,
+       "unit": "1",
+       "n": 10
+      }
+     },
+     "feasible": false,
+     "confirmed": false
+    },
+    {
+     "set": {
+      "tills": 5
+     },
+     "metrics": {
+      "arrivals.created": {
+       "mean": 5681.5,
+       "half_width": 60.84997198748264,
+       "unit": "1",
+       "n": 10
+      },
+      "arrivals.discarded": {
+       "mean": 0.0,
+       "half_width": 0.0,
+       "unit": "1/s",
+       "n": 10
+      },
+      "till.wait.mean": {
+       "mean": 0.019104952688678838,
+       "half_width": 0.014763362944764243,
+       "unit": "s",
+       "n": 10
+      },
+      "till.utilization": {
+       "mean": 0.1493579075111169,
+       "half_width": 0.0014975599028754704,
+       "unit": "1",
+       "n": 10
+      },
+      "till.availability": {
+       "mean": 1.0,
+       "half_width": 0.0,
+       "unit": "1",
+       "n": 10
+      },
+      "till.scheduled_fraction": {
+       "mean": 1.0,
+       "half_width": 0.0,
+       "unit": "1",
+       "n": 10
+      },
+      "till.queue_length.mean": {
+       "mean": 0.00015802557791332901,
+       "half_width": 0.0001213749627145125,
+       "unit": "1",
+       "n": 10
+      },
+      "till.queue_length.max": {
+       "mean": 1.4,
+       "half_width": 0.5001817683877707,
+       "unit": "1",
+       "n": 10
+      },
+      "exit.throughput": {
+       "mean": 0.008305994152046784,
+       "half_width": 8.932840370327236e-05,
+       "unit": "1/s",
+       "n": 10
+      },
+      "exit.cycle_time.mean": {
+       "mean": 89.92557334379809,
+       "half_width": 0.5708169521650949,
+       "unit": "s",
+       "n": 10
+      },
+      "exit.count": {
+       "mean": 5681.3,
+       "half_width": 61.10062813303836,
+       "unit": "1",
+       "n": 10
+      },
+      "model.wip.mean": {
+       "mean": 0.7469475631334979,
+       "half_width": 0.007423294363139871,
+       "unit": "1",
+       "n": 10
+      }
+     },
+     "feasible": false,
+     "confirmed": false
+    }
+   ]
+  }
+ }
+}

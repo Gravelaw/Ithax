@@ -1,0 +1,160 @@
+{
+ "about": "examples/coffee_shop.json unchanged (experiment base: 30 replications of 200 h with 10 h of warm-up, seed 12345). The coffee shop is the silent model for bottleneck and not_enough_runs (spec 4); it has no W201, no idle till and no optimization.",
+ "model": {
+  "format_version": "0.1",
+  "meta": {
+   "name": "Coffee shop"
+  },
+  "domain": "process",
+  "parameters": {
+   "tills": {
+    "value": 1,
+    "type": "integer",
+    "min": 1,
+    "max": 5
+   }
+  },
+  "components": [
+   {
+    "id": "arrivals",
+    "type": "source",
+    "params": {
+     "interarrival": {
+      "dist": "exponential",
+      "mean": "2 min"
+     }
+    }
+   },
+   {
+    "id": "till",
+    "type": "server",
+    "params": {
+     "capacity": {
+      "$param": "tills"
+     },
+     "service": {
+      "dist": "exponential",
+      "mean": "1.5 min"
+     }
+    }
+   },
+   {
+    "id": "exit",
+    "type": "sink",
+    "params": {}
+   }
+  ],
+  "connections": [
+   {
+    "from": "arrivals.out",
+    "to": "till.in"
+   },
+   {
+    "from": "till.out",
+    "to": "exit.in"
+   }
+  ],
+  "experiments": [
+   {
+    "id": "base",
+    "length": "200 h",
+    "warmup": "10 h",
+    "replications": 30,
+    "seed": 12345
+   }
+  ],
+  "run": {
+   "target": "local",
+   "fidelity": "standard"
+  }
+ },
+ "summary": {
+  "model": "Coffee shop",
+  "experiment": "base",
+  "fidelity": "standard",
+  "fidelity_label": "Standard: 30 replications of 200 h, 95% confidence",
+  "replications": 30,
+  "confidence": 0.95,
+  "scenarios": {
+   "default": {
+    "set": {},
+    "metrics": {
+     "arrivals.created": {
+      "mean": 5683.433333333333,
+      "half_width": 27.71522034098244,
+      "unit": "1",
+      "n": 30
+     },
+     "arrivals.discarded": {
+      "mean": 0.0,
+      "half_width": 0.0,
+      "unit": "1/s",
+      "n": 30
+     },
+     "till.wait.mean": {
+      "mean": 267.63124087748054,
+      "half_width": 9.785767923664459,
+      "unit": "s",
+      "n": 30
+     },
+     "till.utilization": {
+      "mean": 0.7486614165694118,
+      "half_width": 0.004610568804396234,
+      "unit": "1",
+      "n": 30
+     },
+     "till.availability": {
+      "mean": 1.0,
+      "half_width": 0.0,
+      "unit": "1",
+      "n": 30
+     },
+     "till.scheduled_fraction": {
+      "mean": 1.0,
+      "half_width": 0.0,
+      "unit": "1",
+      "n": 30
+     },
+     "till.queue_length.mean": {
+      "mean": 2.2252351574248244,
+      "half_width": 0.08715015126255113,
+      "unit": "1",
+      "n": 30
+     },
+     "till.queue_length.max": {
+      "mean": 21.3,
+      "half_width": 1.337916378336531,
+      "unit": "1",
+      "n": 30
+     },
+     "exit.throughput": {
+      "mean": 0.00830930799220273,
+      "half_width": 4.083185568674124e-05,
+      "unit": "1/s",
+      "n": 30
+     },
+     "exit.cycle_time.mean": {
+      "mean": 357.72389686218696,
+      "half_width": 9.96497803125815,
+      "unit": "s",
+      "n": 30
+     },
+     "exit.count": {
+      "mean": 5683.566666666667,
+      "half_width": 27.928989289730985,
+      "unit": "1",
+      "n": 30
+     },
+     "model.wip.mean": {
+      "mean": 2.973896573994237,
+      "half_width": 0.09062730831498154,
+      "unit": "1",
+      "n": 30
+     }
+    }
+   }
+  },
+  "differences": [],
+  "warnings": []
+ }
+}

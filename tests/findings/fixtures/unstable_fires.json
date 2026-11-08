@@ -1,0 +1,177 @@
+{
+ "about": "examples/coffee_shop.json with the interarrival mean 1.4 min in place of 2 min, so the till's load is 1.5 / 1.4 = 1.07 of its capacity and loading raises W201; otherwise unchanged (seed 12345).",
+ "model": {
+  "format_version": "0.1",
+  "meta": {
+   "name": "Coffee shop"
+  },
+  "domain": "process",
+  "parameters": {
+   "tills": {
+    "value": 1,
+    "type": "integer",
+    "min": 1,
+    "max": 5
+   }
+  },
+  "components": [
+   {
+    "id": "arrivals",
+    "type": "source",
+    "params": {
+     "interarrival": {
+      "dist": "exponential",
+      "mean": "1.4 min"
+     }
+    }
+   },
+   {
+    "id": "till",
+    "type": "server",
+    "params": {
+     "capacity": {
+      "$param": "tills"
+     },
+     "service": {
+      "dist": "exponential",
+      "mean": "1.5 min"
+     }
+    }
+   },
+   {
+    "id": "exit",
+    "type": "sink",
+    "params": {}
+   }
+  ],
+  "connections": [
+   {
+    "from": "arrivals.out",
+    "to": "till.in"
+   },
+   {
+    "from": "till.out",
+    "to": "exit.in"
+   }
+  ],
+  "experiments": [
+   {
+    "id": "base",
+    "length": "200 h",
+    "warmup": "10 h",
+    "replications": 30,
+    "seed": 12345
+   }
+  ],
+  "run": {
+   "target": "local",
+   "fidelity": "standard"
+  }
+ },
+ "summary": {
+  "model": "Coffee shop",
+  "experiment": "base",
+  "fidelity": "standard",
+  "fidelity_label": "Standard: 30 replications of 200 h, 95% confidence",
+  "replications": 30,
+  "confidence": 0.95,
+  "scenarios": {
+   "default": {
+    "set": {},
+    "metrics": {
+     "arrivals.created": {
+      "mean": 8099.033333333334,
+      "half_width": 34.019834368155166,
+      "unit": "1",
+      "n": 30
+     },
+     "arrivals.discarded": {
+      "mean": 0.0,
+      "half_width": 0.0,
+      "unit": "1/s",
+      "n": 30
+     },
+     "till.wait.mean": {
+      "mean": 25138.743631291705,
+      "half_width": 2218.7871592267156,
+      "unit": "s",
+      "n": 30
+     },
+     "till.utilization": {
+      "mean": 0.9997380069152882,
+      "half_width": 0.0002624216869127445,
+      "unit": "1",
+      "n": 30
+     },
+     "till.availability": {
+      "mean": 1.0,
+      "half_width": 0.0,
+      "unit": "1",
+      "n": 30
+     },
+     "till.scheduled_fraction": {
+      "mean": 1.0,
+      "half_width": 0.0,
+      "unit": "1",
+      "n": 30
+     },
+     "till.queue_length.mean": {
+      "mean": 297.8324856165239,
+      "half_width": 26.642596396115216,
+      "unit": "1",
+      "n": 30
+     },
+     "till.queue_length.max": {
+      "mean": 561.3,
+      "half_width": 38.96428548199711,
+      "unit": "1",
+      "n": 30
+     },
+     "exit.throughput": {
+      "mean": 0.011094395711500974,
+      "half_width": 3.815478391643921e-05,
+      "unit": "1/s",
+      "n": 30
+     },
+     "exit.cycle_time.mean": {
+      "mean": 25223.13195915881,
+      "half_width": 2218.5430379683,
+      "unit": "s",
+      "n": 30
+     },
+     "exit.count": {
+      "mean": 7588.566666666667,
+      "half_width": 26.0978721988444,
+      "unit": "1",
+      "n": 30
+     },
+     "model.wip.mean": {
+      "mean": 298.8322236234395,
+      "half_width": 26.642683445777678,
+      "unit": "1",
+      "n": 30
+     }
+    }
+   }
+  },
+  "differences": [],
+  "warnings": [
+   {
+    "code": "W201",
+    "severity": "warning",
+    "component": "till",
+    "path": "/components/1",
+    "message": "The mean arrival rate at 'till' (42.86 per hour) times its mean service time (1.5 min) is 1.071, which is at least its 'capacity' of 1, and its queue is unlimited, so the queue will grow without limit.",
+    "hint": "Raise the 'capacity' of 'till', shorten its service time, or send less work to it."
+   },
+   {
+    "code": "W210",
+    "severity": "warning",
+    "component": null,
+    "path": "/experiments/0/warmup",
+    "message": "Results were still changing after warm-up: till.queue_length in scenario default changed by 86% of its mean between the first and second halves of the observed period; model.wip in scenario default changed by 86% of its mean between the first and second halves of the observed period.",
+    "hint": "Lengthen 'warmup' and run again."
+   }
+  ]
+ }
+}
