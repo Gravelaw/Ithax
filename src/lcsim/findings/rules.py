@@ -384,6 +384,16 @@ def _settings_text(values: Mapping[str, float], model: Model) -> str:
     return ", ".join(_setting_text(name, value, model) for name, value in values.items())
 
 
+def _search_sense(summary: Mapping[str, Any], model: Model) -> str:
+    """The sense of the objective the run's search optimized: the experiment the summary
+    names, its ``search.objective`` id, then that objective (as ``search_summary`` finds the
+    metric), never an objective found by its metric, which two objectives may share."""
+    experiment = next(item for item in model.experiments if item.id == summary["experiment"])
+    assert experiment.search is not None
+    objective_id = experiment.search.objective
+    return next(item.sense for item in model.objectives if item.id == objective_id)
+
+
 def _search_result(summary: Mapping[str, Any], model: Model) -> list[Finding]:
     search = summary["search"]
     scenario = next(iter(summary["scenarios"]), None)
@@ -418,7 +428,7 @@ def _search_result(summary: Mapping[str, Any], model: Model) -> list[Finding]:
             f"which is {shown(before)}."
         )
     else:
-        sense = next(item.sense for item in model.objectives if item.metric == metric)
+        sense = _search_sense(summary, model)
         better = (
             before is not None
             and after is not None

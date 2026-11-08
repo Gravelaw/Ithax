@@ -633,6 +633,19 @@ def test_a_maximizing_search_improves_upward() -> None:
     assert "till.utilization improved from 50% to 60%." in search_finding(run[0], run).text
 
 
+def test_the_sense_is_the_searched_objectives_not_another_on_the_same_metric() -> None:
+    """Review of PR #42: two objectives may name one metric; the sense is that of the
+    objective the experiment's search names, here the second."""
+
+    def rival(document: dict[str, Any]) -> None:
+        document["objectives"].insert(
+            0, {"id": "long_wait", "metric": "till.wait.mean", "sense": "maximize"}
+        )
+
+    run = read_run("optimization_result_fires", rival)
+    assert "till.wait.mean improved from 4.46 min to 14.6 s." in search_finding(run[0], run).text
+
+
 def test_a_search_over_a_quantity_shows_it_in_display_units() -> None:
     def quantity_variable(document: dict[str, Any]) -> None:
         document["parameters"]["service_mean"] = {
