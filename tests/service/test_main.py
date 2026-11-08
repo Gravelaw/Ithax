@@ -21,6 +21,7 @@ import httpx2
 import pytest
 import uvicorn
 
+from lcsim.service.config import default_ui_dir
 from lcsim.service.discovery import SERVICE_FILE, ServiceInfo, read_service_file
 from lcsim.service.main import LOCAL_ADDRESS, SignalServer, bind_local, main, raise_again
 
@@ -285,3 +286,25 @@ def test_main_raises_a_caught_signal_again_after_cleaning_up(
     raise_again([signal.SIGINT, signal.SIGTERM])
     # Last caught first, as uvicorn does.
     assert raised == [signal.SIGTERM, signal.SIGINT]
+
+
+def test_main_serves_the_interface_folder_it_is_given(folders: list[str], tmp_path: Path) -> None:
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html>", encoding="utf-8")
+    started = Started([*folders, "--ui-dir", str(dist), "--idle-minutes", "0.05"])
+    config_dir = tmp_path / "config"
+    wait_for(lambda: read_service_file(config_dir) is not None)
+    info = read_service_file(config_dir)
+    assert info is not None
+    with httpx2.Client(trust_env=False, timeout=5) as client:
+        response = client.get(f"http://{LOCAL_ADDRESS}:{info.port}/v1/ui/")
+    assert response.status_code == 200
+    assert response.text == "<!doctype html>"
+    started.thread.join(30)
+    assert started.status == [0]
+
+
+def test_the_default_interface_folder_is_ui_dist_of_the_checkout() -> None:
+    root = Path(__file__).resolve().parents[2]
+    assert default_ui_dir() == root / "ui" / "dist"

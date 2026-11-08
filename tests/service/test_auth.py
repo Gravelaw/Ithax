@@ -18,6 +18,7 @@ from lcsim.service.auth import (
     authenticate_websocket,
     bearer_token,
     host_allowed,
+    origin_allowed,
     request_client,
     token_matches,
 )
@@ -254,6 +255,88 @@ def test_an_allowed_origin_passes(quick: ServiceConfig) -> None:
         ) as socket:
             socket.send_text(json.dumps({"token": TOKEN}))
             assert socket.receive_json() == {"type": "hello"}
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}", f"http://LocalHost:{PORT}"],
+)
+def test_the_interface_s_own_origin_passes(quick: ServiceConfig, origin: str) -> None:
+    """Spec 3 "Hardening" (AKS-119): the interface is served by the service, so its origin
+    is the service's own."""
+    with TestClient(websocket_app(quick), base_url=BASE_URL) as client:
+        with client.websocket_connect(
+            f"{WS_URL}/v1/test/socket", headers={"Origin": origin}
+        ) as socket:
+            socket.send_text(json.dumps({"token": TOKEN}))
+            assert socket.receive_json() == {"type": "hello"}
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        f"http://127.0.0.1:{PORT + 1}",
+        f"https://127.0.0.1:{PORT}",
+        f"http://127.0.0.2:{PORT}",
+        "http://127.0.0.1",
+        f"http://127.0.0.1:{PORT}/",
+        f"ws://127.0.0.1:{PORT}",
+        "null",
+        "",
+    ],
+)
+def test_another_origin_is_refused(quick: ServiceConfig, origin: str) -> None:
+    with TestClient(websocket_app(quick), base_url=BASE_URL) as client:
+        with pytest.raises(WebSocketDisconnect) as refused:
+            with client.websocket_connect(f"{WS_URL}/v1/test/socket", headers={"Origin": origin}):
+                pass  # pragma: no cover - the upgrade is refused
+    assert refused.value.reason == "E183"
+
+
+@pytest.mark.parametrize(
+    ("origin", "allowed"),
+    [
+        (f"http://127.0.0.1:{PORT}", True),
+        (f"http://LOCALHOST:{PORT}", True),
+        (f"HTTP://localhost:{PORT}", False),
+        (f"http://localhost:0{PORT}", False),
+        (f"http://user@localhost:{PORT}", False),
+        (None, False),
+    ],
+)
+def test_origin_allowed_names_only_the_service_s_own_origin(
+    origin: str | None, allowed: bool
+) -> None:
+    assert origin_allowed(origin, PORT) is allowed
+
+
+# --- The interface's files need no token ---------------------------------------------
+
+
+@pytest.mark.parametrize("method", ["GET", "HEAD"])
+def test_the_interface_s_files_need_no_token(app: FastAPI, method: str) -> None:
+    with TestClient(app, base_url=BASE_URL) as client:
+        response = client.request(method, "/v1/ui/index.html")
+    # No interface folder in this config: not found, not refused for want of a token.
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [("POST", "/v1/ui/index.html"), ("GET", "/v1/ui"), ("GET", "/v1/uix/a"), ("GET", "/ui/a")],
+)
+def test_only_reads_under_v1_ui_skip_the_token(app: FastAPI, method: str, path: str) -> None:
+    with TestClient(app, base_url=BASE_URL) as client:
+        response = client.request(method, path)
+    assert response.status_code == 401
+    assert_error(response.json(), "E182")
+
+
+def test_the_interface_s_files_keep_the_host_check(app: FastAPI) -> None:
+    with TestClient(app, base_url="http://evil.example") as client:
+        response = client.get("/v1/ui/index.html")
+    assert response.status_code == 403
+    assert_error(response.json(), "E183")
 
 
 def test_a_websocket_with_another_host_is_refused(quick: ServiceConfig) -> None:

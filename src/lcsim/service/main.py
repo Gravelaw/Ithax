@@ -17,7 +17,9 @@ down gracefully and then raises the signal again; raised there, it ended the pro
 and ``main`` raises them again once the file is removed and the lock released, so the exit
 status still says how the service was stopped (AKS-119).
 
-Options: ``--config-dir`` and ``--data-dir`` replace the per-user folders.
+Options: ``--config-dir`` and ``--data-dir`` replace the per-user folders; ``--ui-dir``
+names the built interface the service serves at ``/v1/ui/`` (default
+``lcsim.service.config.default_ui_dir``).
 """
 
 from __future__ import annotations
@@ -42,6 +44,7 @@ from lcsim.service.config import (
     ServiceConfig,
     default_config_dir,
     default_data_dir,
+    default_ui_dir,
     new_token,
 )
 from lcsim.service.discovery import (
@@ -128,6 +131,9 @@ def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
         default=DEFAULT_IDLE_TIMEOUT_S / 60,
         help="exit after this many idle minutes (default 30)",
     )
+    parser.add_argument(
+        "--ui-dir", type=Path, help="the built interface to serve at /v1/ui/ (default: ui/dist)"
+    )
     arguments = parser.parse_args(argv)
     if not arguments.idle_minutes > 0:
         parser.error("--idle-minutes must be above 0")
@@ -173,18 +179,21 @@ def main(
     config_dir = canonical(arguments.config_dir or default_config_dir())
     data_dir = canonical(arguments.data_dir or default_data_dir())
     config_dir.mkdir(parents=True, exist_ok=True)
+    ui_dir = canonical(arguments.ui_dir or default_ui_dir())
     owned = _own_or_find(config_dir, out, err)
     if isinstance(owned, int):
         return owned
     try:
-        caught = _serve(config_dir, data_dir, arguments.idle_minutes * 60, out)
+        caught = _serve(config_dir, data_dir, ui_dir, arguments.idle_minutes * 60, out)
     finally:
         owned.release()
     raise_again(caught)
     return 0
 
 
-def _serve(config_dir: Path, data_dir: Path, idle_timeout_s: float, out: TextIO) -> list[int]:
+def _serve(
+    config_dir: Path, data_dir: Path, ui_dir: Path, idle_timeout_s: float, out: TextIO
+) -> list[int]:
     """Bind, write ``service.json``, serve until stopped or idle, remove the file; return
     the signals that stopped the service, if any."""
     servers: list[uvicorn.Server] = []
@@ -200,6 +209,7 @@ def _serve(config_dir: Path, data_dir: Path, idle_timeout_s: float, out: TextIO)
             data_dir=data_dir,
             port=port,
             token=new_token(),
+            ui_dir=ui_dir,
             idle_timeout_s=idle_timeout_s,
             idle_check_s=min(10.0, idle_timeout_s / 4),
             on_idle=stop,

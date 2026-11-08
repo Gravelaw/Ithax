@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import re
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, FastAPI
@@ -29,7 +30,17 @@ from starlette.routing import WebSocketRoute
 
 from lcsim import __version__
 from lcsim.engines.registry import installed_adapters
-from lcsim.service import data, engines, models, projects, runs, system, templates
+from lcsim.service import (
+    data,
+    engines,
+    interface_files,
+    models,
+    projects,
+    runs,
+    settings,
+    system,
+    templates,
+)
 from lcsim.service.auth import Hardening
 from lcsim.service.config import ServiceConfig
 from lcsim.service.data_store import DataStore
@@ -41,19 +52,22 @@ from lcsim.service.model_store import ModelStore
 from lcsim.service.projects_store import ProjectRegistry
 from lcsim.service.run_service import RunService
 from lcsim.service.run_settings import read_run_settings
+from lcsim.service.settings_store import SettingsStore
 from lcsim.service.state import ServiceState
 
-__all__ = ["ROUTERS", "create_app", "route_table"]
+__all__ = ["ROUTERS", "create_app", "route_table", "table_path"]
 
 #: The routers of the API, one per area (spec 3 "Endpoints").
 ROUTERS: tuple[APIRouter, ...] = (
     system.router,
+    settings.router,
     engines.router,
     templates.router,
     projects.router,
     models.router,
     runs.router,
     data.router,
+    interface_files.router,
 )
 
 # FastAPI's built-in telemetry, all off: no spans, metrics or logs, and no exporter even if
@@ -96,6 +110,7 @@ def create_app(config: ServiceConfig) -> FastAPI:
             config_dir=config.config_dir,
         ),
         data=DataStore(model_store),
+        settings=SettingsStore(config.config_dir, hardware),
     )
 
     @contextlib.asynccontextmanager
@@ -142,6 +157,15 @@ def create_app(config: ServiceConfig) -> FastAPI:
     return app
 
 
+_CONVERTER = re.compile(r"\{(\w+):\w+\}")
+
+
+def table_path(path: str) -> str:
+    """A route's path as spec 3's table writes it: a parameter without its converter, so
+    ``/v1/ui/{path:path}`` is ``/v1/ui/{path}`` (AKS-119)."""
+    return _CONVERTER.sub(r"{\1}", path)
+
+
 def route_table(app: FastAPI) -> set[tuple[str, str]]:
     """The app's routes as ``(method, path)`` pairs, as spec 3 "Endpoints" writes them
     (``GET /v1/system``); a WebSocket route is ``GET``, the method of its upgrade, as the
@@ -150,8 +174,8 @@ def route_table(app: FastAPI) -> set[tuple[str, str]]:
     adds to every ``GET``, is left out."""
     table: set[tuple[str, str]] = set()
     for context in iter_route_contexts(app.routes):
-        path = context.path
-        assert path is not None
+        assert context.path is not None
+        path = table_path(context.path)
         if isinstance(context.original_route, WebSocketRoute):
             table.add(("GET", path))
             continue

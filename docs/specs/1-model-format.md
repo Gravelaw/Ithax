@@ -319,7 +319,7 @@ Every issue is one object:
 | W201 | meaning | Mean arrival rate at a server times its mean service time is at least its capacity, and its queue is unlimited, so the queue will grow without limit |
 | W202 | meaning | Normal distribution will clip about 2% or more of its samples at zero (`mean` < 2 × `sd`) |
 | W210 | run | Results were still changing after warm-up; lengthen `warmup` |
-| W220 | service | A finding threshold in `settings.json` cannot be used: a value that is not a number in its range, a key that is not one of the five thresholds, `finding_thresholds` that is not an object, or a `settings.json` that is not a JSON object the service can read. The default is used for what is refused, and `GET .../summary` lists the issue in `issues`, with `path` the place in `settings.json` (spec 3 "Service rules"; AKS-135, owner to confirm) |
+| W220 | service | A finding threshold in `settings.json` cannot be used: a value that is not a number in its range, a key that is not one of the five thresholds, `finding_thresholds` that is not an object, or a `settings.json` that is not a JSON object the service can read. The default is used for what is refused, and `GET .../summary` and `GET /v1/settings` list the issue in `issues`, with `path` the place in `settings.json` (spec 3 "Service rules"; AKS-135, AKS-119, owner to confirm) |
 
 Codes E300 to E399 are reserved for engine-specific issues from `validate(model)`; each adapter documents its own. Errors block a run. Warnings do not. Run and service codes are raised by the experiment manager or the service, and E193 and E194 by the MCP server; they are tested at their milestones, not by validation fixtures. A service code's `path` points into the request, or for W220 into `settings.json`, rather than into the model file.
 
@@ -537,3 +537,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 2026-11-08, version 1.1, M8 closed (AKS-135); the lines below were added after version 1.0, during the M8 build:
 
 - 2026-11-08, findings in the run summary and user-adjustable thresholds (AKS-135), found while building `src/lcsim/service/finding_settings.py`: "Validation issues" adds W220, a finding threshold in `settings.json` that cannot be used (spec 3 "Service rules"), whose default is then used; the sentence on run and service codes says a service code's `path` points into the request or, for W220, into `settings.json`. A warning, not an error, since nothing is refused but the value: the summary is still answered (owner to confirm).
+
+Since version 1.1, during the M9 build:
+
+- 2026-11-08, settings endpoint (AKS-119): "Validation issues" says `GET /v1/settings` also lists W220 issues (spec 3 "Endpoints"). A `PUT /v1/settings` value that cannot be used is refused as E184 at its place in the request, since the request is malformed; W220 stays the code for a value read from the file. Owner to confirm.

@@ -11,7 +11,8 @@ spec 3's table writes its WebSocket rows.
 A request counts only when the router matched it to a route that has its method, so one
 refused by the hardening middleware (401, 403, a bad ``X-Client``), one to an unknown path
 (404) and one with another method (405) are not counted. The route's ``path`` is the full
-template (``/v1/projects/{pid}/model``), which FastAPI puts on ``scope["route"]``; were that
+template (``/v1/projects/{pid}/model``), which FastAPI puts on ``scope["route"]``, written
+as the table writes it (``lcsim.service.app.table_path``: ``{path:path}`` is ``{path}``); were that
 to change, the recorded set would no longer equal the table and the test would fail, never
 pass by default; and were Starlette's transport to change, nothing would be recorded and
 the test would fail the same way.
@@ -32,6 +33,8 @@ from typing import Any
 from starlette import testclient
 from starlette.routing import WebSocketRoute
 from starlette.types import ASGIApp, Receive, Scope, Send
+
+from lcsim.service.app import table_path
 
 __all__ = [
     "INCOMPLETE",
@@ -61,6 +64,7 @@ def matched_route(scope: Scope) -> tuple[str, str] | None:
     path = getattr(route, "path", None)
     if not isinstance(path, str):
         return None
+    path = table_path(path)
     if scope["type"] == "websocket":
         return ("GET", path) if isinstance(route, WebSocketRoute) else None
     methods = getattr(route, "methods", None) or ()

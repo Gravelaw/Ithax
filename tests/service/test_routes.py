@@ -56,9 +56,9 @@ def spec_table() -> set[tuple[str, str]]:
 
 def test_the_endpoint_table_is_read_from_spec_3() -> None:
     rows = spec_routes(SPEC_3.read_text(encoding="utf-8"))
-    # The table of spec 3 0.4 has 25 rows; the count guards the parser, not the spec: a
-    # row added to the spec changes it, and with it this number.
-    assert len(rows) == 25
+    # The table of spec 3 has 28 rows since AKS-119 (25 at 0.4); the count guards the parser,
+    # not the spec: a row added to the spec changes it, and with it this number.
+    assert len(rows) == 28
     assert rows[0] == ("GET", "/v1/system")
     assert rows[-1] == ("GET", "/v1/runs/{rid}/tables/{name}")
     assert ("GET", "/v1/projects/{pid}/events") in rows
