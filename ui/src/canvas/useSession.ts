@@ -6,7 +6,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { ApiClient } from "../api/client";
 import type { Settings } from "../api/types";
-import { CanvasSession, type SessionState } from "./session";
+import { CanvasSession, INITIAL_STATE, type SessionState } from "./session";
 
 export const RECOMMENDED_UNDO_STEPS = { low: 200, mid: 500, high: 1000 } as const;
 
@@ -14,22 +14,7 @@ export function undoSteps(settings: Settings): number {
   return settings.interface.undo_steps ?? RECOMMENDED_UNDO_STEPS[settings.tier];
 }
 
-const NONE: SessionState = {
-  status: "loading",
-  loadProblem: null,
-  model: null,
-  revision: 0,
-  issues: [],
-  checking: true,
-  saving: false,
-  failing: false,
-  refusal: null,
-  undoLabel: null,
-  redoLabel: null,
-  reloads: 0,
-  eventsClosed: null,
-  predicted: {},
-};
+const NONE: SessionState = INITIAL_STATE;
 
 const nothing = () => () => undefined;
 const none = () => NONE;

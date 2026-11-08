@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Component, ComponentType, Connection, Issue, Model } from "../api/types";
 import { IssueList, ServiceProblem } from "../components/ServiceProblem";
+import { lock, useBusy } from "./busy";
 import {
   components,
   connections,
@@ -20,7 +21,7 @@ import {
   splitEnd,
 } from "./model";
 import { Parameters } from "./Parameters";
-import { componentIn, type EditPlan, gone } from "./plans";
+import { componentIn, type EditPlan } from "./plans";
 import { CommitInput, type FieldActions, type FieldContext, SettingField } from "./SettingFields";
 
 export interface PanelActions extends FieldActions {
@@ -93,9 +94,19 @@ function BlockPanel({
   readOnly: boolean;
   actions: PanelActions;
 }) {
+  const busy = useBusy();
   const type = useComponentType(client, component.type);
   const [idProblem, setIdProblem] = useState<ApiResult<unknown> | null>(null);
   const [labelProblem, setLabelProblem] = useState<ApiResult<unknown> | null>(null);
+  // The panel stays mounted across a rename, so a field's draft (committed once a write in
+  // flight has answered) reaches the block under its new id; another block clears the
+  // problems shown.
+  const [problemsFor, setProblemsFor] = useState(component.id);
+  if (problemsFor !== component.id) {
+    setProblemsFor(component.id);
+    setIdProblem(null);
+    setLabelProblem(null);
+  }
 
   const byField = new Map<string, Issue[]>();
   for (const issue of issues) {
@@ -123,11 +134,9 @@ function BlockPanel({
   const move = (axis: "x" | "y", text: string) => {
     const value = readNumber(text);
     const id = component.id;
-    // The other axis is the one saved when this write is sent, so x then y keeps both.
-    actions.edit(`move ${id}`, (current, resolve) => {
-      const now = componentIn(current, resolve(id));
-      if (now === undefined) return gone(resolve(id));
-      return [{ edit: "set_ui", id: now.id, ui: { ...(now.ui ?? {}), [axis]: value } }];
+    actions.edit(`move ${id}`, (current) => {
+      const now = componentIn(current, id);
+      return now ? [{ edit: "set_ui", id, ui: { ...(now.ui ?? {}), [axis]: value } }] : null;
     });
   };
 
@@ -218,7 +227,7 @@ function BlockPanel({
                   id={`connect-${port}`}
                   className="mono"
                   value={current}
-                  disabled={readOnly}
+                  {...lock(readOnly, busy)}
                   onChange={(event) => {
                     const to = event.target.value;
                     if (to === "")
@@ -241,7 +250,12 @@ function BlockPanel({
           })}
         </>
       ) : null}
-      <button type="button" className="danger" disabled={readOnly} onClick={() => actions.remove()}>
+      <button
+        type="button"
+        className="danger"
+        {...lock(readOnly, busy)}
+        onClick={() => actions.remove()}
+      >
         <TrashIcon aria-hidden="true" size={16} />
         Delete
       </button>
@@ -258,6 +272,7 @@ function ConnectionPanel({
   readOnly: boolean;
   actions: PanelActions;
 }) {
+  const busy = useBusy();
   return (
     <section className="panel-section" aria-labelledby="connection-heading">
       <h2 className="heading" id="connection-heading">
@@ -270,7 +285,7 @@ function ConnectionPanel({
       <button
         type="button"
         className="secondary"
-        disabled={readOnly}
+        {...lock(readOnly, busy)}
         onClick={() =>
           actions.edit(`disconnect ${connection.from}`, [
             { edit: "disconnect", from: connection.from },
@@ -375,6 +390,7 @@ export function SidePanel({
   readOnly: boolean;
   actions: PanelActions;
 }) {
+  const busy = useBusy();
   const count = selection.blocks.length + selection.connections.length;
   let body: React.ReactNode;
   if (count === 0) {
@@ -398,7 +414,7 @@ export function SidePanel({
         <button
           type="button"
           className="danger"
-          disabled={readOnly}
+          {...lock(readOnly, busy)}
           onClick={() => actions.remove()}
         >
           <TrashIcon aria-hidden="true" size={16} />
@@ -410,7 +426,6 @@ export function SidePanel({
     const component = components(model).find((item) => item.id === selection.blocks[0]);
     body = component ? (
       <BlockPanel
-        key={component.id}
         client={client}
         model={model}
         component={component}

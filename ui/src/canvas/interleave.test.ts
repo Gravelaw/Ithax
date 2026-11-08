@@ -1,17 +1,17 @@
 /**
- * The queued-write mechanism as a whole (review of PR #45). Scripted runs of user actions
- * (edit a setting, label, rename, move, connect, delete, add, undo, redo), each built as
- * the Canvas builds it and naming blocks by the ids drawn when it is asked, are played
- * twice: one action after another with every answer awaited, and against a slow service
- * whose writes are held and let through in an order the seed chooses. The saved models
- * must be equal: no action may be lost, applied to the wrong block, or built from a model
- * that changed before it was sent.
+ * The write rule as a whole (review of PR #45): one write at a time, and no change taken
+ * while one awaits its answer. Seeded scripts of user actions (edit a setting, label,
+ * rename, move, connect, delete, add, undo, redo), each built as the Canvas builds it from
+ * the model shown, are played against a slow service whose answers come after a number of
+ * further actions the seed chooses. An action asked while a write awaits its answer must
+ * be refused (and the session says it is busy); the saved model must equal the accepted
+ * actions played again one after another.
  */
 import { describe, expect, it } from "vitest";
 import type { Component, Edit, Model } from "../api/types";
 import { emptyModel, ModelService, PID } from "../test/fakeModel";
 import { FakeService } from "../test/fakes";
-import { nextId } from "./model";
+import { nextId, positionOf } from "./model";
 import { editsWrite, settingPlan } from "./plans";
 import { CanvasSession } from "./session";
 
@@ -116,57 +116,83 @@ function perform(session: CanvasSession, action: Action): Promise<unknown> {
       return send(`set ${id}`, settingPlan(id, ["capacity"], action.capacity));
     case "rename":
       return send(`rename ${id}`, [{ edit: "rename_component", id, new_id: action.to }]);
-    case "nudge":
-      return session.nudge([id], action.dx, 0);
+    case "nudge": {
+      const all = session.getState().model?.components ?? [];
+      const index = all.findIndex((item) => item.id === id);
+      const from = positionOf(all[index] as Component, index);
+      return session.move(new Map([[id, { x: from.x + action.dx, y: from.y }]]), true);
+    }
     case "delete":
       return send(`delete ${id}`, [{ edit: "remove_component", id } satisfies Edit]);
   }
 }
 
 async function idle(session: CanvasSession): Promise<void> {
-  for (let tries = 0; tries < 500 && session.getState().saving; tries += 1) {
+  for (let tries = 0; tries < 500 && session.getState().busy; tries += 1) {
     await new Promise((resolve) => setTimeout(resolve, 2));
   }
-  expect(session.getState().saving).toBe(false);
+  expect(session.getState().busy).toBe(false);
 }
 
-async function play(actions: Action[], seed: number | null): Promise<Model> {
+async function open(): Promise<{
+  fake: FakeService;
+  service: ModelService;
+  session: CanvasSession;
+}> {
   const fake = new FakeService();
   const service = new ModelService(fake, { model: start(), revision: 1 });
   const session = new CanvasSession(fake.client(), PID, { undoLimit: 100, now: () => 0 });
   session.start();
   while (session.getState().status !== "ready") await new Promise((r) => setTimeout(r, 1));
-  if (seed === null) {
-    for (const action of actions) await perform(session, action);
-  } else {
-    const next = random(seed * 7919);
-    const open = fake.holdWrites();
-    const pending: Promise<unknown>[] = [];
-    for (const action of actions) {
-      // Before each action, let through as many held writes as the seed says (often none).
-      const release = Math.floor(next() * 3);
-      for (let count = 0; count < release && fake.held > 0; count += 1) {
-        await fake.releaseOne();
-        await new Promise((r) => setTimeout(r, 1));
-      }
-      pending.push(perform(session, action));
-      await new Promise((r) => setTimeout(r, 0));
+  return { fake, service, session };
+}
+
+/** Plays the script against a slow service; gives the accepted actions and the model. */
+async function slow(
+  actions: Action[],
+  seed: number,
+): Promise<{ accepted: Action[]; model: Model }> {
+  const { fake, service, session } = await open();
+  const next = random(seed * 7919);
+  const release = fake.holdWrites();
+  const accepted: Action[] = [];
+  for (const action of actions) {
+    // Sometimes the answer to the write in flight comes before the next action.
+    if (fake.held > 0 && next() < 0.4) {
+      await fake.releaseOne();
+      await idle(session);
     }
-    open();
-    await Promise.all(pending);
+    if (session.getState().busy) {
+      expect(session.canWrite()).toBe(false);
+      expect(await perform(session, action)).toBeNull();
+      continue;
+    }
+    const answer = perform(session, action);
+    await new Promise((r) => setTimeout(r, 0));
+    accepted.push(action);
+    void answer;
   }
+  release();
+  await idle(session);
+  session.stop();
+  return { accepted, model: service.model };
+}
+
+async function oneByOne(actions: Action[]): Promise<Model> {
+  const { service, session } = await open();
+  for (const action of actions) await perform(session, action);
   await idle(session);
   session.stop();
   return service.model;
 }
 
-describe("actions queued behind a slow service end as if made one at a time", () => {
+describe("against a slow service, actions asked while a write awaits its answer are refused", () => {
   for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) {
-    it(`seed ${seed}`, async () => {
-      const actions = script(seed, 30);
-      const oneByOne = await play(actions, null);
-      const queued = await play(actions, seed);
-      expect(queued).toEqual(oneByOne);
+    it(`seed ${seed}: the model equals the accepted actions made one at a time`, async () => {
+      const { accepted, model } = await slow(script(seed, 30), seed);
+      expect(accepted.length).toBeGreaterThan(0);
+      expect(accepted.length).toBeLessThan(30);
+      expect(model).toEqual(await oneByOne(accepted));
     });
   }
 

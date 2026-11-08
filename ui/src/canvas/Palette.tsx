@@ -8,6 +8,7 @@ import type { DragEvent } from "react";
 import { useState } from "react";
 import type { ComponentType } from "../api/types";
 import { iconOf } from "./BlockNode";
+import { lock, useBusy } from "./busy";
 import { categoryOf, GROUPS } from "./model";
 
 export const BLOCK_MIME = "application/x-lcsim-block";
@@ -27,6 +28,7 @@ export function Palette({
   /** Enter: add this type at once. */
   onAdd: (type: string) => void;
 }) {
+  const busy = useBusy();
   const [filter, setFilter] = useState("");
   const wanted = filter.trim().toLowerCase();
   const known = Object.keys(types).filter((type) => types[type]?.domain === "process");
@@ -91,8 +93,8 @@ export function Palette({
                   <button
                     type="button"
                     className={`palette-item cat-${categoryOf(type)}`}
-                    draggable={!readOnly}
-                    disabled={readOnly}
+                    draggable={!readOnly && !busy}
+                    {...lock(readOnly, busy)}
                     aria-pressed={placing === type}
                     title={types[type]?.description}
                     onDragStart={(event) => start(event, type)}

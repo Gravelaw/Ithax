@@ -13,7 +13,8 @@
  */
 import { WarningCircleIcon } from "@phosphor-icons/react";
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
-import type { Component, Edit, Issue, Model, SettingDescription } from "../api/types";
+import type { Component, Issue, Model, SettingDescription } from "../api/types";
+import { lock, useBusy } from "./busy";
 import {
   components,
   DISTRIBUTIONS,
@@ -28,23 +29,15 @@ import {
   valueAt,
   words,
 } from "./model";
-import {
-  clearPlan,
-  componentIn,
-  type EditPlan,
-  gone,
-  type Resolve,
-  settingLabel,
-  settingPlan,
-} from "./plans";
+import { clearPlan, componentIn, type EditPlan, settingLabel, settingPlan } from "./plans";
 
 export type { EditPlan } from "./plans";
 
 /** What a field does to the model: one batch of edits, or a whole model (clearing). */
 export interface FieldActions {
   edit(label: string, edits: EditPlan): void;
-  /** A whole model (or, for a component gone, its refusal), built when the write is sent. */
-  replace(label: string, build: (model: Model, resolve: Resolve) => Model | Edit[] | null): void;
+  /** A whole model built from the model shown; `null` sends nothing. */
+  replace(label: string, build: (model: Model) => Model | null): void;
 }
 
 export interface FieldContext {
@@ -93,32 +86,41 @@ export function CommitInput({
   describedBy?: string;
   invalid?: boolean;
 }) {
+  const busy = useBusy();
   const [text, setText] = useState(value);
+  const typed = useRef(value);
+  typed.current = text;
   const editing = useRef(false);
-  // The text last committed from this box, or last shown from the model: a commit is sent
-  // when the text differs from it, not from what the model held when drawn (a value typed
-  // and then cleared before the first answer is cleared; review of PR #45).
-  const committed = useRef(value);
+  // A commit asked for while a write awaits its answer waits for that answer; the draft
+  // stays in the box meanwhile.
+  const waiting = useRef(false);
   useEffect(() => {
-    if (!editing.current) {
-      setText(value);
-      committed.current = value;
-    }
+    if (!editing.current) setText(value);
   }, [value]);
-  const commit = () => {
+  const send = useRef<() => void>(() => undefined);
+  send.current = () => {
     editing.current = false;
-    if (text !== committed.current) {
-      committed.current = text;
-      onCommit(text);
-    }
+    waiting.current = false;
+    if (typed.current !== value) onCommit(typed.current);
   };
+  const commit = () => {
+    if (busy) {
+      waiting.current = true;
+      return;
+    }
+    send.current();
+  };
+  useEffect(() => {
+    if (!busy && waiting.current) send.current();
+  }, [busy]);
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {
       event.preventDefault();
       commit();
     } else if (event.key === "Escape") {
       editing.current = false;
-      setText(committed.current);
+      waiting.current = false;
+      setText(value);
     }
   };
   return (
@@ -184,9 +186,8 @@ function hintOf(setting: SettingDescription): string | undefined {
 }
 
 /**
- * Sets the value at `segments`. The edit is built when it is sent, from the component as
- * the earlier queued writes left it (a `set_setting` path depends on what already exists).
- * A function value is given the value there at that moment, and `undefined` sends nothing.
+ * Sets the value at `segments` (a `set_setting` whose path depends on what exists). A
+ * function value is given the value there now, and `undefined` sends nothing.
  */
 function write(
   ctx: FieldContext,
@@ -199,7 +200,7 @@ function write(
   );
 }
 
-/** Clears the value at `segments`, if the model holds one when the write is sent. */
+/** Clears the value at `segments`, if the model holds one. */
 function clear(ctx: FieldContext, segments: Segments): void {
   const id = ctx.component.id;
   ctx.actions.replace(`clear ${id}${pointer(segments)}`, clearPlan(id, segments));
@@ -219,6 +220,7 @@ function ParameterLink({
   fieldId: string;
   onUnlink: () => void;
 }) {
+  const busy = useBusy();
   const bound = paramOf(value);
   // The user's own choice until the model answers with a new value: whether the box is
   // ticked, and the parameter chosen (review of PR #45).
@@ -238,7 +240,7 @@ function ParameterLink({
           type="checkbox"
           aria-label={`Use parameter for ${name}`}
           checked={on}
-          disabled={ctx.readOnly}
+          {...lock(ctx.readOnly, busy)}
           onChange={(event) => {
             if (event.target.checked) setDraft({ on: true, id: null });
             else {
@@ -254,7 +256,7 @@ function ParameterLink({
           id={`${fieldId}-param`}
           aria-label={`Parameter for ${name}`}
           value={chosen ?? ""}
-          disabled={ctx.readOnly}
+          {...lock(ctx.readOnly, busy)}
           onChange={(event) => {
             if (event.target.value !== "") {
               setDraft({ on: true, id: event.target.value });
@@ -291,6 +293,7 @@ function ValueField({
   required: boolean;
   label?: string;
 }) {
+  const busy = useBusy();
   const id = `field-${ctx.component.id}${pointer(segments)}`;
   const hintId = `${id}-hint`;
   const value = valueAt(ctx.component.params, segments);
@@ -316,9 +319,9 @@ function ValueField({
   };
   const unlink = () => {
     const id = ctx.component.id;
-    ctx.actions.edit(`set ${id}${pointer(segments)}`, (model, resolve) => {
-      const component = componentIn(model, resolve(id));
-      if (component === undefined) return gone(resolve(id));
+    ctx.actions.edit(`set ${id}${pointer(segments)}`, (model) => {
+      const component = componentIn(model, id);
+      if (component === undefined) return null;
       const current = paramOf(valueAt(component.params, segments));
       const parameter = current === null ? undefined : model.parameters?.[current];
       return parameter !== undefined ? [settingEdit(component, segments, parameter.value)] : null;
@@ -349,13 +352,13 @@ function ValueField({
             <select
               aria-label={`Unit of ${title}`}
               value={unit}
-              disabled={ctx.readOnly}
+              {...lock(ctx.readOnly, busy)}
               onChange={(event) => {
-                setUnit(event.target.value);
-                // The number as saved when this write is sent: one typed just before
-                // (committed on leaving its box) is kept, never the number last shown.
                 const chosen = event.target.value;
-                // An unset value is written with this unit when its number is committed.
+                // While a write awaits its answer the change is refused (the write says
+                // so), and the unit shown stays the saved one.
+                if (!busy) setUnit(chosen);
+                // A unit for an unset value is used when its number is committed.
                 write(ctx, segments, (current: unknown) => {
                   const saved = splitQuantity(current);
                   return saved ? `${saved.number} ${chosen}` : undefined;
@@ -400,6 +403,7 @@ function DistributionField({
   segments: Segments;
   required: boolean;
 }) {
+  const busy = useBusy();
   const id = `field-${ctx.component.id}${pointer(segments)}`;
   const value = valueAt(ctx.component.params, segments);
   const object =
@@ -413,7 +417,7 @@ function DistributionField({
       if (!required) clear(ctx, segments);
       return;
     }
-    // Fields both types share are kept, as they are when the write is sent.
+    // Fields both types share are kept.
     write(ctx, segments, (current: unknown) => {
       const saved =
         typeof current === "object" && current !== null && !Array.isArray(current)
@@ -433,7 +437,7 @@ function DistributionField({
         <select
           id={id}
           value={dist}
-          disabled={ctx.readOnly}
+          {...lock(ctx.readOnly, busy)}
           onChange={(event) => choose(event.target.value)}
         >
           <option value="" disabled={required}>
@@ -485,6 +489,7 @@ function ChoiceField({
   required: boolean;
   options: string[];
 }) {
+  const busy = useBusy();
   const id = `field-${ctx.component.id}${pointer(segments)}`;
   const value = valueAt(ctx.component.params, segments);
   const current = typeof value === "string" ? value : "";
@@ -503,7 +508,7 @@ function ChoiceField({
       <select
         id={id}
         value={current}
-        disabled={ctx.readOnly}
+        {...lock(ctx.readOnly, busy)}
         onChange={(event) => {
           if (event.target.value === "") clear(ctx, segments);
           else write(ctx, segments, event.target.value);
@@ -624,14 +629,15 @@ function RowsField({
   segments: Segments;
   required: boolean;
 }) {
+  const busy = useBusy();
   const value = valueAt(ctx.component.params, segments);
   const rows = Array.isArray(value) ? value : [];
   const name = words(setting.name);
   const add = () => {
     const id = ctx.component.id;
-    ctx.actions.edit(`add to ${id}${pointer(segments)}`, (model, resolve) => {
-      const component = componentIn(model, resolve(id));
-      if (component === undefined) return gone(resolve(id));
+    ctx.actions.edit(`add to ${id}${pointer(segments)}`, (model) => {
+      const component = componentIn(model, id);
+      if (component === undefined) return null;
       return Array.isArray(valueAt(component.params, segments))
         ? [{ edit: "set_setting", id: component.id, path: `${pointer(segments)}/-`, value: {} }]
         : [settingEdit(component, segments, [{}])];
@@ -658,7 +664,7 @@ function RowsField({
           <button
             type="button"
             className="secondary small-button"
-            disabled={ctx.readOnly}
+            {...lock(ctx.readOnly, busy)}
             onClick={() =>
               write(ctx, segments, (current: unknown) =>
                 Array.isArray(current) ? current.filter((__, other) => other !== index) : undefined,
@@ -672,7 +678,7 @@ function RowsField({
       <button
         type="button"
         className="secondary small-button"
-        disabled={ctx.readOnly}
+        {...lock(ctx.readOnly, busy)}
         onClick={add}
       >
         Add to {name.toLowerCase()}

@@ -213,15 +213,23 @@ test("the canvas works from the keyboard", async ({ page, service }) => {
     { from: "source_1.out", to: "sink_1.in" },
   ]);
 
-  // Arrow keys move the selection: a burst is one write.
+  // Arrow keys move the selection; a burst is one undo step.
   await block(page, "source_1").focus();
   const before = (await model(service, pid)).components[0]?.ui as { x: number; y: number };
-  await page.keyboard.press("ArrowRight");
-  await page.keyboard.press("ArrowRight");
-  await page.keyboard.press("Shift+ArrowDown");
-  await expect
-    .poll(async () => (await model(service, pid)).components[0]?.ui)
-    .toEqual({ x: before.x + 16, y: before.y + 40 });
+  // One write at a time: each press waits for the last one to be saved, as a person's do
+  // on a local service; a press during a write is not taken.
+  const steps: [string, number, number][] = [
+    ["ArrowRight", 8, 0],
+    ["ArrowRight", 16, 0],
+    ["Shift+ArrowDown", 16, 40],
+  ];
+  for (const [key, dx, dy] of steps) {
+    await page.keyboard.press(key);
+    await expect
+      .poll(async () => (await model(service, pid)).components[0]?.ui)
+      .toEqual({ x: before.x + dx, y: before.y + dy });
+    await expect(page.locator(".save-state")).toHaveText("Saved");
+  }
   await settled(page);
   await expect(page.getByRole("button", { name: "Undo: move source_1" })).toBeEnabled();
 

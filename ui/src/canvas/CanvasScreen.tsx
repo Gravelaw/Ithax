@@ -60,6 +60,7 @@ import type { Route } from "../app/router";
 import { LOST_CONTACT, ServiceProblem } from "../components/ServiceProblem";
 import { useSettings } from "../settings/SettingsContext";
 import { type BlockData, BlockNode, type BlockNodeType, blockName } from "./BlockNode";
+import { BusyContext } from "./busy";
 import { ConnectDialog, DeleteDialog, type DeletePlan } from "./Dialogs";
 import {
   BLOCK_HEIGHT,
@@ -89,6 +90,8 @@ import { undoSteps, useSession } from "./useSession";
 export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 2;
 export const NOTICE_MS = 8000;
+/** Said when a change is tried while a write awaits its answer: it is not made. */
+export const WAIT = "Wait until the last change is saved, then make it again.";
 
 const nodeTypes = { block: BlockNode };
 const edgeTypes = { reference: ReferenceEdge };
@@ -199,9 +202,10 @@ function buildNodes(
   previous: BlockNodeType[],
   wanted: string[] | null,
   readOnly: boolean,
-  predicted: Readonly<Record<string, Point>>,
+  renamed: Readonly<Record<string, string>>,
 ): BlockNodeType[] {
-  const before = new Map(previous.map((node) => [node.id, node]));
+  // A renamed block keeps its selection and size under its new id.
+  const before = new Map(previous.map((node) => [renamed[node.id] ?? node.id, node]));
   const all = components(model);
   const linked = connections(model);
   return all.map((component, index) => {
@@ -231,10 +235,7 @@ function buildNodes(
     const node: BlockNodeType = {
       id: component.id,
       type: "block",
-      // A queued move's position until its answer, so a redraw never jumps back.
-      position: old?.dragging
-        ? old.position
-        : (predicted[component.id] ?? positionOf(component, index)),
+      position: old?.dragging ? old.position : positionOf(component, index),
       data,
       ariaLabel: blockName(data),
       selected: wanted !== null ? wanted.includes(component.id) : (old?.selected ?? false),
@@ -410,6 +411,10 @@ function ProcessCanvas({
   const { settings, save } = useSettings();
   const flow = useReactFlow();
   const readOnly = state.failing;
+  // While a write (or a reload) awaits its answer no change is taken: every action is
+  // computed from the model shown, which then holds every accepted write.
+  const busy = state.busy;
+  const locked = readOnly || busy;
   const [nodes, setNodes] = useState<BlockNodeType[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [placing, setPlacing] = useState<string | null>(null);
@@ -429,13 +434,13 @@ function ProcessCanvas({
   useEffect(() => {
     const want = wanted.current;
     setNodes((previous) =>
-      buildNodes(model, types, state.issues, previous, want, readOnly, state.predicted),
+      buildNodes(model, types, state.issues, previous, want, readOnly, state.renamed),
     );
     setEdges((previous) => buildEdges(model, types, previous, want !== null));
     if (want?.every((id) => components(model).some((item) => item.id === id))) {
       wanted.current = null;
     }
-  }, [model, types, state.issues, readOnly, state.predicted]);
+  }, [model, types, state.issues, readOnly, state.renamed]);
 
   // A block just added or renamed takes the keyboard focus once it is drawn.
   // React Flow shows a node only once it is measured, so focusing is tried for a few frames.
@@ -482,12 +487,15 @@ function ProcessCanvas({
 
   const selection: Selection = useMemo(
     () => ({
-      blocks: nodes.filter((node) => node.selected).map((node) => node.id),
+      // Until the drawing catches up, a block renamed by the last write is found by its new id.
+      blocks: nodes
+        .filter((node) => node.selected)
+        .map((node) => state.renamed[node.id] ?? node.id),
       connections: edges
         .filter((edge) => edge.selected && edge.type !== "reference")
         .map((edge) => (edge.data as { index: number }).index),
     }),
-    [nodes, edges],
+    [nodes, edges, state.renamed],
   );
 
   const selectBlocks = useCallback((ids: string[]) => {
@@ -497,20 +505,25 @@ function ProcessCanvas({
     setEdges((previous) => previous.map((edge) => ({ ...edge, selected: false })));
   }, []);
 
-  /**
-   * Sends one action. A plan is resolved against the model as it is when the write is sent,
-   * after every earlier queued write has answered, so two quick edits of one block both
-   * survive (review of PR #45).
-   */
+  /** Sends one action, built from the model shown; refused while a write awaits its answer. */
+  /** Whether a change can be made now; while a write awaits its answer, says to wait. */
+  const free = useCallback(() => {
+    if (session.getState().busy) setNotice(WAIT);
+    return session.canWrite();
+  }, [session]);
+
   const send = useCallback(
     (label: string, edits: EditPlan) =>
-      session.write(editsWrite(label, edits)) as Promise<ApiResult<unknown> | null>,
-    [session],
+      (free()
+        ? session.write(editsWrite(label, edits))
+        : Promise.resolve(null)) as Promise<ApiResult<unknown> | null>,
+    [session, free],
   );
 
   const add = useCallback(
     (type: string, at: Point) => {
       setPlacing(null);
+      if (!free()) return;
       let made = "";
       void session
         .write((current) => {
@@ -530,7 +543,7 @@ function ProcessCanvas({
           }
         });
     },
-    [session, selectBlocks],
+    [session, selectBlocks, free],
   );
 
   const addAtCentre = useCallback(
@@ -611,12 +624,12 @@ function ProcessCanvas({
   );
 
   const requestDelete = useCallback(() => {
-    if (readOnly) return;
+    if (readOnly || !free()) return;
     const plan = deletePlan();
     if (plan === null) return;
     if (plan.blocks.length > 0 && settings.interface.ask_before_deleting) setDeleting(plan);
     else doDelete(plan);
-  }, [readOnly, deletePlan, settings.interface.ask_before_deleting, doDelete]);
+  }, [readOnly, free, deletePlan, settings.interface.ask_before_deleting, doDelete]);
 
   const confirmDelete = (dontAskAgain: boolean) => {
     const plan = deleting;
@@ -629,12 +642,21 @@ function ProcessCanvas({
   };
 
   /**
-   * Arrow keys: each press is a move sent at once from where the block is drawn (its last
-   * saved or queued position); presses close together are one undo step (the session).
+   * Arrow keys: each press is a move from where the model has the block, sent at once;
+   * presses close together are one undo step (the session). A press while a write awaits
+   * its answer is not taken.
    */
   const moveSelection = (dx: number, dy: number) => {
-    const ids = nodes.filter((node) => node.selected).map((node) => node.id);
-    if (ids.length > 0) void session.nudge(ids, dx, dy);
+    const all = components(model);
+    const positions = new Map<string, Point>();
+    for (const node of nodes) {
+      const index = all.findIndex((item) => item.id === node.id);
+      const component = all[index];
+      if (!node.selected || component === undefined) continue;
+      const from = positionOf(component, index);
+      positions.set(node.id, { x: from.x + dx, y: from.y + dy });
+    }
+    void session.move(positions, true);
   };
 
   const onNodesChange = useCallback((changes: NodeChange<BlockNodeType>[]) => {
@@ -695,20 +717,20 @@ function ProcessCanvas({
   );
 
   const onDragOver = (event: DragEvent) => {
-    if (readOnly || !event.dataTransfer.types.includes(BLOCK_MIME)) return;
+    if (locked || !event.dataTransfer.types.includes(BLOCK_MIME)) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
   };
 
   const onDrop = (event: DragEvent) => {
     const type = event.dataTransfer.getData(BLOCK_MIME);
-    if (readOnly || type === "") return;
+    if (locked || type === "") return;
     event.preventDefault();
     addAtPointer(type, event.clientX, event.clientY);
   };
 
   const onPaneClick = (event: ReactMouseEvent) => {
-    if (placing === null || readOnly) return;
+    if (placing === null || locked) return;
     addAtPointer(placing, event.clientX, event.clientY);
   };
 
@@ -725,13 +747,13 @@ function ProcessCanvas({
       const step = event.shiftKey ? 40 : 8;
       const dx = key === "ArrowLeft" ? -1 : key === "ArrowRight" ? 1 : 0;
       const dy = key === "ArrowUp" ? -1 : key === "ArrowDown" ? 1 : 0;
-      if (selection.blocks.length > 0 && !readOnly) moveSelection(dx * step, dy * step);
+      if (selection.blocks.length > 0 && !locked) moveSelection(dx * step, dy * step);
       else {
         const view = flow.getViewport();
         void flow.setViewport({ ...view, x: view.x - dx * 40, y: view.y - dy * 40 });
       }
     } else if ((key === "c" || key === "C") && !control && !event.altKey) {
-      if (selection.blocks.length === 1 && !readOnly) {
+      if (selection.blocks.length === 1 && !locked) {
         event.preventDefault();
         setConnecting(selection.blocks[0] ?? null);
       }
@@ -768,11 +790,11 @@ function ProcessCanvas({
   }, [session, onGo, project.id]);
 
   const undo = useCallback(() => {
-    if (!readOnly) void session.undo();
-  }, [session, readOnly]);
+    if (!locked) void session.undo();
+  }, [session, locked]);
   const redo = useCallback(() => {
-    if (!readOnly) void session.redo();
-  }, [session, readOnly]);
+    if (!locked) void session.redo();
+  }, [session, locked]);
 
   // Undo, redo and Run work from anywhere on the screen, except while typing in a field.
   useEffect(() => {
@@ -827,7 +849,7 @@ function ProcessCanvas({
       void send(label, edits);
     },
     replace: (label, build) => {
-      void session.write(modelWrite(label, build));
+      if (free()) void session.write(modelWrite(label, build));
     },
     select: selectBlocks,
     remove: requestDelete,
@@ -849,6 +871,7 @@ function ProcessCanvas({
         aria-label={state.undoLabel ? `Undo: ${state.undoLabel}` : "Undo"}
         title={state.undoLabel ? `Undo: ${state.undoLabel} (Ctrl+Z)` : "Nothing to undo"}
         disabled={state.undoLabel === null || readOnly}
+        aria-disabled={busy || undefined}
         onClick={undo}
       >
         <ArrowUUpLeftIcon aria-hidden="true" size={16} />
@@ -860,6 +883,7 @@ function ProcessCanvas({
         aria-label={state.redoLabel ? `Redo: ${state.redoLabel}` : "Redo"}
         title={state.redoLabel ? `Redo: ${state.redoLabel} (Ctrl+Shift+Z)` : "Nothing to redo"}
         disabled={state.redoLabel === null || readOnly}
+        aria-disabled={busy || undefined}
         onClick={redo}
       >
         <ArrowUUpRightIcon aria-hidden="true" size={16} />
@@ -913,115 +937,121 @@ function ProcessCanvas({
   const refusal = state.refusal !== shownLocally.current ? state.refusal : null;
 
   return (
-    <div className={`canvas-screen${placing !== null ? " placing" : ""}`}>
-      {toolbar ? createPortal(tools, toolbar) : tools}
-      <h1 className="visually-hidden">Canvas</h1>
-      <Palette
-        types={types}
-        placing={placing}
-        readOnly={readOnly}
-        onPlace={setPlacing}
-        onAdd={addAtCentre}
-      />
-      <div className="canvas-centre">
-        <div className="canvas-notices" aria-live="polite">
-          {state.failing ? (
-            <p className="notice notice-error">
-              Not saved: the service is not answering. Retrying.
-            </p>
-          ) : null}
-          {state.eventsClosed !== null ? (
-            <p className="notice notice-error">{LOST_CONTACT}</p>
-          ) : null}
-          <ServiceProblem result={refusal} />
-          {notice !== null ? (
-            <p className="notice">
-              <span>{notice}</span>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Dismiss"
-                onClick={() => setNotice(null)}
-              >
-                <XIcon aria-hidden="true" size={14} />
-              </button>
-            </p>
-          ) : null}
-        </div>
-        <section
-          ref={area}
-          className="canvas-flow"
-          data-region="canvas"
-          aria-label="Canvas"
-          tabIndex={-1}
-          onKeyDownCapture={onCanvasKey}
-          onDragOver={onDragOver}
-          onDrop={onDrop}
-        >
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onNodeDragStop={onNodeDragStop}
-            onConnect={onConnect}
-            isValidConnection={isValidConnection}
-            onPaneClick={onPaneClick}
-            minZoom={MIN_ZOOM}
-            maxZoom={MAX_ZOOM}
-            snapToGrid
-            snapGrid={[8, 8]}
-            deleteKeyCode={null}
-            fitView
-            fitViewOptions={{ maxZoom: 1 }}
-            onlyRenderVisibleElements
-            nodesDraggable={!readOnly}
-            nodesConnectable={!readOnly}
-            elementsSelectable
-            connectOnClick
+    <BusyContext.Provider value={busy}>
+      <div className={`canvas-screen${placing !== null ? " placing" : ""}`} aria-busy={busy}>
+        {toolbar ? createPortal(tools, toolbar) : tools}
+        <h1 className="visually-hidden">Canvas</h1>
+        <Palette
+          types={types}
+          placing={placing}
+          readOnly={readOnly}
+          onPlace={setPlacing}
+          onAdd={addAtCentre}
+        />
+        <div className="canvas-centre">
+          <div className="canvas-notices" aria-live="polite">
+            {state.failing ? (
+              <p className="notice notice-error">
+                Not saved: the service is not answering. Retrying.
+              </p>
+            ) : null}
+            {state.eventsClosed !== null ? (
+              <p className="notice notice-error">{LOST_CONTACT}</p>
+            ) : null}
+            <ServiceProblem result={refusal} />
+            {notice !== null ? (
+              <p className="notice">
+                <span>{notice}</span>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Dismiss"
+                  onClick={() => setNotice(null)}
+                >
+                  <XIcon aria-hidden="true" size={14} />
+                </button>
+              </p>
+            ) : null}
+          </div>
+          <section
+            ref={area}
+            className="canvas-flow"
+            data-region="canvas"
+            aria-label="Canvas"
+            tabIndex={-1}
+            onKeyDownCapture={onCanvasKey}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
           >
-            <Background variant={BackgroundVariant.Dots} gap={16} />
-            <ZoomControls />
-            <MiniMap pannable zoomable ariaLabel="Overview of the model" />
-          </ReactFlow>
-        </section>
-        <ProblemsList
-          ref={problems}
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onNodeDragStop={onNodeDragStop}
+              onConnect={onConnect}
+              isValidConnection={isValidConnection}
+              onPaneClick={onPaneClick}
+              minZoom={MIN_ZOOM}
+              maxZoom={MAX_ZOOM}
+              snapToGrid
+              snapGrid={[8, 8]}
+              deleteKeyCode={null}
+              fitView
+              fitViewOptions={{ maxZoom: 1 }}
+              onlyRenderVisibleElements
+              nodesDraggable={!locked}
+              nodesConnectable={!locked}
+              elementsSelectable
+              connectOnClick
+            >
+              <Background variant={BackgroundVariant.Dots} gap={16} />
+              <ZoomControls />
+              <MiniMap pannable zoomable ariaLabel="Overview of the model" />
+            </ReactFlow>
+          </section>
+          <ProblemsList
+            ref={problems}
+            model={model}
+            issues={state.issues}
+            checking={state.checking}
+            onChoose={chooseProblem}
+          />
+        </div>
+        <SidePanel
+          client={client}
           model={model}
+          selection={selection}
+          types={types}
           issues={state.issues}
-          checking={state.checking}
-          onChoose={chooseProblem}
+          readOnly={readOnly}
+          actions={actions}
         />
+        {deleting !== null ? (
+          <DeleteDialog
+            plan={deleting}
+            onCancel={() => setDeleting(null)}
+            onDelete={confirmDelete}
+          />
+        ) : null}
+        {connectingBlock !== undefined ? (
+          <ConnectDialog
+            block={connectingBlock.id}
+            outputs={portsOf(connectingBlock, types[connectingBlock.type]).outputs}
+            inputs={inputEnds}
+            current={(port) =>
+              connections(model).find((item) => item.from === `${connectingBlock.id}.${port}`)?.to
+            }
+            onCancel={() => setConnecting(null)}
+            onConnect={(from, to) => {
+              setConnecting(null);
+              connectEnds(from, to);
+            }}
+          />
+        ) : null}
       </div>
-      <SidePanel
-        client={client}
-        model={model}
-        selection={selection}
-        types={types}
-        issues={state.issues}
-        readOnly={readOnly}
-        actions={actions}
-      />
-      {deleting !== null ? (
-        <DeleteDialog plan={deleting} onCancel={() => setDeleting(null)} onDelete={confirmDelete} />
-      ) : null}
-      {connectingBlock !== undefined ? (
-        <ConnectDialog
-          block={connectingBlock.id}
-          outputs={portsOf(connectingBlock, types[connectingBlock.type]).outputs}
-          inputs={inputEnds}
-          current={(port) =>
-            connections(model).find((item) => item.from === `${connectingBlock.id}.${port}`)?.to
-          }
-          onCancel={() => setConnecting(null)}
-          onConnect={(from, to) => {
-            setConnecting(null);
-            connectEnds(from, to);
-          }}
-        />
-      ) : null}
-    </div>
+    </BusyContext.Provider>
   );
 }

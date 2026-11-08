@@ -12,7 +12,7 @@ import { LOST_CONTACT } from "../components/ServiceProblem";
 import { SettingsProvider } from "../settings/SettingsContext";
 import { coffeeShop, emptyModel, ModelService, PID } from "../test/fakeModel";
 import { FakeService, SETTINGS } from "../test/fakes";
-import { CanvasScreen, runBlocked } from "./CanvasScreen";
+import { CanvasScreen, runBlocked, WAIT } from "./CanvasScreen";
 import { BLOCK_MIME } from "./Palette";
 import type { SessionState } from "./session";
 
@@ -410,9 +410,13 @@ describe("moving", () => {
   it("sends each arrow press at once, a burst being one undo step; Shift moves 40 px", async () => {
     const { fake, service, toolbar, user } = renderCanvas();
     await select(user, "exit");
-    fireEvent.keyDown(node("exit"), { key: "ArrowRight" });
-    fireEvent.keyDown(node("exit"), { key: "ArrowRight" });
-    fireEvent.keyDown(node("exit"), { key: "ArrowUp", shiftKey: true });
+    const press = async (key: string, shiftKey = false) => {
+      fireEvent.keyDown(node("exit"), { key, shiftKey });
+      await waitFor(() => expect(within(toolbar).getByRole("status")).toHaveTextContent("Saved"));
+    };
+    await press("ArrowRight");
+    await press("ArrowRight");
+    await press("ArrowUp", true);
     await waitFor(() => expect(sentEdits(fake)).toHaveLength(3));
     expect(sentEdits(fake)).toEqual([
       [{ edit: "set_ui", id: "exit", ui: { x: 488, y: 0 } }],
@@ -845,7 +849,8 @@ describe("why Run waits", () => {
     redoLabel: null,
     reloads: 0,
     eventsClosed: null,
-    predicted: {},
+    busy: false,
+    renamed: {},
   };
   const error: Issue = {
     code: "E122",
@@ -884,185 +889,80 @@ describe("why Run waits", () => {
   });
 });
 
-describe("writes queued behind a slow answer (review of PR #45)", () => {
-  it("keeps both axes when x and y are committed before the first answer", async () => {
-    const { fake, service, toolbar, user } = renderCanvas();
+describe("while a write awaits its answer (review of PR #45)", () => {
+  const busyStatus = (toolbar: HTMLElement) =>
+    waitFor(() => expect(within(toolbar).getByRole("status")).toHaveTextContent("Saving…"));
+
+  it("takes no other change: controls say so, keys are ignored, and nothing is sent", async () => {
+    const { fake, toolbar, user } = renderCanvas();
     await select(user, "exit");
     const open = fake.holdWrites();
-    const x = screen.getByRole("textbox", { name: "x" });
-    await user.clear(x);
-    await user.type(x, "512{Enter}");
-    const y = screen.getByRole("textbox", { name: "y" });
-    await user.clear(y);
-    await user.type(y, "96{Enter}");
+    fireEvent.keyDown(node("exit"), { key: "ArrowRight" });
+    await busyStatus(toolbar);
+    expect(screen.getByRole("region", { name: "Canvas" }).closest("[aria-busy]")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "sink" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("button", { name: "Delete" })).toHaveAttribute("aria-disabled", "true");
+    expect(within(toolbar).getByRole("button", { name: "Undo" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    fireEvent.keyDown(node("exit"), { key: "ArrowRight" });
+    fireEvent.keyDown(node("exit"), { key: "Delete" });
+    fireEvent.keyDown(document.body, { key: "z", ctrlKey: true });
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(await screen.findByText(WAIT)).toBeVisible();
     open();
-    await waitFor(() => expect(sentEdits(fake)).toHaveLength(2));
     await settled(toolbar);
-    expect(service.component("exit")?.ui).toEqual({ x: 512, y: 96 });
+    expect(sentEdits(fake)).toEqual([[{ edit: "set_ui", id: "exit", ui: { x: 488, y: 0 } }]]);
+    expect(fake.requested("PUT", MODEL)).toEqual([]);
   });
 
-  it("changes the unit of the number just typed, not of the number last shown", async () => {
-    const model = coffeeShop();
-    model.components?.push({
-      id: "server_1",
-      type: "server",
-      params: { service: { dist: "exponential", mean: "1 s" } },
-      ui: { x: 0, y: 200 },
-    });
-    const { fake, service, toolbar, user } = renderCanvas({ model });
-    await select(user, "server_1");
-    const open = fake.holdWrites();
-    const mean = screen.getByRole("textbox", { name: "Mean" });
-    await user.clear(mean);
-    await user.type(mean, "2");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Unit of Mean" }), "min");
-    open();
-    await waitFor(() => expect(sentEdits(fake)).toHaveLength(2));
-    await settled(toolbar);
-    expect(service.component("server_1")?.params.service).toEqual({
-      dist: "exponential",
-      mean: "2 min",
-    });
-  });
-
-  it("keeps two quick edits of one setting: two rows added before the first answer", async () => {
-    const model = coffeeShop();
-    model.components?.push({ id: "shifts", type: "schedule", params: {}, ui: { x: 0, y: 200 } });
-    const { fake, service, toolbar, user } = renderCanvas({ model });
-    await select(user, "shifts");
-    const open = fake.holdWrites();
-    await user.click(screen.getByRole("button", { name: "Add to shifts" }));
-    await user.click(screen.getByRole("button", { name: "Add to shifts" }));
-    open();
-    await waitFor(() => expect(sentEdits(fake)).toHaveLength(2));
-    await settled(toolbar);
-    expect(sentEdits(fake)).toEqual([
-      [{ edit: "set_setting", id: "shifts", path: "/shifts", value: [{}] }],
-      [{ edit: "set_setting", id: "shifts", path: "/shifts/-", value: {} }],
-    ]);
-    expect(service.component("shifts")?.params.shifts).toEqual([{}, {}]);
-  });
-
-  it("saves a keyboard move made just before the canvas closes", async () => {
+  it("sends a keyboard move made just before the canvas closes", async () => {
     const { fake, service, user } = renderCanvas();
     await select(user, "exit");
     fireEvent.keyDown(node("exit"), { key: "ArrowDown" });
     cleanup();
-    await waitFor(() => expect(sentEdits(fake)).toHaveLength(1));
     await waitFor(() => expect(service.component("exit")?.ui).toEqual({ x: 480, y: 8 }));
+    expect(sentEdits(fake)).toHaveLength(1);
   });
-});
 
-describe("every editor reads the saved value when its write is sent (review of PR #45)", () => {
-  function withServer(params: Record<string, unknown>): Model {
-    const model = coffeeShop();
-    model.components?.push({ id: "server_1", type: "server", params, ui: { x: 0, y: 200 } });
-    return model;
-  }
-
-  it("a unit chosen for an unset time just typed changes that time", async () => {
+  it("refuses a unit change while a write awaits its answer", async () => {
     const { fake, service, toolbar, user } = renderCanvas({
-      model: withServer({ service: { dist: "exponential" } }),
+      model: {
+        ...coffeeShop(),
+        components: [
+          ...(coffeeShop().components ?? []),
+          {
+            id: "server_1",
+            type: "server",
+            params: { service: { dist: "exponential", mean: "1 s" } },
+            ui: { x: 0, y: 200 },
+          },
+        ],
+      },
     });
     await select(user, "server_1");
     const open = fake.holdWrites();
-    await user.type(screen.getByRole("textbox", { name: "Mean" }), "2{Enter}");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Unit of Mean" }), "min");
+    await user.type(screen.getByRole("textbox", { name: "Label (optional)" }), "S{Enter}");
+    await busyStatus(toolbar);
+    const unit = screen.getByRole("combobox", { name: "Unit of Mean" });
+    expect(unit).toHaveAttribute("aria-disabled", "true");
+    await user.selectOptions(unit, "min");
+    expect(await screen.findByText(WAIT)).toBeVisible();
     open();
-    await waitFor(() => expect(sentEdits(fake)).toHaveLength(2));
     await settled(toolbar);
+    expect(sentEdits(fake)).toHaveLength(1);
     expect(service.component("server_1")?.params.service).toEqual({
       dist: "exponential",
-      mean: "2 min",
+      mean: "1 s",
     });
+    expect(screen.getByRole("combobox", { name: "Unit of Mean" })).toHaveValue("s");
   });
 
-  it("a unit chosen before the number is used for it, and nothing is sent until then", async () => {
-    const { fake, service, toolbar, user } = renderCanvas({
-      model: withServer({ service: { dist: "exponential" } }),
-    });
-    await select(user, "server_1");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Unit of Mean" }), "h");
-    await settled(toolbar);
-    expect(sentEdits(fake)).toEqual([]);
-    await user.type(screen.getByRole("textbox", { name: "Mean" }), "4{Enter}");
-    await settled(toolbar);
-    expect(service.component("server_1")?.params.service).toEqual({
-      dist: "exponential",
-      mean: "4 h",
-    });
-  });
-
-  it("a value set and then cleared before the first answer ends cleared", async () => {
-    const { fake, service, toolbar, user } = renderCanvas({ model: withServer({}) });
-    await select(user, "server_1");
-    const open = fake.holdWrites();
-    const queue = screen.getByRole("textbox", { name: "Queue capacity (optional)" });
-    await user.type(queue, "4{Enter}");
-    await user.clear(queue);
-    await user.keyboard("{Enter}");
-    open();
-    await waitFor(() => expect(fake.requested("PUT", MODEL)).toHaveLength(1));
-    await settled(toolbar);
-    expect(service.component("server_1")?.params).toEqual({});
-  });
-
-  it("a parameter linked and then unlinked before the first answer ends as its value", async () => {
-    const { fake, service, toolbar, user } = renderCanvas({ model: withServer({}) });
-    await select(user, "server_1");
-    const open = fake.holdWrites();
-    await user.click(screen.getByRole("checkbox", { name: "Use parameter for Capacity" }));
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "Parameter for Capacity" }),
-      "tills",
-    );
-    await user.click(screen.getByRole("checkbox", { name: "Use parameter for Capacity" }));
-    open();
-    await waitFor(() => expect(sentEdits(fake)).toHaveLength(2));
-    await settled(toolbar);
-    expect(service.component("server_1")?.params.capacity).toBe(1);
-  });
-
-  it("a distribution's type chosen after a field was typed keeps that field", async () => {
-    const { fake, service, toolbar, user } = renderCanvas({
-      model: withServer({ service: { dist: "uniform" } }),
-    });
-    await select(user, "server_1");
-    const open = fake.holdWrites();
-    await user.type(screen.getByRole("textbox", { name: "Min" }), "1{Enter}");
-    await user.selectOptions(
-      within(screen.getByRole("group", { name: "Service" })).getByRole("combobox", {
-        name: "Distribution",
-      }),
-      "triangular",
-    );
-    open();
-    await waitFor(() => expect(sentEdits(fake)).toHaveLength(2));
-    await settled(toolbar);
-    expect(service.component("server_1")?.params.service).toEqual({
-      dist: "triangular",
-      min: "1 s",
-    });
-  });
-
-  it("a parameter's max set and then cleared before the first answer ends cleared", async () => {
-    const { fake, service, toolbar, user } = renderCanvas();
-    await drawn("till");
-    await settled(toolbar);
-    const open = fake.holdWrites();
-    const row = screen.getByRole("group", { name: "tills" });
-    const max = within(row).getByRole("textbox", { name: "Max (optional)" });
-    await user.clear(max);
-    await user.type(max, "9{Enter}");
-    await user.clear(max);
-    await user.keyboard("{Enter}");
-    open();
-    await waitFor(() => expect(fake.requested("PUT", MODEL)).toHaveLength(1));
-    await settled(toolbar);
-    expect(service.model.parameters?.tills).toEqual({ value: 1, type: "integer", min: 1 });
-  });
-
-  it("a row removed right after another was added removes the row chosen", async () => {
+  it("refuses to remove a row while a row is being added, so no index shifts under it", async () => {
     const { fake, service, toolbar, user } = renderCanvas({
       model: {
         ...coffeeShop(),
@@ -1071,7 +971,7 @@ describe("every editor reads the saved value when its write is sent (review of P
           {
             id: "shifts",
             type: "schedule",
-            params: { shifts: [{ capacity: 1 }] },
+            params: { shifts: [{ capacity: 1 }, { capacity: 2 }] },
             ui: { x: 0, y: 200 },
           },
         ],
@@ -1079,116 +979,72 @@ describe("every editor reads the saved value when its write is sent (review of P
     });
     await select(user, "shifts");
     const open = fake.holdWrites();
-    await user.click(screen.getByRole("button", { name: "Add to shifts" }));
     await user.click(screen.getByRole("button", { name: "Remove shifts 1" }));
+    await busyStatus(toolbar);
+    await user.click(screen.getByRole("button", { name: "Remove shifts 1" }));
+    expect(await screen.findByText(WAIT)).toBeVisible();
     open();
-    await waitFor(() => expect(sentEdits(fake)).toHaveLength(2));
     await settled(toolbar);
-    expect(service.component("shifts")?.params.shifts).toEqual([{}]);
+    expect(sentEdits(fake)).toHaveLength(1);
+    expect(service.component("shifts")?.params.shifts).toEqual([{ capacity: 2 }]);
   });
-});
 
-describe("keyboard moves (review of PR #45)", () => {
-  const shownX = (id: string) =>
-    Number(/translate\(([-0-9.]+)px/.exec(node(id).style.transform)?.[1] ?? Number.NaN);
-
-  it("keeps a block where the queued presses put it while their answers come in", async () => {
+  it("keeps a text draft and commits it once the answer has come", async () => {
     const { fake, service, toolbar, user } = renderCanvas();
     await select(user, "exit");
-    const start = shownX("exit");
     const open = fake.holdWrites();
-    fireEvent.keyDown(node("exit"), { key: "ArrowRight" });
-    fireEvent.keyDown(node("exit"), { key: "ArrowRight" });
-    await waitFor(() => expect(shownX("exit")).toBe(start + 16));
-    // The first answer redraws the model (x 488) under the second, queued, press.
-    await fake.releaseOne();
-    await waitFor(() => expect(service.component("exit")?.ui).toEqual({ x: 488, y: 0 }));
-    await waitFor(() => expect(within(toolbar).getByRole("status")).toHaveTextContent("Saving"));
-    expect(shownX("exit")).toBe(start + 16);
+    const x = screen.getByRole("textbox", { name: "x" });
+    await user.clear(x);
+    await user.type(x, "512{Enter}");
+    await busyStatus(toolbar);
+    const y = screen.getByRole("textbox", { name: "y" });
+    await user.clear(y);
+    await user.type(y, "96{Enter}");
+    expect(y).toHaveValue("96");
+    expect(sentEdits(fake)).toHaveLength(1);
     open();
-    await settled(toolbar);
-    expect(service.component("exit")?.ui).toEqual({ x: 496, y: 0 });
-    expect(shownX("exit")).toBe(start + 16);
-  });
-
-  it("Ctrl+Z right after a burst undoes the whole burst, and nothing is saved after", async () => {
-    const { fake, service, toolbar, user } = renderCanvas();
-    await select(user, "exit");
-    await user.type(screen.getByRole("textbox", { name: "Label (optional)" }), "Door{Enter}");
-    await settled(toolbar);
-    fireEvent.keyDown(node("exit"), { key: "ArrowDown" });
-    fireEvent.keyDown(node("exit"), { key: "ArrowDown" });
-    fireEvent.keyDown(document.body, { key: "z", ctrlKey: true });
-    await waitFor(() => expect(fake.requested("PUT", MODEL)).toHaveLength(1));
-    await settled(toolbar);
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    expect(sentEdits(fake)).toHaveLength(3);
-    expect(service.component("exit")).toMatchObject({ label: "Door", ui: { x: 480, y: 0 } });
-    expect(within(toolbar).getByRole("button", { name: "Redo: move exit" })).toBeEnabled();
-    expect(within(toolbar).getByRole("button", { name: "Undo: label exit" })).toBeEnabled();
-  });
-
-  it("Delete right after a press sends the move first, then the delete", async () => {
-    const settings = {
-      ...SETTINGS,
-      interface: { ...SETTINGS.interface, ask_before_deleting: false },
-    };
-    const { fake, service, toolbar, user } = renderCanvas({ settings });
-    await select(user, "exit");
-    fireEvent.keyDown(node("exit"), { key: "ArrowRight" });
-    fireEvent.keyDown(node("exit"), { key: "Delete" });
     await waitFor(() => expect(sentEdits(fake)).toHaveLength(2));
-    expect(sentEdits(fake)).toEqual([
-      [{ edit: "set_ui", id: "exit", ui: { x: 488, y: 0 } }],
-      [{ edit: "remove_component", id: "exit" }],
-    ]);
     await settled(toolbar);
-    expect(service.component("exit")).toBeUndefined();
-    await user.click(within(toolbar).getByRole("button", { name: "Undo: delete exit" }));
-    await settled(toolbar);
-    expect(service.component("exit")?.ui).toEqual({ x: 488, y: 0 });
+    expect(service.component("exit")?.ui).toEqual({ x: 512, y: 96 });
   });
 
-  it("a press while the service does not answer is saved once it answers", async () => {
-    const { service, toolbar, user } = renderCanvas();
-    await select(user, "exit");
-    const start = shownX("exit");
-    service.unreachable = true;
-    fireEvent.keyDown(node("exit"), { key: "ArrowRight" });
-    await waitFor(() => expect(within(toolbar).getByRole("status")).toHaveTextContent("Not saved"));
-    // Read-only meanwhile: the block stays where the press put it, and a press does nothing.
-    fireEvent.keyDown(node("exit"), { key: "ArrowRight" });
-    expect(shownX("exit")).toBe(start + 8);
-    service.unreachable = false;
-    await waitFor(() => expect(within(toolbar).getByRole("status")).toHaveTextContent("Saved"), {
-      timeout: 4000,
-    });
-    expect(service.component("exit")?.ui).toEqual({ x: 488, y: 0 });
-    expect(shownX("exit")).toBe(start + 8);
-  });
-});
-
-describe("an action queued behind a rename or a delete (review of PR #45)", () => {
-  it("goes to the block under its new id", async () => {
+  it("commits a draft typed during a rename to the block under its new id", async () => {
     const { fake, service, toolbar, user } = renderCanvas();
     await select(user, "till");
     const open = fake.holdWrites();
     const id = screen.getByRole("textbox", { name: "Id" });
     await user.clear(id);
     await user.type(id, "counter{Enter}");
-    // The panel still shows till until the rename answers; its fields name till.
-    await user.type(screen.getByRole("textbox", { name: "Queue capacity (optional)" }), "3{Enter}");
+    await busyStatus(toolbar);
     await user.type(screen.getByRole("textbox", { name: "Label (optional)" }), "Counter{Enter}");
     open();
-    await waitFor(() => expect(sentEdits(fake)).toHaveLength(3));
+    await waitFor(() => expect(sentEdits(fake)).toHaveLength(2));
     await settled(toolbar);
-    expect(sentEdits(fake).slice(1)).toEqual([
-      [{ edit: "set_setting", id: "counter", path: "/queue_capacity", value: 3 }],
+    expect(sentEdits(fake)).toEqual([
+      [{ edit: "rename_component", id: "till", new_id: "counter" }],
       [{ edit: "set_label", id: "counter", label: "Counter" }],
     ]);
-    expect(service.component("counter")).toMatchObject({
-      label: "Counter",
-      params: { queue_capacity: 3 },
-    });
+    expect(service.component("counter")?.label).toBe("Counter");
+    expect(screen.getByRole("textbox", { name: "Id" })).toHaveValue("counter");
+  });
+
+  it("refuses a rename of a block renamed by the write in flight; no id is reused under it", async () => {
+    const { fake, service, toolbar, user } = renderCanvas();
+    await select(user, "till");
+    const open = fake.holdWrites();
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+    const id = screen.getByRole("textbox", { name: "Id" });
+    await user.clear(id);
+    await user.type(id, "a{Enter}");
+    await busyStatus(toolbar);
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Discipline (optional)" }),
+      "lifo",
+    );
+    expect(await screen.findByText(WAIT)).toBeVisible();
+    open();
+    await settled(toolbar);
+    expect(sentEdits(fake)).toEqual([[{ edit: "rename_component", id: "till", new_id: "a" }]]);
+    expect(service.component("a")?.params.discipline).toBeUndefined();
   });
 });

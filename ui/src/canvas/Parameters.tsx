@@ -7,6 +7,7 @@
  */
 import { useId, useState } from "react";
 import type { Issue, Model, Parameter } from "../api/types";
+import { lock, useBusy } from "./busy";
 import { readNumber, shown, withoutParameterField } from "./model";
 import { CommitInput, type FieldActions, FieldIssues } from "./SettingFields";
 
@@ -30,10 +31,11 @@ function ParameterRow({
   readOnly: boolean;
   actions: FieldActions;
 }) {
+  const busy = useBusy();
   const base = useId();
   const set = (field: "value" | "min" | "max", text: string) => {
     if (text.trim() === "") {
-      // Cleared if the parameter holds it when the write is sent.
+      // Cleared if the parameter holds it.
       if (field !== "value") {
         actions.replace(`clear ${field} of parameter ${id}`, (model) =>
           model.parameters?.[id]?.[field] === undefined
@@ -43,7 +45,7 @@ function ParameterRow({
       }
       return;
     }
-    // Read by the parameter's type as it is when the write is sent.
+    // Read by the parameter's type.
     actions.edit(`set ${field} of parameter ${id}`, (model) => [
       { edit: "set_parameter", id, [field]: typed(model.parameters?.[id]?.type, text) },
     ]);
@@ -59,7 +61,7 @@ function ParameterRow({
         <select
           id={`${base}-type`}
           value={String(parameter.type)}
-          disabled={readOnly}
+          {...lock(readOnly, busy)}
           onChange={(event) =>
             actions.edit(`set type of parameter ${id}`, [
               { edit: "set_parameter", id, type: event.target.value },
@@ -91,7 +93,7 @@ function ParameterRow({
       <button
         type="button"
         className="secondary small-button"
-        disabled={readOnly}
+        {...lock(readOnly, busy)}
         onClick={() => actions.edit(`remove parameter ${id}`, [{ edit: "remove_parameter", id }])}
       >
         Remove {id}
@@ -124,6 +126,7 @@ function ParameterField({
 }
 
 function AddParameter({ readOnly, actions }: { readOnly: boolean; actions: FieldActions }) {
+  const busy = useBusy();
   const base = useId();
   const [id, setId] = useState("");
   const [type, setType] = useState<string>("integer");
@@ -165,7 +168,7 @@ function AddParameter({ readOnly, actions }: { readOnly: boolean; actions: Field
           id={`${base}-id`}
           className="mono"
           value={id}
-          disabled={readOnly}
+          {...lock(readOnly, busy)}
           onChange={(event) => setId(event.target.value)}
         />
         <label htmlFor={`${base}-type`} className="field-label">
@@ -174,7 +177,7 @@ function AddParameter({ readOnly, actions }: { readOnly: boolean; actions: Field
         <select
           id={`${base}-type`}
           value={type}
-          disabled={readOnly}
+          {...lock(readOnly, busy)}
           onChange={(event) => setType(event.target.value)}
         >
           {TYPES.map((name) => (
@@ -189,7 +192,7 @@ function AddParameter({ readOnly, actions }: { readOnly: boolean; actions: Field
         <input
           id={`${base}-value`}
           value={value}
-          disabled={readOnly}
+          {...lock(readOnly, busy)}
           onChange={(event) => setValue(event.target.value)}
         />
         <label htmlFor={`${base}-min`} className="field-label">
@@ -198,7 +201,7 @@ function AddParameter({ readOnly, actions }: { readOnly: boolean; actions: Field
         <input
           id={`${base}-min`}
           value={min}
-          disabled={readOnly}
+          {...lock(readOnly, busy)}
           onChange={(event) => setMin(event.target.value)}
         />
         <label htmlFor={`${base}-max`} className="field-label">
@@ -207,11 +210,11 @@ function AddParameter({ readOnly, actions }: { readOnly: boolean; actions: Field
         <input
           id={`${base}-max`}
           value={max}
-          disabled={readOnly}
+          {...lock(readOnly, busy)}
           onChange={(event) => setMax(event.target.value)}
         />
       </div>
-      <button type="submit" className="secondary" disabled={readOnly}>
+      <button type="submit" className="secondary" {...lock(readOnly, busy)}>
         Add parameter
       </button>
     </form>
