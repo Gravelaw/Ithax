@@ -82,9 +82,10 @@ describe("boot", () => {
     );
     render(<Boot client={fake.client()} root={document.createElement("html")} />);
     const alerts = await screen.findAllByRole("alert");
-    expect(alerts.map((alert) => alert.textContent).join(" ")).toContain(
+    expect(alerts.map((alert) => alert.textContent)).toEqual([
       "E182 The request has no token, or not this service's token.",
-    );
+    ]);
+    expect(screen.queryByText(NOT_ANSWERING)).toBeNull();
   });
 
   it("asks for the launcher without a token", () => {

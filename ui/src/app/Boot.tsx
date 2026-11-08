@@ -40,7 +40,7 @@ export function Boot({ client, root }: { client: ApiClient; root: HTMLElement })
   if (loaded.kind !== "ok") {
     return (
       <div className="splash">
-        <p role="alert">{NOT_ANSWERING}</p>
+        {loaded.kind === "failed" ? <p role="alert">{NOT_ANSWERING}</p> : null}
         <ServiceProblem result={loaded.kind === "refused" ? loaded : null} />
         <button type="button" className="primary" onClick={() => void load()}>
           Try again
