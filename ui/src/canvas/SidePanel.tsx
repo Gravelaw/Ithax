@@ -20,11 +20,18 @@ import {
   splitEnd,
 } from "./model";
 import { Parameters } from "./Parameters";
-import { CommitInput, type FieldActions, type FieldContext, SettingField } from "./SettingFields";
+import {
+  CommitInput,
+  componentIn,
+  type EditPlan,
+  type FieldActions,
+  type FieldContext,
+  SettingField,
+} from "./SettingFields";
 
 export interface PanelActions extends FieldActions {
   /** Sends one batch and gives the service's answer. */
-  send(label: string, edits: import("../api/types").Edit[]): Promise<ApiResult<unknown> | null>;
+  send(label: string, edits: EditPlan): Promise<ApiResult<unknown> | null>;
   select(blocks: string[]): void;
   remove(): void;
   connect(from: string, to: string): void;
@@ -121,9 +128,12 @@ function BlockPanel({
   };
   const move = (axis: "x" | "y", text: string) => {
     const value = readNumber(text);
-    actions.edit(`move ${component.id}`, [
-      { edit: "set_ui", id: component.id, ui: { ...ui, [axis]: value } },
-    ]);
+    const id = component.id;
+    // The other axis is the one saved when this write is sent, so x then y keeps both.
+    actions.edit(`move ${id}`, (current) => {
+      const now = componentIn(current, id);
+      return now ? [{ edit: "set_ui", id, ui: { ...(now.ui ?? {}), [axis]: value } }] : null;
+    });
   };
 
   return (

@@ -50,6 +50,20 @@ export class FakeService {
   readonly requests: Recorded[] = [];
   readonly sockets: FakeSocket[] = [];
   private readonly handlers = new Map<string, Handler>();
+  /** While set, every write (`POST` or `PUT`, except validation) waits for it. */
+  gate: Promise<void> | null = null;
+
+  /** Holds every write until the returned function is called. */
+  holdWrites(): () => void {
+    let open: () => void = () => undefined;
+    this.gate = new Promise((resolve) => {
+      open = resolve;
+    });
+    return () => {
+      this.gate = null;
+      open();
+    };
+  }
 
   on(route: string, handler: Handler): this {
     this.handlers.set(route, handler);
@@ -67,6 +81,10 @@ export class FakeService {
     const headers = Object.fromEntries(new Headers(init?.headers).entries());
     const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined;
     this.requests.push({ method, path: url.pathname, search: url.search, headers, body });
+    // A slow service: writes wait here until the test opens the gate.
+    if (this.gate !== null && (method === "POST" || method === "PUT")) {
+      if (!url.pathname.endsWith("/validate")) await this.gate;
+    }
     const handler = this.handlers.get(`${method} ${url.pathname}`);
     const answer = handler
       ? handler(body, url)

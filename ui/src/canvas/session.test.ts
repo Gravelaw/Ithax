@@ -50,6 +50,7 @@ describe("the canvas's session with the service", () => {
     expect(fake.requested("POST", VALIDATE)).toHaveLength(1);
     expect(session.getState().issues.map((issue) => issue.code)).toEqual(["W201"]);
     session.stop();
+    await vi.advanceTimersByTimeAsync(0);
     expect(fake.sockets[0]?.closedWith).toBe(1000);
   });
 
@@ -276,6 +277,45 @@ describe("the canvas's session with the service", () => {
     expect(result).toMatchObject({ kind: "refused", error: { code: "E181" } });
     expect(fake.requested("GET", MODEL)).toHaveLength(2);
     expect(session.getState()).toMatchObject({ revision: 5, undoLabel: null, refusal: result });
+  });
+
+  it("runs its stop hooks first, still sends the writes queued, then closes", async () => {
+    const { fake, service, session } = setup();
+    session.start();
+    await vi.advanceTimersByTimeAsync(0);
+    const release = session.beforeStop(() => {
+      void write(session, [label("till", "T")]);
+    });
+    const removed = session.beforeStop(() => {
+      throw new Error("a removed hook ran");
+    });
+    removed();
+    void write(session, [label("exit", "E")]);
+    session.stop();
+    session.stop();
+    expect(await write(session, [label("arrivals", "A")])).toBeNull();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fake.requested("POST", EDITS).map((request) => request.body)).toEqual([
+      { edits: [label("exit", "E")], base_revision: 3 },
+      { edits: [label("till", "T")], base_revision: 4 },
+    ]);
+    expect(service.revision).toBe(5);
+    expect(fake.sockets[0]?.closedWith).toBe(1000);
+    release();
+  });
+
+  it("does not retry a write with no answer once stopped", async () => {
+    const { fake, service, session } = setup();
+    session.start();
+    await vi.advanceTimersByTimeAsync(0);
+    service.unreachable = true;
+    void write(session, [label("till", "T")]);
+    session.stop();
+    await vi.advanceTimersByTimeAsync(RETRY_MS * 3);
+    expect(fake.requested("POST", EDITS)).toHaveLength(1);
+    fake.sockets[0]?.emit({ type: "model", revision: 9, client: "mcp" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fake.requested("GET", MODEL)).toHaveLength(1);
   });
 
   it("says when the project's events stop", async () => {

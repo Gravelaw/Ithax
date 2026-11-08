@@ -4,7 +4,7 @@
  * drags of React Flow (moving a block, dragging port to port) are checked end to end in
  * `e2e/canvas.spec.ts`, since jsdom lays nothing out.
  */
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { Issue, Model, Project, Settings } from "../api/types";
@@ -870,5 +870,74 @@ describe("why Run waits", () => {
     await drawn("till");
     await settled(toolbar);
     expect(screen.queryByRole("button", { name: /^Save/ })).toBeNull();
+  });
+});
+
+describe("writes queued behind a slow answer (review of PR #45)", () => {
+  it("keeps both axes when x and y are committed before the first answer", async () => {
+    const { fake, service, toolbar, user } = renderCanvas();
+    await select(user, "exit");
+    const open = fake.holdWrites();
+    const x = screen.getByRole("textbox", { name: "x" });
+    await user.clear(x);
+    await user.type(x, "512{Enter}");
+    const y = screen.getByRole("textbox", { name: "y" });
+    await user.clear(y);
+    await user.type(y, "96{Enter}");
+    open();
+    await waitFor(() => expect(sentEdits(fake)).toHaveLength(2));
+    await settled(toolbar);
+    expect(service.component("exit")?.ui).toEqual({ x: 512, y: 96 });
+  });
+
+  it("changes the unit of the number just typed, not of the number last shown", async () => {
+    const model = coffeeShop();
+    model.components?.push({
+      id: "server_1",
+      type: "server",
+      params: { service: { dist: "exponential", mean: "1 s" } },
+      ui: { x: 0, y: 200 },
+    });
+    const { fake, service, toolbar, user } = renderCanvas({ model });
+    await select(user, "server_1");
+    const open = fake.holdWrites();
+    const mean = screen.getByRole("textbox", { name: "Mean" });
+    await user.clear(mean);
+    await user.type(mean, "2");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Unit of Mean" }), "min");
+    open();
+    await waitFor(() => expect(sentEdits(fake)).toHaveLength(2));
+    await settled(toolbar);
+    expect(service.component("server_1")?.params.service).toEqual({
+      dist: "exponential",
+      mean: "2 min",
+    });
+  });
+
+  it("keeps two quick edits of one setting: two rows added before the first answer", async () => {
+    const model = coffeeShop();
+    model.components?.push({ id: "shifts", type: "schedule", params: {}, ui: { x: 0, y: 200 } });
+    const { fake, service, toolbar, user } = renderCanvas({ model });
+    await select(user, "shifts");
+    const open = fake.holdWrites();
+    await user.click(screen.getByRole("button", { name: "Add to shifts" }));
+    await user.click(screen.getByRole("button", { name: "Add to shifts" }));
+    open();
+    await waitFor(() => expect(sentEdits(fake)).toHaveLength(2));
+    await settled(toolbar);
+    expect(sentEdits(fake)).toEqual([
+      [{ edit: "set_setting", id: "shifts", path: "/shifts", value: [{}] }],
+      [{ edit: "set_setting", id: "shifts", path: "/shifts/-", value: {} }],
+    ]);
+    expect(service.component("shifts")?.params.shifts).toEqual([{}, {}]);
+  });
+
+  it("saves a keyboard move still waiting for its burst to end when the canvas closes", async () => {
+    const { fake, service, user } = renderCanvas();
+    await select(user, "exit");
+    fireEvent.keyDown(node("exit"), { key: "ArrowDown" });
+    cleanup();
+    await waitFor(() => expect(sentEdits(fake)).toHaveLength(1));
+    await waitFor(() => expect(service.component("exit")?.ui).toEqual({ x: 480, y: 8 }));
   });
 });

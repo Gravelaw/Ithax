@@ -40,8 +40,9 @@ function ParameterRow({
       }
       return;
     }
-    actions.edit(`set ${field} of parameter ${id}`, [
-      { edit: "set_parameter", id, [field]: typed(parameter.type, text) },
+    // Read by the parameter's type as it is when the write is sent.
+    actions.edit(`set ${field} of parameter ${id}`, (model) => [
+      { edit: "set_parameter", id, [field]: typed(model.parameters?.[id]?.type, text) },
     ]);
   };
   return (

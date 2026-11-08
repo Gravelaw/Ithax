@@ -30,10 +30,21 @@ import {
   words,
 } from "./model";
 
+/**
+ * Edits, or a plan that builds them from the model as it is when the write is sent (after
+ * every write queued before it has answered); `null` or `[]` sends nothing.
+ */
+export type EditPlan = Edit[] | ((model: Model) => Edit[] | null);
+
 /** What a field does to the model: one batch of edits, or a whole model (clearing). */
 export interface FieldActions {
-  edit(label: string, edits: Edit[]): void;
+  edit(label: string, edits: EditPlan): void;
   replace(label: string, build: (model: Model) => Model): void;
+}
+
+/** The component of that id in `model`, or undefined. */
+export function componentIn(model: Model, id: string): Component | undefined {
+  return components(model).find((item) => item.id === id);
 }
 
 export interface FieldContext {
@@ -162,10 +173,26 @@ function hintOf(setting: SettingDescription): string | undefined {
   return setting.default === undefined ? undefined : `Default: ${shown(setting.default)}`;
 }
 
-function write(ctx: FieldContext, segments: Segments, value: unknown): void {
-  ctx.actions.edit(`set ${ctx.component.id}${pointer(segments)}`, [
-    settingEdit(ctx.component, segments, value),
-  ]);
+/**
+ * Sets the value at `segments`. The edit is built when it is sent, from the component as
+ * the earlier queued writes left it (a `set_setting` path depends on what already exists).
+ * A function value is given the value there at that moment, and `undefined` sends nothing.
+ */
+function write(
+  ctx: FieldContext,
+  segments: Segments,
+  value: unknown | ((current: unknown) => unknown),
+): void {
+  const id = ctx.component.id;
+  ctx.actions.edit(`set ${id}${pointer(segments)}`, (model) => {
+    const component = componentIn(model, id);
+    if (component === undefined) return null;
+    const next =
+      typeof value === "function"
+        ? (value as (current: unknown) => unknown)(valueAt(component.params, segments))
+        : value;
+    return next === undefined ? null : [settingEdit(component, segments, next)];
+  });
 }
 
 function clear(ctx: FieldContext, segments: Segments): void {
@@ -278,8 +305,15 @@ function ValueField({
     else write(ctx, segments, text);
   };
   const unlink = () => {
-    const parameter = bound === null ? undefined : ctx.model.parameters?.[bound];
-    if (parameter !== undefined) write(ctx, segments, parameter.value);
+    const id = ctx.component.id;
+    ctx.actions.edit(`set ${id}${pointer(segments)}`, (model) => {
+      const component = componentIn(model, id);
+      const current = component ? paramOf(valueAt(component.params, segments)) : null;
+      const parameter = current === null ? undefined : model.parameters?.[current];
+      return component && parameter !== undefined
+        ? [settingEdit(component, segments, parameter.value)]
+        : null;
+    });
   };
   const title = label ?? labelOf(setting, required);
   return (
@@ -309,7 +343,15 @@ function ValueField({
               disabled={ctx.readOnly}
               onChange={(event) => {
                 setUnit(event.target.value);
-                if (split !== null) write(ctx, segments, `${split.number} ${event.target.value}`);
+                // The number as saved when this write is sent: one typed just before
+                // (committed on leaving its box) is kept, never the number last shown.
+                const chosen = event.target.value;
+                if (split !== null) {
+                  write(ctx, segments, (current: unknown) => {
+                    const saved = splitQuantity(current);
+                    return saved ? `${saved.number} ${chosen}` : undefined;
+                  });
+                }
               }}
             >
               {TIME_UNITS.map((name) => (
@@ -363,11 +405,18 @@ function DistributionField({
       if (!required) clear(ctx, segments);
       return;
     }
-    const kept: Record<string, unknown> = { dist: next };
-    for (const field of DISTRIBUTIONS[next] ?? []) {
-      if (object && object[field.name] !== undefined) kept[field.name] = object[field.name];
-    }
-    write(ctx, segments, kept);
+    // Fields both types share are kept, as they are when the write is sent.
+    write(ctx, segments, (current: unknown) => {
+      const saved =
+        typeof current === "object" && current !== null && !Array.isArray(current)
+          ? (current as Record<string, unknown>)
+          : {};
+      const kept: Record<string, unknown> = { dist: next };
+      for (const field of DISTRIBUTIONS[next] ?? []) {
+        if (saved[field.name] !== undefined) kept[field.name] = saved[field.name];
+      }
+      return kept;
+    });
   };
   return (
     <fieldset className="distribution">
@@ -571,16 +620,14 @@ function RowsField({
   const rows = Array.isArray(value) ? value : [];
   const name = words(setting.name);
   const add = () => {
-    if (Array.isArray(value)) {
-      ctx.actions.edit(`add to ${ctx.component.id}${pointer(segments)}`, [
-        {
-          edit: "set_setting",
-          id: ctx.component.id,
-          path: `${pointer(segments)}/-`,
-          value: {},
-        },
-      ]);
-    } else write(ctx, segments, [{}]);
+    const id = ctx.component.id;
+    ctx.actions.edit(`add to ${id}${pointer(segments)}`, (model) => {
+      const component = componentIn(model, id);
+      if (component === undefined) return null;
+      return Array.isArray(valueAt(component.params, segments))
+        ? [{ edit: "set_setting", id, path: `${pointer(segments)}/-`, value: {} }]
+        : [settingEdit(component, segments, [{}])];
+    });
   };
   return (
     <fieldset className="group">
@@ -605,10 +652,8 @@ function RowsField({
             className="secondary small-button"
             disabled={ctx.readOnly}
             onClick={() =>
-              write(
-                ctx,
-                segments,
-                rows.filter((__, other) => other !== index),
+              write(ctx, segments, (current: unknown) =>
+                Array.isArray(current) ? current.filter((__, other) => other !== index) : undefined,
               )
             }
           >

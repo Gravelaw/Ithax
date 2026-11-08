@@ -96,6 +96,7 @@ export class CanvasSession {
   private validateTimer: unknown = null;
   private socket: EventSocket | null = null;
   private stopped = false;
+  private readonly hooks = new Set<() => void>();
   private undoLimit: number;
   private readonly setTimer: (callback: () => void, ms: number) => unknown;
   private readonly clearTimer: (handle: unknown) => void;
@@ -118,14 +119,15 @@ export class CanvasSession {
 
   readonly getState = (): SessionState => this.state;
 
+  /** Updates the state; after `stop`, writes still queued keep it current, unannounced. */
   private set(change: Partial<SessionState>): void {
-    if (this.stopped) return;
     this.state = {
       ...this.state,
       ...change,
       undoLabel: this.undoStack.at(-1)?.label ?? null,
       redoLabel: this.redoStack.at(-1)?.label ?? null,
     };
+    if (this.stopped) return;
     for (const listener of this.listeners) listener();
   }
 
@@ -149,10 +151,26 @@ export class CanvasSession {
     });
   }
 
+  /**
+   * Calls `hook` when the session stops, before it stops taking writes, so a write the
+   * screen is holding back (a keyboard move) is still sent. Returns a function that
+   * removes the hook.
+   */
+  beforeStop(hook: () => void): () => void {
+    this.hooks.add(hook);
+    return () => this.hooks.delete(hook);
+  }
+
+  /**
+   * Stops: the hooks run first; writes already queued are still sent once (without retries
+   * when they get no answer), then the events socket closes.
+   */
   stop(): void {
+    if (this.stopped) return;
+    for (const hook of [...this.hooks]) hook();
     this.stopped = true;
-    this.socket?.close();
     if (this.validateTimer !== null) this.clearTimer(this.validateTimer);
+    void this.chain.finally(() => this.socket?.close());
   }
 
   setUndoLimit(limit: number): void {
@@ -181,7 +199,9 @@ export class CanvasSession {
   }
 
   private queue(history: History, plan: Plan): Promise<ApiResult<ModelWriteBody> | null> {
-    if (this.state.status !== "ready" || this.state.failing) return Promise.resolve(null);
+    if (this.state.status !== "ready" || this.state.failing || this.stopped) {
+      return Promise.resolve(null);
+    }
     this.writes += 1;
     this.invalidateValidation();
     this.set({ saving: true });
@@ -195,7 +215,7 @@ export class CanvasSession {
 
   private async send(history: History, plan: Plan): Promise<ApiResult<ModelWriteBody> | null> {
     const before = this.state.model;
-    if (before === null || this.stopped) return null;
+    if (before === null) return null;
     const base = this.state.revision;
     const write = plan(before);
     if (write === null) {
@@ -251,7 +271,7 @@ export class CanvasSession {
   }
 
   private onEvent(event: ProjectEvent): void {
-    if (event.type !== "model") return;
+    if (event.type !== "model" || this.stopped) return;
     // Held until the canvas's own writes have answered, so its own revisions are known.
     this.chain = this.chain.then(async () => {
       if (this.state.status === "ready" && event.revision > this.state.revision) {

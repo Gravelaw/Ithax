@@ -82,6 +82,7 @@ import {
 import { BLOCK_MIME, Palette } from "./Palette";
 import { ProblemsList } from "./ProblemsList";
 import { ReferenceEdge } from "./ReferenceEdge";
+import type { EditPlan } from "./SettingFields";
 import { type PanelActions, type Selection, SidePanel } from "./SidePanel";
 import type { SessionState } from "./session";
 import { undoSteps, useSession } from "./useSession";
@@ -296,6 +297,16 @@ function buildEdges(
   return edges;
 }
 
+/** `set_ui` for each moved block, from its `ui` in `model` (the model a write is sent on). */
+export function movesIn(model: Model, positions: Map<string, Point>): Edit[] {
+  const edits: Edit[] = [];
+  for (const [id, at] of positions) {
+    const component = components(model).find((item) => item.id === id);
+    if (component) edits.push(moveEdit(component, at));
+  }
+  return edits;
+}
+
 /** Why Run is not available, and which pointer it shows (owner review choice 9). */
 export function runBlocked(
   state: SessionState,
@@ -495,9 +506,17 @@ function ProcessCanvas({
     setEdges((previous) => previous.map((edge) => ({ ...edge, selected: false })));
   }, []);
 
+  /**
+   * Sends one action. A plan is resolved against the model as it is when the write is sent,
+   * after every earlier queued write has answered, so two quick edits of one block both
+   * survive (review of PR #45).
+   */
   const send = useCallback(
-    (label: string, edits: Edit[]) =>
-      session.write(() => ({ kind: "edits", label, edits })) as Promise<ApiResult<unknown> | null>,
+    (label: string, edits: EditPlan) =>
+      session.write((current) => {
+        const built = typeof edits === "function" ? edits(current) : edits;
+        return built === null || built.length === 0 ? null : { kind: "edits", label, edits: built };
+      }) as Promise<ApiResult<unknown> | null>,
     [session],
   );
 
@@ -627,22 +646,21 @@ function ProcessCanvas({
     const positions = new Map(moved.current);
     moved.current.clear();
     if (positions.size === 0) return;
-    const edits: Edit[] = [];
-    for (const [id, at] of positions) {
-      const component = components(model).find((item) => item.id === id);
-      if (component) edits.push(moveEdit(component, at));
-    }
-    if (edits.length === 0) return;
     const ids = [...positions.keys()];
-    void send(ids.length === 1 ? `move ${ids[0]}` : `move ${ids.length} blocks`, edits);
-  }, [model, send]);
+    void send(ids.length === 1 ? `move ${ids[0]}` : `move ${ids.length} blocks`, (current) =>
+      movesIn(current, positions),
+    );
+  }, [send]);
 
-  useEffect(
-    () => () => {
-      if (moveTimer.current !== null) clearTimeout(moveTimer.current);
-    },
-    [],
-  );
+  // A keyboard move still waiting for its burst to end is saved before the canvas closes:
+  // when this screen goes, and before the session stops (review of PR #45).
+  useEffect(() => {
+    const release = session.beforeStop(flushMove);
+    return () => {
+      flushMove();
+      release();
+    };
+  }, [session, flushMove]);
 
   const moveSelection = (dx: number, dy: number) => {
     setNodes((previous) =>
@@ -667,19 +685,19 @@ function ProcessCanvas({
 
   const onNodeDragStop = useCallback(
     (_event: unknown, _node: Node, dragged: Node[]) => {
-      const edits: Edit[] = [];
+      const positions = new Map<string, Point>();
       for (const node of dragged) {
         const component = components(model).find((item) => item.id === node.id);
         const at = { x: snap(node.position.x), y: snap(node.position.y) };
         const was = component ? positionOf(component, components(model).indexOf(component)) : null;
         if (component && (was?.x !== at.x || was?.y !== at.y || component.ui === undefined)) {
-          edits.push(moveEdit(component, at));
+          positions.set(component.id, at);
         }
       }
-      if (edits.length > 0) {
-        void send(
-          edits.length === 1 ? `move ${dragged[0]?.id}` : `move ${edits.length} blocks`,
-          edits,
+      if (positions.size > 0) {
+        const ids = [...positions.keys()];
+        void send(ids.length === 1 ? `move ${ids[0]}` : `move ${ids.length} blocks`, (current) =>
+          movesIn(current, positions),
         );
       }
     },
