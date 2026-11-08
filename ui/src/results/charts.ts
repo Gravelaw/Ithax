@@ -91,69 +91,79 @@ export function barGroups(scenarios: readonly Scenario[]): BarGroup[] {
   return groups;
 }
 
-/** Bars side by side per component, one series per scenario, each with its likely range. */
+/** One bar's category: the component, and its scenario when there are several. */
+export function barLabel(group: BarGroup, component: string, scenario: string): string {
+  return group.scenarios.length > 1 ? `${component} (${scenario})` : component;
+}
+
+/**
+ * One bar per component and scenario on one category axis, with its likely range drawn
+ * at the bar's own category (review of PR #48: no offset is computed, so nothing depends
+ * on how ECharts lays out grouped bars, and there is no legend whose hiding could move
+ * them). The range series names both bounds as values of the value axis (`encode`), so
+ * the axis always reaches the upper end of every range. Bars are coloured by scenario,
+ * and the category label names the scenario too, so colour is never the only cue.
+ */
 export function barsOption(group: BarGroup, colours: SeriesColours): Record<string, unknown> {
-  const count = group.scenarios.length;
-  const series: Record<string, unknown>[] = [];
-  group.scenarios.forEach((scenario, index) => {
-    const values = group.values[index] ?? [];
-    series.push({
-      name: scenario,
-      type: "bar",
-      barGap: "0%",
-      barCategoryGap: "30%",
-      itemStyle: { color: colour(colours, index) },
-      data: values.map((value) => value?.mean ?? null),
-    });
-    series.push({
-      name: scenario,
-      type: "custom",
-      silent: true,
-      data: values.flatMap((value, component) =>
-        value === null || value.half === null
-          ? []
-          : [[component, value.mean - value.half, value.mean + value.half]],
-      ),
-      // A vertical line with caps over the bar of this scenario in its category.
-      renderItem: (
-        params: unknown,
-        api: {
-          value(dimension: number): number;
-          coord(point: number[]): number[];
-          size(span: number[]): number[];
-        },
-      ) => {
-        const category = api.value(0);
-        const width = (api.size([1, 0])[0] ?? 0) * 0.7;
-        const offset = -width / 2 + ((index + 0.5) * width) / count;
-        const [x0 = 0, low = 0] = api.coord([category, api.value(1)]);
-        const [, high = 0] = api.coord([category, api.value(2)]);
-        const x = x0 + offset;
-        const cap = Math.min(6, width / count / 4);
-        const style = { stroke: colours.text, lineWidth: 1.5 };
-        void params;
-        return {
-          type: "group",
-          children: [
-            { type: "line", shape: { x1: x, y1: low, x2: x, y2: high }, style },
-            { type: "line", shape: { x1: x - cap, y1: low, x2: x + cap, y2: low }, style },
-            { type: "line", shape: { x1: x - cap, y1: high, x2: x + cap, y2: high }, style },
-          ],
-        };
-      },
-      z: 3,
+  const categories: string[] = [];
+  const bars: Record<string, unknown>[] = [];
+  const ranges: [number, number, number][] = [];
+  group.components.forEach((component, c) => {
+    group.scenarios.forEach((scenario, s) => {
+      const value = group.values[s]?.[c] ?? null;
+      const at = categories.length;
+      categories.push(barLabel(group, component, scenario));
+      bars.push({ value: value?.mean ?? null, itemStyle: { color: colour(colours, s) } });
+      if (value !== null && value.half !== null) {
+        ranges.push([at, value.mean - value.half, value.mean + value.half]);
+      }
     });
   });
+  const style = { stroke: colours.text, lineWidth: 1.5 };
   return {
     animation: false,
-    grid: { left: 64, right: 16, top: count > 1 ? 36 : 16, bottom: 48 },
-    legend:
-      count > 1
-        ? { top: 0, textStyle: { color: colours.text }, data: group.scenarios }
-        : { show: false },
-    xAxis: { type: "category", data: group.components, ...axis(colours, "Component") },
+    grid: { left: 64, right: 16, top: 16, bottom: 64 },
+    xAxis: {
+      type: "category",
+      data: categories,
+      ...axis(colours, "Component"),
+      nameGap: 48,
+      axisLabel: { color: colours.text, interval: 0, rotate: group.scenarios.length > 1 ? 20 : 0 },
+    },
     yAxis: { type: "value", min: 0, ...axis(colours, group.unit), nameGap: 48 },
-    series,
+    series: [
+      { name: group.title, type: "bar", barCategoryGap: "40%", data: bars },
+      {
+        name: "Likely range",
+        type: "custom",
+        silent: true,
+        encode: { x: 0, y: [1, 2] },
+        data: ranges,
+        // A vertical line with caps at the bar's own category.
+        renderItem: (
+          _params: unknown,
+          api: {
+            value(dimension: number): number;
+            coord(point: number[]): number[];
+            size(span: number[]): number[];
+          },
+        ) => {
+          const category = api.value(0);
+          const [x = 0, low = 0] = api.coord([category, api.value(1)]);
+          const [, high = 0] = api.coord([category, api.value(2)]);
+          const cap = Math.min(6, (api.size([1, 0])[0] ?? 0) / 8);
+          return {
+            type: "group",
+            children: [
+              { type: "line", shape: { x1: x, y1: low, x2: x, y2: high }, style },
+              { type: "line", shape: { x1: x - cap, y1: low, x2: x + cap, y2: low }, style },
+              { type: "line", shape: { x1: x - cap, y1: high, x2: x + cap, y2: high }, style },
+            ],
+          };
+        },
+        z: 3,
+      },
+    ],
   };
 }
 

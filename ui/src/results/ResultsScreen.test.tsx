@@ -131,7 +131,7 @@ describe("a run's results", () => {
     ).toHaveTextContent("12.4not defined30");
     expect(screen.getByRole("img", { name: /^Busy share by component/ })).toHaveAttribute(
       "data-series",
-      "default,default",
+      "Busy share by component, with the likely range,Likely range",
     );
     expect(screen.getByRole("img", { name: /^Over time: weld.queue_length/ })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Every repeat run's values" })).toHaveTextContent(

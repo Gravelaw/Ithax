@@ -1,7 +1,10 @@
 /** The data and options of the Results charts (AKS-138). */
+import { init } from "echarts/core";
 import { describe, expect, it } from "vitest";
+import "../charts/Chart";
 import { optionsSummary, planSummary, searchSummary } from "../test/runs";
 import {
+  type BarGroup,
   barGroups,
   barsOption,
   decisionsOption,
@@ -47,15 +50,26 @@ describe("the bars of a run", () => {
     expect(sparse[0]?.values).toEqual([[null], [{ mean: 30, half: null }], [null]]);
   });
 
-  it("draws a bar series and a range series per scenario, ranges over their own bars", () => {
+  it("draws one bar per component and scenario, each range at its own bar", () => {
     const [group] = barGroups(scenariosOf(optionsSummary()));
     if (group === undefined) throw new Error("no group");
     const option = barsOption(group, colours);
     const series = option.series as Series[];
-    expect(series.map((item) => item.type)).toEqual(["bar", "custom", "bar", "custom"]);
-    expect((option.legend as { data: string[] }).data).toEqual(["default", "faster"]);
-    const ranges = series[3];
-    expect(ranges?.data).toHaveLength(2);
+    expect(series.map((item) => item.type)).toEqual(["bar", "custom"]);
+    expect(option.legend).toBeUndefined();
+    expect((option.xAxis as { data: string[] }).data).toEqual([
+      "cut (default)",
+      "cut (faster)",
+      "weld (default)",
+      "weld (faster)",
+    ]);
+    const [bars, ranges] = series;
+    expect(
+      bars?.data.map((bar) => (bar as { itemStyle: { color: string } }).itemStyle.color),
+    ).toEqual(["#111111", "#222222", "#111111", "#222222"]);
+    // Each range names its own bar's category, and both bounds as values of the value axis.
+    expect(((ranges?.data ?? []) as number[][]).map((range) => range[0])).toEqual([0, 1, 2, 3]);
+    expect((ranges as unknown as { encode: unknown }).encode).toEqual({ x: 0, y: [1, 2] });
     const api = {
       value: (dimension: number) => [1, 80, 100][dimension] ?? 0,
       coord: ([x, y]: number[]) => [(x ?? 0) * 100 + 50, 200 - (y ?? 0)],
@@ -64,13 +78,57 @@ describe("the bars of a run", () => {
     const drawn = ranges?.renderItem?.({}, api) as {
       children: { shape: { x1: number; y1: number; y2: number } }[];
     };
-    // The second of two bars in a category 100 px wide: 70 px of bars, the second centred at +17.5.
-    expect(drawn.children[0]?.shape).toEqual({ x1: 167.5, y1: 120, x2: 167.5, y2: 100 });
+    expect(drawn.children[0]?.shape).toEqual({ x1: 150, y1: 120, x2: 150, y2: 100 });
     const single = barsOption(
       { ...group, scenarios: ["default"], values: [group.values[0] ?? []] },
       colours,
     );
-    expect(single.legend).toEqual({ show: false });
+    expect((single.xAxis as { data: string[] }).data).toEqual(["cut", "weld"]);
+  });
+
+  it("drawn by ECharts, a range above every bar sets the axis, and each sits over its bar", () => {
+    const group: BarGroup = {
+      family: "wait.mean",
+      title: "Average wait",
+      unit: "Average wait (min)",
+      components: ["a", "b"],
+      scenarios: ["one", "two"],
+      values: [
+        [
+          { mean: 10, half: 30 },
+          { mean: 5, half: 1 },
+        ],
+        [{ mean: 8, half: 2 }, null],
+      ],
+    };
+    const box = document.createElement("div");
+    const chart = init(box, null, { renderer: "svg", width: 600, height: 300 });
+    chart.setOption(barsOption(group, colours));
+    const model = chart as unknown as {
+      getModel(): {
+        getComponent(type: string): { axis: { scale: { getExtent(): number[] } } };
+        getSeriesByIndex(index: number): {
+          getData(): {
+            count(): number;
+            getItemLayout(index: number): { x: number; width: number };
+          };
+        };
+      };
+    };
+    const [, top] = model.getModel().getComponent("yAxis").axis.scale.getExtent();
+    expect(top).toBeGreaterThanOrEqual(40);
+    const bars = model.getModel().getSeriesByIndex(0).getData();
+    const centres = [0, 1, 2].map((index) => {
+      const layout = bars.getItemLayout(index);
+      return layout.x + layout.width / 2;
+    });
+    // The ranges' x: a (one), a (two), b (one); the fourth (b, two) has no bar.
+    const ranges = (barsOption(group, colours).series as Series[])[1];
+    const at = ((ranges?.data ?? []) as number[][]).map((range) =>
+      chart.convertToPixel({ xAxisIndex: 0 }, range[0] ?? 0),
+    );
+    expect(at).toEqual(centres.map((centre) => expect.closeTo(centre, 6)));
+    chart.dispose();
   });
 });
 
