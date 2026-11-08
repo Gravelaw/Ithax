@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="title desc">
   <title id="title">Wireframe 04: Experiment</title>
-  <desc id="desc">Experiment screen. Experiments listed on the left. For the selected experiment: run length, warm-up, replications, seed, confidence and record interval; a scenarios table with one column per changed parameter; objectives and constraints; and the optional simulation-based search.</desc>
+  <desc id="desc">Experiment screen in plain words (design-system.md "Type"): experiments listed on the left. For the selected experiment: run length, settling-in time (warm-up), repeat runs (replications), seed, how sure the likely range is (confidence) and record interval, each technical term under its field and on hover; a scenarios table with one column per parameter of the model, an empty cell using the parameter's value; objectives and constraints; and the optional simulation-based search with its repeat runs for each candidate.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#547076"/>
@@ -58,18 +58,20 @@
   <text x="304" y="140" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Run length</text>
   <rect x="304" y="146" width="140" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
   <text x="312" y="166" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">200 h</text>
-  <text x="460" y="140" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Warm-up</text>
+  <text x="460" y="140" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Settling-in time</text>
   <rect x="460" y="146" width="140" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
   <text x="468" y="166" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">10 h</text>
-  <text x="460" y="192" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Less than run length</text>
-  <text x="616" y="140" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Replications</text>
+  <text x="460" y="192" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Warm-up</text>
+  <text x="616" y="140" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Repeat runs</text>
   <rect x="616" y="146" width="140" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
   <text x="624" y="166" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">30</text>
+  <text x="616" y="192" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Replications</text>
+  <text x="460" y="262" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">0.95: confidence level</text>
   <text x="304" y="210" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Seed</text>
   <rect x="304" y="216" width="140" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
   <text x="312" y="236" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">12345</text>
   <text x="304" y="262" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Empty: chosen at random</text>
-  <text x="460" y="210" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Confidence</text>
+  <text x="460" y="210" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Sure of the likely range</text>
   <rect x="460" y="216" width="140" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
   <text x="468" y="236" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">0.95</text>
   <text x="616" y="210" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Record interval</text>
@@ -89,7 +91,7 @@
   <text x="304" y="432" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">+ Add scenario</text>
   <text x="304" y="470" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">With no scenarios the experiment runs the model as written (scenario</text>
   <text x="304" y="488" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">default, spec 1).</text>
-  <text x="444" y="432" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">+ Add parameter column</text>
+  <text x="444" y="432" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">One column per parameter; empty uses its value</text>
   <rect x="792" y="64" width="464" height="712" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
   <text x="808" y="96" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Optimization</text>
   <text x="808" y="124" font-family="sans-serif" font-size="16" font-weight="600" fill="#34454C" text-anchor="start">Objectives</text>
@@ -109,12 +111,12 @@
   <text x="1024" y="364" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Budget</text>
   <rect x="1024" y="370" width="100" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
   <text x="1032" y="390" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">50</text>
-  <text x="1140" y="364" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Reps each</text>
+  <text x="1140" y="364" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Repeat runs each</text>
   <rect x="1140" y="370" width="100" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
   <text x="1148" y="390" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">10</text>
   <text x="808" y="440" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Parameters searched</text>
   <rect x="808" y="448" width="432" height="32" rx="0" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
   <text x="820" y="469" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">tills   from 1 to 5   (min and max of the parameter)</text>
   <text x="808" y="510" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">The best candidates are re-run with the experiment's</text>
-  <text x="808" y="528" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">30 replications before the result is reported (spec 2).</text>
+  <text x="808" y="528" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">30 repeat runs before the result is reported (spec 2).</text>
 </svg>
