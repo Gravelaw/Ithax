@@ -1,0 +1,267 @@
+{
+ "about": "examples/three_machine_line.json unchanged (experiment base: 30 replications of 100 h with 20 h of warm-up, seed 12345). The M1 three-machine line is the firing model for bottleneck and not_enough_runs (spec 4).",
+ "model": {
+  "format_version": "0.1",
+  "meta": {
+   "name": "Three-machine line",
+   "description": "Parts are cut, welded, moved on a 2 min transfer, then painted. Written fresh at M1 to the spec 2 targets: weld utilization 0.85 to 0.92, the other stations below 0.70. Parts arrive 30 per hour (exponential, mean 2 min). Utilization = arrival rate x mean service time / capacity: cut 30 per hour x 1.2 min = 0.60; weld 30 per hour x 1.8 min = 0.90; paint 30 per hour x 1 min = 0.50. By Burke's theorem each station sees Poisson arrivals, so each is M/M/1 with mean wait rho / (1 - rho) x service time: cut 1.8 min, weld 16.2 min, paint 1.0 min. Mean cycle time (time in each station, wait plus service, and the transfer) cut 3.0 + weld 18.0 + transfer 2 + paint 2.0 = 25.0 min; throughput 30 per hour. The weld station is the bottleneck."
+  },
+  "domain": "process",
+  "components": [
+   {
+    "id": "arrivals",
+    "type": "source",
+    "params": {
+     "interarrival": {
+      "dist": "exponential",
+      "mean": "2 min"
+     }
+    }
+   },
+   {
+    "id": "cut",
+    "type": "server",
+    "params": {
+     "capacity": 1,
+     "service": {
+      "dist": "exponential",
+      "mean": "1.2 min"
+     }
+    }
+   },
+   {
+    "id": "weld",
+    "type": "server",
+    "params": {
+     "capacity": 1,
+     "service": {
+      "dist": "exponential",
+      "mean": "1.8 min"
+     }
+    }
+   },
+   {
+    "id": "transfer",
+    "type": "delay",
+    "params": {
+     "time": {
+      "dist": "constant",
+      "value": "2 min"
+     }
+    }
+   },
+   {
+    "id": "paint",
+    "type": "server",
+    "params": {
+     "capacity": 1,
+     "service": {
+      "dist": "exponential",
+      "mean": "1 min"
+     }
+    }
+   },
+   {
+    "id": "exit",
+    "type": "sink",
+    "params": {}
+   }
+  ],
+  "connections": [
+   {
+    "from": "arrivals.out",
+    "to": "cut.in"
+   },
+   {
+    "from": "cut.out",
+    "to": "weld.in"
+   },
+   {
+    "from": "weld.out",
+    "to": "transfer.in"
+   },
+   {
+    "from": "transfer.out",
+    "to": "paint.in"
+   },
+   {
+    "from": "paint.out",
+    "to": "exit.in"
+   }
+  ],
+  "experiments": [
+   {
+    "id": "base",
+    "length": "100 h",
+    "warmup": "20 h",
+    "replications": 30,
+    "seed": 12345
+   }
+  ],
+  "run": {
+   "target": "local",
+   "fidelity": "standard"
+  }
+ },
+ "summary": {
+  "model": "Three-machine line",
+  "experiment": "base",
+  "fidelity": "standard",
+  "fidelity_label": "Standard: 30 replications of 100 h, 95% confidence",
+  "replications": 30,
+  "confidence": 0.95,
+  "scenarios": {
+   "default": {
+    "set": {},
+    "metrics": {
+     "arrivals.created": {
+      "mean": 2399.6666666666665,
+      "half_width": 20.645873059684035,
+      "unit": "1",
+      "n": 30
+     },
+     "arrivals.discarded": {
+      "mean": 0.0,
+      "half_width": 0.0,
+      "unit": "1/s",
+      "n": 30
+     },
+     "cut.wait.mean": {
+      "mean": 110.30811822876458,
+      "half_width": 4.067544690210808,
+      "unit": "s",
+      "n": 30
+     },
+     "cut.utilization": {
+      "mean": 0.6000622252957487,
+      "half_width": 0.007086668208022064,
+      "unit": "1",
+      "n": 30
+     },
+     "cut.availability": {
+      "mean": 1.0,
+      "half_width": 0.0,
+      "unit": "1",
+      "n": 30
+     },
+     "cut.scheduled_fraction": {
+      "mean": 1.0,
+      "half_width": 0.0,
+      "unit": "1",
+      "n": 30
+     },
+     "cut.queue_length.mean": {
+      "mean": 0.9188391563648828,
+      "half_width": 0.035768824043807164,
+      "unit": "1",
+      "n": 30
+     },
+     "cut.queue_length.max": {
+      "mean": 12.466666666666667,
+      "half_width": 1.1082801959665907,
+      "unit": "1",
+      "n": 30
+     },
+     "weld.wait.mean": {
+      "mean": 941.4817839033527,
+      "half_width": 125.50048049996397,
+      "unit": "s",
+      "n": 30
+     },
+     "weld.utilization": {
+      "mean": 0.9009847024435342,
+      "half_width": 0.010851091468986317,
+      "unit": "1",
+      "n": 30
+     },
+     "weld.availability": {
+      "mean": 1.0,
+      "half_width": 0.0,
+      "unit": "1",
+      "n": 30
+     },
+     "weld.scheduled_fraction": {
+      "mean": 1.0,
+      "half_width": 0.0,
+      "unit": "1",
+      "n": 30
+     },
+     "weld.queue_length.mean": {
+      "mean": 7.870534814795195,
+      "half_width": 1.0948887132508165,
+      "unit": "1",
+      "n": 30
+     },
+     "weld.queue_length.max": {
+      "mean": 35.766666666666666,
+      "half_width": 3.6132390344344416,
+      "unit": "1",
+      "n": 30
+     },
+     "paint.wait.mean": {
+      "mean": 57.04552175241864,
+      "half_width": 1.8209967410087848,
+      "unit": "s",
+      "n": 30
+     },
+     "paint.utilization": {
+      "mean": 0.49497931696485586,
+      "half_width": 0.005545749338525466,
+      "unit": "1",
+      "n": 30
+     },
+     "paint.availability": {
+      "mean": 1.0,
+      "half_width": 0.0,
+      "unit": "1",
+      "n": 30
+     },
+     "paint.scheduled_fraction": {
+      "mean": 1.0,
+      "half_width": 0.0,
+      "unit": "1",
+      "n": 30
+     },
+     "paint.queue_length.mean": {
+      "mean": 0.4756510582885621,
+      "half_width": 0.016479718971038164,
+      "unit": "1",
+      "n": 30
+     },
+     "paint.queue_length.max": {
+      "mean": 9.066666666666666,
+      "half_width": 0.5712296105006676,
+      "unit": "1",
+      "n": 30
+     },
+     "exit.throughput": {
+      "mean": 0.008334953703703704,
+      "half_width": 6.830355399565634e-05,
+      "unit": "1/s",
+      "n": 30
+     },
+     "exit.cycle_time.mean": {
+      "mean": 1468.6959698185772,
+      "half_width": 126.89790648445542,
+      "unit": "s",
+      "n": 30
+     },
+     "exit.count": {
+      "mean": 2400.4666666666667,
+      "half_width": 19.67142355074902,
+      "unit": "1",
+      "n": 30
+     },
+     "model.wip.mean": {
+      "mean": 12.261304593174856,
+      "half_width": 1.1241772682273614,
+      "unit": "1",
+      "n": 30
+     }
+    }
+   }
+  },
+  "differences": [],
+  "warnings": []
+ }
+}
