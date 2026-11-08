@@ -13,7 +13,7 @@ The approved look itself (block shapes per category, after-run overlay, results 
 | Change (owner review) | Specified in | Affects |
 | --- | --- | --- |
 | Block shapes per category; distinct resource boxes; reference lines by pattern, icon and word | `../design-system.md` "Block styles", "Line styles" | **drawn at M9 (AKS-136):** `01-canvas.svg`, `01b-canvas-learn.svg`, `01c-canvas-states.svg` (capsule, rounded box and tag with an icon disc; a pool's count badge, a schedule's on and off strip, a failure's striped edge; long dashes and "staffs", dots and "sets hours", dash-dot and "breaks down") |
-| Review marks for an outside change, "N changes to review" | `../canvas-interactions.md` "Reviewing an outside change" | `01-canvas.svg`, `01c-canvas-states.svg`, drawn with the review itself (AKS-137) |
+| Review marks for an outside change, "N changes to review" | `../canvas-interactions.md` "Reviewing an outside change" | **drawn at M9 (AKS-137):** `01-canvas.svg` (the top bar's "2 changes to review", the notice naming the client, a Changed block with Accept and Reject, a Removed ghost) and `01c-canvas-states.svg` (Added, Changed and Removed marks; the side panel's "Changes to review" list with Accept all and Reject all) |
 | Delete confirmation dialog | `../canvas-interactions.md` "Deleting" | **drawn at M9 (AKS-136):** `01-canvas.svg`, as an inset |
 | "Try a change" beside settings | `../canvas-interactions.md` "Trying a change" | **drawn at M9 (AKS-136):** `01-canvas.svg`, beside the service mean and the queue capacity (built with the Experiment screen, AKS-120) |
 | Lesson rings the one field to change; prediction step | `../canvas-interactions.md` "Learn mode on the canvas" | **drawn at M9 (AKS-136):** `01b-canvas-learn.svg`, the exercise step (built with Learn mode, M10) |
@@ -22,7 +22,7 @@ The approved look itself (block shapes per category, after-run overlay, results 
 | Live trends; search best-so-far chart | `../design-system.md` "Charts" | `05-run-monitor.svg` |
 | Headline card that says why; charts per run kind; table of all trials | `../canvas-interactions.md` "Learn mode on the canvas", `../design-system.md` "Charts" | `06-results.svg` |
 | Undo steps, Ask before deleting, Motion, Colour-blind safe charts, Restore all defaults | `../canvas-interactions.md`, `../design-system.md`, `../accessibility.md` | `07-settings.svg` |
-| Optimization models: Table view and Diagram view | `../canvas-interactions.md` "The model and the canvas" | a new wireframe at M9 |
+| Optimization models: Table view and Diagram view | `../canvas-interactions.md` "The model and the canvas" | **drawn at M9 (AKS-137):** `09-optimization.svg` (the product mix in the Table view, with the Diagram view beside it) |
 | Plain words ("repeat runs", "likely range") | `../design-system.md` "Type" | all screens; `02-home.svg`, `02c-new-project.svg` and `08-first-start-notice.svg` checked at M9 (AKS-119): they use no technical term |
 | "New empty project" asks Process or Plan; Home before the templates (empty gallery, Build unavailable with its reason) | `../../DECISIONS.md` "Owner design review", "API additions and the open gap"; spec 3 `POST /v1/projects` | **drawn at M9 (AKS-119):** `02c-new-project.svg` |
 
@@ -30,9 +30,9 @@ Values in the drawings are examples. Numbers taken from the specs are marked as 
 
 | File | Screen (spec 3) | Shows | Behaviour described in |
 | --- | --- | --- | --- |
-| [`01-canvas.svg`](01-canvas.svg) | 2 Canvas | The coffee shop model with a newly added `server_2` in error; palette, side panel with the selected block's settings and "Try a change", problems list, Run disabled with its reason, zoom controls and minimap; an inset of the delete confirmation dialog | `../canvas-interactions.md` |
+| [`01-canvas.svg`](01-canvas.svg) | 2 Canvas | The coffee shop model with a newly added `server_2` in error; palette, side panel with the selected block's settings and "Try a change", problems list, Run disabled with its reason, zoom controls and minimap; an inset of the delete confirmation dialog; after an outside change, the top bar's "2 changes to review", the notice naming the client, a Changed block and a Removed ghost | `../canvas-interactions.md` |
 | [`01b-canvas-learn.svg`](01b-canvas-learn.svg) | 2 Canvas, Learn mode | The exercise step card with its prediction step, the highlighted block and the ringed field to change | `../canvas-interactions.md` "Learn mode on the canvas", `../flows.md` "Learn mode" |
-| [`01c-canvas-states.svg`](01c-canvas-states.svg) | 2 Canvas | Block and port states: the three block shapes, default, selected, focus, error, warning, Learn highlight, branch routes, the three port-less resource blocks with their reference lines, connecting | `../design-system.md` "Block styles" |
+| [`01c-canvas-states.svg`](01c-canvas-states.svg) | 2 Canvas | Block and port states: the three block shapes, default, selected, focus, error, warning, Learn highlight, branch routes, the three port-less resource blocks with their reference lines, connecting; the review marks (Added, Changed, Removed) and the "Changes to review" list | `../design-system.md` "Block styles" |
 | [`02-home.svg`](02-home.svg) | 1 Home | Learn and Build entries, template gallery, recent projects | `../flows.md` "Shared start" |
 | [`02c-new-project.svg`](02c-new-project.svg) | 1 Home, New empty project | Home before the templates (Learn, Build unavailable with its reason, the gallery's empty state, recent projects) and the New empty project dialog: a name, Process or Plan, and a refusal shown as the service wrote it | `../flows.md` "Shared start"; spec 3 `POST /v1/projects` |
 | [`02b-build-form.svg`](02b-build-form.svg) | 1 Home, Build mode form | The two-step fixed form of spec 4 "Build mode" | `../flows.md` "Build mode" |
@@ -41,6 +41,7 @@ Values in the drawings are examples. Numbers taken from the specs are marked as 
 | [`05-run-monitor.svg`](05-run-monitor.svg) | 5 Run monitor | Progress with the service's message, live key numbers, Pause updates, Cancel run, the project's runs | `../flows.md` steps L8 and B11 |
 | [`06-results.svg`](06-results.svg) | 6 Results | Findings first, key numbers with intervals, chart with data table, tables, exports, and the footer with model name, run id, fidelity label, replications and confidence, engine name and version, and "Simulation results are estimates and carry no warranty." | `../flows.md` steps L9 and B12 |
 | [`07-settings.svg`](07-settings.svg) | 7 Settings | Run targets, runs and limits, hardware tier, engines, finding thresholds, appearance, remote access, about | `../flows.md` "Shared start" |
+| [`09-optimization.svg`](09-optimization.svg) | 2 Canvas, optimization model | A plan (the product mix of spec 2): the Table view's Decisions, Goal and Limits with Add and Remove, and the Diagram view of the same model (decision cards linked to the goal and limit cards by their coefficients); no experiment picker | `../canvas-interactions.md` "The model and the canvas"; spec 3 "Screens" 2 |
 | [`08-first-start-notice.svg`](08-first-start-notice.svg) | First-start notice | What the tool does, that results are estimates to support judgement, where the licence is; one Continue button | `../flows.md` "Shared start" |
 
 ## What each screen must do (spec 3), and where the wireframe shows it
@@ -48,7 +49,7 @@ Values in the drawings are examples. Numbers taken from the specs are marked as 
 | Spec 3 screen requirement | Wireframe |
 | --- | --- |
 | Home: recent projects, template gallery, Learn or Build entry (Build mode form as in spec 4) | `02-home.svg`, `02b-build-form.svg`, `02c-new-project.svg` |
-| Canvas: drag blocks from a palette, connect them, edit properties in a side panel; validation errors appear on the offending block | `01-canvas.svg`, `01c-canvas-states.svg` |
+| Canvas: drag blocks from a palette, connect them, edit properties in a side panel; validation errors appear on the offending block; for an `optimization` model, a table view and a diagram view | `01-canvas.svg`, `01c-canvas-states.svg`, `09-optimization.svg` |
 | Data: import CSV or Excel, map columns, fit a distribution to a column | `03-data.svg` ("map columns" is the column picker plus "Use for", which maps a column to a block setting) |
 | Experiment: run length, replications, scenarios, optimization setup | `04-experiment.svg` |
 | Run monitor: progress, live key numbers, cancel | `05-run-monitor.svg` |

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="title desc">
   <title id="title">Wireframe 01c: Canvas block and port states</title>
-  <desc id="desc">Reference sheet of block styles on the canvas: default, selected, keyboard focus, error and warning badges, Learn highlight, a branch with three route ports, port-less resource blocks, each drawn differently (a count badge on a pool, an on and off strip on a schedule, a striped edge on a failure), with reference lines that differ by pattern, icon and word (long dashes and staffs, dots and sets hours, dash-dot and breaks down), and the connecting state where valid input ports show a ring.</desc>
+  <desc id="desc">Reference sheet of block styles on the canvas: default, selected, keyboard focus, error and warning badges, Learn highlight, a branch with three route ports, port-less resource blocks, each drawn differently (a count badge on a pool, an on and off strip on a schedule, a striped edge on a failure), with reference lines that differ by pattern, icon and word (long dashes and staffs, dots and sets hours, dash-dot and breaks down), and the connecting state where valid input ports show a ring. Review marks after an outside change (AKS-137): Added (dashed success box), Changed (dashed accent box, with Accept and Reject) and Removed (a ghost outline), each with its chip word; and the side panel's Changes to review list with Accept all, Reject all and a row per change.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#547076"/>
@@ -170,4 +170,52 @@
   <text x="600" y="636" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">says: “arrivals.out now goes to queue_1.in (was till.in).”</text>
   <text x="600" y="690" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">Ports: 12 px circle, 24 x 24 px hit area. Filled = connected.</text>
   <text x="600" y="708" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">Connections: 2 px, arrow at the input; selected 3 px accent.</text>
+  <!-- Review marks (AKS-137) -->
+  <text x="40" y="416" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Review marks after an outside change</text>
+  <rect x="40" y="452" width="160" height="64" rx="14" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5"/>
+  <circle cx="59" cy="469" r="13" fill="#4F4086" fill-opacity="0.18" stroke="none"/>
+  <svg x="51" y="461" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#4F4086"><path d="M144,157.68a68,68,0,1,0-71.9,0c-20.65,6.76-39.23,19.39-54.17,37.17a8,8,0,1,0,12.24,10.3C50.25,181.19,77.91,168,108,168s57.75,13.19,77.87,37.15a8,8,0,0,0,12.26-10.3C183.18,177.07,164.6,164.44,144,157.68ZM56,100a52,52,0,1,1,52,52A52.06,52.06,0,0,1,56,100Zm196.25,43.07-4.66-2.69a23.6,23.6,0,0,0,0-8.76l4.66-2.69a8,8,0,1,0-8-13.86l-4.67,2.7a23.92,23.92,0,0,0-7.58-4.39V108a8,8,0,0,0-16,0v5.38a23.92,23.92,0,0,0-7.58,4.39l-4.67-2.7a8,8,0,1,0-8,13.86l4.66,2.69a23.6,23.6,0,0,0,0,8.76l-4.66,2.69a8,8,0,0,0,8,13.86l4.67-2.7a23.92,23.92,0,0,0,7.58,4.39V164a8,8,0,0,0,16,0v-5.38a23.92,23.92,0,0,0,7.58-4.39l4.67,2.7a7.92,7.92,0,0,0,4,1.07,8,8,0,0,0,4-14.93ZM216,136a8,8,0,1,1,8,8A8,8,0,0,1,216,136Z"/></g></svg>
+  <text x="76" y="474" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">server_3</text>
+  <text x="56" y="498" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">server · capacity 1</text>
+  <rect x="34" y="446" width="172" height="76" rx="18" fill="none" stroke="#1A7444" stroke-width="2" stroke-dasharray="6 4"/>
+  <rect x="40" y="428" width="67" height="20" rx="10" fill="#E9EEE4" stroke="#1A7444" stroke-width="1"/>
+  <svg x="46" y="431" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#1A7444"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></g></svg>
+  <text x="64" y="442" font-family="sans-serif" font-size="12" font-weight="600" fill="#1A7444" text-anchor="start">Added</text>
+  <rect x="228" y="452" width="160" height="64" rx="14" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5"/>
+  <circle cx="247" cy="469" r="13" fill="#4F4086" fill-opacity="0.18" stroke="none"/>
+  <svg x="239" y="461" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#4F4086"><path d="M144,157.68a68,68,0,1,0-71.9,0c-20.65,6.76-39.23,19.39-54.17,37.17a8,8,0,1,0,12.24,10.3C50.25,181.19,77.91,168,108,168s57.75,13.19,77.87,37.15a8,8,0,0,0,12.26-10.3C183.18,177.07,164.6,164.44,144,157.68ZM56,100a52,52,0,1,1,52,52A52.06,52.06,0,0,1,56,100Zm196.25,43.07-4.66-2.69a23.6,23.6,0,0,0,0-8.76l4.66-2.69a8,8,0,1,0-8-13.86l-4.67,2.7a23.92,23.92,0,0,0-7.58-4.39V108a8,8,0,0,0-16,0v5.38a23.92,23.92,0,0,0-7.58,4.39l-4.67-2.7a8,8,0,1,0-8,13.86l4.66,2.69a23.6,23.6,0,0,0,0,8.76l-4.66,2.69a8,8,0,0,0,8,13.86l4.67-2.7a23.92,23.92,0,0,0,7.58,4.39V164a8,8,0,0,0,16,0v-5.38a23.92,23.92,0,0,0,7.58-4.39l4.67,2.7a7.92,7.92,0,0,0,4,1.07,8,8,0,0,0,4-14.93ZM216,136a8,8,0,1,1,8,8A8,8,0,0,1,216,136Z"/></g></svg>
+  <text x="264" y="474" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">till</text>
+  <text x="244" y="498" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">server · capacity 2</text>
+  <rect x="222" y="446" width="172" height="76" rx="18" fill="none" stroke="#1C4286" stroke-width="2" stroke-dasharray="6 4"/>
+  <rect x="228" y="428" width="81" height="20" rx="10" fill="#F7EEDC" stroke="#1C4286" stroke-width="1"/>
+  <svg x="234" y="431" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#1C4286"><path d="M224,128a8,8,0,0,1-8,8H128a8,8,0,0,1,0-16h88A8,8,0,0,1,224,128ZM128,72h88a8,8,0,0,0,0-16H128a8,8,0,0,0,0,16Zm88,112H128a8,8,0,0,0,0,16h88a8,8,0,0,0,0-16ZM82.34,42.34,56,68.69,45.66,58.34A8,8,0,0,0,34.34,69.66l16,16a8,8,0,0,0,11.32,0l32-32A8,8,0,0,0,82.34,42.34Zm0,64L56,132.69,45.66,122.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32,0l32-32a8,8,0,0,0-11.32-11.32Zm0,64L56,196.69,45.66,186.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32,0l32-32a8,8,0,0,0-11.32-11.32Z"/></g></svg>
+  <text x="252" y="442" font-family="sans-serif" font-size="12" font-weight="600" fill="#1C4286" text-anchor="start">Changed</text>
+  <rect x="228" y="526" width="78" height="26" rx="13" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="236" y="532" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#34454C"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></g></svg>
+  <text x="254" y="543" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">Accept</text>
+  <rect x="310" y="526" width="78" height="26" rx="13" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="318" y="532" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#34454C"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L44.59,96H72a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V56a8,8,0,0,1,16,0V85.8L60.25,60A96,96,0,0,1,224,128Z"/></g></svg>
+  <text x="336" y="543" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">Reject</text>
+  <rect x="416" y="452" width="160" height="64" rx="14" fill="none" stroke="#6D7E77" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="432" y="478" font-family="sans-serif" font-size="14" font-weight="600" fill="#547076" text-anchor="start">queue_1</text>
+  <text x="432" y="498" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">queue · capacity 10</text>
+  <rect x="416" y="428" width="81" height="20" rx="10" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="422" y="431" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#6D7E77"><path d="M224,128a8,8,0,0,1-8,8H128a8,8,0,0,1,0-16h88A8,8,0,0,1,224,128ZM128,72h88a8,8,0,0,0,0-16H128a8,8,0,0,0,0,16Zm88,112H128a8,8,0,0,0,0,16h88a8,8,0,0,0,0-16ZM82.34,42.34,56,68.69,45.66,58.34A8,8,0,0,0,34.34,69.66l16,16a8,8,0,0,0,11.32,0l32-32A8,8,0,0,0,82.34,42.34Zm0,64L56,132.69,45.66,122.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32,0l32-32a8,8,0,0,0-11.32-11.32Zm0,64L56,196.69,45.66,186.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32,0l32-32a8,8,0,0,0-11.32-11.32Z"/></g></svg>
+  <text x="440" y="442" font-family="sans-serif" font-size="12" font-weight="600" fill="#6D7E77" text-anchor="start">Removed</text>
+  <rect x="600" y="516" width="640" height="60" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="612" y="536" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">3 changes to review</text>
+  <text x="760" y="536" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">by an assistant (mcp)</text>
+  <rect x="1010" y="520" width="106" height="26" rx="13" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="1018" y="526" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#34454C"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></g></svg>
+  <text x="1036" y="537" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">Accept all</text>
+  <rect x="1118" y="520" width="106" height="26" rx="13" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="1126" y="526" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#34454C"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L44.59,96H72a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V56a8,8,0,0,1,16,0V85.8L60.25,60A96,96,0,0,1,224,128Z"/></g></svg>
+  <text x="1144" y="537" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">Reject all</text>
+  <text x="612" y="564" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">Changed  till: capacity 1 → 2</text>
+  <rect x="1010" y="548" width="78" height="26" rx="13" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="1018" y="554" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#34454C"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></g></svg>
+  <text x="1036" y="565" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">Accept</text>
+  <rect x="1118" y="548" width="78" height="26" rx="13" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="1126" y="554" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#34454C"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L44.59,96H72a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V56a8,8,0,0,1,16,0V85.8L60.25,60A96,96,0,0,1,224,128Z"/></g></svg>
+  <text x="1144" y="565" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">Reject</text>
 </svg>
