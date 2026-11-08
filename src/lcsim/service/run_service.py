@@ -158,6 +158,17 @@ def _refused(issues: tuple[Issue, ...]) -> ServiceError:
     return ServiceError(422, errors[0].code, message, issues)
 
 
+def _engine(value: object) -> dict[str, Any] | None:
+    """The manifest's ``engine`` as the run endpoints show it: ``{name, version}`` with a
+    text name and a text or ``null`` version, else ``None`` (a manifest changed outside the
+    product; AKS-138)."""
+    if isinstance(value, dict):
+        name, version = value.get("name"), value.get("version")
+        if isinstance(name, str) and (version is None or isinstance(version, str)):
+            return {"name": name, "version": version}
+    return None
+
+
 def _cell(value: object) -> object:
     """A table cell for JSON: a float that is not finite (a NaN mean) is ``None``; a value
     of a kind JSON has no word for (only in a table changed outside the product) is its
@@ -355,6 +366,7 @@ class RunService:
             "run_id": manifest["run_id"],
             "project_id": manifest.get("project_id"),
             "experiment_id": manifest.get("experiment_id"),
+            "engine": _engine(manifest.get("engine")),
             "state": manifest["state"],
             "fraction": manifest.get("fraction"),
             "message": "",

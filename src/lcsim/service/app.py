@@ -33,6 +33,7 @@ from lcsim.engines.registry import installed_adapters
 from lcsim.service import (
     data,
     engines,
+    export,
     interface_files,
     models,
     projects,
@@ -67,6 +68,7 @@ ROUTERS: tuple[APIRouter, ...] = (
     models.router,
     runs.router,
     data.router,
+    export.router,
     interface_files.router,
 )
 

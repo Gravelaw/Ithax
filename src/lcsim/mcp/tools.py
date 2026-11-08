@@ -644,9 +644,10 @@ GET_RUN_STATUS = ToolSpec(
     name="get_run_status",
     summary=(
         "Read a run's state and progress (GET /v1/runs/{run_id}). Returns {run_id, "
-        "project_id, experiment_id, state, fraction, message, created, started, ended, "
-        "error}: state is queued, running, done, failed or cancelled; fraction goes from 0 "
-        "to 1; error is null unless the run failed, and then an issue with its code (E190 "
+        "project_id, experiment_id, engine, state, fraction, message, created, started, "
+        "ended, error}: engine is {name, version} of the engine that ran; state is "
+        "queued, running, done, failed or cancelled; fraction goes from 0 to 1; error is "
+        "null unless the run failed, and then an issue with its code (E190 "
         "the engine failed, E191 the service restarted, E192 the run exceeded its time or "
         "memory limit). Poll every few seconds until the state is done, failed or "
         "cancelled; results exist only for done."
@@ -655,7 +656,8 @@ GET_RUN_STATUS = ToolSpec(
     example_arguments={"run_id": _EXAMPLE_RID},
     example_result=(
         f'{{"run_id": "{_EXAMPLE_RID}", "project_id": "{_EXAMPLE_PID}", "experiment_id": '
-        '"base", "state": "running", "fraction": 0.4, "message": "", "created": '
+        '"base", "engine": {"name": "simpy", "version": "0.0.0"}, "state": "running", '
+        '"fraction": 0.4, "message": "", "created": '
         '"2026-11-08T09:30:12.418Z", "started": "2026-11-08T09:30:12.420Z", "ended": null, '
         '"error": null}'
     ),
