@@ -1,6 +1,6 @@
 # Spec 1: Model Format and Engine Contract
 
-> Version 0.8 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.9 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 A model is one JSON file that passes a published schema. Every engine is a plugin that implements the same five functions. The interface, the engines and any AI assistant all work through these two contracts.
 
@@ -513,7 +513,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-07, search validation (AKS-109; M1 leftover), found while building the search: "Experiments" and the E171 row of "Validation issues" add two cases: a parameter named twice in `search.variables` (at the repeat; the search varies each parameter once), and a `search` in an experiment that lists scenarios (at `scenarios`; a search runs its own candidates, and spec 2's result has one set of metrics per candidate). Both owner to confirm.
 - 2026-11-07, simulation-based search (AKS-109), found while building `src/lcsim/runs/search.py` and running it through the manager and the local target: the warning line says scenarios run from M3 and objectives and constraints from M5; "Experiments" replaces "Proposed; verified at M5" with what was verified (a search run has the states, `run_id`, manifest and time limit of any run); "Random streams" says the search takes one draw from `<seed>:0:optimizer`; "Run folder and results" adds the manifest's `optimizer` (`{name, version}`: the search method and the Optuna version, which a repeat needs, research note decision 8) and says that a search run's `summary.json` and `tables/` are the best candidate's confirmation with `search`; "Division of labour" names the evaluation subfolders `search-<n>` and `confirm-<n>`; "How the `local` target runs a run" adds how a search runs there (all owner to confirm).
 
-### Since version 0.8
+2026-11-07, version 0.9, M6 closed (AKS-114); the lines below were added after version 0.8, during the M6 build:
 
 - 2026-11-07, service skeleton (AKS-110), found while building `src/lcsim/service/`: "Validation issues" adds the service codes E182 to E187 (token, hardening, malformed request, not found, project folder, internal failure), which spec 3 "Status codes and errors" puts in `error.code` and which had no spec 1 code; "Engine adapter interface" adds a one-sentence `description` to a component type's description, which `GET /v1/schema/components/{type}` serves and spec 3 names (owner to confirm).
 - 2026-11-07, model endpoints (AKS-111), found while building the model edits of spec 3: the E186 row adds a project whose `model.json` is not JSON, or fails the schema pass when edits are sent (the file was changed outside the service), and the E180 row points to spec 3 "Model edits" for its cases (owner to confirm).

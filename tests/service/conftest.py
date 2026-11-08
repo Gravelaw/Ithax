@@ -6,8 +6,15 @@ the right ``Host`` and token. Tests that need a route the product does not have 
 WebSocket token helper, a project lookup, an unexpected failure) add it to their own
 app instance with ``app.get`` or ``app.websocket``, never to a product router, which every
 app shares.
+
+Every ``TestClient`` of the session records the routes its requests reach
+(``route_recorder.py``; AKS-114), so ``test_routes.py`` can show that every row of spec 3's
+endpoint table has a request test. The hooks below move that test to the end of the session
+and note when the session does not run every service test, in which case the test makes its
+own record in a separate run.
 """
 
+import os
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -18,7 +25,51 @@ from starlette.testclient import TestClient
 from lcsim.service.app import create_app
 from lcsim.service.config import ServiceConfig
 from lcsim.service.hardware import Hardware
+from service import route_recorder
 from service.service_support import AUTH, BASE_URL, PORT, TOKEN
+
+SERVICE_TESTS = Path(__file__).resolve().parent
+#: The test that reads the session's record; it must run after every other service test.
+COVERAGE_TEST = "test_every_row_of_the_endpoint_table_has_a_request_test"
+
+
+def _is_service_test(item: pytest.Item) -> bool:
+    return Path(str(item.path)).resolve().parent == SERVICE_TESTS
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Moves the coverage test to the end of the session."""
+    last = [item for item in items if item.name == COVERAGE_TEST and _is_service_test(item)]
+    items[:] = [item for item in items if item not in last] + last
+
+
+def pytest_deselected(items: list[pytest.Item]) -> None:
+    deselected = [item.nodeid for item in items if _is_service_test(item)]
+    if deselected:
+        route_recorder.INCOMPLETE.append(f"{len(deselected)} service tests deselected")
+
+
+def pytest_collection_finish(session: pytest.Session) -> None:
+    collected = {Path(str(item.path)).resolve() for item in session.items if _is_service_test(item)}
+    missing = sorted(
+        path.name for path in SERVICE_TESTS.glob("test_*.py") if path.resolve() not in collected
+    )
+    if missing:
+        route_recorder.INCOMPLETE.append(f"service test modules not run: {', '.join(missing)}")
+
+
+def pytest_sessionfinish(session: pytest.Session) -> None:
+    record = os.environ.get(route_recorder.RECORD_FILE_VARIABLE)
+    if record:
+        route_recorder.write_record(Path(record), route_recorder.RECORDED)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def record_routes() -> Iterator[None]:
+    """Every ``TestClient`` of the session records the routes it reaches."""
+    with pytest.MonkeyPatch.context() as patch:
+        route_recorder.install(patch)
+        yield
 
 
 @pytest.fixture
