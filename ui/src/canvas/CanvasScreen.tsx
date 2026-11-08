@@ -1028,6 +1028,7 @@ function ProcessCanvas({
           issues={state.issues}
           readOnly={readOnly}
           actions={actions}
+          renamed={state.renamed}
         />
         {deleting !== null ? (
           <DeleteDialog

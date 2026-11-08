@@ -1023,6 +1023,29 @@ describe("while a write awaits its answer (review of PR #45)", () => {
     expect(screen.queryByText(NOT_SAVED)).toBeNull();
   });
 
+  it("never carries a refused draft to another block", async () => {
+    const { fake, service, toolbar, user } = renderCanvas();
+    await select(user, "exit");
+    const open = fake.holdWrites();
+    await user.type(screen.getByRole("textbox", { name: "Label (optional)" }), "Door{Enter}");
+    await busyStatus(toolbar);
+    const x = screen.getByRole("textbox", { name: "x" });
+    await user.clear(x);
+    await user.type(x, "512{Enter}");
+    expect(screen.getByText(NOT_SAVED)).toBeVisible();
+    fireEvent.click(node("till"));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Id" })).toHaveValue("till"));
+    expect(screen.getByRole("textbox", { name: "x" })).toHaveValue("240");
+    expect(screen.queryByText(NOT_SAVED)).toBeNull();
+    open();
+    await settled(toolbar);
+    await user.click(screen.getByRole("textbox", { name: "x" }));
+    await user.keyboard("{Enter}");
+    await settled(toolbar);
+    expect(sentEdits(fake)).toEqual([[{ edit: "set_label", id: "exit", label: "Door" }]]);
+    expect(service.component("till")?.ui).toEqual({ x: 240, y: 0 });
+  });
+
   it("keeps a draft refused during a rename, and saves it to the renamed block when committed again", async () => {
     const { fake, service, toolbar, user } = renderCanvas();
     await select(user, "till");
