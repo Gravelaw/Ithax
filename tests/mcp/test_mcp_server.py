@@ -154,7 +154,7 @@ def test_serve_stdio_answers_json_rpc_lines(tmp_path: Path) -> None:
     assert [answer["id"] for answer in answers] == [1, 2]
     assert answers[0]["result"]["protocolVersion"] == "2025-06-18"
     assert answers[0]["result"]["serverInfo"]["name"] == "lcsim"
-    assert len(answers[1]["result"]["tools"]) == 6
+    assert len(answers[1]["result"]["tools"]) == 11
 
 
 def stdio_parameters(config_dir: Path, data_dir: Path) -> StdioServerParameters:
@@ -192,7 +192,7 @@ def test_python_dash_m_lcsim_mcp_starts_the_service_on_demand(tmp_path: Path) ->
         # The service outlives the MCP server that started it (spec 3 "Lifetime").
         info = read_service_file(config_dir)
         assert info is not None and info == seen["during"] and probe(info)
-        assert len(seen["tools"]) == 6
+        assert len(seen["tools"]) == 11
     finally:
         stop_started(config_dir)
 

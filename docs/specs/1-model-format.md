@@ -314,12 +314,13 @@ Every issue is one object:
 | E191 | run | Run interrupted by a service restart |
 | E192 | run | Run exceeded its time or memory limit |
 | E193 | mcp | The MCP server cannot reach the engine service: it cannot be started, does not answer, or sends an answer that is not JSON the service's strict reader takes (spec 4 "How the server runs and answers"; AKS-115, owner to confirm) |
+| E194 | mcp | The MCP server has already started two runs of this project that are not finished (`queued` or `running`), the most spec 4 "Limits" allows; the result lists their `run_ids` (AKS-134, owner to confirm) |
 | W200 | meaning | Component with an `in` port cannot be reached from any source (over connections whose two ends are valid, the first from each output port) |
 | W201 | meaning | Mean arrival rate at a server times its mean service time is at least its capacity, and its queue is unlimited, so the queue will grow without limit |
 | W202 | meaning | Normal distribution will clip about 2% or more of its samples at zero (`mean` < 2 × `sd`) |
 | W210 | run | Results were still changing after warm-up; lengthen `warmup` |
 
-Codes E300 to E399 are reserved for engine-specific issues from `validate(model)`; each adapter documents its own. Errors block a run. Warnings do not. Run and service codes are raised by the experiment manager or the service, and E193 by the MCP server; they are tested at their milestones, not by validation fixtures.
+Codes E300 to E399 are reserved for engine-specific issues from `validate(model)`; each adapter documents its own. Errors block a run. Warnings do not. Run and service codes are raised by the experiment manager or the service, and E193 and E194 by the MCP server; they are tested at their milestones, not by validation fixtures.
 
 ### Engine adapter interface
 
@@ -530,3 +531,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 Lines added after version 0.9, during M7 (the version number is bumped when M7 closes, AKS-116):
 
 - 2026-11-08, MCP server (AKS-115), found while building `src/lcsim/mcp/`: "Validation issues" adds E193, raised by the MCP server when the engine service cannot be started, does not answer, or sends an answer the strict reader refuses; the MCP server has no other code of its own, and an input problem in a tool call reuses E184 with `path` at the input (spec 4) (owner to confirm).
+- 2026-11-08, MCP run limit (AKS-134), found while building the write and run tools of `src/lcsim/mcp/`: "Validation issues" adds E194, raised by the MCP server when a project already has two unfinished runs it started (spec 4 "Limits"), and the sentence on run and service codes names it beside E193 (owner to confirm).
