@@ -537,6 +537,16 @@ function ProcessCanvas({
     [add, flow, model],
   );
 
+  /** Adds a block centred on the pointer; without a usable pointer, as the keyboard does. */
+  const addAtPointer = (type: string, clientX: number, clientY: number) => {
+    const at = flow.screenToFlowPosition({ x: clientX, y: clientY });
+    if (!Number.isFinite(at.x) || !Number.isFinite(at.y)) {
+      addAtCentre(type);
+      return;
+    }
+    add(type, { x: snap(at.x - BLOCK_WIDTH / 2), y: snap(at.y - BLOCK_HEIGHT / 2) });
+  };
+
   const deletePlan = useCallback((): (DeletePlan & { edges: number[] }) | null => {
     const blocks = selection.blocks;
     const removed = new Set(blocks);
@@ -676,11 +686,9 @@ function ProcessCanvas({
     [model, send],
   );
 
-  const onConnect = useCallback(
-    (connection: FlowConnection) => {
-      if (!connection.sourceHandle || !connection.targetHandle) return;
-      const from = `${connection.source}.${connection.sourceHandle}`;
-      const to = `${connection.target}.${connection.targetHandle}`;
+  /** `connect`; when it replaces a connection, a notice says so (canvas-interactions.md). */
+  const connectEnds = useCallback(
+    (from: string, to: string) => {
       const was = connections(model).find((item) => item.from === from)?.to;
       void send(`connect ${from} to ${to}`, [{ edit: "connect", from, to }]).then((result) => {
         if (result?.kind === "ok" && was !== undefined && was !== to) {
@@ -689,6 +697,17 @@ function ProcessCanvas({
       });
     },
     [model, send],
+  );
+
+  const onConnect = useCallback(
+    (connection: FlowConnection) => {
+      if (!connection.sourceHandle || !connection.targetHandle) return;
+      connectEnds(
+        `${connection.source}.${connection.sourceHandle}`,
+        `${connection.target}.${connection.targetHandle}`,
+      );
+    },
+    [connectEnds],
   );
 
   const isValidConnection = useCallback(
@@ -710,14 +729,12 @@ function ProcessCanvas({
     const type = event.dataTransfer.getData(BLOCK_MIME);
     if (readOnly || type === "") return;
     event.preventDefault();
-    const at = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-    add(type, { x: snap(at.x - BLOCK_WIDTH / 2), y: snap(at.y - BLOCK_HEIGHT / 2) });
+    addAtPointer(type, event.clientX, event.clientY);
   };
 
   const onPaneClick = (event: ReactMouseEvent) => {
     if (placing === null || readOnly) return;
-    const at = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-    add(placing, { x: snap(at.x - BLOCK_WIDTH / 2), y: snap(at.y - BLOCK_HEIGHT / 2) });
+    addAtPointer(placing, event.clientX, event.clientY);
   };
 
   const onCanvasKey = (event: ReactKeyboardEvent) => {
@@ -839,6 +856,7 @@ function ProcessCanvas({
     },
     select: selectBlocks,
     remove: requestDelete,
+    connect: connectEnds,
   };
 
   const connectingBlock =
@@ -1025,12 +1043,7 @@ function ProcessCanvas({
           onCancel={() => setConnecting(null)}
           onConnect={(from, to) => {
             setConnecting(null);
-            onConnect({
-              source: connectingBlock.id,
-              sourceHandle: from.slice(connectingBlock.id.length + 1),
-              target: splitEnd(to)?.[0] ?? "",
-              targetHandle: splitEnd(to)?.[1] ?? "",
-            });
+            connectEnds(from, to);
           }}
         />
       ) : null}

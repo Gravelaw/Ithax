@@ -27,6 +27,7 @@ export interface PanelActions extends FieldActions {
   send(label: string, edits: import("../api/types").Edit[]): Promise<ApiResult<unknown> | null>;
   select(blocks: string[]): void;
   remove(): void;
+  connect(from: string, to: string): void;
 }
 
 export interface Selection {
@@ -217,7 +218,7 @@ function BlockPanel({
                     const to = event.target.value;
                     if (to === "")
                       actions.edit(`disconnect ${from}`, [{ edit: "disconnect", from }]);
-                    else actions.edit(`connect ${from} to ${to}`, [{ edit: "connect", from, to }]);
+                    else actions.connect(from, to);
                   }}
                 >
                   <option value="">Not connected</option>

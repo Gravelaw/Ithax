@@ -29,15 +29,18 @@ Object.assign(globalThis, {
   ResizeObserver: ResizeObserverStub,
   DOMMatrixReadOnly: DOMMatrixReadOnlyStub,
 });
+// A block is 176 × 64 px; every other element (the flow's panes) 1,000 × 600 px.
 Object.defineProperties(HTMLElement.prototype, {
   offsetHeight: {
     get(this: HTMLElement) {
-      return Number.parseFloat(this.style.height) || 64;
+      if (this.classList.contains("react-flow__node")) return 64;
+      return this.style.height.endsWith("px") ? Number.parseFloat(this.style.height) : 600;
     },
   },
   offsetWidth: {
     get(this: HTMLElement) {
-      return Number.parseFloat(this.style.width) || 176;
+      if (this.classList.contains("react-flow__node")) return 176;
+      return this.style.width.endsWith("px") ? Number.parseFloat(this.style.width) : 1000;
     },
   },
 });
