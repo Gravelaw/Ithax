@@ -24,6 +24,9 @@ a route (a dropped connection, a timeout) is never repeated, since it may have b
 
 When no answer can be had the client raises ``ServiceUnavailable``, which becomes spec 1
 issue E193 (AKS-115, owner to confirm).
+
+A client is one MCP server's way in, so it also holds ``started_runs``, the runs that server
+started, which spec 4's run limit counts (``lcsim.mcp.limits``; AKS-134).
 """
 
 from __future__ import annotations
@@ -42,6 +45,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Any
 
+from lcsim.mcp.limits import StartedRuns
 from lcsim.model.issues import Issue
 from lcsim.service.discovery import ServiceInfo, probe, read_service_file
 from lcsim.service.main import LOCAL_ADDRESS, STARTUP_WAIT_S
@@ -146,7 +150,8 @@ class ServiceClient:
     with ``config_dir`` and ``data_dir`` when it does not answer.
 
     ``command`` replaces the start command (tests); ``started`` is the last service process
-    this client started, or ``None``. Safe to use from several threads.
+    this client started, or ``None``; ``started_runs`` holds the runs started through it
+    (spec 4 "Limits"). Safe to use from several threads.
     """
 
     def __init__(
@@ -164,6 +169,7 @@ class ServiceClient:
         self.start_timeout_s = start_timeout_s
         self.request_timeout_s = request_timeout_s
         self.started: subprocess.Popen[bytes] | None = None
+        self.started_runs = StartedRuns()
         self._info: ServiceInfo | None = None
         self._lock = threading.Lock()
         self._opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())

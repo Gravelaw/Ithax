@@ -12,22 +12,33 @@ shadow the MCP SDK, and a second top-level ``conftest`` module would clash with 
   show (the headers sent, a refused connection, a stale token, an answer that is not JSON).
 - ``stop_service``: stops a service the MCP server started as a process, so no test leaves
   one running.
+- ``run``, ``payload``, ``spec_4_tool_rows``: drive a server through the SDK's in-memory
+  client, read a result's JSON, and read spec 4's "MCP tools" table (AKS-115; shared with
+  the write and run tools of AKS-134).
 """
 
 from __future__ import annotations
 
 import contextlib
 import json
+import re
 import subprocess
+import sys
 import threading
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 
+import anyio
 import uvicorn
+from mcp import Client
+from mcp.types import CallToolResult, TextContent
 
+from lcsim.mcp.client import ServiceClient
+from lcsim.mcp.server import build_server
 from lcsim.service.app import create_app
 from lcsim.service.config import ServiceConfig, new_token
 from lcsim.service.discovery import (
@@ -41,6 +52,50 @@ from lcsim.service.hardware import Hardware
 from lcsim.service.main import bind_local
 
 TIMEOUT_S = 60.0
+
+ROOT = Path(__file__).resolve().parents[2]
+SPEC_4 = ROOT / "docs" / "specs" / "4-content-and-ai.md"
+
+#: A start command that fails at once, for clients that must find a running service.
+NO_START = [sys.executable, "-c", "raise SystemExit(3)"]
+
+
+def spec_4_tool_rows() -> dict[str, tuple[str, list[tuple[str, str]]]]:
+    """The "MCP tools" table of spec 4, in its row order: tool name to its Input cell and
+    the endpoints of its Calls cell."""
+    text = SPEC_4.read_text(encoding="utf-8")
+    section = text[text.index("### MCP tools") : text.index("Behaviour an assistant can rely on")]
+    rows: dict[str, tuple[str, list[tuple[str, str]]]] = {}
+    for line in section.splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        match = re.fullmatch(r"`(\w+)`", cells[0]) if len(cells) == 4 else None
+        if match:
+            calls = re.findall(r"`(GET|POST|PUT|DELETE) (/v1/[^`?]*)", cells[3])
+            rows[match.group(1)] = (cells[1], calls)
+    return rows
+
+
+def run(test: Callable[[Client], Awaitable[None]], client: ServiceClient, **options: Any) -> None:
+    """Run ``test`` with an in-memory MCP client connected to a server for ``client``."""
+
+    async def main() -> None:
+        async with Client(build_server(client), **options) as mcp_client:
+            await test(mcp_client)
+
+    anyio.run(main)
+
+
+def payload(result: CallToolResult) -> Any:
+    """The JSON a result carries in its one text block; also its structured content when
+    that is an object."""
+    [block] = result.content
+    assert isinstance(block, TextContent)
+    value = json.loads(block.text)
+    if isinstance(value, dict):
+        assert result.structured_content == value
+    else:
+        assert result.structured_content is None
+    return value
 
 
 def wait_until(condition: Callable[[], object], timeout_s: float = TIMEOUT_S) -> None:
@@ -103,13 +158,15 @@ TRUNCATED = "truncated"
 class StubService:
     """An HTTP server on ``127.0.0.1`` that answers ``GET /v1/system`` with 200 when the
     token is right and every other request with the next scripted answer (``200`` and
-    ``{}`` when none is left), or drops it for ``DROP``."""
+    ``{}`` when none is left), or drops it for ``DROP``. When ``respond`` is set, it
+    answers every request but the probe instead, from the request (AKS-134)."""
 
     config_dir: Path
     token: str = "stub-token-0123456789"
     answers: list[tuple[int, bytes, dict[str, str]] | str] = field(default_factory=list)
     requests: list[Recorded] = field(default_factory=list)
     probes: int = 0
+    respond: Callable[[Recorded], tuple[int, bytes, dict[str, str]]] | None = None
     _server: ThreadingHTTPServer | None = None
     _thread: threading.Thread | None = None
 
@@ -128,7 +185,11 @@ class StubService:
                     ok = self.headers.get("Authorization") == f"Bearer {stub.token}"
                     self._send(200 if ok else 401, b"{}", {})
                     return
-                stub.requests.append(Recorded(self.command, self.path, dict(self.headers), body))
+                recorded = Recorded(self.command, self.path, dict(self.headers), body)
+                stub.requests.append(recorded)
+                if stub.respond is not None:
+                    self._send(*stub.respond(recorded))
+                    return
                 answer = stub.answers.pop(0) if stub.answers else (200, b"{}", {})
                 if answer == DROP:
                     self.close_connection = True

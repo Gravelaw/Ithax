@@ -1,19 +1,22 @@
 """The MCP tools: one registry, one argument check, one way of turning answers into tool
-results (spec 4 "MCP tools" and "How the server runs and answers"; AKS-115).
+results (spec 4 "MCP tools", "How the server runs and answers" and "Limits"; AKS-115 for
+the six read tools, AKS-134 for the five write and run tools).
 
 Each tool is a ``ToolSpec``: its name, a summary, its inputs as spec 4's table names them,
 one worked example (arguments and an abridged result, written into the description, since
 "the assistant sees nothing else"), and ``calls``, which makes the tool's request or
-requests to the service through ``ServiceClient`` and returns the answer to report. AKS-134
-adds the write and run tools to ``TOOLS`` the same way; a tool that makes several requests
-(``get_results``) returns the answer it composes from them.
+requests to the service through ``ServiceClient`` and returns the answer to report. A tool
+that makes several requests (``get_results``) returns the answer it composes from them, or
+the first refusal unchanged; ``run_model`` starts its run through the client's
+``started_runs`` (``lcsim.mcp.limits``), which applies spec 4's two-run limit.
 
 ``run_tool`` is the one path from a call to a result:
 
 1. ``check_arguments``: an input missing, unknown or of the wrong kind is an E184 issue at
    ``/<input>`` (the service's code for a malformed request, its ``path`` pointing into the
    arguments as the service's points into a request body), and no request is sent;
-2. the tool's ``calls``; a service that cannot be reached is ``ServiceUnavailable``, E193;
+2. the tool's ``calls``; a service that cannot be reached is ``ServiceUnavailable``, E193,
+   and a run refused by the limit is ``RunLimitReached``, E194;
 3. the answer as a result: its body as JSON text, and the same object as
    ``structuredContent`` when it is a JSON object; marked ``isError`` for a status of 400
    or above, the service's body unchanged.
@@ -24,19 +27,21 @@ Errors are data (spec 4): every one of these is a tool result, never a protocol 
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import quote
 
 from mcp.types import CallToolResult, TextContent, Tool
 
 from lcsim.mcp.client import Answer, ServiceClient, ServiceUnavailable
+from lcsim.mcp.limits import RunLimitReached, segment
 from lcsim.model.issues import Issue, pointer
 
 __all__ = [
     "KINDS",
     "MALFORMED",
+    "MAX_DEPTH",
     "TOOLS",
     "Input",
     "ToolSpec",
@@ -62,13 +67,57 @@ def _valid_unicode(text: str) -> bool:
     return True
 
 
-#: The kinds an input may have: the JSON Schema type the input schema declares, the words
-#: an issue uses, and the check. AKS-134 adds the kinds its inputs need here.
-KINDS: Mapping[str, tuple[str, str, Callable[[object], bool]]] = {
-    "text": (
-        "string",
-        "text",
-        lambda value: isinstance(value, str) and _valid_unicode(value),
+#: How deep the value of an ``edits`` input may nest: far more than any model needs (a shift
+#: of a schedule is six levels down), and well within what a request body can be encoded
+#: with (spec 4 "How the server runs and answers"; AKS-134).
+MAX_DEPTH = 100
+
+
+def _is_text(value: object) -> bool:
+    return isinstance(value, str) and _valid_unicode(value)
+
+
+def _is_whole_number(value: object) -> bool:
+    """A JSON integer: an ``int`` that is not a ``bool`` (``True`` is an ``int``)."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_texts(value: object) -> bool:
+    return isinstance(value, list) and all(_is_text(item) for item in value)
+
+
+def _sendable(value: object) -> bool:
+    """Whether ``value`` can be sent as a request body: every number finite (JSON has no
+    ``NaN`` or infinity, and the client encodes with ``allow_nan=False``) and no more than
+    ``MAX_DEPTH`` levels of arrays and objects. Walked without recursion, so a deep value
+    is refused rather than failing the walk."""
+    pending: list[tuple[object, int]] = [(value, 1)]
+    while pending:
+        item, depth = pending.pop()
+        if isinstance(item, float) and not math.isfinite(item):
+            return False
+        if isinstance(item, (list, dict)):
+            if depth > MAX_DEPTH:
+                return False
+            children = item.values() if isinstance(item, dict) else item
+            pending.extend((child, depth + 1) for child in children)
+    return True
+
+
+#: The kinds an input may have: the JSON Schema the input schema declares for it, the words
+#: an issue uses, and the check (spec 4 "How the server runs and answers").
+KINDS: Mapping[str, tuple[Mapping[str, Any], str, Callable[[object], bool]]] = {
+    "text": ({"type": "string"}, "text", _is_text),
+    "whole number": ({"type": "integer"}, "a whole number", _is_whole_number),
+    "texts": (
+        {"type": "array", "items": {"type": "string"}},
+        "an array of text",
+        _is_texts,
+    ),
+    "edits": (
+        {"type": "array", "items": {"type": "object"}},
+        f"an array of edits whose numbers are finite, nested at most {MAX_DEPTH} levels deep",
+        lambda value: isinstance(value, list) and _sendable(value),
     ),
 }
 
@@ -111,7 +160,7 @@ class ToolSpec:
         schema: dict[str, Any] = {
             "type": "object",
             "properties": {
-                item.name: {"type": KINDS[item.kind][0], "description": item.description}
+                item.name: {**KINDS[item.kind][0], "description": item.description}
                 for item in self.inputs
             },
             "additionalProperties": False,
@@ -197,14 +246,12 @@ def run_tool(
         return result_of(body, is_error=True)
     try:
         answer = spec.calls(client, given)
-    except ServiceUnavailable as unavailable:
-        return result_of(unavailable.body(), is_error=True)
+    except (ServiceUnavailable, RunLimitReached) as refusal:
+        return result_of(refusal.body(), is_error=True)
     return result_of(answer.body, is_error=answer.status >= _ERROR_STATUS)
 
 
-def _segment(value: str) -> str:
-    """``value`` as one percent-encoded path segment, so no input can name another route."""
-    return quote(value, safe="")
+_segment = segment
 
 
 def _get(path: str) -> Calls:
@@ -362,13 +409,306 @@ LIST_ENGINES = ToolSpec(
     calls=_get("/v1/engines"),
 )
 
+
+def _create_model(client: ServiceClient, arguments: Mapping[str, Any]) -> Answer:
+    body: dict[str, Any] = {"name": arguments["name"]}
+    if "template_id" in arguments:
+        body["template"] = arguments["template_id"]
+    if "domain" in arguments:
+        body["domain"] = arguments["domain"]
+    return client.request("POST", "/v1/projects", body)
+
+
+def _edit_model(client: ServiceClient, arguments: Mapping[str, Any]) -> Answer:
+    body: dict[str, Any] = {"edits": arguments["edits"]}
+    if "base_revision" in arguments:
+        body["base_revision"] = arguments["base_revision"]
+    path = f"/v1/projects/{_segment(arguments['project_id'])}/model/edits"
+    return client.request("POST", path, body)
+
+
+def _run_model(client: ServiceClient, arguments: Mapping[str, Any]) -> Answer:
+    body: dict[str, Any] = {}
+    if "experiment_id" in arguments:
+        body["experiment_id"] = arguments["experiment_id"]
+    return client.started_runs.start(client, arguments["project_id"], body)
+
+
+def _get_run_status(client: ServiceClient, arguments: Mapping[str, Any]) -> Answer:
+    return client.request("GET", f"/v1/runs/{_segment(arguments['run_id'])}")
+
+
+def _get_results(client: ServiceClient, arguments: Mapping[str, Any]) -> Answer:
+    """The summary's answer with ``tables`` added, one request per table named (each
+    once, in the order first named); the first refusal unchanged."""
+    run = f"/v1/runs/{_segment(arguments['run_id'])}"
+    summary = client.request("GET", f"{run}/summary")
+    if summary.status >= _ERROR_STATUS or not isinstance(summary.body, dict):
+        return summary
+    tables: dict[str, object] = {}
+    for name in dict.fromkeys(arguments.get("tables", ())):
+        answer = client.request("GET", f"{run}/tables/{_segment(name)}?format=json")
+        if answer.status >= _ERROR_STATUS:
+            return answer
+        tables[name] = answer.body
+    return Answer(status=summary.status, body={**summary.body, "tables": tables})
+
+
+_RUN_ID = Input(
+    "run_id",
+    "text",
+    "The run's id, the 'run_id' run_model returned.",
+    required=True,
+)
+_EXAMPLE_RID = "20261108T093012-K7QM2X"
+
+CREATE_MODEL = ToolSpec(
+    name="create_model",
+    summary=(
+        "Start a new project and its model (POST /v1/projects), from nothing or from a "
+        "template (template_id, an id list_templates gives). Returns the new project as "
+        "list_projects lists it; its id is the project_id the other tools take. Without a "
+        "template the model is empty: no components and one experiment, base (length 8 h, "
+        "warmup 0 s, 30 replications). domain is 'process' (the default, simulation) or "
+        "'optimization', which starts a mathematical model with no variables or "
+        "constraints instead; a model's domain cannot be changed by edits. Then read the "
+        "model with get_model and build it with edit_model; the user sees it on the canvas."
+    ),
+    inputs=(
+        Input("name", "text", "The project's name, shown to the user.", required=True),
+        Input(
+            "template_id",
+            "text",
+            "The id of a template to start from (list_templates); leave out to start empty.",
+        ),
+        Input(
+            "domain",
+            "text",
+            "'process' (the default) or 'optimization'; leave out for a process model.",
+        ),
+    ),
+    example_arguments={"name": "Coffee shop"},
+    example_result=(
+        f'{{"id": "{_EXAMPLE_PID}", "name": "Coffee shop", "created": '
+        '"2026-11-08T09:30:00.000Z", "layout_version": 1, "model_revision": 0, "path": '
+        f'"/home/me/.local/share/lcsim/projects/{_EXAMPLE_PID}", "available": true}}'
+    ),
+    calls=_create_model,
+)
+
+#: The worked example of edit_model: two servers sharing a pool of staff, on a weekly rota
+#: whose night shift is split at the period end (``docs/research/spec-2-prior-art.md``).
+_EXAMPLE_EDITS: list[dict[str, Any]] = [
+    {
+        "edit": "add_component",
+        "id": "arrivals",
+        "type": "source",
+        "params": {"interarrival": {"dist": "exponential", "mean": "30 min"}},
+    },
+    {"edit": "add_component", "id": "staff", "type": "resource_pool", "params": {"capacity": 2}},
+    {
+        "edit": "add_component",
+        "id": "cutting",
+        "type": "server",
+        "params": {
+            "capacity": 1,
+            "service": {"dist": "exponential", "mean": "20 min"},
+            "pool": "staff",
+        },
+    },
+    {
+        "edit": "add_component",
+        "id": "sewing",
+        "type": "server",
+        "params": {
+            "capacity": 1,
+            "service": {"dist": "exponential", "mean": "25 min"},
+            "pool": "staff",
+        },
+    },
+    {
+        "edit": "add_component",
+        "id": "rota",
+        "type": "schedule",
+        "params": {
+            "target": "staff",
+            "period": "168 h",
+            "shifts": [
+                {"start": "8 h", "end": "16 h", "capacity": 2},
+                {"start": "166 h", "end": "168 h", "capacity": 1},
+                {"start": "0 h", "end": "6 h", "capacity": 1},
+            ],
+        },
+    },
+    {"edit": "add_component", "id": "exit", "type": "sink", "params": {}},
+    {"edit": "connect", "from": "arrivals.out", "to": "cutting.in"},
+    {"edit": "connect", "from": "cutting.out", "to": "sewing.in"},
+    {"edit": "connect", "from": "sewing.out", "to": "exit.in"},
+]
+
+EDIT_MODEL = ToolSpec(
+    name="edit_model",
+    summary=(
+        "Change a project's model by a batch of edits, applied in order and saved together "
+        "(POST /v1/projects/{project_id}/model/edits). Each edit is an object whose 'edit' "
+        "names its kind: add_component {id, type, params, ui?}; remove_component {id}; "
+        "rename_component {id, new_id}; set_setting {id, path, value}, path a JSON Pointer "
+        "into the component's params such as /service/mean; connect {from, to} and "
+        "disconnect {from}, naming ports such as 'arrivals.out' and 'till.in'; "
+        "set_parameter {id, value?, type?, min?, max?} and remove_parameter {id}; "
+        "set_experiment {id, and any experiment fields such as length, warmup, "
+        "replications, seed, search} and remove_experiment {id}; set_scenario "
+        "{experiment_id, id, set} and remove_scenario {experiment_id, id}; set_path {path, "
+        "value} and remove_path {path}, a JSON Pointer on the whole model for /meta, /run, "
+        "/objectives, /constraints, /experiments/<n>/search and, in an optimization model, "
+        "/variables and /objective; set_ui {id, ui}; set_label {id, label}. get_schema "
+        "gives each block type's settings. A batch that applies is saved and returns "
+        "{model, revision, issues}: the issues are validation's, errors to fix before a run "
+        "and warnings to read. An edit that cannot be applied (an unknown or duplicate "
+        "component id, an unknown type, parameter or experiment, a path whose parent does "
+        "not exist) is refused with E180 at /edits/<n> and nothing is saved. Send "
+        "base_revision, the revision get_model or the last edit_model returned: if the user "
+        "changed the model meanwhile nothing is applied, and the refusal, E181, carries the "
+        "current model and revision. Keep batches small. Randomness is set by an "
+        "experiment's seed (set_experiment), never per component; each component draws "
+        "from its own stream. The example builds two servers sharing a pool of two staff "
+        "on a weekly rota (period 168 h, capacity 0 outside the listed shifts): Monday's "
+        "day shift, 8 h to 16 h, and the night from Sunday 22:00 to Monday 06:00, split at "
+        "the period end into 166 h to 168 h and 0 h to 6 h, since a shift cannot cross the "
+        "end of its period."
+    ),
+    inputs=(
+        _PROJECT_ID,
+        Input(
+            "edits",
+            "edits",
+            "The edits, applied in order; each an object whose 'edit' names its kind.",
+            required=True,
+        ),
+        Input(
+            "base_revision",
+            "whole number",
+            "The model's revision these edits were written against (from get_model or the "
+            "last edit_model); leave out to apply them to whatever is saved.",
+        ),
+    ),
+    example_arguments={"project_id": _EXAMPLE_PID, "edits": _EXAMPLE_EDITS, "base_revision": 0},
+    example_result=(
+        '{"model": {"format_version": "0.1", "meta": {"name": "Workshop"}, "domain": '
+        '"process", "parameters": {}, "components": [{"id": "arrivals", "type": "source", '
+        '...}, {"id": "staff", "type": "resource_pool", "params": {"capacity": 2}}, ...], '
+        '"connections": [{"from": "arrivals.out", "to": "cutting.in"}, ...], "experiments": '
+        '[{"id": "base", "length": "8 h", "warmup": "0 s", "replications": 30}], "run": '
+        '{"target": "local", "fidelity": "standard"}}, "revision": 1, "issues": []}'
+    ),
+    calls=_edit_model,
+)
+
+RUN_MODEL = ToolSpec(
+    name="run_model",
+    summary=(
+        "Start a run of a project's saved model (POST /v1/projects/{project_id}/runs). It "
+        "returns at once with {run_id}; the run waits its turn in the service's queue. For "
+        "a process model name the experiment to run (experiment_id, such as 'base'); an "
+        "optimization model has no experiments, so leave experiment_id out. An experiment "
+        "with a search (simulation-based optimization) runs the same way. The model is "
+        "checked first: a model with errors is refused with status 422 and its issues, and "
+        "nothing runs (validate_model shows them beforehand). Then poll get_run_status "
+        "until the state is done, failed or cancelled, and read get_results. Every run is "
+        "bounded by the service's time and memory limits (10 minutes and half the memory "
+        "by default); a run beyond them fails with E192. At most two runs of a project "
+        "started through this server may be unfinished (queued or running) at once; a "
+        "third is refused with E194, which lists their run_ids. For results that repeat "
+        "exactly, set the experiment's seed with edit_model first."
+    ),
+    inputs=(
+        _PROJECT_ID,
+        Input(
+            "experiment_id",
+            "text",
+            "The id of the experiment to run: required for a process model, left out for an "
+            "optimization model.",
+        ),
+    ),
+    example_arguments={"project_id": _EXAMPLE_PID, "experiment_id": "base"},
+    example_result=f'{{"run_id": "{_EXAMPLE_RID}"}}',
+    calls=_run_model,
+)
+
+GET_RUN_STATUS = ToolSpec(
+    name="get_run_status",
+    summary=(
+        "Read a run's state and progress (GET /v1/runs/{run_id}). Returns {run_id, "
+        "project_id, experiment_id, state, fraction, message, created, started, ended, "
+        "error}: state is queued, running, done, failed or cancelled; fraction goes from 0 "
+        "to 1; error is null unless the run failed, and then an issue with its code (E190 "
+        "the engine failed, E191 the service restarted, E192 the run exceeded its time or "
+        "memory limit). Poll every few seconds until the state is done, failed or "
+        "cancelled; results exist only for done."
+    ),
+    inputs=(_RUN_ID,),
+    example_arguments={"run_id": _EXAMPLE_RID},
+    example_result=(
+        f'{{"run_id": "{_EXAMPLE_RID}", "project_id": "{_EXAMPLE_PID}", "experiment_id": '
+        '"base", "state": "running", "fraction": 0.4, "message": "", "created": '
+        '"2026-11-08T09:30:12.418Z", "started": "2026-11-08T09:30:12.420Z", "ended": null, '
+        '"error": null}'
+    ),
+    calls=_get_run_status,
+)
+
+GET_RESULTS = ToolSpec(
+    name="get_results",
+    summary=(
+        "Read a finished run's results (GET /v1/runs/{run_id}/summary, plus GET "
+        "/v1/runs/{run_id}/tables/{name}?format=json for each name in tables). Returns "
+        "{summary, findings, tables}. In summary, scenarios.<scenario>.metrics maps each "
+        "metric, such as 'till.wait.mean' or 'till.utilization', to {mean, half_width, "
+        "unit, n}, in SI units (times in seconds, rates per second): mean plus or minus "
+        "half_width is the confidence interval at summary.confidence over n replications, "
+        "half_width being t times the standard deviation over the square root of n, with t "
+        "the Student t quantile at (1 + confidence) / 2 for n - 1 degrees of freedom. A "
+        "plain run has the one scenario 'default'. A search run adds summary.search (status, "
+        "the best values in best.set, the objective before and after), and its metrics are "
+        "the best candidate's. An optimization run's summary holds status, objective, "
+        "variables and constraints instead, and it has no tables. tables is optional and "
+        "long: 'replications' gives one row per scenario, replication and metric, "
+        "'timeseries' the sampled values over time; ask for one only when the summary is "
+        "not enough. A run that is not done is refused with E188, an unknown table with "
+        "E185."
+    ),
+    inputs=(
+        _RUN_ID,
+        Input(
+            "tables",
+            "texts",
+            "Table names to include: 'replications' and/or 'timeseries'; leave out for none.",
+        ),
+    ),
+    example_arguments={"run_id": _EXAMPLE_RID},
+    example_result=(
+        '{"summary": {"model": "Coffee shop", "experiment": "base", "fidelity": "standard", '
+        '"fidelity_label": "Standard: 30 replications of 200 h, 95% confidence", '
+        '"replications": 30, "confidence": 0.95, "scenarios": {"default": {"set": {}, '
+        '"metrics": {"till.wait.mean": {"mean": 273.3, "half_width": 13.0, "unit": "s", '
+        '"n": 30}, "till.utilization": {"mean": 0.752, "half_width": 0.006, "unit": "1", '
+        '"n": 30}, ...}}}, "differences": [], "warnings": []}, "findings": [], "tables": {}}'
+    ),
+    calls=_get_results,
+)
+
 #: The tools, in the order ``tools/list`` gives them (spec 4 "MCP tools").
 TOOLS: tuple[ToolSpec, ...] = (
     LIST_TEMPLATES,
     GET_SCHEMA,
     LIST_PROJECTS,
+    CREATE_MODEL,
     GET_MODEL,
+    EDIT_MODEL,
     VALIDATE_MODEL,
+    RUN_MODEL,
+    GET_RUN_STATUS,
+    GET_RESULTS,
     LIST_ENGINES,
 )
 

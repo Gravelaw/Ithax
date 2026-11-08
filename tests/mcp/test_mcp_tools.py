@@ -1,4 +1,6 @@
-"""The six read tools (spec 4 "MCP tools" and "How the server runs and answers"; AKS-115).
+"""The tool list and the six read tools (spec 4 "MCP tools" and "How the server runs and
+answers"; AKS-115). The five write and run tools are in ``test_mcp_write_tools.py``
+(AKS-134).
 
 Driven through the MCP SDK's in-memory client (``Client(server)``), as an assistant would
 call them, against the real M6 application served in process, or against a stub where the
@@ -11,25 +13,28 @@ hold spec 1 issue objects, never protocol errors.
 import json
 import re
 import sys
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-import anyio
 import httpx2
 import pytest
 from mcp import Client, MCPError
-from mcp.types import CallToolResult, TextContent
-from mcp_support import StubService, in_process_service
+from mcp_support import (
+    NO_START,
+    ROOT,
+    StubService,
+    in_process_service,
+    payload,
+    run,
+    spec_4_tool_rows,
+)
 
 from lcsim.mcp.client import ServiceClient
-from lcsim.mcp.server import build_server
 from lcsim.mcp.tools import TOOLS, check_arguments, run_tool, tool_named
 from lcsim.service.discovery import ServiceInfo
 
-ROOT = Path(__file__).resolve().parents[2]
-SPEC_4 = ROOT / "docs" / "specs" / "4-content-and-ai.md"
 COFFEE_SHOP = ROOT / "examples" / "coffee_shop.json"
 READ_TOOLS = {
     "list_templates",
@@ -39,45 +44,8 @@ READ_TOOLS = {
     "validate_model",
     "list_engines",
 }
-NO_START = [sys.executable, "-c", "raise SystemExit(3)"]
-
-
-def spec_4_tool_rows() -> dict[str, tuple[str, list[tuple[str, str]]]]:
-    """The "MCP tools" table of spec 4: tool name to its Input cell and the endpoints of
-    its Calls cell."""
-    text = SPEC_4.read_text(encoding="utf-8")
-    section = text[text.index("### MCP tools") : text.index("Behaviour an assistant can rely on")]
-    rows: dict[str, tuple[str, list[tuple[str, str]]]] = {}
-    for line in section.splitlines():
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        match = re.fullmatch(r"`(\w+)`", cells[0]) if len(cells) == 4 else None
-        if match:
-            calls = re.findall(r"`(GET|POST|PUT|DELETE) (/v1/[^`?]*)", cells[3])
-            rows[match.group(1)] = (cells[1], calls)
-    return rows
-
-
-def run(test: Callable[[Client], Awaitable[None]], client: ServiceClient, **options: Any) -> None:
-    """Run ``test`` with an in-memory MCP client connected to a server for ``client``."""
-
-    async def main() -> None:
-        async with Client(build_server(client), **options) as mcp_client:
-            await test(mcp_client)
-
-    anyio.run(main)
-
-
-def payload(result: CallToolResult) -> Any:
-    """The JSON a result carries in its one text block; also its structured content when
-    that is an object."""
-    [block] = result.content
-    assert isinstance(block, TextContent)
-    value = json.loads(block.text)
-    if isinstance(value, dict):
-        assert result.structured_content == value
-    else:
-        assert result.structured_content is None
-    return value
+WRITE_TOOLS = {"create_model", "edit_model", "run_model", "get_run_status", "get_results"}
+ALL_TOOLS = READ_TOOLS | WRITE_TOOLS
 
 
 @pytest.fixture
@@ -116,18 +84,21 @@ def new_project(http: httpx2.Client, name: str = "Coffee shop") -> str:
 # --- the tool list ---------------------------------------------------------------------------
 
 
-def test_the_server_lists_the_six_read_tools() -> None:
+def test_the_server_lists_the_eleven_tools_in_the_order_of_spec_4() -> None:
+    # Was test_the_server_lists_the_six_read_tools (AKS-115); AKS-134 adds the other five.
     async def check(mcp_client: Client) -> None:
         listed = await mcp_client.list_tools()
-        assert {tool.name for tool in listed.tools} == READ_TOOLS
+        assert {tool.name for tool in listed.tools} == ALL_TOOLS
+        assert len(ALL_TOOLS) == 11
         assert [tool.name for tool in listed.tools] == [spec.name for spec in TOOLS]
+        assert [tool.name for tool in listed.tools] == list(spec_4_tool_rows())
 
     run(check, ServiceClient(Path("unused-config"), Path("unused-data"), command=NO_START))
 
 
 def test_every_tool_has_the_inputs_spec_4_names() -> None:
     rows = spec_4_tool_rows()
-    assert READ_TOOLS <= set(rows)
+    assert set(rows) == ALL_TOOLS
     for spec in TOOLS:
         inputs, _ = rows[spec.name]
         named = re.findall(r"`(\w+)`", inputs)
@@ -159,7 +130,11 @@ def test_every_description_names_its_endpoint_and_carries_one_worked_example() -
         assert description is not None
         assert description.count("Example: ") == 1, spec.name
         for method, path in rows[spec.name][1]:
-            written = path.replace("{pid}", "{project_id}").replace("{type}", "{component_type}")
+            written = (
+                path.replace("{pid}", "{project_id}")
+                .replace("{type}", "{component_type}")
+                .replace("{rid}", "{run_id}")
+            )
             assert f"{method} {written}" in description, (spec.name, method, path)
         # The example's arguments are valid arguments for the tool.
         assert check_arguments(spec, spec.example_arguments) == [], spec.name
@@ -333,7 +308,7 @@ def test_a_client_of_the_handshake_era_gets_the_same_answers(
     async def check(mcp_client: Client) -> None:
         assert mcp_client.protocol_version == "2025-11-25"
         listed = await mcp_client.list_tools()
-        assert {tool.name for tool in listed.tools} == READ_TOOLS
+        assert {tool.name for tool in listed.tools} == ALL_TOOLS
         result = await mcp_client.call_tool("list_engines", {})
         assert payload(result) == http.get("/v1/engines").json()
 
