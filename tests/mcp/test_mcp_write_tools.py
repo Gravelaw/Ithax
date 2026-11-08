@@ -35,7 +35,7 @@ from mcp_support import (
 
 from lcsim.mcp.client import ServiceClient
 from lcsim.mcp.limits import MAX_UNFINISHED_RUNS, RUN_LIMIT
-from lcsim.mcp.tools import MAX_DEPTH, check_arguments, run_tool, tool_named
+from lcsim.mcp.tools import MAX_DEPTH, TOOLS, check_arguments, run_tool, tool_named
 from lcsim.service.discovery import ServiceInfo
 
 FINAL = ("done", "failed", "cancelled")
@@ -937,3 +937,34 @@ def test_the_write_and_run_descriptions_say_what_an_assistant_needs() -> None:
         assert phrase in described("get_run_status"), phrase
     for phrase in ("half_width", "confidence", "quantile", "seconds", "E188", "replications"):
         assert phrase in described("get_results"), phrase
+
+
+def test_the_descriptions_say_an_experiment_s_length_includes_its_warm_up() -> None:
+    """The first real-assistant trial (AKS-116) read "200 hours after a 10-hour warm-up" as
+    length 200 h, which measures 190 h, and found it only from the arrival count."""
+
+    def described(name: str) -> str:
+        return tool_named(name).tool().description or ""
+
+    for name in ("create_model", "edit_model"):
+        assert "length includes the warmup" in described(name), name
+    assert "length 210 h and warmup 10 h" in described("edit_model")
+
+
+def test_the_edit_model_description_says_validate_model_adds_the_engine_s_check() -> None:
+    """The trial's assistant ran without validate_model, reading edit_model's issues as the
+    whole check; they are loading's (spec 3), and validate_model adds the engine's."""
+    text = tool_named("edit_model").tool().description or ""
+    assert "validate_model" in text
+    assert "the engine's own check" in text
+
+
+#: The longest tool description the trial's Claude Code CLI took whole: it ran with
+#: ``CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH`` 4096 (AKS-116), and a longer description would
+#: be cut, losing its worked example, which comes last.
+MAX_DESCRIPTION = 4096
+
+
+def test_every_description_fits_the_trial_assistant_s_limit() -> None:
+    for spec in TOOLS:
+        assert len(spec.tool().description or "") <= MAX_DESCRIPTION, spec.name

@@ -11,17 +11,23 @@ shadow the MCP SDK, and a second top-level ``conftest`` module would clash with 
   answers, recording every other request with its headers, for what a real service cannot
   show (the headers sent, a refused connection, a stale token, an answer that is not JSON).
 - ``stop_service``: stops a service the MCP server started as a process, so no test leaves
-  one running.
+  one running; ``stop_started`` stops one that a separate MCP server process started, found
+  by the pid in its ``service.json``, with every process it started (AKS-116).
 - ``run``, ``payload``, ``spec_4_tool_rows``: drive a server through the SDK's in-memory
   client, read a result's JSON, and read spec 4's "MCP tools" table (AKS-115; shared with
   the write and run tools of AKS-134).
+- ``coffee_shop_verdict``: the pass criteria of spec 4 "Assistant acceptance case", read from
+  the tools' answers without assuming any id (AKS-116; the scripted case and the check of a
+  real assistant's trial both use it).
 """
 
 from __future__ import annotations
 
 import contextlib
 import json
+import os
 import re
+import signal
 import subprocess
 import sys
 import threading
@@ -39,6 +45,7 @@ from mcp.types import CallToolResult, TextContent
 
 from lcsim.mcp.client import ServiceClient
 from lcsim.mcp.server import build_server
+from lcsim.runs.statistics import t_quantile
 from lcsim.service.app import create_app
 from lcsim.service.config import ServiceConfig, new_token
 from lcsim.service.discovery import (
@@ -260,3 +267,118 @@ def stop_service(config_dir: Path, process: subprocess.Popen[bytes] | None) -> N
         process.wait(TIMEOUT_S)
     if info is not None and info.pid == process.pid:
         assert not probe(info), "the service still answers"
+
+
+def _children(pid: int) -> list[int]:
+    """The processes whose parent is ``pid``, from ``/proc`` (Linux)."""
+    found: list[int] = []
+    for entry in Path("/proc").iterdir():
+        if entry.name.isdigit():
+            with contextlib.suppress(OSError, IndexError, ValueError):
+                # The fields after the command name, which may hold spaces, in parentheses.
+                fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
+                if int(fields[1]) == pid:
+                    found.append(int(entry.name))
+    return found
+
+
+def descendants(pid: int) -> list[int]:
+    """Every process ``pid`` started, and every one they started, while they run (Linux;
+    empty elsewhere)."""
+    if not Path("/proc").is_dir():  # pragma: no cover - CI and the build run on Linux
+        return []
+    found: list[int] = []
+    waiting = [pid]
+    while waiting:
+        for child in _children(waiting.pop()):
+            found.append(child)
+            waiting.append(child)
+    return found
+
+
+def running(pid: int) -> bool:
+    """Whether ``pid`` is a process that has not ended (an ended one its parent has not
+    reaped yet, a zombie, counts as ended). Linux reads ``/proc``; elsewhere a service that
+    no longer answers is taken as ended by ``stop_started``."""
+    stat = Path("/proc") / str(pid) / "stat"
+    try:
+        state = stat.read_text().rsplit(")", 1)[1].split()[0]
+    except (OSError, IndexError):
+        return False
+    return state not in ("Z", "X")
+
+
+def stop_started(config_dir: Path) -> list[int]:
+    """Stop the service a separate MCP server process started, found by the pid in
+    ``service.json``, and wait until it no longer answers and it and every process it had
+    started have ended; return the pids that were stopped.
+
+    As ``stop_service`` says, ``service.json`` may stay behind after SIGTERM (AKS-115); it
+    is in the test's own configuration folder."""
+    info = read_service_file(config_dir)
+    if info is None:
+        return []
+    pids = [info.pid, *descendants(info.pid)]
+    with contextlib.suppress(ProcessLookupError):
+        os.kill(info.pid, signal.SIGTERM)
+    deadline = time.monotonic() + TIMEOUT_S
+    while probe(info) or any(running(pid) for pid in pids):
+        assert time.monotonic() < deadline, f"the service did not stop: {pids}"
+        time.sleep(0.05)
+    return pids
+
+
+#: The coffee shop's known answers (spec 4 "Assistant acceptance case"): an M/M/1 queue with
+#: arrival rate 1/120 per second and service rate 1/90 per second, so utilization
+#: rho = 90/120 = 0.75 and mean wait in the queue rho / (mu - lambda)
+#: = 0.75 / (1/90 - 1/120) = 270 s.
+COFFEE_SHOP_WAIT_S = 270.0
+COFFEE_SHOP_UTILIZATION = 0.75
+
+#: The spec 2 pass rule: within 3 standard errors.
+STANDARD_ERRORS = 3.0
+
+
+def coffee_shop_verdict(
+    model: dict[str, Any], validation: dict[str, Any], run: dict[str, Any], summary: Any
+) -> dict[str, Any]:
+    """The pass criteria of spec 4 "Assistant acceptance case", independent of ids: from
+    ``get_model``'s ``model``, ``validate_model``'s answer, the last ``get_run_status``
+    answer and ``get_results``' ``summary``. The model's one server is found by its type
+    and the summary's one scenario by position. Each metric's standard error is its
+    half-width divided by the t quantile the summary used (``t_quantile`` at the summary's
+    ``confidence`` for its ``n``). ``passed`` is whether every criterion holds."""
+    servers = [c["id"] for c in model.get("components", []) if c.get("type") == "server"]
+    errors = [i for i in validation.get("issues", []) if i.get("severity") == "error"]
+    verdict: dict[str, Any] = {
+        "servers": servers,
+        "validation_errors": errors,
+        "state": run.get("state"),
+        "metrics": {},
+    }
+    scenarios = summary.get("scenarios", {}) if isinstance(summary, dict) else {}
+    passed = len(servers) == 1 and not errors and run.get("state") == "done"
+    passed = passed and len(scenarios) == 1
+    if passed:
+        [server] = servers
+        [scenario] = scenarios.values()
+        confidence = summary["confidence"]
+        for name, target in (
+            ("wait.mean", COFFEE_SHOP_WAIT_S),
+            ("utilization", COFFEE_SHOP_UTILIZATION),
+        ):
+            item = scenario["metrics"].get(f"{server}.{name}")
+            if item is None:
+                passed = False
+                continue
+            standard_error = item["half_width"] / t_quantile(confidence, item["n"])
+            deviation = (item["mean"] - target) / standard_error
+            verdict["metrics"][name] = {
+                **item,
+                "target": target,
+                "standard_error": standard_error,
+                "deviation": deviation,
+            }
+            passed = passed and abs(deviation) <= STANDARD_ERRORS
+    verdict["passed"] = passed
+    return verdict
