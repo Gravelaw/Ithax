@@ -369,6 +369,7 @@ export class CanvasSession {
 
   /** Reads the model again and clears undo and redo (another client changed it). */
   private async reload(): Promise<void> {
+    const before = this.announced;
     let loaded = await this.client.getModel(this.pid);
     while (loaded.kind === "failed" && !this.stopped) {
       this.set({ failing: true });
@@ -379,8 +380,13 @@ export class CanvasSession {
     this.redoStack = [];
     this.lastMove = null;
     if (loaded.kind === "ok") {
-      // The service's revision is the truth; an event for a newer one reloads again.
-      this.announced = loaded.data.revision;
+      // A revision announced while the reload was under way, newer than the one read, is
+      // read next; otherwise the service's revision is the truth (an announcement it does
+      // not bear out is not chased again).
+      this.announced =
+        this.announced > before
+          ? Math.max(this.announced, loaded.data.revision)
+          : loaded.data.revision;
       this.set({
         failing: false,
         renamed: {},

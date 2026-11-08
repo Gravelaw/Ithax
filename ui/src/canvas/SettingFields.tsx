@@ -68,6 +68,9 @@ export function FieldIssues({ issues }: { issues: Issue[] | undefined }) {
   );
 }
 
+/** Shown under a box whose commit was refused while a write awaited its answer. */
+export const NOT_SAVED = "Not saved: press Enter to save";
+
 /** A text box that commits on Enter or on leaving it, and reverts on Escape. */
 export function CommitInput({
   id,
@@ -88,57 +91,70 @@ export function CommitInput({
 }) {
   const busy = useBusy();
   const [text, setText] = useState(value);
-  const typed = useRef(value);
-  typed.current = text;
   const editing = useRef(false);
-  // A commit asked for while a write awaits its answer waits for that answer; the draft
-  // stays in the box meanwhile.
-  const waiting = useRef(false);
+  // A commit tried while a write awaits its answer is refused like any change: the draft
+  // stays, marked as not saved, and nothing is sent later on its own (review of PR #45).
+  const [unsaved, setUnsaved] = useState(false);
+  // The text this box last sent, until the model answers: leaving the box again is not a
+  // new commit.
+  const sent = useRef<string | null>(null);
   useEffect(() => {
+    sent.current = null;
     if (!editing.current) setText(value);
   }, [value]);
-  const send = useRef<() => void>(() => undefined);
-  send.current = () => {
-    editing.current = false;
-    waiting.current = false;
-    if (typed.current !== value) onCommit(typed.current);
-  };
+  useEffect(() => {
+    if (!busy) sent.current = null;
+  }, [busy]);
   const commit = () => {
-    if (busy) {
-      waiting.current = true;
+    if (text === value || text === sent.current) {
+      editing.current = false;
+      setUnsaved(false);
       return;
     }
-    send.current();
+    if (busy) {
+      setUnsaved(true);
+      return;
+    }
+    editing.current = false;
+    setUnsaved(false);
+    sent.current = text;
+    onCommit(text);
   };
-  useEffect(() => {
-    if (!busy && waiting.current) send.current();
-  }, [busy]);
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {
       event.preventDefault();
       commit();
     } else if (event.key === "Escape") {
       editing.current = false;
-      waiting.current = false;
+      setUnsaved(false);
       setText(value);
     }
   };
+  const unsavedId = `${id}-unsaved`;
+  const described = [describedBy, unsaved ? unsavedId : undefined].filter(Boolean).join(" ");
   return (
-    <input
-      id={id}
-      type="text"
-      className={mono ? "mono" : undefined}
-      value={text}
-      readOnly={readOnly}
-      aria-describedby={describedBy}
-      aria-invalid={invalid ? true : undefined}
-      onChange={(event) => {
-        editing.current = true;
-        setText(event.target.value);
-      }}
-      onBlur={commit}
-      onKeyDown={onKeyDown}
-    />
+    <>
+      <input
+        id={id}
+        type="text"
+        className={`${mono ? "mono" : ""}${unsaved ? " unsaved" : ""}`.trim() || undefined}
+        value={text}
+        readOnly={readOnly}
+        aria-describedby={described || undefined}
+        aria-invalid={invalid ? true : undefined}
+        onChange={(event) => {
+          editing.current = true;
+          setText(event.target.value);
+        }}
+        onBlur={commit}
+        onKeyDown={onKeyDown}
+      />
+      {unsaved ? (
+        <span className="unsaved-mark small" id={unsavedId}>
+          {NOT_SAVED}
+        </span>
+      ) : null}
+    </>
   );
 }
 

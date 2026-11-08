@@ -300,6 +300,31 @@ describe("the canvas's session with the service", () => {
     expect(session.getState()).toMatchObject({ busy: false, revision: 3, reloads: 1 });
   });
 
+  it("reads again when a newer revision is announced while a reload is under way", async () => {
+    const { fake, service, session } = setup();
+    session.start();
+    await vi.advanceTimersByTimeAsync(0);
+    let reads = 0;
+    fake.on(`GET ${MODEL}`, () => {
+      reads += 1;
+      const answer = { model: structuredClone(service.model), revision: service.revision };
+      if (reads === 1) {
+        // Another write lands, and is announced, after this read was answered.
+        service.outsideWrite((model) => {
+          model.components?.pop();
+        });
+        fake.sockets[0]?.emit({ type: "model", revision: service.revision, client: "mcp" });
+      }
+      return { status: 200, body: answer };
+    });
+    service.outsideWrite(() => undefined);
+    fake.sockets[0]?.emit({ type: "model", revision: service.revision, client: "mcp" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(reads).toBe(2);
+    expect(session.getState()).toMatchObject({ revision: 5, busy: false, reloads: 2 });
+    expect(session.getState().model?.components).toHaveLength(2);
+  });
+
   it("reloads and clears undo when its write raced another (409 E181)", async () => {
     const { fake, service, session } = setup();
     session.start();

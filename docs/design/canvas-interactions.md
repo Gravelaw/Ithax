@@ -124,7 +124,7 @@ Every product detail traces to a spec. Where the specs were silent, the simplest
 
 - **Automatic after every edit; no save button** (spec 3). There is no unsaved state: a change exists only once the service has written it.
 - **Save state in the top bar,** as text with an icon: "Saved" (with the revision in the tooltip), "Saving…" while a write is in flight, "Not saved: the service is not answering. Retrying." if a write fails for a network reason. While not saved, the canvas is read-only and the pending batch is retried every 2 seconds **(design choice)**; nothing else is queued, so the user cannot pile up changes the service never saw.
-- **One write at a time.** While a write awaits its answer the canvas takes no other change: the controls that change the model are unavailable (they keep the focus), keys that change it are ignored, a change tried anyway is not made and a notice says to wait, and a text field keeps its draft and commits it after the answer (AKS-136, review of PR #45). On a local service the wait is a few milliseconds.
+- **One write at a time.** While a write awaits its answer the canvas takes no other change: the controls that change the model are unavailable (they keep the focus), keys that change it are ignored, a change tried anyway is not made and a notice says to wait, and a text field's commit is refused: it keeps its draft, marked "Not saved: press Enter to save", until the user commits it again (AKS-136, review of PR #45). On a local service the wait is a few milliseconds.
 
 ## Validation and error display
 
