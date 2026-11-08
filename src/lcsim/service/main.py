@@ -11,17 +11,25 @@ with status 1 if none answers by then. A start that takes the lock binds
 ``--idle-minutes`` (default 30, spec 3 "Lifetime", proposed); on exit it removes the file
 if the file still names this service.
 
+A signal that stops the service (``SIGTERM``, ``SIGINT``) is caught by uvicorn, which shuts
+down gracefully and then raises the signal again; raised there, it ended the process before
+``service.json`` was removed (M7 "Left"). ``SignalServer`` keeps the caught signals instead,
+and ``main`` raises them again once the file is removed and the lock released, so the exit
+status still says how the service was stopped (AKS-119).
+
 Options: ``--config-dir`` and ``--data-dir`` replace the per-user folders.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
+import signal
 import socket
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import TextIO
 
@@ -46,7 +54,15 @@ from lcsim.service.discovery import (
 from lcsim.service.paths import canonical
 from lcsim.service.projects_store import utc_now
 
-__all__ = ["LOCAL_ADDRESS", "SERVICE_LOCK", "STARTUP_WAIT_S", "bind_local", "main"]
+__all__ = [
+    "LOCAL_ADDRESS",
+    "SERVICE_LOCK",
+    "STARTUP_WAIT_S",
+    "SignalServer",
+    "bind_local",
+    "main",
+    "raise_again",
+]
 
 #: Spec 3 "Local only".
 LOCAL_ADDRESS = "127.0.0.1"
@@ -59,6 +75,32 @@ SERVICE_LOCK = "service.lock"
 STARTUP_WAIT_S = 10.0
 
 _POLL_S = 0.1
+
+
+class SignalServer(uvicorn.Server):
+    """uvicorn's server, except that a signal it caught while serving is kept in
+    ``caught_signals`` rather than raised again as the server finishes, so that ``main``
+    can remove ``service.json`` first (AKS-119)."""
+
+    def __init__(self, config: uvicorn.Config) -> None:
+        super().__init__(config)
+        self.caught_signals: list[int] = []
+
+    @contextlib.contextmanager
+    def capture_signals(self) -> Iterator[None]:
+        with super().capture_signals():
+            try:
+                yield
+            finally:
+                # uvicorn raises what it captured once this block ends; take it over.
+                self.caught_signals.extend(self._captured_signals)
+                self._captured_signals.clear()
+
+
+def raise_again(signals: Sequence[int]) -> None:
+    """Raise ``signals`` again, the last caught first, as uvicorn does."""
+    for caught in reversed(signals):
+        signal.raise_signal(caught)
 
 
 def bind_local() -> socket.socket:
@@ -135,14 +177,16 @@ def main(
     if isinstance(owned, int):
         return owned
     try:
-        _serve(config_dir, data_dir, arguments.idle_minutes * 60, out)
+        caught = _serve(config_dir, data_dir, arguments.idle_minutes * 60, out)
     finally:
         owned.release()
+    raise_again(caught)
     return 0
 
 
-def _serve(config_dir: Path, data_dir: Path, idle_timeout_s: float, out: TextIO) -> None:
-    """Bind, write ``service.json``, serve until stopped or idle, remove the file."""
+def _serve(config_dir: Path, data_dir: Path, idle_timeout_s: float, out: TextIO) -> list[int]:
+    """Bind, write ``service.json``, serve until stopped or idle, remove the file; return
+    the signals that stopped the service, if any."""
     servers: list[uvicorn.Server] = []
 
     def stop() -> None:
@@ -160,7 +204,7 @@ def _serve(config_dir: Path, data_dir: Path, idle_timeout_s: float, out: TextIO)
             idle_check_s=min(10.0, idle_timeout_s / 4),
             on_idle=stop,
         )
-        server = uvicorn.Server(
+        server = SignalServer(
             uvicorn.Config(
                 create_app(config),
                 ws="websockets-sansio",
@@ -178,3 +222,4 @@ def _serve(config_dir: Path, data_dir: Path, idle_timeout_s: float, out: TextIO)
             server.run(sockets=[sock])
         finally:
             remove_service_file(config_dir, info)
+    return server.caught_signals
