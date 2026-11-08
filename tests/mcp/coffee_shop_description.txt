@@ -1,0 +1,1 @@
+Customers arrive at a coffee shop about every 2 minutes at random. One till serves them; serving takes about 1.5 minutes on average, also at random. Simulate 200 hours after a 10-hour warm-up, 30 times, and tell me the average wait and how busy the till is.

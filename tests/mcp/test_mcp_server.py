@@ -16,7 +16,7 @@ import pytest
 from mcp import Client, StdioServerParameters
 from mcp.server import Server
 from mcp.types import TextContent
-from mcp_support import in_process_service
+from mcp_support import in_process_service, stop_started
 
 from lcsim import __version__
 from lcsim.mcp import __main__ as entry
@@ -195,22 +195,6 @@ def test_python_dash_m_lcsim_mcp_starts_the_service_on_demand(tmp_path: Path) ->
         assert len(seen["tools"]) == 11
     finally:
         stop_started(config_dir)
-
-
-def stop_started(config_dir: Path) -> None:
-    """Stop the service a separate MCP server process started, found by its pid."""
-    import os
-    import signal
-    import time
-
-    info = read_service_file(config_dir)
-    if info is None:
-        return
-    os.kill(info.pid, signal.SIGTERM)
-    deadline = time.monotonic() + 60
-    while probe(info):
-        assert time.monotonic() < deadline, "the service did not stop"
-        time.sleep(0.05)
 
 
 def test_python_dash_m_lcsim_mcp_uses_a_running_service(tmp_path: Path) -> None:
