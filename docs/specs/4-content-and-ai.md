@@ -53,13 +53,15 @@ Findings are produced by fixed rules, so they are the same every time and work o
 
 ## MCP server
 
-The service exposes these tools to any connected assistant. Each one maps to an API endpoint from spec 3.
+The MCP server, a separate program that an assistant starts, exposes these tools to any connected assistant. Each one maps to an API endpoint of the engine service from spec 3.
 
 | Tool | Does |
 | --- | --- |
 | `list_templates` | Names and descriptions of available templates |
 | `get_schema` | The model format and the documentation of each block type |
+| `list_projects` | The projects the service knows |
 | `create_model` | Starts a model from a template or from nothing |
+| `get_model` | The current model file and its revision |
 | `edit_model` | Applies a change to components, connections or parameters |
 | `validate_model` | Returns errors in plain language |
 | `run_model` | Starts a run and returns its id |
@@ -127,13 +129,13 @@ Each tool calls the spec 3 API and returns its response. Inputs and outputs are 
 
 | Tool | Input | Output | Calls |
 | --- | --- | --- | --- |
-| `list_templates` | none | Array of `{id, title, summary}` | `GET /v1/templates` |
+| `list_templates` | none | Array of `template.json`, each with at least `{id, title, summary}` | `GET /v1/templates` |
 | `get_schema` | optional `component_type` | The JSON Schema, or one component type's settings, ports and description | `GET /v1/schema` or `GET /v1/schema/components/{type}` |
-| `list_projects` | none | Array of `{project_id, name}` | `GET /v1/projects` |
+| `list_projects` | none | Array of `{id, name, created, layout_version, model_revision, path, available}`, as spec 3 lists projects; `id` is the `project_id` the other tools take | `GET /v1/projects` |
 | `create_model` | `name`, optional `template_id` | `{project_id, model}` | `POST /v1/projects` |
-| `get_model` | `project_id` | The model file | `GET /v1/projects/{pid}/model` |
+| `get_model` | `project_id` | `{model, revision}`: the model file and its revision | `GET /v1/projects/{pid}/model` |
 | `edit_model` | `project_id`, `edits` as in spec 3, optional `base_revision` | `{model, revision, issues}`; E181 is returned as data | `POST /v1/projects/{pid}/model/edits` |
-| `validate_model` | `project_id` | `{issues}` | `POST /v1/projects/{pid}/validate` |
+| `validate_model` | `project_id` | `{revision, issues}` | `POST /v1/projects/{pid}/validate` |
 | `run_model` | `project_id`, optional `experiment_id` (required for a `process` model, absent for an `optimization` model, as spec 3 defines) | `{run_id}` | `POST /v1/projects/{pid}/runs` |
 | `get_run_status` | `run_id` | `{state, fraction, message}` | `GET /v1/runs/{rid}` |
 | `get_results` | `run_id`, optional `tables` | `{summary, findings, tables}` | `GET /v1/runs/{rid}/summary` plus one `GET /v1/runs/{rid}/tables/{name}?format=json` per requested table |
@@ -145,6 +147,15 @@ Behaviour an assistant can rely on:
 - **Edits are rejected only when they cannot be applied.** An edit is rejected only when it cannot be applied: unknown or duplicate component id, unknown type, unknown parameter or experiment, a `path` whose parent does not exist. Rejections are issue objects with code E180 and `path` `/edits/<n>`; the batch is then not applied. A batch that applies is saved even if validation then reports errors; the response carries the model, its revision and the issues (spec 3).
 - **Runs are asynchronous.** `run_model` returns at once; the assistant polls `get_run_status`.
 - **Tool descriptions teach the format.** Each tool's description includes one worked example, since the assistant sees nothing else.
+
+How the server runs and answers (AKS-115, owner to confirm; research notes `docs/research/spec-4-mcp.md` and `docs/research/spec-4-assistant-tool-design.md`):
+
+- **Program and transport.** `python -m lcsim.mcp` serves MCP over stdio, the transport desktop assistants use to start a local server, built on the official Python SDK (`mcp` 2.3.0 or later); it answers clients of both protocol eras that SDK speaks, the `initialize` handshake (2024-11-05 to 2025-11-25) and 2026-07-28. `--config-dir` and `--data-dir` name the service's folders as for `python -m lcsim.service` (spec 3 "Discovery"), default the same per-user folders, and are passed to the service when the MCP server starts it.
+- **One way in.** Every tool call is one or more requests to the `/v1` API, never a private channel: to `127.0.0.1` without any proxy, with `Authorization: Bearer` and the token of `service.json`, and `X-Client: mcp`. Every response body is read with the service's strict JSON reader.
+- **Starting the service.** The port and token come from `service.json` in the configuration folder. When the file is missing or its service does not answer the spec 3 probe, the MCP server starts `python -m lcsim.service` with the same folders, detached from itself so that the service and its runs outlive it (spec 3 "Lifetime"), with its input and output discarded, and waits up to 30 seconds for `service.json` to name a service that answers the probe; the service's own lock settles two starts at once (spec 3 "One service per user"). A request refused at connection, or answered 401 (a service restarted since, with a new token), is sent once more after finding or starting the service again; a request that may have reached a route is never sent twice.
+- **Results.** A tool's result is the response body as JSON text, and the same object as `structuredContent` when it is a JSON object (the list endpoints return arrays). A response with a status of 400 or above is a result marked `isError` holding the service's body unchanged (`{error: {code, message}, issues, ...}`, spec 3 "Status codes and errors").
+- **Inputs.** Each tool declares its inputs as this table names them, with no others allowed. An input that is missing, unknown or of the wrong kind (text must be valid Unicode, as spec 3 requires of a request's text) gives a result marked `isError` holding `{error: {code: "E184", message}, issues}`, one E184 issue per problem with `path` `/<input>`, and no request is sent. Path inputs are percent-encoded as one path segment. Only a tool name the server does not have is a protocol error, as the MCP specification lists unknown tools.
+- **No service.** When the service cannot be started, does not answer, or sends an answer the strict reader refuses, the result is marked `isError` and holds `{error: {code: "E193", message}, issues}` with one E193 issue (spec 1).
 
 ### Limits
 
@@ -193,3 +204,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 - C25 (SIM-9, PRD-14, SIM-10, SIM-12, ARCH-10, SIM-18, ARCH-12, TEST-17, SIM-19, PRD-8): finding rules rewritten; `n_required`; fixture layout; threshold status.
 - C26 (ARCH-7, ARCH-8, ARCH-13, TEST-10, TEST-1, TEST-12): MCP tools mapped to endpoints; `run_model` by domain; edit semantics; limits; assistant acceptance case; research items tagged; acceptance table.
 - Verifier follow-up: the summary Build bullet says data import is optional, matching "Build mode".
+
+Lines added after version 0.3, during M7 (the version number is bumped when M7 closes, AKS-116):
+
+- 2026-11-08, MCP server and the six read tools (AKS-115), from the research notes `docs/research/spec-4-mcp.md` and `docs/research/spec-4-assistant-tool-design.md` and while building `src/lcsim/mcp/`: "MCP server" says the MCP server, a separate program, exposes the tools, and its table adds `list_projects` and `get_model`, which "MCP tools" already had; "MCP tools" gives the outputs of `list_templates`, `list_projects`, `get_model` and `validate_model` as the spec 3 endpoints return them (each tool returns its endpoint's response, so `list_projects` gives `id` rather than `project_id`, `get_model` the revision with the model, and `validate_model` the revision with the issues), and adds "How the server runs and answers": stdio through the official SDK, `--config-dir` and `--data-dir`, requests only to `/v1` with the token and `X-Client: mcp`, starting the service on demand and waiting up to 30 s, one repeat only for a refused connection or a 401, results as JSON text and `structuredContent`, refusals marked `isError` with the service's body, input problems as E184 at `/<input>`, and E193 when there is no service (new spec 1 code). All owner to confirm.

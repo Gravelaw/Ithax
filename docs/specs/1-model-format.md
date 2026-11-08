@@ -313,12 +313,13 @@ Every issue is one object:
 | E190 | run | Engine exited with an error (details in `log.txt`) |
 | E191 | run | Run interrupted by a service restart |
 | E192 | run | Run exceeded its time or memory limit |
+| E193 | mcp | The MCP server cannot reach the engine service: it cannot be started, does not answer, or sends an answer that is not JSON the service's strict reader takes (spec 4 "How the server runs and answers"; AKS-115, owner to confirm) |
 | W200 | meaning | Component with an `in` port cannot be reached from any source (over connections whose two ends are valid, the first from each output port) |
 | W201 | meaning | Mean arrival rate at a server times its mean service time is at least its capacity, and its queue is unlimited, so the queue will grow without limit |
 | W202 | meaning | Normal distribution will clip about 2% or more of its samples at zero (`mean` < 2 × `sd`) |
 | W210 | run | Results were still changing after warm-up; lengthen `warmup` |
 
-Codes E300 to E399 are reserved for engine-specific issues from `validate(model)`; each adapter documents its own. Errors block a run. Warnings do not. Run and service codes are raised by the experiment manager or the service and are tested at their milestones, not by validation fixtures.
+Codes E300 to E399 are reserved for engine-specific issues from `validate(model)`; each adapter documents its own. Errors block a run. Warnings do not. Run and service codes are raised by the experiment manager or the service, and E193 by the MCP server; they are tested at their milestones, not by validation fixtures.
 
 ### Engine adapter interface
 
@@ -525,3 +526,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-07, CI on PR #36 (AKS-112): "How the `local` target runs a run" adds the finishing order: tables and summary, the final manifest, `worker.lock` removed, and only then, with the run's queue place free, the final state made visible by the service (a test saw `done` with the lock still present) (owner to confirm).
 - 2026-11-07, data import (AKS-113), found while building `src/lcsim/model/data.py`, `data_files.py`, `fit.py`, `src/lcsim/runs/snapshots.py` and the data endpoints of spec 3: "Run folder and results" and "Distributions" disagreed on `data_files` (`{file, sha256}` against file, column and SHA-256 per reference); both now say one entry per reference, `{component, setting, file, column, sha256}`. "Distributions" says how a `data` column is read (types and declared units in the column index, empty cells, the bytes hashed at run creation, values converted to seconds), the snapshot's columns, that only a run made by a run target reads columns, and that E162 also covers a column that does not hold numbers or has no unit for a time; the sampling test names the copied column; the warning line says `empirical` with `data` passed it. "Validation issues" adds E189 for a data file that cannot be imported or a column that cannot be fitted (owner to confirm).
 - 2026-11-07, review of PR #37 (AKS-113): "Distributions" says the column index records a `number` column's `largest` absolute value, and that E162 covers a column with a value that is not a finite number of seconds in its unit, checked as inline quantities are (E141), by validation on `largest` and by a run on the values it copies (`1e308` minutes passed validation and failed only when the engine input was written) (owner to confirm).
+
+Lines added after version 0.9, during M7 (the version number is bumped when M7 closes, AKS-116):
+
+- 2026-11-08, MCP server (AKS-115), found while building `src/lcsim/mcp/`: "Validation issues" adds E193, raised by the MCP server when the engine service cannot be started, does not answer, or sends an answer the strict reader refuses; the MCP server has no other code of its own, and an input problem in a tool call reuses E184 with `path` at the input (spec 4) (owner to confirm).
