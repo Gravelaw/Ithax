@@ -3,7 +3,9 @@
  * one block shows its issues, id, label, position, settings and connections; one connection
  * its ends and Disconnect; several items their count and Delete; nothing, the model's
  * parameters and a table of every block, which is the text alternative to the drawing
- * (`docs/design/accessibility.md` "Screen readers").
+ * (`docs/design/accessibility.md` "Screen readers"). After an outside change the list of
+ * changes to review comes first with nothing selected, and a marked block shows its change
+ * above its settings (AKS-137).
  */
 import { TrashIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
@@ -23,6 +25,8 @@ import {
 } from "./model";
 import { Parameters } from "./Parameters";
 import type { EditPlan } from "./plans";
+import { BlockReview, ReviewList } from "./ReviewParts";
+import type { ReviewItem } from "./review";
 import { CommitInput, type FieldActions, type FieldContext, SettingField } from "./SettingFields";
 
 export interface PanelActions extends FieldActions {
@@ -382,6 +386,8 @@ export function SidePanel({
   issues,
   readOnly,
   actions,
+  marks = [],
+  onShowChange,
 }: {
   client: ApiClient;
   model: Model;
@@ -390,6 +396,9 @@ export function SidePanel({
   issues: Issue[];
   readOnly: boolean;
   actions: PanelActions;
+  /** The review marks shown: listed with nothing selected, and on a marked block. */
+  marks?: readonly ReviewItem[];
+  onShowChange?: (item: ReviewItem) => void;
 }) {
   const busy = useBusy();
   const count = selection.blocks.length + selection.connections.length;
@@ -397,6 +406,15 @@ export function SidePanel({
   if (count === 0) {
     body = (
       <>
+        <ReviewList
+          marks={marks}
+          model={model}
+          {...(onShowChange ? { onShow: onShowChange } : {})}
+          shows={(item) =>
+            item.ref.kind === "rename" ||
+            (item.ref.kind === "list" && item.ref.key === "components" && item.after !== undefined)
+          }
+        />
         <Parameters
           model={model}
           issues={issues.filter((issue) => issue.path.startsWith("/parameters"))}
@@ -425,17 +443,26 @@ export function SidePanel({
     );
   } else if (selection.blocks.length === 1) {
     const component = components(model).find((item) => item.id === selection.blocks[0]);
+    const mark = marks.find(
+      (item) =>
+        (item.ref.kind === "rename" ||
+          (item.ref.kind === "list" && item.ref.key === "components")) &&
+        item.ref.id === component?.id,
+    );
     body = component ? (
-      <BlockPanel
-        key={component.id}
-        client={client}
-        model={model}
-        component={component}
-        types={types}
-        issues={issues.filter((issue) => issueComponent(issue, model) === component.id)}
-        readOnly={readOnly}
-        actions={actions}
-      />
+      <>
+        {mark ? <BlockReview item={mark} model={model} /> : null}
+        <BlockPanel
+          key={component.id}
+          client={client}
+          model={model}
+          component={component}
+          types={types}
+          issues={issues.filter((issue) => issueComponent(issue, model) === component.id)}
+          readOnly={readOnly}
+          actions={actions}
+        />
+      </>
     ) : null;
   } else {
     const connection = connections(model)[selection.connections[0] ?? -1];

@@ -77,6 +77,7 @@ export function CommitInput({
   mono,
   describedBy,
   invalid,
+  label,
 }: {
   id: string;
   value: string;
@@ -85,6 +86,8 @@ export function CommitInput({
   mono?: boolean;
   describedBy?: string;
   invalid?: boolean;
+  /** Its accessible name, where no `<label>` names it (a table cell). */
+  label?: string;
 }) {
   const busy = useBusy();
   const revision = useRevision();
@@ -129,6 +132,7 @@ export function CommitInput({
       value={text}
       readOnly={readOnly}
       aria-describedby={describedBy}
+      aria-label={label}
       aria-invalid={invalid ? true : undefined}
       onChange={(event) => setText(event.target.value)}
       onBlur={commit}

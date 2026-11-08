@@ -10,17 +10,18 @@
  * fields), delete (with the confirmation), rename, label and settings in the side panel.
  * Undo and redo write whole models. Validation follows each write by half a second; its
  * issues mark the blocks and fill the problems list. Run waits for a saved, checked model
- * without errors.
+ * without errors. After another client's write the canvas names the client in a notice and
+ * marks what it added, changed, renamed or removed (`review.ts`, `ReviewParts.tsx`), each
+ * with Accept and Reject; the side panel lists the marks when nothing is selected. An
+ * `optimization` model has the Table and Diagram views of `PlanScreen.tsx` instead.
  */
 import {
   ArrowUUpLeftIcon,
   ArrowUUpRightIcon,
-  CheckCircleIcon,
   CornersOutIcon,
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
   PlayIcon,
-  WarningCircleIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import {
@@ -59,7 +60,14 @@ import type { ComponentType, Edit, Issue, Model, Project, SchemaBody } from "../
 import type { Route } from "../app/router";
 import { LOST_CONTACT, ServiceProblem } from "../components/ServiceProblem";
 import { useSettings } from "../settings/SettingsContext";
-import { type BlockData, BlockNode, type BlockNodeType, blockName } from "./BlockNode";
+import {
+  type BlockData,
+  BlockNode,
+  type BlockNodeType,
+  blockName,
+  GhostNode,
+  type GhostNodeType,
+} from "./BlockNode";
 import { BusyContext, RevisionContext } from "./busy";
 import { ConnectDialog, DeleteDialog, type DeletePlan } from "./Dialogs";
 import {
@@ -70,7 +78,6 @@ import {
   connections,
   freePlace,
   issueComponent,
-  issueCounts,
   nextId,
   type Point,
   portsOf,
@@ -80,20 +87,24 @@ import {
   splitEnd,
 } from "./model";
 import { BLOCK_MIME, Palette } from "./Palette";
+import { PlanScreen } from "./PlanScreen";
 import { ProblemsList } from "./ProblemsList";
 import { type EditPlan, editsWrite, modelWrite } from "./plans";
 import { ReferenceEdge } from "./ReferenceEdge";
+import { OutsideNotice, type ReviewActions, ReviewContext, ReviewCount } from "./ReviewParts";
+import { type ReviewItem, shownItems } from "./review";
 import { type PanelActions, type Selection, SidePanel } from "./SidePanel";
-import type { SessionState } from "./session";
+import { clientsOf, type SessionState } from "./session";
+import { NOTICE_MS, runBlocked, SaveState, WAIT } from "./Toolbar";
 import { undoSteps, useSession } from "./useSession";
 
 export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 2;
-export const NOTICE_MS = 8000;
-/** Said when a change is tried while a write awaits its answer: it is not made. */
-export const WAIT = "Not saved: the canvas was saving. Make the change again.";
+export { NOTICE_MS, runBlocked, WAIT } from "./Toolbar";
 
-const nodeTypes = { block: BlockNode };
+const nodeTypes = { block: BlockNode, ghost: GhostNode };
+
+type CanvasNode = BlockNodeType | GhostNodeType;
 const edgeTypes = { reference: ReferenceEdge };
 
 type CanvasProps = {
@@ -161,15 +172,14 @@ function ProjectCanvas({ client, project, toolbar, onGo }: CanvasProps & { proje
   }
   if (state.model.domain === "optimization") {
     return (
-      <section className="canvas-message" aria-labelledby="screen-heading">
-        <h1 id="screen-heading" className="title">
-          Canvas
-        </h1>
-        <p className="muted">
-          This project is a plan (decisions and limits). Its Table and Diagram views arrive in a
-          later build.
-        </p>
-      </section>
+      <PlanScreen
+        project={project}
+        toolbar={toolbar}
+        onGo={onGo}
+        state={state}
+        model={state.model}
+        session={session}
+      />
     );
   }
   return (
@@ -195,20 +205,46 @@ function isTyping(target: EventTarget | null): boolean {
   );
 }
 
+/** The marks on blocks, by the block's id now; and the removed blocks, by their old id. */
+function blockMarks(marks: readonly ReviewItem[]): {
+  live: Map<string, ReviewItem>;
+  removed: ReviewItem[];
+  connections: Map<string, ReviewItem>;
+  gone: ReviewItem[];
+} {
+  const live = new Map<string, ReviewItem>();
+  const removed: ReviewItem[] = [];
+  const linked = new Map<string, ReviewItem>();
+  const gone: ReviewItem[] = [];
+  for (const item of marks) {
+    const { ref } = item;
+    if (ref.kind === "rename") live.set(ref.id, item);
+    else if (ref.kind === "list" && ref.key === "components") {
+      if (item.after === undefined) removed.push(item);
+      else live.set(ref.id, item);
+    } else if (ref.kind === "list" && ref.key === "connections") {
+      if (item.after === undefined) gone.push(item);
+      else linked.set(ref.id, item);
+    }
+  }
+  return { live, removed, connections: linked, gone };
+}
+
 function buildNodes(
   model: Model,
   types: Record<string, ComponentType>,
   issues: Issue[],
-  previous: BlockNodeType[],
+  previous: CanvasNode[],
   wanted: string[] | null,
   locked: boolean,
   renamed: Readonly<Record<string, string>>,
-): BlockNodeType[] {
+  marks: ReturnType<typeof blockMarks>,
+): CanvasNode[] {
   // A renamed block keeps its selection and size under its new id.
   const before = new Map(previous.map((node) => [renamed[node.id] ?? node.id, node]));
   const all = components(model);
   const linked = connections(model);
-  return all.map((component, index) => {
+  const blocks = all.map((component, index): BlockNodeType => {
     const ports = portsOf(component, types[component.type]);
     const own = issues.filter((issue) => issueComponent(issue, model) === component.id);
     const errors = own.filter((issue) => issue.severity === "error").length;
@@ -231,6 +267,8 @@ function buildNodes(
       warnings: own.length - errors,
       messages: own.map((issue) => `${issue.code} ${issue.message}`).join("\n"),
     };
+    const mark = marks.live.get(component.id);
+    if (mark) data.review = mark;
     const old = before.get(component.id);
     const node: BlockNodeType = {
       id: component.id,
@@ -249,6 +287,26 @@ function buildNodes(
     if (old?.dragging) node.dragging = true;
     return node;
   });
+  // A removed block stays as a ghost where it was, until its change is reviewed.
+  const ghosts = marks.removed.map((item): GhostNodeType => {
+    const component = item.before as BlockData["component"];
+    const id = `ghost:${component.id}`;
+    const node: GhostNodeType = {
+      id,
+      type: "ghost",
+      position: positionOf(component, item.index ?? 0),
+      data: { component, category: categoryOf(component.type), review: item },
+      draggable: false,
+      connectable: false,
+      selectable: false,
+      deletable: false,
+      focusable: false,
+    };
+    const old = before.get(id);
+    if (old?.measured) node.measured = old.measured;
+    return node;
+  });
+  return [...blocks, ...ghosts];
 }
 
 function buildEdges(
@@ -256,6 +314,7 @@ function buildEdges(
   types: Record<string, ComponentType>,
   previous: Edge[],
   clear: boolean,
+  marks: ReturnType<typeof blockMarks>,
 ): Edge[] {
   const selected = new Set(previous.filter((edge) => edge.selected).map((edge) => edge.id));
   const all = components(model);
@@ -271,7 +330,12 @@ function buildEdges(
     if (!portsOf(source, types[source.type]).outputs.includes(from[1])) return;
     if (!portsOf(target, types[target.type]).inputs.includes(to[1])) return;
     const id = `c${index}:${connection.from}>${connection.to}`;
+    const mark = marks.connections.get(connection.from);
+    const kind = mark ? (mark.before === undefined ? "added" : "changed") : null;
     edges.push({
+      ...(kind
+        ? { className: `review-${kind}`, label: kind === "added" ? "Added" : "Changed" }
+        : {}),
       id,
       source: from[0],
       sourceHandle: from[1],
@@ -285,6 +349,38 @@ function buildEdges(
       data: { index },
     });
   });
+  // A removed connection is drawn as a ghost line while both its ends are drawn.
+  const ghosts = new Set(marks.removed.map((item) => (item.before as { id: string }).id));
+  for (const item of marks.gone) {
+    const removed = item.before as { from?: unknown; to?: unknown };
+    const from = typeof removed.from === "string" ? splitEnd(removed.from) : null;
+    const to = typeof removed.to === "string" ? splitEnd(removed.to) : null;
+    if (!from || !to) continue;
+    const end = (id: string, port: string, side: "inputs" | "outputs") => {
+      if (ghosts.has(id))
+        return { node: `ghost:${id}`, handle: side === "outputs" ? "ghost-out" : "ghost-in" };
+      const component = byId.get(id);
+      if (!component || !portsOf(component, types[component.type])[side].includes(port))
+        return null;
+      return { node: id, handle: port };
+    };
+    const source = end(from[0], from[1], "outputs");
+    const target = end(to[0], to[1], "inputs");
+    if (!source || !target) continue;
+    edges.push({
+      id: `g:${String(removed.from)}>${String(removed.to)}`,
+      source: source.node,
+      sourceHandle: source.handle,
+      target: target.node,
+      targetHandle: target.handle,
+      type: "smoothstep",
+      className: "review-removed",
+      label: "Removed",
+      selectable: false,
+      focusable: false,
+      deletable: false,
+    });
+  }
   for (const reference of references(model)) {
     edges.push({
       id: `r:${reference.kind}:${reference.from}>${reference.to}`,
@@ -300,49 +396,6 @@ function buildEdges(
     });
   }
   return edges;
-}
-
-/** Why Run is not available, and which pointer it shows (owner review choice 9). */
-export function runBlocked(
-  state: SessionState,
-): { reason: string; pointer: "errors" | "busy" } | null {
-  if (state.failing) {
-    return { reason: "Not saved: the service is not answering. Retrying.", pointer: "busy" };
-  }
-  if (state.saving) return { reason: "Saving…", pointer: "busy" };
-  if (state.checking) return { reason: "Checking…", pointer: "busy" };
-  const { errors } = issueCounts(state.issues);
-  if (errors > 0) {
-    return {
-      reason: `${errors} error${errors === 1 ? "" : "s"}. Fix ${errors === 1 ? "it" : "them"} to run.`,
-      pointer: "errors",
-    };
-  }
-  return null;
-}
-
-function SaveState({ state }: { state: SessionState }) {
-  if (state.failing) {
-    return (
-      <span className="save-state save-failing" role="status">
-        <WarningCircleIcon aria-hidden="true" size={16} weight="fill" />
-        Not saved: the service is not answering. Retrying.
-      </span>
-    );
-  }
-  if (state.saving) {
-    return (
-      <span className="save-state" role="status">
-        Saving…
-      </span>
-    );
-  }
-  return (
-    <span className="save-state save-saved" role="status" title={`Revision ${state.revision}`}>
-      <CheckCircleIcon aria-hidden="true" size={16} weight="fill" />
-      Saved
-    </span>
-  );
 }
 
 function ZoomControls() {
@@ -418,7 +471,7 @@ function ProcessCanvas({
   // computed from the model shown, which then holds every accepted write.
   const busy = state.busy;
   const locked = readOnly || busy;
-  const [nodes, setNodes] = useState<BlockNodeType[]>([]);
+  const [nodes, setNodes] = useState<CanvasNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [placing, setPlacing] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -432,18 +485,29 @@ function ProcessCanvas({
   const area = useRef<HTMLElement>(null);
   const drawn = useRef(new Set<string>());
   drawn.current = new Set(nodes.map((node) => node.id));
+  const marks = useMemo(() => shownItems(state.review, model), [state.review, model]);
+  const marked = useMemo(() => blockMarks(marks), [marks]);
+  const [dismissed, setDismissed] = useState(0);
+  const [openReview, setOpenReview] = useState(0);
 
-  // The drawing follows the model, the issues and the selection.
+  // The drawing follows the model, the issues, the review marks and the selection.
   useEffect(() => {
     const want = wanted.current;
     setNodes((previous) =>
-      buildNodes(model, types, state.issues, previous, want, locked, state.renamed),
+      buildNodes(model, types, state.issues, previous, want, locked, state.renamed, marked),
     );
-    setEdges((previous) => buildEdges(model, types, previous, want !== null));
+    setEdges((previous) => buildEdges(model, types, previous, want !== null, marked));
     if (want?.every((id) => components(model).some((item) => item.id === id))) {
       wanted.current = null;
     }
-  }, [model, types, state.issues, locked, state.renamed]);
+  }, [model, types, state.issues, locked, state.renamed, marked]);
+
+  // "N changes to review" opens the list in the side panel and moves the focus to it.
+  useEffect(() => {
+    if (openReview === 0) return;
+    const frame = requestAnimationFrame(() => document.getElementById("review-heading")?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [openReview]);
 
   // A block just added or renamed takes the keyboard focus once it is drawn.
   // React Flow shows a node only once it is measured, so focusing is tried for a few frames.
@@ -662,7 +726,7 @@ function ProcessCanvas({
     void session.move(positions, true);
   };
 
-  const onNodesChange = useCallback((changes: NodeChange<BlockNodeType>[]) => {
+  const onNodesChange = useCallback((changes: NodeChange<CanvasNode>[]) => {
     setNodes((previous) => applyNodeChanges(changes, previous));
   }, []);
 
@@ -824,22 +888,54 @@ function ProcessCanvas({
     return () => document.removeEventListener("keydown", onKey);
   }, [undo, redo, run, placing]);
 
+  /** Selects a block and centres the view on it. */
+  const centreOn = (component: string) => {
+    selectBlocks([component]);
+    const node = flow.getNode(component);
+    if (node) {
+      const width = node.measured?.width ?? BLOCK_WIDTH;
+      const height = node.measured?.height ?? BLOCK_HEIGHT;
+      void flow.setCenter(node.position.x + width / 2, node.position.y + height / 2, {
+        zoom: flow.getZoom(),
+      });
+    }
+  };
+
   const chooseProblem = (issue: Issue, component: string | null) => {
     if (component !== null && components(model).some((item) => item.id === component)) {
-      selectBlocks([component]);
-      const node = flow.getNode(component);
-      if (node) {
-        const width = node.measured?.width ?? BLOCK_WIDTH;
-        const height = node.measured?.height ?? BLOCK_HEIGHT;
-        void flow.setCenter(node.position.x + width / 2, node.position.y + height / 2, {
-          zoom: flow.getZoom(),
-        });
-      }
+      centreOn(component);
     } else if (issue.path.startsWith("/experiments")) {
       onGo({ screen: "experiment", projectId: project.id });
     } else {
       selectBlocks([]);
     }
+  };
+
+  const review: ReviewActions = useMemo(
+    () => ({
+      accept: (id) => {
+        if (free()) session.accept(id);
+      },
+      reject: (id) => {
+        if (free()) void session.reject(id);
+      },
+      acceptAll: () => {
+        if (free()) session.acceptAll();
+      },
+      rejectAll: () => {
+        if (free()) void session.rejectAll();
+      },
+      readOnly,
+    }),
+    [free, session, readOnly],
+  );
+
+  /** A row of the changes list selects its block, when the change is a block's. */
+  const showChange = (item: ReviewItem) => {
+    const { ref } = item;
+    const id =
+      ref.kind === "rename" || (ref.kind === "list" && ref.key === "components") ? ref.id : null;
+    if (id !== null && components(model).some((component) => component.id === id)) centreOn(id);
   };
 
   const actions: PanelActions = {
@@ -868,6 +964,13 @@ function ProcessCanvas({
   const tools = (
     <div className="canvas-tools">
       <SaveState state={state} />
+      <ReviewCount
+        count={marks.length}
+        onOpen={() => {
+          selectBlocks([]);
+          setOpenReview((count) => count + 1);
+        }}
+      />
       <button
         type="button"
         className="secondary tool"
@@ -942,120 +1045,132 @@ function ProcessCanvas({
   return (
     <BusyContext.Provider value={busy}>
       <RevisionContext.Provider value={state.revision}>
-        <div className={`canvas-screen${placing !== null ? " placing" : ""}`} aria-busy={busy}>
-          {toolbar ? createPortal(tools, toolbar) : tools}
-          <h1 className="visually-hidden">Canvas</h1>
-          <Palette
-            types={types}
-            placing={placing}
-            readOnly={readOnly}
-            onPlace={setPlacing}
-            onAdd={addAtCentre}
-          />
-          <div className="canvas-centre">
-            <div className="canvas-notices" aria-live="polite">
-              {state.failing ? (
-                <p className="notice notice-error">
-                  Not saved: the service is not answering. Retrying.
-                </p>
-              ) : null}
-              {state.eventsClosed !== null ? (
-                <p className="notice notice-error">{LOST_CONTACT}</p>
-              ) : null}
-              <ServiceProblem result={refusal} />
-              {notice !== null ? (
-                <p className="notice">
-                  <span>{notice}</span>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label="Dismiss"
-                    onClick={() => setNotice(null)}
-                  >
-                    <XIcon aria-hidden="true" size={14} />
-                  </button>
-                </p>
-              ) : null}
-            </div>
-            <section
-              ref={area}
-              className="canvas-flow"
-              data-region="canvas"
-              aria-label="Canvas"
-              tabIndex={-1}
-              onKeyDownCapture={onCanvasKey}
-              onDragOver={onDragOver}
-              onDrop={onDrop}
-            >
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                nodeTypes={nodeTypes}
-                edgeTypes={edgeTypes}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onNodeDragStop={onNodeDragStop}
-                onConnect={onConnect}
-                isValidConnection={isValidConnection}
-                onPaneClick={onPaneClick}
-                minZoom={MIN_ZOOM}
-                maxZoom={MAX_ZOOM}
-                snapToGrid
-                snapGrid={[8, 8]}
-                deleteKeyCode={null}
-                fitView
-                fitViewOptions={{ maxZoom: 1 }}
-                onlyRenderVisibleElements
-                nodesDraggable={!locked}
-                nodesConnectable={!locked}
-                elementsSelectable
-                connectOnClick
+        <ReviewContext.Provider value={review}>
+          <div className={`canvas-screen${placing !== null ? " placing" : ""}`} aria-busy={busy}>
+            {toolbar ? createPortal(tools, toolbar) : tools}
+            <h1 className="visually-hidden">Canvas</h1>
+            <Palette
+              types={types}
+              placing={placing}
+              readOnly={readOnly}
+              onPlace={setPlacing}
+              onAdd={addAtCentre}
+            />
+            <div className="canvas-centre">
+              <div className="canvas-notices" aria-live="polite">
+                {state.failing ? (
+                  <p className="notice notice-error">
+                    Not saved: the service is not answering. Retrying.
+                  </p>
+                ) : null}
+                {state.eventsClosed !== null ? (
+                  <p className="notice notice-error">{LOST_CONTACT}</p>
+                ) : null}
+                {state.outside !== null && state.outside.seq !== dismissed ? (
+                  <OutsideNotice
+                    outside={state.outside}
+                    clients={clientsOf(state)}
+                    onDismiss={() => setDismissed(state.outside?.seq ?? 0)}
+                  />
+                ) : null}
+                <ServiceProblem result={refusal} />
+                {notice !== null ? (
+                  <p className="notice">
+                    <span>{notice}</span>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label="Dismiss"
+                      onClick={() => setNotice(null)}
+                    >
+                      <XIcon aria-hidden="true" size={14} />
+                    </button>
+                  </p>
+                ) : null}
+              </div>
+              <section
+                ref={area}
+                className="canvas-flow"
+                data-region="canvas"
+                aria-label="Canvas"
+                tabIndex={-1}
+                onKeyDownCapture={onCanvasKey}
+                onDragOver={onDragOver}
+                onDrop={onDrop}
               >
-                <Background variant={BackgroundVariant.Dots} gap={16} />
-                <ZoomControls />
-                <MiniMap pannable zoomable ariaLabel="Overview of the model" />
-              </ReactFlow>
-            </section>
-            <ProblemsList
-              ref={problems}
+                <ReactFlow
+                  nodes={nodes}
+                  edges={edges}
+                  nodeTypes={nodeTypes}
+                  edgeTypes={edgeTypes}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  onNodeDragStop={onNodeDragStop}
+                  onConnect={onConnect}
+                  isValidConnection={isValidConnection}
+                  onPaneClick={onPaneClick}
+                  minZoom={MIN_ZOOM}
+                  maxZoom={MAX_ZOOM}
+                  snapToGrid
+                  snapGrid={[8, 8]}
+                  deleteKeyCode={null}
+                  fitView
+                  fitViewOptions={{ maxZoom: 1 }}
+                  onlyRenderVisibleElements
+                  nodesDraggable={!locked}
+                  nodesConnectable={!locked}
+                  elementsSelectable
+                  connectOnClick
+                >
+                  <Background variant={BackgroundVariant.Dots} gap={16} />
+                  <ZoomControls />
+                  <MiniMap pannable zoomable ariaLabel="Overview of the model" />
+                </ReactFlow>
+              </section>
+              <ProblemsList
+                ref={problems}
+                model={model}
+                issues={state.issues}
+                checking={state.checking}
+                onChoose={chooseProblem}
+              />
+            </div>
+            <SidePanel
+              client={client}
               model={model}
+              selection={selection}
+              types={types}
               issues={state.issues}
-              checking={state.checking}
-              onChoose={chooseProblem}
+              readOnly={readOnly}
+              actions={actions}
+              marks={marks}
+              onShowChange={showChange}
             />
+            {deleting !== null ? (
+              <DeleteDialog
+                plan={deleting}
+                onCancel={() => setDeleting(null)}
+                onDelete={confirmDelete}
+              />
+            ) : null}
+            {connectingBlock !== undefined ? (
+              <ConnectDialog
+                block={connectingBlock.id}
+                outputs={portsOf(connectingBlock, types[connectingBlock.type]).outputs}
+                inputs={inputEnds}
+                current={(port) =>
+                  connections(model).find((item) => item.from === `${connectingBlock.id}.${port}`)
+                    ?.to
+                }
+                onCancel={() => setConnecting(null)}
+                onConnect={(from, to) => {
+                  setConnecting(null);
+                  connectEnds(from, to);
+                }}
+              />
+            ) : null}
           </div>
-          <SidePanel
-            client={client}
-            model={model}
-            selection={selection}
-            types={types}
-            issues={state.issues}
-            readOnly={readOnly}
-            actions={actions}
-          />
-          {deleting !== null ? (
-            <DeleteDialog
-              plan={deleting}
-              onCancel={() => setDeleting(null)}
-              onDelete={confirmDelete}
-            />
-          ) : null}
-          {connectingBlock !== undefined ? (
-            <ConnectDialog
-              block={connectingBlock.id}
-              outputs={portsOf(connectingBlock, types[connectingBlock.type]).outputs}
-              inputs={inputEnds}
-              current={(port) =>
-                connections(model).find((item) => item.from === `${connectingBlock.id}.${port}`)?.to
-              }
-              onCancel={() => setConnecting(null)}
-              onConnect={(from, to) => {
-                setConnecting(null);
-                connectEnds(from, to);
-              }}
-            />
-          ) : null}
-        </div>
+        </ReviewContext.Provider>
       </RevisionContext.Provider>
     </BusyContext.Provider>
   );
