@@ -3,7 +3,7 @@
  * rail, the top bar and the current screen, and the first-start notice until it has been
  * seen. Screens later tickets build are placeholders that keep their route.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Project, SettingsBody } from "../api/types";
 import { ServiceProblem } from "../components/ServiceProblem";
@@ -42,7 +42,8 @@ export function App({ client }: { client: ApiClient }) {
     };
   }, [client, route.projectId, project, go]);
 
-  useEffect(() => {
+  // Before the first paint, so F6 works as soon as the frame is visible.
+  useLayoutEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "F6") return;
       event.preventDefault();
