@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import type { Model } from "../api/types";
 import { coffeeShop } from "../test/fakeModel";
-import { freeName, parameterName, scenarioId, triedValue, tryChangeEdits } from "./tryChange";
+import { triedValue, tryChangeEdits } from "./tryChange";
 
 const plan = {
   component: "till",
@@ -16,25 +16,8 @@ const plan = {
   tried: "1.2 min",
 };
 
-describe("names", () => {
-  it("takes the first free name", () => {
-    expect(freeName([], "baseline")).toBe("baseline");
-    expect(freeName(["baseline", "baseline_2"], "baseline")).toBe("baseline_3");
-  });
-
-  it("makes an option's name a scenario id", () => {
-    expect(scenarioId("Faster coffee machine")).toBe("faster_coffee_machine");
-    expect(scenarioId("  2 more tills! ")).toBe("option_2_more_tills");
-    expect(scenarioId("???")).toBe("option");
-    expect(scenarioId("a".repeat(80))).toHaveLength(64);
-  });
-
-  it("names a parameter from the block and the field", () => {
-    expect(parameterName("till", ["service", "mean"])).toBe("till_service_mean");
-    expect(parameterName("shifts", ["shifts", 0, "start"])).toBe("shifts_shifts_0_start");
-  });
-
-  it("writes the value tried as the parameter's type", () => {
+describe("the value tried", () => {
+  it("is written as the parameter's type", () => {
     expect(triedValue("quantity", " 1.2 min ")).toBe("1.2 min");
     expect(triedValue("integer", "3")).toBe(3);
   });
@@ -86,6 +69,26 @@ describe("the batch", () => {
     const edits = tryChangeEdits(model, { ...plan, option: "default" });
     expect(edits?.[0]).toMatchObject({ id: "till_service_mean_2" });
     expect(edits?.[3]).toMatchObject({ id: "default_2", set: { till_service_mean_2: "1.2 min" } });
+  });
+
+  it("keeps every id it makes within spec 1's identifier rule, for a 60-character block id", () => {
+    const long = `b${"x".repeat(59)}`;
+    const model = coffeeShop();
+    const till = model.components?.find((item) => item.id === "till");
+    if (till) till.id = long;
+    // `<block>_service_mean` is 73 characters: cut to 64, which is taken here, so `_2`.
+    const cutName = `${long}_ser`;
+    model.parameters = { ...model.parameters, [cutName]: { value: 1, type: "number" } };
+    const edits = tryChangeEdits(model, {
+      ...plan,
+      component: long,
+      option: `A ${"very ".repeat(20)}long option`,
+    }) as { id?: string; value?: unknown }[];
+    const ids = [edits[0]?.id, edits[2]?.id, edits[3]?.id];
+    for (const id of ids) expect(id).toMatch(/^[a-z][a-z0-9_]{0,63}$/);
+    expect(ids[0]).toBe(`${long}_s_2`);
+    expect(edits[1]).toMatchObject({ value: { $param: ids[0] } });
+    expect(ids[2]).toHaveLength(64);
   });
 
   it("sends nothing for a block, experiment or value that is not in the model shown", () => {

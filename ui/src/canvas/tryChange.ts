@@ -6,7 +6,8 @@
  * step under the one-write rule, built from the model shown:
  *
  * 1. `set_parameter` creating a parameter named from the block and the field
- *    (`till_service_mean`, then `_2`, `_3` when taken) with the field's value and the type
+ *    (`till_service_mean`, then `_2`, `_3` when taken; `identifiers.ts` keeps every
+ *    generated id within spec 1's identifier rule) with the field's value and the type
  *    the field takes (`quantity` for a time, `integer` for a whole number, else `number`);
  * 2. `set_setting` linking the field to it (`{"$param": ...}`) at the field itself;
  * 3. when the experiment has no scenarios of its own, `set_scenario` adding `baseline` (or
@@ -18,36 +19,11 @@
  * A field already linked to a parameter adds only the scenarios.
  */
 import type { Edit, Model } from "../api/types";
+import { identifier } from "./identifiers";
 import { components, paramOf, readNumber, settingEdit, valueAt } from "./model";
 import { hasOwn, own } from "./own";
 
 export type ParameterKind = "quantity" | "integer" | "number";
-
-/** `base`, or `base_2`, `base_3`, ... : the first not in `taken`. */
-export function freeName(taken: readonly string[], base: string): string {
-  if (!taken.includes(base)) return base;
-  let n = 2;
-  while (taken.includes(`${base}_${n}`)) n += 1;
-  return `${base}_${n}`;
-}
-
-/** An option's name as a scenario id (spec 1 "Identifiers": `^[a-z][a-z0-9_]{0,63}$`). */
-export function scenarioId(name: string): string {
-  const words = name
-    .toLowerCase()
-    .replace(/[^a-z0-9_]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  const id = /^[a-z]/.test(words) ? words : `option${words === "" ? "" : `_${words}`}`;
-  return id.slice(0, 64).replace(/_+$/, "");
-}
-
-/** A parameter id named from the block and the field: `till_service_mean`. */
-export function parameterName(id: string, segments: readonly (string | number)[]): string {
-  return [id, ...segments.map(String)]
-    .join("_")
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, "_");
-}
 
 /** The value tried, as the parameter's type writes it. */
 export function triedValue(type: unknown, text: string): unknown {
@@ -75,9 +51,10 @@ export function tryChangeEdits(model: Model, plan: TryPlan): Edit[] | null {
   const edits: Edit[] = [];
   let parameter = paramOf(current);
   if (parameter === null) {
-    parameter = freeName(
+    parameter = identifier(
+      [plan.component, ...plan.segments.map(String)].join("_"),
       Object.keys(model.parameters ?? {}),
-      parameterName(plan.component, plan.segments),
+      "parameter",
     );
     edits.push({ edit: "set_parameter", id: parameter, value: current, type: plan.kind });
     edits.push(settingEdit(component, plan.segments, { $param: parameter }));
@@ -93,7 +70,7 @@ export function tryChangeEdits(model: Model, plan: TryPlan): Edit[] | null {
       .filter((id): id is string => typeof id === "string"),
   ];
   if (listed.length === 0) {
-    const baseline = freeName(taken, "baseline");
+    const baseline = identifier("baseline", taken, "baseline");
     taken.push(baseline);
     edits.push({ edit: "set_scenario", experiment_id: plan.experiment, id: baseline, set: {} });
   }
@@ -107,7 +84,7 @@ export function tryChangeEdits(model: Model, plan: TryPlan): Edit[] | null {
   edits.push({
     edit: "set_scenario",
     experiment_id: plan.experiment,
-    id: freeName(taken, scenarioId(plan.option)),
+    id: identifier(plan.option, taken, "option"),
     set,
   });
   return edits;

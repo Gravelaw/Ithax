@@ -9,6 +9,7 @@
  * not a number is sent as typed, and the service's issues say what is wrong with it.
  */
 import type { ComponentType, Edit, Experiment, Model } from "../api/types";
+import { identifier } from "../canvas/identifiers";
 import { components, pointer, readNumber } from "../canvas/model";
 import { hasOwn, own, record, setOwn } from "../canvas/own";
 /** A plan built from the model shown: the edits, or `null` to send nothing. */
@@ -139,7 +140,7 @@ export function nextName(taken: readonly string[], prefix: string): string {
     const found = pattern.exec(id);
     if (found) highest = Math.max(highest, Number(found[1]));
   }
-  return `${prefix}_${highest + 1}`;
+  return identifier(`${prefix}_${highest + 1}`, taken, prefix);
 }
 
 export interface Scenario {
