@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="title desc">
   <title id="title">Wireframe 01b: Canvas in Learn mode</title>
-  <desc id="desc">Canvas screen during a lesson. The step card sits above the side panel with the step number, up to 80 words of text, and Back, Next and Exit lesson. The step's block, till, has the Learn highlight ring and a Step 2 of 5 tag; other blocks keep full contrast.</desc>
+  <desc id="desc">Canvas screen during a lesson. The step card sits above the side panel with the step number, up to 80 words of text, and Back, Next and Exit lesson. The exercise step names the one change and the one place to make it (set Capacity to 2): the block, till, has the Learn highlight ring and a Step 3 of 5 tag, the Capacity field in the side panel has the same ring, and the step asks What do you think will happen? with a single choice, after which Run is enabled; other blocks keep full contrast.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#547076"/>
@@ -107,26 +107,26 @@
   <rect x="281" y="49" width="679" height="751" rx="0" fill="#F9F3E5" stroke="none" stroke-width="1"/>
   <rect x="281" y="49" width="679" height="751" rx="0" fill="url(#dots)" stroke="none" stroke-width="1"/>
   <!-- Block arrivals (source · every 2 min (exp.)) state=default -->
-  <rect x="304" y="200" width="176" height="72" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <rect x="304" y="200" width="4" height="72" rx="0" fill="#00978D" stroke="none" stroke-width="1"/>
+  <rect x="304" y="200" width="176" height="72" rx="36" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5"/>
+  <circle cx="323" cy="217" r="13" fill="#00978D" fill-opacity="0.18" stroke="none"/>
   <svg x="315" y="209" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#00978D"><path d="M200,40V216H40a16,16,0,0,1-16-16V56A16,16,0,0,1,40,40Z" opacity="0.2"/><path d="M141.66,133.66l-40,40a8,8,0,0,1-11.32-11.32L116.69,136H24a8,8,0,0,1,0-16h92.69L90.34,93.66a8,8,0,0,1,11.32-11.32l40,40A8,8,0,0,1,141.66,133.66ZM200,32H136a8,8,0,0,0,0,16h56V208H136a8,8,0,0,0,0,16h64a8,8,0,0,0,8-8V40A8,8,0,0,0,200,32Z"/></g></svg>
   <text x="336" y="222" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">arrivals</text>
   <text x="316" y="246" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">source · every 2 min (exp.)</text>
   <circle cx="480" cy="236.0" r="6" fill="#547076" stroke="#547076" stroke-width="2"/>
   <!-- Block till (server · capacity = tills) state=learn -->
-  <rect x="522" y="194" width="188" height="84" rx="8" fill="none" stroke="#8F5891" stroke-width="3"/>
-  <rect x="528" y="200" width="176" height="72" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <rect x="528" y="200" width="4" height="72" rx="0" fill="#4F4086" stroke="none" stroke-width="1"/>
+  <rect x="522" y="194" width="188" height="84" rx="20" fill="none" stroke="#8F5891" stroke-width="3"/>
+  <rect x="528" y="200" width="176" height="72" rx="14" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5"/>
+  <circle cx="547" cy="217" r="13" fill="#4F4086" fill-opacity="0.18" stroke="none"/>
   <svg x="539" y="209" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#4F4086"><path d="M168,100a60,60,0,1,1-60-60A60,60,0,0,1,168,100Z" opacity="0.2"/><path d="M144,157.68a68,68,0,1,0-71.9,0c-20.65,6.76-39.23,19.39-54.17,37.17a8,8,0,1,0,12.24,10.3C50.25,181.19,77.91,168,108,168s57.75,13.19,77.87,37.15a8,8,0,0,0,12.26-10.3C183.18,177.07,164.6,164.44,144,157.68ZM56,100a52,52,0,1,1,52,52A52.06,52.06,0,0,1,56,100Zm196.25,43.07-4.66-2.69a23.6,23.6,0,0,0,0-8.76l4.66-2.69a8,8,0,1,0-8-13.86l-4.67,2.7a23.92,23.92,0,0,0-7.58-4.39V108a8,8,0,0,0-16,0v5.38a23.92,23.92,0,0,0-7.58,4.39l-4.67-2.7a8,8,0,1,0-8,13.86l4.66,2.69a23.6,23.6,0,0,0,0,8.76l-4.66,2.69a8,8,0,0,0,8,13.86l4.67-2.7a23.92,23.92,0,0,0,7.58,4.39V164a8,8,0,0,0,16,0v-5.38a23.92,23.92,0,0,0,7.58-4.39l4.67,2.7a7.92,7.92,0,0,0,4,1.07,8,8,0,0,0,4-14.93ZM224,144a8,8,0,1,1,8-8A8,8,0,0,1,224,144Z"/></g></svg>
   <text x="560" y="222" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">till</text>
   <text x="540" y="246" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">server · capacity = tills</text>
   <circle cx="528" cy="236.0" r="6" fill="#547076" stroke="#547076" stroke-width="2"/>
   <circle cx="704" cy="236.0" r="6" fill="#547076" stroke="#547076" stroke-width="2"/>
   <rect x="528" y="166" width="96" height="22" rx="4" fill="#8F5891" stroke="none" stroke-width="1"/>
-  <text x="576" y="182" font-family="sans-serif" font-size="12" font-weight="600" fill="#FDFAF4" text-anchor="middle">Step 2 of 5</text>
+  <text x="576" y="182" font-family="sans-serif" font-size="12" font-weight="600" fill="#FDFAF4" text-anchor="middle">Step 3 of 5</text>
   <!-- Block exit (sink) state=default -->
-  <rect x="752" y="200" width="176" height="72" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <rect x="752" y="200" width="4" height="72" rx="0" fill="#00978D" stroke="none" stroke-width="1"/>
+  <rect x="752" y="200" width="176" height="72" rx="36" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5"/>
+  <circle cx="771" cy="217" r="13" fill="#00978D" fill-opacity="0.18" stroke="none"/>
   <svg x="763" y="209" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#00978D"><path d="M224,56V200a16,16,0,0,1-16,16H48V40H208A16,16,0,0,1,224,56Z" opacity="0.2"/><path d="M120,216a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V40a8,8,0,0,1,8-8h64a8,8,0,0,1,0,16H56V208h56A8,8,0,0,1,120,216Zm109.66-93.66-40-40a8,8,0,0,0-11.32,11.32L204.69,120H112a8,8,0,0,0,0,16h92.69l-26.35,26.34a8,8,0,0,0,11.32,11.32l40-40A8,8,0,0,0,229.66,122.34Z"/></g></svg>
   <text x="784" y="222" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">exit</text>
   <text x="764" y="246" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">sink</text>
@@ -150,26 +150,33 @@
   <rect x="808" y="710" width="112" height="64" rx="0" fill="none" stroke="#1C4286" stroke-width="1.5"/>
   <rect x="960" y="49" width="320" height="751" rx="0" fill="#FDFAF4" stroke="none" stroke-width="1"/>
   <line x1="960" y1="49" x2="960" y2="800" stroke="#CABD9E" stroke-width="1"/>
-  <!-- Step card (spec 4 lesson step: one component, up to 80 words) -->
-  <rect x="976" y="65" width="288" height="260" rx="8" fill="#FDFAF4" stroke="#8F5891" stroke-width="2"/>
-  <text x="992" y="93" font-family="sans-serif" font-size="13" font-weight="600" fill="#8F5891" text-anchor="start">Step 2 of 5</text>
-  <text x="992" y="121" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">The till</text>
-  <text x="992" y="149" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">Customers wait here until the till is</text>
-  <text x="992" y="170" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">free. Serving takes about 1.5 minutes</text>
-  <text x="992" y="191" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">on average, but every customer is</text>
-  <text x="992" y="212" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">different, so the time is random.</text>
-  <text x="992" y="233" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">Capacity says how many tills are open.</text>
-  <rect x="992" y="269" width="80" height="32" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="1032.0" y="290.0" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="middle">Back</text>
-  <rect x="1080" y="269" width="80" height="32" rx="4" fill="#1C4286" stroke="none" stroke-width="1"/>
-  <text x="1120.0" y="290.0" font-family="sans-serif" font-size="14" font-weight="600" fill="#FDFAF4" text-anchor="middle">Next</text>
-  <text x="1176" y="290" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">Exit lesson</text>
-  <text x="976" y="365" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">till</text>
-  <text x="1020" y="365" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">server</text>
-  <text x="976" y="395" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Capacity</text>
-  <rect x="976" y="401" width="288" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="984" y="421" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">tills = 1</text>
-  <text x="976" y="455" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Service time</text>
+  <!-- Step card (spec 4 lesson step: the exercise, with its one place to change and the prediction step) -->
+  <rect x="976" y="65" width="288" height="320" rx="8" fill="#FDFAF4" stroke="#8F5891" stroke-width="2"/>
+  <text x="992" y="93" font-family="sans-serif" font-size="13" font-weight="600" fill="#8F5891" text-anchor="start">Step 3 of 5 · Try it</text>
+  <text x="992" y="121" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Open a second till</text>
+  <text x="992" y="149" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">In the side panel of Till, set</text>
+  <text x="992" y="170" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">Capacity to 2.</text>
+  <text x="992" y="198" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">What do you think will happen?</text>
+  <circle cx="1000" cy="218" r="7" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5"/>
+  <text x="1014" y="223" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">The wait halves</text>
+  <circle cx="1000" cy="242" r="7" fill="#FDFAF4" stroke="#1C4286" stroke-width="1.5"/>
+  <circle cx="1000" cy="242" r="3.5" fill="#1C4286"/>
+  <text x="1014" y="247" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">The wait almost disappears</text>
+  <circle cx="1000" cy="266" r="7" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5"/>
+  <text x="1014" y="271" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Nothing changes</text>
+  <text x="992" y="300" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Run is enabled once you have chosen.</text>
+  <rect x="992" y="329" width="80" height="32" rx="16" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="1032.0" y="350.0" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="middle">Back</text>
+  <rect x="1080" y="329" width="80" height="32" rx="16" fill="#1C4286" stroke="none" stroke-width="1"/>
+  <text x="1120.0" y="350.0" font-family="sans-serif" font-size="14" font-weight="600" fill="#FDFAF4" text-anchor="middle">Run</text>
+  <text x="1176" y="350" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">Exit lesson</text>
+  <text x="976" y="425" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">till</text>
+  <text x="1020" y="425" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">server</text>
+  <text x="976" y="449" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Capacity</text>
+  <rect x="971" y="456" width="298" height="40" rx="7" fill="none" stroke="#8F5891" stroke-width="3"/>
   <rect x="976" y="461" width="288" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="984" y="481" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">exponential, mean 1.5 min</text>
+  <text x="984" y="481" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">tills = 1</text>
+  <text x="976" y="521" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Service time</text>
+  <rect x="976" y="527" width="288" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="984" y="547" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">exponential, mean 1.5 min</text>
 </svg>
