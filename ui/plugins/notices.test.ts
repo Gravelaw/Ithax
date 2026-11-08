@@ -40,6 +40,22 @@ describe("the notices plugin", () => {
     expect(readPackage(bare).license).toBe("UNKNOWN");
   });
 
+  it("ships a package's NOTICE file after its licence (Apache-2.0, section 4(d))", () => {
+    const root = mkdtempSync(join(tmpdir(), "notices-"));
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ name: "e", version: "6.1.0", license: "Apache-2.0" }),
+    );
+    writeFileSync(join(root, "LICENSE"), "Apache License\n");
+    writeFileSync(join(root, "NOTICE"), "\nApache ECharts\nCopyright\n");
+    expect(readPackage(root).text).toBe("Apache License\n\nApache ECharts\nCopyright");
+    mkdirSync(join(root, "licenses"));
+    writeFileSync(join(root, "licenses", "LICENSE-d3"), "BSD 3-Clause\n");
+    expect(readPackage(root).text).toBe(
+      "Apache License\n\nApache ECharts\nCopyright\n\nlicenses/LICENSE-d3:\n\nBSD 3-Clause",
+    );
+  });
+
   it("writes the notices sorted by package name", () => {
     const text = noticesText([
       { name: "zeta", version: "1", license: "ISC", text: "Z" },

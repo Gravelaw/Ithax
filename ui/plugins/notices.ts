@@ -5,7 +5,10 @@
  * travel with the font files, and the MIT, ISC and BSD licences of the bundled code ask for
  * their notices too. At build time this plugin lists every npm package whose modules went
  * into the bundle, and writes `THIRD-PARTY-NOTICES.txt` beside `index.html` with each
- * package's name, version, licence and licence text. It also copies the product's own
+ * package's name, version, licence and licence text, followed by the package's `NOTICE` file
+ * when it has one (Apache-2.0, section 4(d), asks that it travel with the work; Apache
+ * ECharts has one, AKS-120) and the files of its `licenses/` folder (the licences of code it
+ * embeds). It also copies the product's own
  * licence, the repository's `LICENSE` (GNU AGPL version 3), as `LICENSE.txt`, which the
  * first-start notice and Settings, About point to.
  */
@@ -21,6 +24,7 @@ export interface BundledPackage {
 }
 
 const LICENCE_FILE = /^(licen[cs]e|copying)(\.(md|txt))?$/i;
+const NOTICE_FILE = /^notice(\.(md|txt))?$/i;
 
 /** The folder of the npm package a module id belongs to, or `null` for the app's own code. */
 export function packageRoot(id: string): string | null {
@@ -44,11 +48,22 @@ export function readPackage(root: string): BundledPackage {
   if (file === undefined) {
     throw new Error(`${manifest.name} has no licence file to ship with the interface`);
   }
+  const parts = [readFileSync(join(root, file), "utf8").trim()];
+  const notice = readdirSync(root).find((name) => NOTICE_FILE.test(name));
+  if (notice !== undefined) parts.push(readFileSync(join(root, notice), "utf8").trim());
+  // The licences of embedded subcomponents that the licence points to (ECharts embeds d3
+  // code under BSD-3-Clause, in `licenses/LICENSE-d3`).
+  const folder = join(root, "licenses");
+  if (existsSync(folder)) {
+    for (const name of readdirSync(folder).sort()) {
+      parts.push(`licenses/${name}:\n\n${readFileSync(join(folder, name), "utf8").trim()}`);
+    }
+  }
   return {
     name: manifest.name,
     version: manifest.version,
     license: manifest.license ?? "UNKNOWN",
-    text: readFileSync(join(root, file), "utf8").trim(),
+    text: parts.join("\n\n"),
   };
 }
 
