@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { SettingsProvider } from "../settings/SettingsContext";
 import { FakeService, SETTINGS } from "../test/fakes";
 import { designTokens } from "../theme/tokens";
-import { Chart, useChartColours } from "./Chart";
+import { Chart, useChartColours, useSeriesColours } from "./Chart";
 import { histogramData, histogramOption } from "./histogram";
 
 const colours = { bars: "#000000", curve: "#000000", text: "#000000", grid: "#000000" };
@@ -55,5 +55,15 @@ describe("the chart", () => {
     const safe = renderHook(() => useChartColours(), { wrapper: wrapper(true) }).result.current;
     expect(safe.bars).toBe(light["chart-cb-1"]);
     expect(safe.curve).toBe(light["chart-cb-2"]);
+    const series = renderHook(() => useSeriesColours(), { wrapper: wrapper(false) }).result.current;
+    expect(series.series).toEqual(
+      ["chart-1", "chart-2", "chart-3", "chart-4"].map((name) => light[name]),
+    );
+    const safeSeries = renderHook(() => useSeriesColours(), { wrapper: wrapper(true) }).result
+      .current;
+    expect(safeSeries.series).toEqual(
+      ["chart-cb-1", "chart-cb-2", "chart-cb-3", "chart-cb-4"].map((name) => light[name]),
+    );
+    expect(safeSeries.text).toBe(light["text-muted"]);
   });
 });

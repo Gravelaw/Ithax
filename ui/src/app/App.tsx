@@ -1,8 +1,7 @@
 /**
  * The app frame (`docs/design/design-system.md` "Spacing and layout"): the navigation
  * rail, the top bar and the current screen, and the first-start notice until it has been
- * seen. Screens later tickets build (Run monitor, Results, Settings) are placeholders that
- * keep their route.
+ * seen.
  */
 import { useEffect, useLayoutEffect, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
@@ -11,10 +10,12 @@ import { CanvasScreen } from "../canvas/CanvasScreen";
 import { ServiceProblem } from "../components/ServiceProblem";
 import { DataScreen } from "../data/DataScreen";
 import { ExperimentScreen } from "../experiment/ExperimentScreen";
+import { RunMonitor } from "../monitor/RunMonitor";
+import { ResultsScreen } from "../results/ResultsScreen";
 import { FirstStartNotice } from "../screens/FirstStartNotice";
 import { Home } from "../screens/Home";
-import { ScreenPlaceholder, SettingsPlaceholder } from "../screens/Placeholders";
 import { useSettings } from "../settings/SettingsContext";
+import { SettingsScreen } from "../settings/SettingsScreen";
 import { NAV_ITEMS, NavRail } from "./NavRail";
 import { cycleRegion } from "./regions";
 import { HOME, type Route, useRoute } from "./router";
@@ -101,10 +102,13 @@ export function App({ client }: { client: ApiClient }) {
         {route.screen === "experiment" ? (
           <ExperimentScreen client={client} project={shownProject} toolbar={tools} onGo={go} />
         ) : null}
-        {route.screen === "settings" ? <SettingsPlaceholder /> : null}
-        {route.screen === "monitor" || route.screen === "results" ? (
-          <ScreenPlaceholder title={screenTitle(route)} />
+        {route.screen === "monitor" ? (
+          <RunMonitor client={client} project={shownProject} runId={route.runId} onGo={go} />
         ) : null}
+        {route.screen === "results" ? (
+          <ResultsScreen client={client} project={shownProject} runId={route.runId} onGo={go} />
+        ) : null}
+        {route.screen === "settings" ? <SettingsScreen client={client} /> : null}
       </main>
       {noticeOpen ? <FirstStartNotice onContinue={() => void continueFromNotice()} /> : null}
     </div>

@@ -6,8 +6,8 @@
  * A chart is an image with a name (`role="img"`); every chart has a data table beside it
  * with the same numbers (`accessibility.md`, WCAG 1.1.1 and 1.4.1), which its screen draws.
  */
-import { CustomChart, LineChart } from "echarts/charts";
-import { GridComponent } from "echarts/components";
+import { BarChart, CustomChart, LineChart, ScatterChart } from "echarts/charts";
+import { GridComponent, LegendComponent } from "echarts/components";
 import { type EChartsType, init, use } from "echarts/core";
 import { SVGRenderer } from "echarts/renderers";
 import { useEffect, useMemo, useRef } from "react";
@@ -15,7 +15,7 @@ import { useSettings } from "../settings/SettingsContext";
 import { designTokens } from "../theme/tokens";
 import type { ChartColours } from "./histogram";
 
-use([CustomChart, LineChart, GridComponent, SVGRenderer]);
+use([BarChart, CustomChart, LineChart, ScatterChart, GridComponent, LegendComponent, SVGRenderer]);
 
 /** A token's colour as the page shows it now (the theme in use), else the light theme's. */
 function token(name: string): string {
@@ -40,6 +40,33 @@ export function useChartColours(): ChartColours {
   const text = token("text-muted");
   const grid = token("border-strong");
   return useMemo(() => ({ bars, curve, text, grid }), [bars, curve, text, grid]);
+}
+
+/** The colours of up to four series and of the axes (Results, AKS-138). */
+export interface SeriesColours {
+  series: readonly string[];
+  text: string;
+  grid: string;
+}
+
+/**
+ * `chart-1` to `chart-4`, or `chart-cb-1` to `chart-cb-4` when "Colour-blind safe charts"
+ * is on (`design-system.md` "Charts"); beyond four series the colours repeat and the
+ * marker shape and the legend tell them apart.
+ */
+export function useSeriesColours(): SeriesColours {
+  const { settings } = useSettings();
+  const prefix = settings.interface.colour_blind_charts ? "chart-cb-" : "chart-";
+  const first = token(`${prefix}1`);
+  const second = token(`${prefix}2`);
+  const third = token(`${prefix}3`);
+  const fourth = token(`${prefix}4`);
+  const text = token("text-muted");
+  const grid = token("border-strong");
+  return useMemo(
+    () => ({ series: [first, second, third, fourth], text, grid }),
+    [first, second, third, fourth, text, grid],
+  );
 }
 
 export function Chart({ option, label }: { option: Record<string, unknown>; label: string }) {
