@@ -80,8 +80,8 @@ import {
 } from "./model";
 import { BLOCK_MIME, Palette } from "./Palette";
 import { ProblemsList } from "./ProblemsList";
+import { type EditPlan, editsWrite, modelWrite } from "./plans";
 import { ReferenceEdge } from "./ReferenceEdge";
-import type { EditPlan } from "./SettingFields";
 import { type PanelActions, type Selection, SidePanel } from "./SidePanel";
 import type { SessionState } from "./session";
 import { undoSteps, useSession } from "./useSession";
@@ -504,10 +504,7 @@ function ProcessCanvas({
    */
   const send = useCallback(
     (label: string, edits: EditPlan) =>
-      session.write((current) => {
-        const built = typeof edits === "function" ? edits(current) : edits;
-        return built === null || built.length === 0 ? null : { kind: "edits", label, edits: built };
-      }) as Promise<ApiResult<unknown> | null>,
+      session.write(editsWrite(label, edits)) as Promise<ApiResult<unknown> | null>,
     [session],
   );
 
@@ -636,18 +633,8 @@ function ProcessCanvas({
    * saved or queued position); presses close together are one undo step (the session).
    */
   const moveSelection = (dx: number, dy: number) => {
-    const predicted = session.getState().predicted;
-    const all = components(model);
-    const positions = new Map<string, Point>();
-    for (const node of nodes) {
-      if (!node.selected) continue;
-      const index = all.findIndex((item) => item.id === node.id);
-      const component = all[index];
-      if (component === undefined) continue;
-      const from = predicted[node.id] ?? positionOf(component, index);
-      positions.set(node.id, { x: from.x + dx, y: from.y + dy });
-    }
-    if (positions.size > 0) void session.move(positions);
+    const ids = nodes.filter((node) => node.selected).map((node) => node.id);
+    if (ids.length > 0) void session.nudge(ids, dx, dy);
   };
 
   const onNodesChange = useCallback((changes: NodeChange<BlockNodeType>[]) => {
@@ -669,7 +656,7 @@ function ProcessCanvas({
           positions.set(component.id, at);
         }
       }
-      if (positions.size > 0) void session.move(positions, false);
+      if (positions.size > 0) void session.move(positions);
     },
     [model, session],
   );
@@ -840,10 +827,7 @@ function ProcessCanvas({
       void send(label, edits);
     },
     replace: (label, build) => {
-      void session.write((current) => {
-        const model = build(current);
-        return model === null ? null : { kind: "model", label, model };
-      });
+      void session.write(modelWrite(label, build));
     },
     select: selectBlocks,
     remove: requestDelete,

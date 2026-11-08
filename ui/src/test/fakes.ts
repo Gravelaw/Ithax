@@ -63,6 +63,11 @@ export class FakeService {
     };
   }
 
+  /** How many writes are waiting to be let through. */
+  get held(): number {
+    return this.waiting.length;
+  }
+
   /** Lets the first held write through; resolves once one was waiting. */
   async releaseOne(): Promise<void> {
     while (this.waiting.length === 0) await new Promise((resolve) => setTimeout(resolve, 5));

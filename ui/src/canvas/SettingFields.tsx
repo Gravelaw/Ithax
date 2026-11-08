@@ -26,26 +26,25 @@ import {
   splitQuantity,
   TIME_UNITS,
   valueAt,
-  withoutSetting,
   words,
 } from "./model";
+import {
+  clearPlan,
+  componentIn,
+  type EditPlan,
+  gone,
+  type Resolve,
+  settingLabel,
+  settingPlan,
+} from "./plans";
 
-/**
- * Edits, or a plan that builds them from the model as it is when the write is sent (after
- * every write queued before it has answered); `null` or `[]` sends nothing.
- */
-export type EditPlan = Edit[] | ((model: Model) => Edit[] | null);
+export type { EditPlan } from "./plans";
 
 /** What a field does to the model: one batch of edits, or a whole model (clearing). */
 export interface FieldActions {
   edit(label: string, edits: EditPlan): void;
-  /** A whole model, built when the write is sent; `null` sends nothing. */
-  replace(label: string, build: (model: Model) => Model | null): void;
-}
-
-/** The component of that id in `model`, or undefined. */
-export function componentIn(model: Model, id: string): Component | undefined {
-  return components(model).find((item) => item.id === id);
+  /** A whole model (or, for a component gone, its refusal), built when the write is sent. */
+  replace(label: string, build: (model: Model, resolve: Resolve) => Model | Edit[] | null): void;
 }
 
 export interface FieldContext {
@@ -194,26 +193,16 @@ function write(
   segments: Segments,
   value: unknown | ((current: unknown) => unknown),
 ): void {
-  const id = ctx.component.id;
-  ctx.actions.edit(`set ${id}${pointer(segments)}`, (model) => {
-    const component = componentIn(model, id);
-    if (component === undefined) return null;
-    const next =
-      typeof value === "function"
-        ? (value as (current: unknown) => unknown)(valueAt(component.params, segments))
-        : value;
-    return next === undefined ? null : [settingEdit(component, segments, next)];
-  });
+  ctx.actions.edit(
+    settingLabel(ctx.component.id, segments),
+    settingPlan(ctx.component.id, segments, value),
+  );
 }
 
 /** Clears the value at `segments`, if the model holds one when the write is sent. */
 function clear(ctx: FieldContext, segments: Segments): void {
   const id = ctx.component.id;
-  ctx.actions.replace(`clear ${id}${pointer(segments)}`, (model) => {
-    const component = componentIn(model, id);
-    if (component === undefined || valueAt(component.params, segments) === undefined) return null;
-    return withoutSetting(model, id, segments);
-  });
+  ctx.actions.replace(`clear ${id}${pointer(segments)}`, clearPlan(id, segments));
 }
 
 /** "Use parameter": a tick box and a picker of the model's parameters. */
@@ -327,13 +316,12 @@ function ValueField({
   };
   const unlink = () => {
     const id = ctx.component.id;
-    ctx.actions.edit(`set ${id}${pointer(segments)}`, (model) => {
-      const component = componentIn(model, id);
-      const current = component ? paramOf(valueAt(component.params, segments)) : null;
+    ctx.actions.edit(`set ${id}${pointer(segments)}`, (model, resolve) => {
+      const component = componentIn(model, resolve(id));
+      if (component === undefined) return gone(resolve(id));
+      const current = paramOf(valueAt(component.params, segments));
       const parameter = current === null ? undefined : model.parameters?.[current];
-      return component && parameter !== undefined
-        ? [settingEdit(component, segments, parameter.value)]
-        : null;
+      return parameter !== undefined ? [settingEdit(component, segments, parameter.value)] : null;
     });
   };
   const title = label ?? labelOf(setting, required);
@@ -641,11 +629,11 @@ function RowsField({
   const name = words(setting.name);
   const add = () => {
     const id = ctx.component.id;
-    ctx.actions.edit(`add to ${id}${pointer(segments)}`, (model) => {
-      const component = componentIn(model, id);
-      if (component === undefined) return null;
+    ctx.actions.edit(`add to ${id}${pointer(segments)}`, (model, resolve) => {
+      const component = componentIn(model, resolve(id));
+      if (component === undefined) return gone(resolve(id));
       return Array.isArray(valueAt(component.params, segments))
-        ? [{ edit: "set_setting", id, path: `${pointer(segments)}/-`, value: {} }]
+        ? [{ edit: "set_setting", id: component.id, path: `${pointer(segments)}/-`, value: {} }]
         : [settingEdit(component, segments, [{}])];
     });
   };

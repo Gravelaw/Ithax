@@ -1167,3 +1167,28 @@ describe("keyboard moves (review of PR #45)", () => {
     expect(shownX("exit")).toBe(start + 8);
   });
 });
+
+describe("an action queued behind a rename or a delete (review of PR #45)", () => {
+  it("goes to the block under its new id", async () => {
+    const { fake, service, toolbar, user } = renderCanvas();
+    await select(user, "till");
+    const open = fake.holdWrites();
+    const id = screen.getByRole("textbox", { name: "Id" });
+    await user.clear(id);
+    await user.type(id, "counter{Enter}");
+    // The panel still shows till until the rename answers; its fields name till.
+    await user.type(screen.getByRole("textbox", { name: "Queue capacity (optional)" }), "3{Enter}");
+    await user.type(screen.getByRole("textbox", { name: "Label (optional)" }), "Counter{Enter}");
+    open();
+    await waitFor(() => expect(sentEdits(fake)).toHaveLength(3));
+    await settled(toolbar);
+    expect(sentEdits(fake).slice(1)).toEqual([
+      [{ edit: "set_setting", id: "counter", path: "/queue_capacity", value: 3 }],
+      [{ edit: "set_label", id: "counter", label: "Counter" }],
+    ]);
+    expect(service.component("counter")).toMatchObject({
+      label: "Counter",
+      params: { queue_capacity: 3 },
+    });
+  });
+});

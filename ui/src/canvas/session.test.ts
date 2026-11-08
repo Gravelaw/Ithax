@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Edit, Model } from "../api/types";
 import { coffeeShop, ModelService, PID } from "../test/fakeModel";
 import { FakeService } from "../test/fakes";
+import { editsWrite, settingPlan } from "./plans";
 import { CanvasSession, MOVE_BURST_MS, RETRY_MS, VALIDATE_MS } from "./session";
 
 const MODEL = `/v1/projects/${PID}/model`;
@@ -284,10 +285,10 @@ describe("the canvas's session with the service", () => {
     session.start();
     await vi.advanceTimersByTimeAsync(0);
     const before = structuredClone(service.model);
-    void session.move(new Map([["exit", { x: 488, y: 0 }]]));
+    void session.nudge(["exit"], 8, 0);
     expect(session.getState().predicted).toEqual({ exit: { x: 488, y: 0 } });
     await vi.advanceTimersByTimeAsync(MOVE_BURST_MS - 100);
-    await session.move(new Map([["exit", { x: 496, y: 0 }]]));
+    await session.nudge(["exit"], 8, 0);
     expect(fake.requested("POST", EDITS).map((request) => request.body)).toEqual([
       { edits: [{ edit: "set_ui", id: "exit", ui: { x: 488, y: 0 } }], base_revision: 3 },
       { edits: [{ edit: "set_ui", id: "exit", ui: { x: 496, y: 0 } }], base_revision: 4 },
@@ -302,13 +303,13 @@ describe("the canvas's session with the service", () => {
     const { session } = setup();
     session.start();
     await vi.advanceTimersByTimeAsync(0);
-    await session.move(new Map([["exit", { x: 1, y: 0 }]]));
+    await session.nudge(["exit"], 1, 0);
     await vi.advanceTimersByTimeAsync(MOVE_BURST_MS);
-    await session.move(new Map([["exit", { x: 2, y: 0 }]]));
-    await session.move(new Map([["till", { x: 3, y: 0 }]]));
+    await session.nudge(["exit"], 1, 0);
+    await session.nudge(["till"], 1, 0);
     await write(session, [label("till", "T")]);
-    await session.move(new Map([["till", { x: 4, y: 0 }]]));
-    await session.move(new Map([["till", { x: 5, y: 0 }]]), false);
+    await session.nudge(["till"], 1, 0);
+    await session.move(new Map([["till", { x: 5, y: 0 }]]));
     let undone = 0;
     while (session.getState().undoLabel !== null && undone < 10) {
       await session.undo();
@@ -324,14 +325,14 @@ describe("the canvas's session with the service", () => {
     session.start();
     await vi.advanceTimersByTimeAsync(0);
     const open = fake.holdWrites();
-    const first = session.move(new Map([["exit", { x: 8, y: 0 }]]));
-    const second = session.move(new Map([["exit", { x: 16, y: 0 }]]));
+    const first = session.nudge(["exit"], 8, 0);
+    const second = session.nudge(["exit"], 8, 0);
     await vi.advanceTimersByTimeAsync(0);
     await fake.releaseOne();
     await first;
     // The first answer is drawn under the second, still queued, move.
-    expect(session.getState().model?.components?.[2]?.ui).toEqual({ x: 8, y: 0 });
-    expect(session.getState().predicted).toEqual({ exit: { x: 16, y: 0 } });
+    expect(session.getState().model?.components?.[2]?.ui).toEqual({ x: 488, y: 0 });
+    expect(session.getState().predicted).toEqual({ exit: { x: 496, y: 0 } });
     open();
     await second;
     expect(session.getState().predicted).toEqual({});
@@ -373,8 +374,8 @@ describe("the canvas's session with the service", () => {
     await vi.advanceTimersByTimeAsync(0);
     await write(session, [label("till", "T")], "label till");
     const open = fake.holdWrites();
-    void session.move(new Map([["exit", { x: 8, y: 0 }]]));
-    void session.move(new Map([["exit", { x: 16, y: 0 }]]));
+    void session.nudge(["exit"], 8, 0);
+    void session.nudge(["exit"], 8, 0);
     const undo = session.undo();
     open();
     await undo;
@@ -414,6 +415,54 @@ describe("the canvas's session with the service", () => {
     fake.sockets[0]?.emit({ type: "model", revision: 9, client: "mcp" });
     await vi.advanceTimersByTimeAsync(0);
     expect(fake.requested("GET", MODEL)).toHaveLength(1);
+  });
+
+  it("sends an action for a block deleted before it was sent, and shows the service's refusal", async () => {
+    const { fake, session } = setup();
+    session.start();
+    await vi.advanceTimersByTimeAsync(0);
+    void session.write(editsWrite("delete exit", [{ edit: "remove_component", id: "exit" }]));
+    const label = session.write(editsWrite("set exit", settingPlan("exit", ["capacity"], 2)));
+    const moved = session.nudge(["exit"], 8, 0);
+    expect(await label).toMatchObject({ kind: "refused", error: { code: "E180" } });
+    expect(await moved).toMatchObject({ kind: "refused", error: { code: "E180" } });
+    expect(session.getState().refusal).toMatchObject({ kind: "refused", error: { code: "E180" } });
+    expect(fake.requested("POST", EDITS)).toHaveLength(3);
+  });
+
+  it("follows renames made after an action was asked, through undo and redo", async () => {
+    const { service, session } = setup();
+    session.start();
+    await vi.advanceTimersByTimeAsync(0);
+    void session.write(
+      editsWrite("rename", [{ edit: "rename_component", id: "till", new_id: "a" }]),
+    );
+    void session.write(
+      editsWrite("rename", [{ edit: "rename_component", id: "till", new_id: "b" }]),
+    );
+    await session.write(editsWrite("label", [{ edit: "set_label", id: "till", label: "T" }]));
+    expect(service.component("b")?.label).toBe("T");
+    // An action asked while the undo of the second rename is queued names b, drawn then;
+    // it reaches the block that undo has named a again.
+    await session.undo();
+    void session.undo();
+    await session.write(editsWrite("label", [{ edit: "set_label", id: "b", label: "U" }]));
+    expect(service.component("b")).toBeUndefined();
+    expect(service.component("a")?.label).toBe("U");
+  });
+
+  it("follows a rename that a queued redo makes", async () => {
+    const { service, session } = setup();
+    session.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await session.write(
+      editsWrite("rename", [{ edit: "rename_component", id: "till", new_id: "x" }]),
+    );
+    await session.undo();
+    void session.redo();
+    await session.write(editsWrite("label", [{ edit: "set_label", id: "till", label: "V" }]));
+    expect(service.component("till")).toBeUndefined();
+    expect(service.component("x")?.label).toBe("V");
   });
 
   it("says when the project's events stop", async () => {

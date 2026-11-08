@@ -23,7 +23,8 @@
  */
 import type { ApiClient, ApiResult, EventSocket } from "../api/client";
 import type { Edit, Issue, Model, ModelWriteBody, ProjectEvent } from "../api/types";
-import { movesIn, type Point } from "./model";
+import { moveEdit, type Point, positionOf } from "./model";
+import { gone } from "./plans";
 
 export const RETRY_MS = 2000;
 export const VALIDATE_MS = 500;
@@ -37,6 +38,8 @@ export interface Step {
   after: Model;
   /** For a move: the blocks it moved, so a following move of them can join it. */
   moved?: string;
+  /** The renames the write made, in order, as `[old, new]`. */
+  renames: [string, string][];
 }
 
 /** What one user action writes: edits, or a whole model. */
@@ -44,8 +47,12 @@ export type Write =
   | { kind: "edits"; label: string; edits: Edit[] }
   | { kind: "model"; label: string; model: Model };
 
-/** Builds the write from the model as it is when the write is sent; `null` sends nothing. */
-export type Plan = (model: Model) => Write | null;
+/**
+ * Builds the write from the model as it is when the write is sent, and `resolve`, which
+ * gives the id that a component named when the action was asked has now (following the
+ * renames applied since); `null` sends nothing.
+ */
+export type Plan = (model: Model, resolve: (id: string) => string) => Write | null;
 
 export interface SessionState {
   status: "loading" | "ready" | "unavailable";
@@ -117,6 +124,9 @@ export class CanvasSession {
   /** The last move action: which blocks, and when it was asked for. */
   private lastMove: { moved: string; at: number } | null = null;
   private readonly now: () => number;
+  /** Every rename the model went through, with the count of writes applied when it did. */
+  private readonly renames: { from: string; to: string; at: number }[] = [];
+  private applied = 0;
   private undoLimit: number;
   private readonly setTimer: (callback: () => void, ms: number) => unknown;
   private readonly clearTimer: (handle: unknown) => void;
@@ -172,30 +182,59 @@ export class CanvasSession {
     });
   }
 
+  /** Moves blocks to `positions` (a drag's end): one write, one undo step. */
+  move(positions: ReadonlyMap<string, Point>): Promise<ApiResult<ModelWriteBody> | null> {
+    return this.movement([...positions.keys()], (_id, _from) => positions.get(_id) as Point, false);
+  }
+
   /**
-   * Moves blocks to `positions`, sent at once as one write of `set_ui` (built when it is
-   * sent). With `burst`, a move of the same blocks less than `MOVE_BURST_MS` after the
-   * previous one joins that move's undo step.
+   * Moves blocks by `dx`, `dy` (arrow keys), from where each is when the write is sent, so
+   * the result is the same however long the queue is. Moves of the same blocks less than
+   * `MOVE_BURST_MS` apart join one undo step.
    */
-  move(
-    positions: ReadonlyMap<string, Point>,
-    burst = true,
+  nudge(ids: readonly string[], dx: number, dy: number): Promise<ApiResult<ModelWriteBody> | null> {
+    return this.movement(ids, (_id, from) => ({ x: from.x + dx, y: from.y + dy }), true);
+  }
+
+  /** Where a block is drawn: where queued moves put it, else where the model has it. */
+  drawnAt(id: string): Point | undefined {
+    const predicted = this.predicted.get(id);
+    if (predicted) return predicted.at;
+    const all = this.state.model?.components ?? [];
+    const index = all.findIndex((item) => item.id === id);
+    const component = all[index];
+    return component ? positionOf(component, index) : undefined;
+  }
+
+  private movement(
+    ids: readonly string[],
+    to: (id: string, from: Point) => Point,
+    burst: boolean,
   ): Promise<ApiResult<ModelWriteBody> | null> {
-    if (this.state.status !== "ready" || this.state.failing || this.stopped) {
+    if (this.state.status !== "ready" || this.state.failing || this.stopped || ids.length === 0) {
       return Promise.resolve(null);
     }
-    const ids = [...positions.keys()];
     const moved = [...ids].sort().join(" ");
     const now = this.now();
     const joins = burst && this.lastMove?.moved === moved && now - this.lastMove.at < MOVE_BURST_MS;
     this.lastMove = burst ? { moved, at: now } : null;
     const move = ++this.moves;
-    for (const [id, at] of positions) this.predicted.set(id, { at, move });
+    for (const id of ids) {
+      const from = this.drawnAt(id);
+      if (from) this.predicted.set(id, { at: to(id, from), move });
+    }
     this.set({ predicted: this.predictions() });
     const label = ids.length === 1 ? `move ${ids[0]}` : `move ${ids.length} blocks`;
-    const plan: Plan = (model) => {
-      const edits = movesIn(model, positions);
-      return edits.length === 0 ? null : { kind: "edits", label, edits };
+    const plan: Plan = (model, resolve) => {
+      const all = model.components ?? [];
+      const edits: Edit[] = [];
+      for (const id of ids) {
+        const index = all.findIndex((item) => item.id === resolve(id));
+        const component = all[index];
+        if (component === undefined) return { kind: "edits", label, edits: gone(resolve(id)) };
+        edits.push(moveEdit(component, to(id, positionOf(component, index))));
+      }
+      return { kind: "edits", label, edits };
     };
     return this.queue(joins ? "merge" : "do", plan, moved).finally(() => {
       for (const id of ids) {
@@ -259,7 +298,8 @@ export class CanvasSession {
     this.writes += 1;
     this.invalidateValidation();
     this.set({ saving: true });
-    const job = this.chain.then(() => this.send(history, plan, moved));
+    const asked = this.applied;
+    const job = this.chain.then(() => this.send(history, plan, asked, moved));
     this.chain = job.catch(() => undefined);
     return job.finally(() => {
       this.writes -= 1;
@@ -267,15 +307,27 @@ export class CanvasSession {
     });
   }
 
+  /** The id `id` has now, for an action asked when `asked` writes had been applied. */
+  private resolver(asked: number): (id: string) => string {
+    return (id) => {
+      let now = id;
+      for (const rename of this.renames) {
+        if (rename.at > asked && rename.from === now) now = rename.to;
+      }
+      return now;
+    };
+  }
+
   private async send(
     history: History,
     plan: Plan,
+    asked: number,
     moved?: string,
   ): Promise<ApiResult<ModelWriteBody> | null> {
     const before = this.state.model;
     if (before === null) return null;
     const base = this.state.revision;
-    const write = plan(before);
+    const write = plan(before, this.resolver(asked));
     if (write === null) {
       this.scheduleValidate();
       return null;
@@ -292,7 +344,13 @@ export class CanvasSession {
       result = await request();
     }
     if (result.kind === "ok") {
-      this.record(history, write.label, before, result.data.model, moved);
+      const renames: [string, string][] =
+        write.kind === "edits"
+          ? write.edits.flatMap((edit): [string, string][] =>
+              edit.edit === "rename_component" ? [[edit.id, edit.new_id]] : [],
+            )
+          : [];
+      this.record(history, write.label, before, result.data.model, renames, moved);
       this.set({
         failing: false,
         refusal: null,
@@ -314,25 +372,38 @@ export class CanvasSession {
     label: string,
     before: Model,
     after: Model,
+    renames: [string, string][],
     moved?: string,
   ): void {
+    this.applied += 1;
+    const renamed = (pairs: [string, string][]) => {
+      for (const [from, to] of pairs) this.renames.push({ from, to, at: this.applied });
+    };
     const top = this.undoStack.at(-1);
     if (history === "merge" && top !== undefined && top.moved === moved) {
       // The burst's step keeps the model from before its first move.
       top.after = after;
       this.redoStack = [];
     } else if (history === "do" || history === "merge") {
-      const step: Step = { label, before, after };
+      const step: Step = { label, before, after, renames };
       if (moved !== undefined) step.moved = moved;
       this.undoStack.push(step);
       this.redoStack = [];
       this.trim();
+      renamed(renames);
     } else if (history === "undo") {
+      // Undoing a step undoes its renames, last first.
       const step = this.undoStack.pop();
-      if (step) this.redoStack.push(step);
+      if (step) {
+        this.redoStack.push(step);
+        renamed(step.renames.map(([from, to]): [string, string] => [to, from]).reverse());
+      }
     } else {
       const step = this.redoStack.pop();
-      if (step) this.undoStack.push(step);
+      if (step) {
+        this.undoStack.push(step);
+        renamed(step.renames);
+      }
     }
   }
 

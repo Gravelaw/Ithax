@@ -20,14 +20,8 @@ import {
   splitEnd,
 } from "./model";
 import { Parameters } from "./Parameters";
-import {
-  CommitInput,
-  componentIn,
-  type EditPlan,
-  type FieldActions,
-  type FieldContext,
-  SettingField,
-} from "./SettingFields";
+import { componentIn, type EditPlan, gone } from "./plans";
+import { CommitInput, type FieldActions, type FieldContext, SettingField } from "./SettingFields";
 
 export interface PanelActions extends FieldActions {
   /** Sends one batch and gives the service's answer. */
@@ -130,9 +124,10 @@ function BlockPanel({
     const value = readNumber(text);
     const id = component.id;
     // The other axis is the one saved when this write is sent, so x then y keeps both.
-    actions.edit(`move ${id}`, (current) => {
-      const now = componentIn(current, id);
-      return now ? [{ edit: "set_ui", id, ui: { ...(now.ui ?? {}), [axis]: value } }] : null;
+    actions.edit(`move ${id}`, (current, resolve) => {
+      const now = componentIn(current, resolve(id));
+      if (now === undefined) return gone(resolve(id));
+      return [{ edit: "set_ui", id: now.id, ui: { ...(now.ui ?? {}), [axis]: value } }];
     });
   };
 
