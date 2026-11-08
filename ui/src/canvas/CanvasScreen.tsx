@@ -59,6 +59,7 @@ import type { ApiClient, ApiResult } from "../api/client";
 import type { ComponentType, Edit, Issue, Model, Project, SchemaBody } from "../api/types";
 import type { Route } from "../app/router";
 import { LOST_CONTACT, ServiceProblem } from "../components/ServiceProblem";
+import { useMounted } from "../components/useMounted";
 import { useSettings } from "../settings/SettingsContext";
 import {
   type BlockData,
@@ -854,10 +855,17 @@ function ProcessCanvas({
   };
 
   const blocked = runBlocked(state);
+  // Run starts the run of the experiment chosen, and opens the Run monitor at it; a refusal
+  // is the session's, shown in the notices (spec 3 "Run monitor, Results and Settings").
+  const mounted = useMounted();
   const run = useCallback(() => {
     if (runBlocked(session.getState()) !== null) return;
-    onGo({ screen: "monitor", projectId: project.id });
-  }, [session, onGo, project.id]);
+    void session.startRun(chosenExperiment === "" ? null : chosenExperiment).then((result) => {
+      if (result?.kind === "ok" && mounted.current) {
+        onGo({ screen: "monitor", projectId: project.id, runId: result.data.run_id });
+      }
+    });
+  }, [session, onGo, project.id, chosenExperiment, mounted]);
 
   const undo = useCallback(() => {
     if (!locked) void session.undo();

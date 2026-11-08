@@ -29,7 +29,7 @@
  *   like undo and one undo step. All are changes like any other: refused while busy.
  */
 import type { ApiClient, ApiResult, EventSocket } from "../api/client";
-import type { Edit, Issue, Model, ModelWriteBody, ProjectEvent } from "../api/types";
+import type { Edit, Issue, Model, ModelWriteBody, ProjectEvent, StartedRun } from "../api/types";
 import { movesIn, type Point } from "./model";
 import { record } from "./own";
 import { absorb, adopt, type Change, changeSubject, changesBetween, restore } from "./review";
@@ -79,8 +79,10 @@ export interface SessionState {
   checking: boolean;
   /** A write is waiting for its answer. */
   saving: boolean;
-  /** A write or a reload is waiting for its answer: no other change is taken. */
+  /** A write, a reload or a run's start is waiting for its answer: no other change is taken. */
   busy: boolean;
+  /** `POST .../runs` is waiting for its answer (AKS-138). */
+  starting: boolean;
   /** A write got no usable answer: the canvas is read-only and the write is retried. */
   failing: boolean;
   /** The service refused the last write (400 E180, 409 E181, ...); cleared by the next. */
@@ -124,6 +126,7 @@ export const INITIAL_STATE: SessionState = {
   checking: true,
   saving: false,
   busy: false,
+  starting: false,
   failing: false,
   refusal: null,
   undoLabel: null,
@@ -305,6 +308,25 @@ export class CanvasSession {
       const step = this.redoStack.at(-1);
       return step ? { kind: "model", label: step.label, model: step.after } : null;
     });
+  }
+
+  /**
+   * Starts a run of the model as saved (spec 3 "Run monitor, Results and Settings"): one
+   * request under the Save rule, so nothing else is taken while it awaits its answer. A
+   * refusal is the session's `refusal`, shown like a refused write; a start clears it.
+   * `null` when it is not taken (busy, read-only, not loaded).
+   */
+  startRun(experimentId: string | null): Promise<ApiResult<StartedRun> | null> {
+    if (!this.canWrite()) return Promise.resolve(null);
+    this.set({ busy: true, starting: true });
+    const job = (async () => {
+      const result = await this.client.startRun(this.pid, experimentId);
+      this.set({ busy: false, starting: false, refusal: result.kind === "ok" ? null : result });
+      this.afterBusy();
+      return result;
+    })();
+    this.current = job.catch(() => undefined);
+    return job;
   }
 
   private send(

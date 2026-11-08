@@ -14,6 +14,17 @@ describe("routes", () => {
     ["#/nowhere", HOME],
     ["#/canvas/a/b", HOME],
     ["#token=abc", HOME],
+    [
+      "#/monitor/p/20261108T101502-K3QX7A",
+      { screen: "monitor", projectId: "p", runId: "20261108T101502-K3QX7A" },
+    ],
+    ["#/results/p/r%2F1", { screen: "results", projectId: "p", runId: "r/1" }],
+    ["#/monitor/p/", HOME],
+    ["#/results/p/r/x", HOME],
+    ["#/data/p/r", HOME],
+    ["#/settings//", HOME],
+    ["#/canvas/%E0%A4%A", HOME],
+    ["#/results/p/%E0%A4%A", HOME],
   ])("%s is %o", (hash, route) => {
     expect(parseRoute(hash)).toEqual(route);
   });
@@ -22,6 +33,9 @@ describe("routes", () => {
     expect(routeHash(HOME)).toBe("#/");
     expect(routeHash({ screen: "settings", projectId: null })).toBe("#/settings");
     expect(routeHash({ screen: "monitor", projectId: "a/b" })).toBe("#/monitor/a%2Fb");
+    expect(routeHash({ screen: "results", projectId: "p", runId: "r/1" })).toBe(
+      "#/results/p/r%2F1",
+    );
     expect(parseRoute(routeHash({ screen: "data", projectId: "x y" }))).toEqual({
       screen: "data",
       projectId: "x y",

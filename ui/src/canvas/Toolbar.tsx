@@ -10,6 +10,9 @@ export const NOTICE_MS = 8000;
 /** Said when a change is tried while a write awaits its answer: it is not made. */
 export const WAIT = "Not saved: the canvas was saving. Make the change again.";
 
+/** Said while `POST .../runs` awaits its answer (AKS-138). */
+export const STARTING = "Starting the run…";
+
 /** Why Run is not available, and which pointer it shows (owner review choice 9). */
 export function runBlocked(
   state: SessionState,
@@ -17,6 +20,7 @@ export function runBlocked(
   if (state.failing) {
     return { reason: "Not saved: the service is not answering. Retrying.", pointer: "busy" };
   }
+  if (state.starting) return { reason: STARTING, pointer: "busy" };
   if (state.saving) return { reason: "Saving…", pointer: "busy" };
   if (state.checking) return { reason: "Checking…", pointer: "busy" };
   const { errors } = issueCounts(state.issues);
