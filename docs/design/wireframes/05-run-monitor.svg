@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="title desc">
   <title id="title">Wireframe 05: Run monitor</title>
-  <desc id="desc">Run monitor. The current run's id, state and a progress bar with the service's message, live key numbers updated at most once a second with a Pause updates button, and Cancel run. Below, the run queue and recent runs of this project.</desc>
+  <desc id="desc">Run monitor. The current run's id, state and a progress bar with the service's message, and Cancel run. Live key numbers are not available (no Phase 1 engine reports them while it runs), which the screen says, so there is no Pause updates button. An inset shows a search run: its message, and that the best-so-far chart and the table of all trials are on Results. Below, the runs of this project with Watch, Cancel and Results.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#547076"/>
@@ -30,22 +30,10 @@
   <text x="36" y="422" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="middle">Results</text>
   <svg x="24" y="446" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#547076"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm109.94-52.79a8,8,0,0,0-3.89-5.4l-29.83-17-.12-33.62a8,8,0,0,0-2.83-6.08,111.91,111.91,0,0,0-36.72-20.67,8,8,0,0,0-6.46.59L128,41.85,97.88,25a8,8,0,0,0-6.47-.6A112.1,112.1,0,0,0,54.73,45.15a8,8,0,0,0-2.83,6.07l-.15,33.65-29.83,17a8,8,0,0,0-3.89,5.4,106.47,106.47,0,0,0,0,41.56,8,8,0,0,0,3.89,5.4l29.83,17,.12,33.62a8,8,0,0,0,2.83,6.08,111.91,111.91,0,0,0,36.72,20.67,8,8,0,0,0,6.46-.59L128,214.15,158.12,231a7.91,7.91,0,0,0,3.9,1,8.09,8.09,0,0,0,2.57-.42,112.1,112.1,0,0,0,36.68-20.73,8,8,0,0,0,2.83-6.07l.15-33.65,29.83-17a8,8,0,0,0,3.89-5.4A106.47,106.47,0,0,0,237.94,107.21Zm-15,34.91-28.57,16.25a8,8,0,0,0-3,3c-.58,1-1.19,2.06-1.81,3.06a7.94,7.94,0,0,0-1.22,4.21l-.15,32.25a95.89,95.89,0,0,1-25.37,14.3L134,199.13a8,8,0,0,0-3.91-1h-.19c-1.21,0-2.43,0-3.64,0a8.08,8.08,0,0,0-4.1,1l-28.84,16.1A96,96,0,0,1,67.88,201l-.11-32.2a8,8,0,0,0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.09,8.09,0,0,0-3-3.06l-28.6-16.29a90.49,90.49,0,0,1,0-28.26L61.67,97.63a8,8,0,0,0,3-3c.58-1,1.19-2.06,1.81-3.06a7.94,7.94,0,0,0,1.22-4.21l.15-32.25a95.89,95.89,0,0,1,25.37-14.3L122,56.87a8,8,0,0,0,4.1,1c1.21,0,2.43,0,3.64,0a8.08,8.08,0,0,0,4.1-1l28.84-16.1A96,96,0,0,1,188.12,55l.11,32.2a8,8,0,0,0,1.22,4.22c.62,1,1.23,2,1.8,3.06a8.09,8.09,0,0,0,3,3.06l28.6,16.29A90.49,90.49,0,0,1,222.9,142.12Z"/></g></svg>
   <text x="36" y="486" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="middle">Settings</text>
-  <!-- Top bar: project, save state, undo/redo, experiment, Run with its reason -->
+  <!-- Top bar: the project's name; these screens put no tools in it -->
   <rect x="72" y="0" width="1208" height="48" rx="0" fill="#FDFAF4" stroke="none" stroke-width="1"/>
   <line x1="72" y1="48" x2="1280" y2="48" stroke="#CABD9E" stroke-width="1"/>
   <text x="92" y="30" font-family="sans-serif" font-size="16" font-weight="600" fill="#34454C" text-anchor="start">Coffee shop</text>
-  <circle cx="262" cy="25" r="5" fill="#1A7444" stroke="none" stroke-width="1"/>
-  <text x="274" y="30" font-family="sans-serif" font-size="13" font-weight="400" fill="#1A7444" text-anchor="start">Saved</text>
-  <rect x="360" y="10" width="64" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <svg x="366" y="17" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#34454C"><path d="M232,144a64.07,64.07,0,0,1-64,64H80a8,8,0,0,1,0-16h88a48,48,0,0,0,0-96H51.31l34.35,34.34a8,8,0,0,1-11.32,11.32l-48-48a8,8,0,0,1,0-11.32l48-48A8,8,0,0,1,85.66,45.66L51.31,80H168A64.07,64.07,0,0,1,232,144Z"/></g></svg><text x="400" y="29" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">Undo</text>
-  <rect x="432" y="10" width="64" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <svg x="438" y="17" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#34454C"><path d="M170.34,130.34,204.69,96H88a48,48,0,0,0,0,96h88a8,8,0,0,1,0,16H88A64,64,0,0,1,88,80H204.69L170.34,45.66a8,8,0,0,1,11.32-11.32l48,48a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32-11.32Z"/></g></svg><text x="472" y="29" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">Redo</text>
-  <text x="796" y="30" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Experiment</text>
-  <rect x="866" y="10" width="120" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="876" y="29" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">base</text>
-  <text x="974" y="29" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">v</text>
-  <rect x="1000" y="8" width="80" height="32" rx="4" fill="#1C4286" stroke="none" stroke-width="1"/>
-  <svg x="1012" y="17" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#FDFAF4"><path d="M240,128a15.74,15.74,0,0,1-7.6,13.51L88.32,229.65a16,16,0,0,1-16.2.3A15.86,15.86,0,0,1,64,216.13V39.87a15.86,15.86,0,0,1,8.12-13.82,16,16,0,0,1,16.2.3L232.4,114.49A15.74,15.74,0,0,1,240,128Z"/></g></svg><text x="1048" y="29" font-family="sans-serif" font-size="14" font-weight="600" fill="#FDFAF4" text-anchor="middle">Run</text>
   <text x="104" y="96" font-family="monospace" font-size="24" font-weight="600" fill="#34454C" text-anchor="start">Run 20261106T101502-K3QX7A</text>
   <rect x="104" y="112" width="88" height="24" rx="12" fill="#F7EEDC" stroke="#1C4286" stroke-width="1"/>
   <text x="148" y="129" font-family="sans-serif" font-size="13" font-weight="600" fill="#1C4286" text-anchor="middle">running</text>
@@ -55,23 +43,27 @@
   <text x="104" y="200" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">40%  Scenario 1 of 2, replication 12 of 30</text>
   <rect x="704" y="186" width="120" height="32" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
   <text x="764.0" y="207.0" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="middle">Cancel run</text>
-  <text x="104" y="248" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Live key numbers</text>
-  <rect x="664" y="228" width="160" height="32" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="744.0" y="249.0" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="middle">Pause updates</text>
-  <rect x="104" y="264" width="720" height="32" rx="0" fill="#F7EEDC" stroke="none" stroke-width="1"/>
-  <text x="116" y="285" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Scenario</text>
-  <text x="264" y="285" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Metric</text>
-  <text x="524" y="285" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Value so far</text>
-  <rect x="104" y="296" width="720" height="32" rx="0" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
-  <text x="116" y="317" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">default</text>
-  <text x="264" y="317" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">till.wait.mean</text>
-  <text x="524" y="317" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">4.5 min</text>
-  <rect x="104" y="328" width="720" height="32" rx="0" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
-  <text x="116" y="349" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">default</text>
-  <text x="264" y="349" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">till.utilization</text>
-  <text x="524" y="349" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">75%</text>
-  <text x="104" y="388" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Numbers are estimates while the run goes on; final values and their</text>
-  <text x="104" y="406" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">confidence intervals are on the Results screen.</text>
+  <!-- Live key numbers: logged fallback (AKS-138). No Phase 1 adapter sends metrics events (spec 3 "Progress events"), so the monitor says so instead of drawing trends. -->
+  <text x="104" y="248" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Key numbers</text>
+  <rect x="104" y="262" width="720" height="64" rx="8" fill="#F7EEDC" stroke="#CABD9E" stroke-width="1"/>
+  <text x="120" y="288" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">Live numbers are not available: this engine reports them only when the run is done.</text>
+  <text x="120" y="310" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">The averages and their likely ranges are on Results once the run is done.</text>
+  <text x="104" y="352" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">No "Pause updates": only the progress bar and its message change while a run goes on.</text>
+  <!-- Inset: a search run on the monitor; its best-so-far chart is drawn on Results (06-results.svg), from summary.json -->
+  <rect x="848" y="72" width="408" height="300" rx="8" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="864" y="98" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">A search run</text>
+  <rect x="864" y="112" width="376" height="12" rx="6" fill="#F7EEDC" stroke="#6D7E77" stroke-width="1"/>
+  <rect x="864" y="112" width="226" height="12" rx="6" fill="#1C4286" stroke="none" stroke-width="1"/>
+  <text x="864" y="146" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">60%  Search, candidate 4</text>
+  <text x="864" y="176" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">The message is the service's: "Search, candidate n",</text>
+  <text x="864" y="196" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">then "Confirmation, candidate n".</text>
+  <text x="864" y="226" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Best so far: the trials are known only when the</text>
+  <text x="864" y="246" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">search is done, so the best-so-far chart and the</text>
+  <text x="864" y="266" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">table of all trials are on Results.</text>
+  <rect x="864" y="296" width="140" height="32" rx="4" fill="#1C4286" stroke="none" stroke-width="1"/>
+  <text x="934" y="317" font-family="sans-serif" font-size="14" font-weight="600" fill="#FDFAF4" text-anchor="middle">See the results</text>
+  <text x="1016" y="317" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">shown once the run is done</text>
+  <text x="864" y="356" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">A refused start shows the service's issues on the Canvas.</text>
   <text x="104" y="452" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Runs of this project</text>
   <rect x="104" y="468" width="720" height="32" rx="0" fill="#F7EEDC" stroke="none" stroke-width="1"/>
   <text x="116" y="489" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Run</text>
@@ -94,5 +86,5 @@
   <text x="524" y="585" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">base</text>
   <text x="664" y="585" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">Results</text>
   <text x="104" y="630" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">At most max_concurrent_runs run at once (default 1, Settings); others wait as</text>
-  <text x="104" y="648" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">queued. Runs continue if the window closes; reopening shows progress.</text>
+  <text x="104" y="648" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">queued. Runs continue if the window closes; reopening finds the run that is going and shows its progress.</text>
 </svg>

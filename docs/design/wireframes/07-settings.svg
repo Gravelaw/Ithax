@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="title desc">
   <title id="title">Wireframe 07: Settings</title>
-  <desc id="desc">Settings screen with sections: run targets, runs (concurrent runs and limits), hardware tier, engines, findings thresholds, appearance (theme and text size), service (remote access) and about (licence and first-start text).</desc>
+  <desc id="desc">Settings screen with sections: run targets (local only in Phase 1), runs and limits (runs at once, time limit in seconds, memory limit in bytes, each with its plain value), hardware (detected from GET /v1/system, the tier override), engines (GET /v1/engines), the five findings thresholds with the service's W220 issues, appearance (theme, text size, motion, colour-blind safe charts), canvas (ask before deleting, undo steps), Restore all defaults for those preferences after a question, service (remote access not available) and about. Each section says when its settings take effect: the run settings and the tier at the next start of the service, the thresholds at the next results, the preferences at once.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#547076"/>
@@ -44,8 +44,9 @@
   <text x="100" y="213" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">Engines</text>
   <text x="100" y="253" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">Findings</text>
   <text x="100" y="293" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">Appearance</text>
-  <text x="100" y="333" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">Service</text>
-  <text x="100" y="373" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">About</text>
+  <text x="100" y="333" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">Canvas</text>
+  <text x="100" y="373" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">Service</text>
+  <text x="100" y="413" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">About</text>
   <text x="304" y="84" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Run targets</text>
   <rect x="304" y="100" width="440" height="36" rx="4" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
   <text x="316" y="123" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">local</text>
@@ -56,32 +57,50 @@
   <rect x="304" y="188" width="440" height="36" rx="4" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
   <text x="316" y="211" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">cluster (Slurm)</text>
   <text x="484" y="211" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">Not available in this version</text>
-  <text x="304" y="260" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Runs</text>
+  <text x="304" y="260" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Runs and limits</text>
   <text x="304" y="284" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Runs at once</text>
   <rect x="304" y="290" width="140" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
   <text x="312" y="310" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">1</text>
-  <text x="304" y="336" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">max_concurrent_runs</text>
-  <text x="460" y="284" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Time limit</text>
+  <text x="304" y="336" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">runs at the same time</text>
+  <text x="460" y="284" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Time limit, in seconds</text>
   <rect x="460" y="290" width="140" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="468" y="310" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">10 min</text>
-  <text x="616" y="284" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Memory limit</text>
+  <text x="468" y="310" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">600</text>
+  <text x="460" y="336" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">= 10 minutes</text>
+  <text x="616" y="284" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Memory limit, in bytes</text>
   <rect x="616" y="290" width="140" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="624" y="310" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">half of memory</text>
-  <text x="304" y="380" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Hardware</text>
-  <text x="304" y="406" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">Detected: 4 cores, 8 GB memory, integrated graphics</text>
-  <text x="304" y="432" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Tier</text>
-  <rect x="304" y="438" width="200" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="312" y="458" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Low (detected)</text>
-  <text x="304" y="500" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Findings thresholds (spec 4, proposals)</text>
-  <text x="304" y="524" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Bottleneck at</text>
-  <rect x="304" y="530" width="140" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="312" y="550" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">0.85</text>
-  <text x="460" y="524" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Idle below</text>
-  <rect x="460" y="530" width="140" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="468" y="550" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">0.30</text>
-  <text x="616" y="524" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Interval wider than</text>
-  <rect x="616" y="530" width="140" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="624" y="550" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">10%</text>
+  <text x="624" y="310" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">8589934592</text>
+  <text x="616" y="336" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">= 8.6 GB</text>
+  <text x="304" y="356" font-family="sans-serif" font-size="12" font-weight="400" fill="#915604" text-anchor="start">Takes effect at the next start of the engine service. Empty restores the default.</text>
+  <text x="304" y="392" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Hardware</text>
+  <text x="304" y="416" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Detected: 4 cores, 8 GB memory, graphics: intel. This start uses: low.</text>
+  <text x="304" y="440" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Tier</text>
+  <rect x="304" y="446" width="260" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="312" y="466" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Detect again at the next start</text>
+  <text x="304" y="494" font-family="sans-serif" font-size="12" font-weight="400" fill="#915604" text-anchor="start">Takes effect at the next start of the engine service.</text>
+  <text x="304" y="530" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Findings thresholds (spec 4, proposals)</text>
+  <text x="304" y="554" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Bottleneck at</text>
+  <rect x="304" y="560" width="140" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="312" y="580" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">0.85</text>
+  <text x="304" y="606" font-family="sans-serif" font-size="11" font-weight="400" fill="#547076" text-anchor="start">busy share, 0 to 1</text>
+  <text x="460" y="554" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Idle below</text>
+  <rect x="460" y="560" width="140" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="468" y="580" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">0.3</text>
+  <text x="460" y="606" font-family="sans-serif" font-size="11" font-weight="400" fill="#547076" text-anchor="start">busy share, 0 to 1</text>
+  <text x="616" y="554" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Likely range wider than</text>
+  <rect x="616" y="560" width="140" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="624" y="580" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">0.1</text>
+  <text x="616" y="606" font-family="sans-serif" font-size="11" font-weight="400" fill="#547076" text-anchor="start">share of the average</text>
+  <text x="304" y="620" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Shortest time judged, in seconds</text>
+  <rect x="304" y="626" width="212" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="312" y="646" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">60</text>
+  <text x="304" y="672" font-family="sans-serif" font-size="11" font-weight="400" fill="#547076" text-anchor="start">= 1 minute</text>
+  <text x="532" y="620" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Lowest rate judged, per second</text>
+  <rect x="532" y="626" width="212" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="540" y="646" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">0.000278</text>
+  <text x="532" y="672" font-family="sans-serif" font-size="11" font-weight="400" fill="#547076" text-anchor="start">= 1 per hour</text>
+  <text x="304" y="700" font-family="sans-serif" font-size="12" font-weight="400" fill="#915604" text-anchor="start">Takes effect at the next results you open.</text>
+  <rect x="304" y="710" width="452" height="30" rx="6" fill="#FCEBD1" stroke="#915604" stroke-width="1"/>
+  <text x="316" y="730" font-family="sans-serif" font-size="11" font-weight="400" fill="#915604" text-anchor="start">W220 The threshold 'bottleneck_utilization' in settings.json is 2 ... (as the service wrote it)</text>
   <text x="792" y="84" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Engines</text>
   <rect x="792" y="100" width="464" height="32" rx="0" fill="#F7EEDC" stroke="none" stroke-width="1"/>
   <text x="804" y="121" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Adapter</text>
@@ -96,30 +115,51 @@
   <text x="952" y="185" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">{version}</text>
   <text x="1072" y="185" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">optimization</text>
   <text x="792" y="236" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">From GET /v1/engines. Engines are bundled in Phase 1.</text>
-  <text x="792" y="290" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Appearance</text>
-  <rect x="792" y="304" width="88" height="32" rx="4" fill="#F7EEDC" stroke="#1C4286" stroke-width="2"/>
-  <text x="836" y="325" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">System</text>
-  <rect x="888" y="304" width="88" height="32" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="932" y="325" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">Light</text>
-  <rect x="984" y="304" width="88" height="32" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="1028" y="325" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">Dark</text>
-  <text x="792" y="364" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Text size</text>
-  <rect x="792" y="372" width="64" height="32" rx="4" fill="#F7EEDC" stroke="#1C4286" stroke-width="2"/>
-  <text x="824" y="393" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">100%</text>
-  <rect x="864" y="372" width="64" height="32" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="896" y="393" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">125%</text>
-  <rect x="936" y="372" width="64" height="32" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="968" y="393" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">150%</text>
-  <rect x="1008" y="372" width="64" height="32" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="1040" y="393" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">175%</text>
-  <rect x="1080" y="372" width="64" height="32" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="1112" y="393" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">200%</text>
-  <text x="792" y="450" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Service</text>
-  <rect x="792" y="466" width="40" height="22" rx="11" fill="#F7EEDC" stroke="#6D7E77" stroke-width="1"/>
-  <circle cx="803" cy="477" r="8" fill="#6D7E77" stroke="none" stroke-width="1"/>
-  <text x="844" y="482" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Remote access (off: only this computer can connect)</text>
-  <text x="792" y="540" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">About</text>
-  <text x="792" y="566" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Free software under the GNU AGPL version 3.</text>
-  <text x="792" y="588" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">Read the licence</text>
-  <text x="932" y="588" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">Show the first-start notice</text>
+  <text x="792" y="270" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Appearance (takes effect at once)</text>
+  <text x="792" y="290" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Theme</text>
+  <rect x="792" y="296" width="88" height="28" rx="4" fill="#F7EEDC" stroke="#1C4286" stroke-width="2"/>
+  <text x="836" y="315" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">System</text>
+  <rect x="888" y="296" width="88" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="932" y="315" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">Light</text>
+  <rect x="984" y="296" width="88" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="1028" y="315" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">Dark</text>
+  <text x="792" y="344" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Text size</text>
+  <rect x="792" y="350" width="64" height="28" rx="4" fill="#F7EEDC" stroke="#1C4286" stroke-width="2"/>
+  <text x="824" y="369" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">100%</text>
+  <rect x="864" y="350" width="64" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="896" y="369" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">125%</text>
+  <rect x="936" y="350" width="64" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="968" y="369" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">150%</text>
+  <rect x="1008" y="350" width="64" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="1040" y="369" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">175%</text>
+  <rect x="1080" y="350" width="64" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="1112" y="369" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">200%</text>
+  <text x="792" y="398" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Motion</text>
+  <rect x="792" y="404" width="88" height="28" rx="4" fill="#F7EEDC" stroke="#1C4286" stroke-width="2"/>
+  <text x="836" y="423" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">System</text>
+  <rect x="888" y="404" width="88" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="932" y="423" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">Full</text>
+  <rect x="984" y="404" width="88" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="1028" y="423" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">Reduced</text>
+  <rect x="1080" y="404" width="88" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="1124" y="423" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">Off</text>
+  <rect x="792" y="446" width="18" height="18" rx="3" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="818" y="460" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Colour-blind safe charts</text>
+  <text x="792" y="500" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Canvas (takes effect at once)</text>
+  <rect x="792" y="514" width="18" height="18" rx="3" fill="#1C4286" stroke="#1C4286" stroke-width="1"/>
+  <text x="818" y="528" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Ask before deleting</text>
+  <text x="792" y="556" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Undo steps</text>
+  <rect x="792" y="562" width="140" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="800" y="582" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start"></text>
+  <text x="944" y="582" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Empty: the tier's recommendation, 500 (100 to 10,000)</text>
+  <rect x="792" y="606" width="176" height="32" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="880" y="627" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="middle">Restore all defaults</text>
+  <text x="980" y="622" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Appearance and canvas only, after a question</text>
+  <text x="980" y="638" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">(focus on Cancel); other settings keep their values.</text>
+  <text x="792" y="676" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Service</text>
+  <text x="792" y="698" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Remote access: not available in this version (only this computer can connect).</text>
+  <text x="792" y="730" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">About</text>
+  <text x="792" y="752" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Free software under the GNU AGPL version 3.</text>
+  <text x="792" y="774" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">Read the licence</text>
+  <text x="932" y="774" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">Notices of the software it includes</text>
 </svg>
