@@ -208,11 +208,14 @@ class ServiceClient:
             f"http://{LOCAL_ADDRESS}:{info.port}{path}", data=data, headers=headers, method=method
         )
         try:
-            with self._opener.open(request, timeout=self.request_timeout_s) as response:
+            try:
+                response = self._opener.open(request, timeout=self.request_timeout_s)
+            except urllib.error.HTTPError as refusal:
+                # An error status is an answer; its body is read below like any other, so
+                # a failure while reading it is handled the same way (review of PR #39).
+                response = refusal
+            with response:
                 status, raw = int(response.status), response.read()
-        except urllib.error.HTTPError as refusal:
-            with refusal:
-                status, raw = refusal.code, refusal.read()
         except urllib.error.URLError as failure:
             if isinstance(failure.reason, ConnectionRefusedError):
                 return None

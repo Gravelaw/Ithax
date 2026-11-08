@@ -16,7 +16,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from mcp_support import DROP, StubService, in_process_service, stop_service
+from mcp_support import DROP, TRUNCATED, StubService, in_process_service, stop_service
 
 from lcsim.mcp.client import (
     CLIENT,
@@ -137,6 +137,17 @@ def test_a_dropped_connection_is_e193_and_the_request_is_not_repeated(
     stub.answers.append(DROP)
     with pytest.raises(ServiceUnavailable) as caught:
         stub_client.request("POST", "/v1/projects", {"name": "once"})
+    assert "did not answer" in caught.value.message
+    assert len(stub.requests) == 1
+
+
+def test_an_error_answer_cut_short_is_e193_and_not_repeated(
+    stub: StubService, stub_client: ServiceClient
+) -> None:
+    # Review of PR #39: reading an error status's body can fail as a success's can.
+    stub.answers.append(TRUNCATED)
+    with pytest.raises(ServiceUnavailable) as caught:
+        stub_client.request("GET", "/v1/projects/x/model")
     assert "did not answer" in caught.value.message
     assert len(stub.requests) == 1
 

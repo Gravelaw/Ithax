@@ -95,6 +95,9 @@ class Recorded:
 #: A scripted answer that closes the connection without sending a response.
 DROP = "drop"
 
+#: A scripted answer that sends a 404 whose body stops short of its ``Content-Length``.
+TRUNCATED = "truncated"
+
 
 @dataclass
 class StubService:
@@ -129,6 +132,13 @@ class StubService:
                 answer = stub.answers.pop(0) if stub.answers else (200, b"{}", {})
                 if answer == DROP:
                     self.close_connection = True
+                    return
+                if answer == TRUNCATED:
+                    self.close_connection = True
+                    self.send_response(404)
+                    self.send_header("Content-Length", "100")
+                    self.end_headers()
+                    self.wfile.write(b'{"err')
                     return
                 assert not isinstance(answer, str)
                 self._send(*answer)
