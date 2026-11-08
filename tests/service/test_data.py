@@ -630,6 +630,13 @@ def test_a_run_with_two_data_distributions_on_one_component(client: TestClient) 
     refusal(refused, 422, "E162")
     # The run already made keeps its snapshots.
     assert len(list((folder / "data").iterdir())) == 2
+    # Its summary and findings do not depend on the project's data either (AKS-135): the
+    # rules read the run folder's model without checking its data references again.
+    summary = client.get(f"/v1/runs/{rid}/summary")
+    assert summary.status_code == 200, summary.text
+    assert isinstance(summary.json()["findings"], list)
+    assert client.delete(f"/v1/projects/{pid}/data/log.csv").status_code == 200
+    assert client.get(f"/v1/runs/{rid}/summary").json() == summary.json()
 
 
 def test_removing_a_file_the_model_names_is_allowed_and_validation_reports_it(

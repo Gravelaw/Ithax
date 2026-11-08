@@ -169,6 +169,10 @@ def test_the_scripted_coffee_shop_case_passes(tmp_path: Path) -> None:
     assert summary["fidelity_label"] == "Standard: 30 replications of 210 h, 95% confidence"
     assert abs(wait["deviation"]) <= 3 and abs(utilization["deviation"]) <= 3
     assert verdict["passed"]
+    # The coffee shop fires no finding (spec 4 "Finding rules"; AKS-135): the till is busy
+    # about 75% of the time and its wait interval is about 3.4% of the mean.
+    assert answers["results"]["findings"] == []
+    assert answers["results"]["issues"] == []
 
     # The service was this test's: started in its configuration folder, and stopped.
     assert stopped, "the MCP server started no service"

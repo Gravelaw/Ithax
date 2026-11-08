@@ -667,8 +667,8 @@ GET_RESULTS = ToolSpec(
     summary=(
         "Read a finished run's results (GET /v1/runs/{run_id}/summary, plus GET "
         "/v1/runs/{run_id}/tables/{name}?format=json for each name in tables). Returns "
-        "{summary, findings, tables}. In summary, scenarios.<scenario>.metrics maps each "
-        "metric, such as 'till.wait.mean' or 'till.utilization', to {mean, half_width, "
+        "{summary, findings, issues, tables}. In summary, scenarios.<scenario>.metrics maps "
+        "each metric, such as 'weld.wait.mean' or 'weld.utilization', to {mean, half_width, "
         "unit, n}, in SI units (times in seconds, rates per second): mean plus or minus "
         "half_width is the confidence interval at summary.confidence over n replications, "
         "half_width being t times the standard deviation over the square root of n, with t "
@@ -676,11 +676,24 @@ GET_RESULTS = ToolSpec(
         "plain run has the one scenario 'default'. A search run adds summary.search (status, "
         "the best values in best.set, the objective before and after), and its metrics are "
         "the best candidate's. An optimization run's summary holds status, objective, "
-        "variables and constraints instead, and it has no tables. tables is optional and "
-        "long: 'replications' gives one row per scenario, replication and metric, "
-        "'timeseries' the sampled values over time; ask for one only when the summary is "
-        "not enough. A run that is not done is refused with E188, an unknown table with "
-        "E185."
+        "variables and constraints instead, and it has no tables. findings are short "
+        "statements in plain language made from the summary by fixed rules, so the same run "
+        "always gives the same findings; read them first and pass them on. Each is {rule, "
+        "severity, component, scenario, text, evidence}: rule is bottleneck (the busiest "
+        "server, when busy at least 85% of the time), unstable (a server that cannot keep "
+        "up), idle_capacity (a server busy under 30% of the time), not_enough_runs (an "
+        "interval wider than 10% of its mean: the result is not yet reliable, and the text "
+        "says about how many replications would be needed) or optimization_result (the best "
+        "values found); severity is info or warning; component and scenario are null when "
+        "the finding is not about one; text is in display units, ready to show the user; "
+        "evidence holds the summary values it rests on, in SI units. An empty findings list "
+        "means no rule fired. 85%, 30% and 10% are default thresholds, which the user can "
+        "change in the service's settings; issues lists a W220 warning for each one that "
+        "could not be used (its default was used instead), and is usually empty. tables "
+        "is optional and long: 'replications' gives one row per scenario, replication and "
+        "metric, 'timeseries' the sampled values over time; ask for one only when the "
+        "summary is not enough. A run that is "
+        "not done is refused with E188, an unknown table with E185."
     ),
     inputs=(
         _RUN_ID,
@@ -692,12 +705,20 @@ GET_RESULTS = ToolSpec(
     ),
     example_arguments={"run_id": _EXAMPLE_RID},
     example_result=(
-        '{"summary": {"model": "Coffee shop", "experiment": "base", "fidelity": "standard", '
-        '"fidelity_label": "Standard: 30 replications of 200 h, 95% confidence", '
+        '{"summary": {"model": "Three-machine line", "experiment": "base", "fidelity": '
+        '"standard", "fidelity_label": "Standard: 30 replications of 100 h, 95% confidence", '
         '"replications": 30, "confidence": 0.95, "scenarios": {"default": {"set": {}, '
-        '"metrics": {"till.wait.mean": {"mean": 273.3, "half_width": 13.0, "unit": "s", '
-        '"n": 30}, "till.utilization": {"mean": 0.752, "half_width": 0.006, "unit": "1", '
-        '"n": 30}, ...}}}, "differences": [], "warnings": []}, "findings": [], "tables": {}}'
+        '"metrics": {"weld.wait.mean": {"mean": 941.5, "half_width": 125.5, "unit": "s", '
+        '"n": 30}, "weld.utilization": {"mean": 0.901, "half_width": 0.011, "unit": "1", '
+        '"n": 30}, ...}}}, "differences": [], "warnings": []}, "findings": [{"rule": '
+        '"bottleneck", "severity": "info", "component": "weld", "scenario": "default", '
+        '"text": "weld is the bottleneck: busy 90% of the time, with an average wait of 15.7 '
+        'min.", "evidence": {"weld.utilization": 0.901, "weld.wait.mean": 941.5}}, {"rule": '
+        '"not_enough_runs", "severity": "warning", "component": null, "scenario": "default", '
+        '"text": "The estimates for weld.wait.mean are still uncertain: weld.wait.mean is '
+        "15.7 min plus or minus 2.09 min. About 60 replications would be needed for a 10% "
+        'interval.", "evidence": {"weld.wait.mean": {"mean": 941.5, "half_width": 125.5, '
+        '"unit": "s", "n": 30}, "n_required": 60}}], "issues": [], "tables": {}}'
     ),
     calls=_get_results,
 )

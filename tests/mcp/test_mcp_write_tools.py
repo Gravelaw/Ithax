@@ -254,7 +254,9 @@ def test_each_write_and_run_tool_sends_the_request_spec_4_names(
 def test_get_results_composes_the_summary_and_the_tables(
     folders: tuple[Path, Path], stub: StubService
 ) -> None:
-    stub.answer(200, {"summary": {"replications": 2}, "findings": []})
+    finding = {"rule": "bottleneck", "text": "till is the bottleneck."}
+    issue = {"code": "W220", "path": "/finding_thresholds/x"}
+    stub.answer(200, {"summary": {"replications": 2}, "findings": [finding], "issues": [issue]})
     stub.answer(200, [{"metric": "till.wait.mean", "value": 1.0}])
     client = ServiceClient(*folders, command=NO_START)
 
@@ -263,7 +265,8 @@ def test_get_results_composes_the_summary_and_the_tables(
         assert not error
         assert body == {
             "summary": {"replications": 2},
-            "findings": [],
+            "findings": [finding],
+            "issues": [issue],
             "tables": {"x": [{"metric": "till.wait.mean", "value": 1.0}]},
         }
 
@@ -636,6 +639,61 @@ def test_run_model_of_an_optimization_model(client: ServiceClient, http: httpx2.
             mcp_client, "get_results", {"run_id": started["run_id"], "tables": ["replications"]}
         )
         assert error and body["error"]["code"] == "E185"
+
+    run(check, client)
+
+
+def test_get_results_returns_the_findings_of_the_service(
+    client: ServiceClient, http: httpx2.Client, folders: tuple[Path, Path]
+) -> None:
+    """The M1 three-machine line, unchanged, through the tools (AKS-135): get_results carries
+    the service's findings, bottleneck and not_enough_runs, as its description's example
+    shows them, and the W220 issue of a threshold that cannot be used."""
+    line = json.loads((ROOT / "examples" / "three_machine_line.json").read_text())
+
+    async def check(mcp_client: Client) -> None:
+        error, project = await call(mcp_client, "create_model", {"name": "Line"})
+        assert not error
+        pid = project["id"]
+        assert http.put(f"/v1/projects/{pid}/model", json=line).status_code == 200
+        error, started = await call(
+            mcp_client, "run_model", {"project_id": pid, "experiment_id": "base"}
+        )
+        assert not error
+        rid = started["run_id"]
+        assert (await finished(mcp_client, rid))["state"] == "done"
+        error, results = await call(mcp_client, "get_results", {"run_id": rid})
+        assert not error
+        assert results == {**http.get(f"/v1/runs/{rid}/summary").json(), "tables": {}}
+        assert results["issues"] == []
+        bottleneck, not_enough = results["findings"]
+        example = tool_named("get_results").example_result
+        for finding in (bottleneck, not_enough):
+            # The description's worked example shows these two findings' text and keys.
+            assert json.dumps(finding["text"]) in example
+            assert list(finding) == [
+                "rule",
+                "severity",
+                "component",
+                "scenario",
+                "text",
+                "evidence",
+            ]
+        assert (bottleneck["rule"], bottleneck["component"]) == ("bottleneck", "weld")
+        assert (not_enough["rule"], not_enough["evidence"]["n_required"]) == ("not_enough_runs", 60)
+        # A threshold the user set that cannot be used: W220, and its default is used.
+        settings_file = folders[0] / "settings.json"
+        settings = json.loads(settings_file.read_text())
+        settings["finding_thresholds"] = {"bottleneck_utilization": 2, "relative_half_width": 0.15}
+        settings_file.write_text(json.dumps(settings))
+        error, results = await call(mcp_client, "get_results", {"run_id": rid})
+        assert not error
+        assert [(item["rule"], item["component"]) for item in results["findings"]] == [
+            ("bottleneck", "weld")
+        ]
+        assert [(item["code"], item["path"]) for item in results["issues"]] == [
+            ("W220", "/finding_thresholds/bottleneck_utilization")
+        ]
 
     run(check, client)
 

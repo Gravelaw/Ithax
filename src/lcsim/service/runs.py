@@ -6,7 +6,8 @@
 - ``GET /v1/runs/{rid}``: the run's state, progress and timings;
 - ``POST /v1/runs/{rid}/cancel``: the run after the cancel; 409 with E188 once it has ended;
 - ``GET /v1/runs/{rid}/events``: the run's progress events (WebSocket);
-- ``GET /v1/runs/{rid}/summary``: ``{summary, findings}``;
+- ``GET /v1/runs/{rid}/summary``: ``{summary, findings, issues}``: ``summary.json``, its
+  findings and the W220 issues of the finding thresholds (AKS-135);
 - ``GET /v1/runs/{rid}/tables/{name}``: ``replications`` or ``timeseries``, as JSON rows or
   CSV.
 
@@ -101,7 +102,7 @@ def cancel_run(rid: str, state: State) -> dict[str, Any]:
 
 @router.get("/runs/{rid}/summary")
 def get_summary(rid: str, state: State) -> dict[str, Any]:
-    """``summary.json`` and the findings (M8)."""
+    """``summary.json``, its findings and the issues of the finding thresholds."""
     return state.runs.summary(rid)
 
 

@@ -93,6 +93,7 @@ def create_app(config: ServiceConfig) -> FastAPI:
             lifetime=lifetime,
             settings=read_run_settings(config.config_dir),
             workers=tier_workers(tier, hardware.cores),
+            config_dir=config.config_dir,
         ),
         data=DataStore(model_store),
     )

@@ -111,5 +111,6 @@ def test_a_run_survives_a_client_disconnect(service: ServiceInfo) -> None:
     manifest = read_manifest(folder)
     assert manifest["client"] == "mcp"
     assert manifest["project_id"] == pid
-    assert second.get(f"/v1/runs/{rid}/summary").json()["findings"] == []
+    results = second.get(f"/v1/runs/{rid}/summary").json()
+    assert results["findings"] == [] and results["issues"] == []
     second.close()
