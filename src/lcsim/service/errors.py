@@ -18,6 +18,7 @@ The service codes (spec 1 "Validation issues", AKS-110, owner to confirm):
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
@@ -36,6 +37,7 @@ __all__ = [
     "PROJECT_FOLDER",
     "REFUSED",
     "TOKEN",
+    "AsciiJSONResponse",
     "ServiceError",
     "error_body",
     "error_response",
@@ -54,16 +56,38 @@ INTERNAL = "E187"
 _log = logging.getLogger(__name__)
 
 
+class AsciiJSONResponse(JSONResponse):
+    """A JSON response written with every character outside ASCII escaped, so no text a
+    client sent (such as a lone surrogate, which strict UTF-8 cannot encode) can stop a
+    body from being sent; JSON readers decode the escapes back."""
+
+    def render(self, content: object) -> bytes:
+        return json.dumps(
+            content, ensure_ascii=True, allow_nan=False, separators=(",", ":")
+        ).encode("ascii")
+
+
 class ServiceError(Exception):
     """A request the service refuses: an HTTP ``status``, a spec 1 ``code``, a plain
-    ``message`` and any ``issues``. Raised by routes and turned into spec 3's body."""
+    ``message``, any ``issues`` and any ``extra`` keys of the body. Raised by routes and
+    turned into spec 3's body."""
 
-    def __init__(self, status: int, code: str, message: str, issues: Sequence[Issue] = ()) -> None:
+    def __init__(
+        self,
+        status: int,
+        code: str,
+        message: str,
+        issues: Sequence[Issue] = (),
+        extra: Mapping[str, Any] | None = None,
+    ) -> None:
         super().__init__(message)
         self.status = status
         self.code = code
         self.message = message
         self.issues = tuple(issues)
+        # Keys added to the body beside "error" and "issues", such as the current "model"
+        # and "revision" of a 409 with E181 (spec 3 "Revision").
+        self.extra = dict(extra or {})
 
 
 def error_body(code: str, message: str, issues: Iterable[Issue] = ()) -> dict[str, Any]:
@@ -82,7 +106,7 @@ def error_response(
     headers: Mapping[str, str] | None = None,
 ) -> JSONResponse:
     """A JSON response holding spec 3's error body."""
-    return JSONResponse(error_body(code, message, issues), status_code=status, headers=headers)
+    return AsciiJSONResponse(error_body(code, message, issues), status_code=status, headers=headers)
 
 
 def _field(parts: Sequence[str | int]) -> str:
@@ -174,7 +198,8 @@ def malformed(issues: Sequence[Issue]) -> ServiceError:
 
 async def _service_error(_request: Request, error: Exception) -> JSONResponse:
     assert isinstance(error, ServiceError)
-    return error_response(error.status, error.code, error.message, error.issues)
+    body = {**error_body(error.code, error.message, error.issues), **error.extra}
+    return AsciiJSONResponse(body, status_code=error.status)
 
 
 async def _validation_error(_request: Request, error: Exception) -> JSONResponse:

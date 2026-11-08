@@ -1,7 +1,7 @@
 """The application factory (spec 3 "Architecture" and "Endpoints"; AKS-110).
 
 The full route table test against spec 3 is AKS-114's ``tests/service/test_routes.py``;
-this checks the routes AKS-110 adds and that FastAPI adds none of its own.
+this checks the routes AKS-110 and AKS-111 add and that FastAPI adds none of its own.
 """
 
 from fastapi import FastAPI
@@ -22,9 +22,17 @@ AKS_110_ROUTES = {
     ("POST", "/v1/projects/open"),
 }
 
+AKS_111_ROUTES = {
+    ("GET", "/v1/projects/{pid}/model"),
+    ("PUT", "/v1/projects/{pid}/model"),
+    ("POST", "/v1/projects/{pid}/model/edits"),
+    ("POST", "/v1/projects/{pid}/validate"),
+    ("GET", "/v1/projects/{pid}/events"),
+}
 
-def test_the_app_has_the_aks_110_routes_and_nothing_else(app: FastAPI) -> None:
-    assert route_table(app) == AKS_110_ROUTES
+
+def test_the_app_has_the_aks_110_and_aks_111_routes_and_nothing_else(app: FastAPI) -> None:
+    assert route_table(app) == AKS_110_ROUTES | AKS_111_ROUTES
 
 
 def test_every_path_starts_with_v1(app: FastAPI) -> None:
@@ -32,7 +40,13 @@ def test_every_path_starts_with_v1(app: FastAPI) -> None:
 
 
 def test_there_is_one_router_per_area() -> None:
-    assert [router.prefix for router in ROUTERS] == ["/v1", "/v1", "/v1/templates", "/v1/projects"]
+    assert [router.prefix for router in ROUTERS] == [
+        "/v1",
+        "/v1",
+        "/v1/templates",
+        "/v1/projects",
+        "/v1/projects",
+    ]
 
 
 def test_a_websocket_route_is_listed_as_get(config: ServiceConfig) -> None:

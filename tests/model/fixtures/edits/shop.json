@@ -1,0 +1,135 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Shop"
+  },
+  "domain": "process",
+  "parameters": {
+    "tills": {
+      "value": 1,
+      "type": "integer",
+      "min": 1,
+      "max": 3
+    },
+    "spare": {
+      "value": 2,
+      "type": "integer"
+    }
+  },
+  "components": [
+    {
+      "id": "arrivals",
+      "type": "source",
+      "params": {
+        "interarrival": {
+          "dist": "exponential",
+          "mean": "2 min"
+        }
+      }
+    },
+    {
+      "id": "staff",
+      "type": "resource_pool",
+      "params": {
+        "capacity": {
+          "$param": "tills"
+        }
+      }
+    },
+    {
+      "id": "till",
+      "type": "server",
+      "label": "Till",
+      "params": {
+        "capacity": 1,
+        "service": {
+          "dist": "exponential",
+          "mean": "1.5 min"
+        },
+        "pool": "staff"
+      },
+      "ui": {
+        "x": 10,
+        "y": 20
+      }
+    },
+    {
+      "id": "shifts",
+      "type": "schedule",
+      "params": {
+        "target": "staff",
+        "shifts": [
+          {
+            "start": "0 h",
+            "end": "8 h",
+            "capacity": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "breakdown",
+      "type": "failure",
+      "params": {
+        "target": "till",
+        "time_to_failure": {
+          "dist": "exponential",
+          "mean": "4 h"
+        },
+        "time_to_repair": {
+          "dist": "constant",
+          "value": "5 min"
+        }
+      }
+    },
+    {
+      "id": "exit",
+      "type": "sink",
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": "arrivals.out",
+      "to": "till.in"
+    },
+    {
+      "from": "till.out",
+      "to": "exit.in"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "base",
+      "length": "8 h",
+      "replications": 10,
+      "scenarios": [
+        {
+          "id": "more",
+          "set": {
+            "spare": 3
+          }
+        }
+      ]
+    }
+  ],
+  "objectives": [
+    {
+      "id": "wait",
+      "metric": "till.wait.mean",
+      "sense": "minimize"
+    }
+  ],
+  "constraints": [
+    {
+      "id": "busy",
+      "metric": "till.utilization",
+      "op": "<=",
+      "value": 0.9
+    }
+  ],
+  "run": {
+    "target": "local",
+    "fidelity": "standard"
+  }
+}

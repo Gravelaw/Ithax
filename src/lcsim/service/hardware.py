@@ -21,7 +21,6 @@ without a guard.
 from __future__ import annotations
 
 import ctypes
-import json
 import logging
 import os
 import sys
@@ -32,6 +31,7 @@ from types import MappingProxyType
 from typing import Any, Literal, cast
 
 from lcsim.runs.limits import system_memory
+from lcsim.strict_json import encode_json, read_json_file
 
 __all__ = [
     "SETTINGS_FILE",
@@ -188,10 +188,10 @@ def active_tier(config_dir: Path, hardware: Hardware) -> TierName:
     path = config_dir / SETTINGS_FILE
     settings: dict[str, Any] = {}
     try:
-        loaded = json.loads(path.read_text(encoding="utf-8"))
+        loaded = read_json_file(path)
     except FileNotFoundError:
         loaded = {}
-    except (OSError, ValueError):
+    except (OSError, ValueError):  # also a file that could not be written back (PR #36)
         _log.warning("%s cannot be read; the tier is detected again.", path)
         loaded = {}
     if isinstance(loaded, dict):
@@ -201,5 +201,5 @@ def active_tier(config_dir: Path, hardware: Hardware) -> TierName:
         return cast("TierName", stored)
     settings["tier"] = tier_for(hardware)
     config_dir.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    path.write_bytes(encode_json(settings))
     return cast("TierName", settings["tier"])

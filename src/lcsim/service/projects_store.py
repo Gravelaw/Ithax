@@ -14,7 +14,6 @@ several threads (FastAPI runs plain routes in a thread pool).
 from __future__ import annotations
 
 import contextlib
-import json
 import logging
 import os
 import threading
@@ -28,6 +27,7 @@ from typing import Any, Literal
 from lcsim.model.migration import FORMAT_VERSION
 from lcsim.service.errors import NOT_FOUND, PROJECT_FOLDER, ServiceError
 from lcsim.service.paths import canonical, same_folder
+from lcsim.strict_json import MAX_WHOLE, encode_json, read_json_file, whole_in
 
 __all__ = [
     "LAYOUT_VERSION",
@@ -38,8 +38,10 @@ __all__ = [
     "ProjectRecord",
     "ProjectRegistry",
     "default_model",
+    "encode_json",
     "read_project",
     "utc_now",
+    "write_json",
 ]
 
 _log = logging.getLogger(__name__)
@@ -110,28 +112,41 @@ def _is_uuid4(text: str) -> bool:
 
 def read_project(folder: Path) -> ProjectRecord | None:
     """The ``project.json`` of ``folder``, or ``None`` when it is missing, unreadable or
-    does not hold the five fields with the right kinds (``id`` a UUID4 string)."""
+    does not hold the five fields with the right kinds (``id`` a UUID4 string,
+    ``layout_version`` from 1 and ``model_revision`` from 0, each at most ``MAX_WHOLE``); a file the
+    service could not write back (``lcsim.strict_json.read_json``) cannot be read."""
     try:
-        loaded = json.loads((folder / PROJECT_FILE).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        loaded = read_json_file(folder / PROJECT_FILE)
+    except (OSError, ValueError):  # also a file that could not be written back (PR #36)
         return None
     if not isinstance(loaded, dict) or not all(key in loaded for key in _FIELDS):
         return None
     texts = all(isinstance(loaded[key], str) for key in ("id", "name", "created"))
-    whole = all(
-        isinstance(loaded[key], int) and not isinstance(loaded[key], bool)
-        for key in ("layout_version", "model_revision")
+    # Typed and bounded (review of PR #36): a revision from 0, a layout from 1, each at
+    # most MAX_WHOLE.
+    whole = (
+        whole_in(loaded["layout_version"], 1, MAX_WHOLE) is not None
+        and whole_in(loaded["model_revision"], 0, MAX_WHOLE) is not None
     )
     if not (texts and whole and _is_uuid4(loaded["id"])):
         return None
     return ProjectRecord(**{key: loaded[key] for key in _FIELDS})
 
 
-def _write_json(path: Path, value: object) -> None:
-    """Write ``value`` as JSON through a temporary file and a rename."""
-    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    temporary.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    os.replace(temporary, path)
+def write_json(path: Path, value: object) -> None:
+    """Write ``value`` as ``encode_json`` gives it, through a temporary file and a rename,
+    so a reader never sees half a file. Nothing is written when ``value`` cannot be
+    encoded (``ValueError``). The temporary file is named for the process and thread, and
+    removed when the write fails; the ``OSError`` is raised."""
+    data = encode_json(value)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    try:
+        temporary.write_bytes(data)
+        os.replace(temporary, path)
+    except OSError:
+        with contextlib.suppress(OSError):
+            temporary.unlink()
+        raise
 
 
 def _folder_error(message: str) -> ServiceError:
@@ -163,7 +178,7 @@ class ProjectRegistry:
 
     def _load(self) -> dict[str, str]:
         try:
-            loaded = json.loads(self._file.read_text(encoding="utf-8"))
+            loaded = read_json_file(self._file)
         except FileNotFoundError:
             return {}
         except (OSError, ValueError):
@@ -181,7 +196,7 @@ class ProjectRegistry:
 
     def _save(self, projects: dict[str, str]) -> None:
         self.config_dir.mkdir(parents=True, exist_ok=True)
-        _write_json(self._file, projects)
+        write_json(self._file, projects)
 
     # --- reading --------------------------------------------------------------------
 
@@ -226,8 +241,8 @@ class ProjectRegistry:
             folder.mkdir(parents=True, exist_ok=True)
             (folder / "data").mkdir()
             (folder / "runs").mkdir()
-            _write_json(folder / MODEL_FILE, default_model(name, domain))
-            _write_json(folder / PROJECT_FILE, asdict(record))
+            write_json(folder / MODEL_FILE, default_model(name, domain))
+            write_json(folder / PROJECT_FILE, asdict(record))
         except OSError:
             _log.warning("Creating the project folder %s failed.", folder, exc_info=True)
             raise _folder_error(f"The project folder '{folder}' cannot be written.") from None

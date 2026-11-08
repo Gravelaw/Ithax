@@ -495,3 +495,84 @@ def test_a_copy_reached_through_an_alias_is_still_400_with_e186(
     response = client.post("/v1/projects/open", json={"path": str(alias)})
     assert response.status_code == 400
     assert_error(response.json(), "E186")
+
+
+POISONED_PROJECT_JSON = ['"name": 1e999', '"name": NaN', '"name": -Infinity', '"name": "\\ud800"']
+
+
+@pytest.mark.parametrize("field", POISONED_PROJECT_JSON)
+def test_a_project_json_that_cannot_be_written_back_is_unreadable(
+    client: TestClient, field: str
+) -> None:
+    """Review of PR #36: one strict reader for every JSON file read from disk."""
+    created = client.post("/v1/projects", json={"name": "Shop"}).json()
+    folder = Path(created["path"])
+    record = json.loads((folder / PROJECT_FILE).read_text())
+    text = json.dumps(record).replace('"name": "Shop"', field)
+    (folder / PROJECT_FILE).write_text(text)
+    listed = client.get("/v1/projects")
+    assert listed.status_code == 200
+    assert listed.json()[0]["available"] is False
+    response = client.get(f"/v1/projects/{created['id']}/model")
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "E186"
+
+
+@pytest.mark.parametrize("text", ['{"\\ud800": "/x"}', '{"a": "\\ud800"}'])
+def test_a_registry_that_cannot_be_written_back_is_set_aside(client: TestClient, text: str) -> None:
+    app = client.app
+    path = app.state.service.projects.config_dir / PROJECTS_FILE  # type: ignore[attr-defined]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    assert client.get("/v1/projects").json() == []
+    assert path.with_name(PROJECTS_FILE + ".unreadable").read_text() == text
+    assert client.post("/v1/projects", json={"name": "Shop"}).status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("model_revision", 10**400),
+        ("model_revision", -1),
+        ("model_revision", 2**63),
+        ("model_revision", 1.0),
+        ("model_revision", True),
+        ("model_revision", "1"),
+        ("layout_version", 10**400),
+        ("layout_version", 0),
+        ("layout_version", -1),
+        ("layout_version", 1.0),
+        ("layout_version", False),
+        ("layout_version", "1"),
+    ],
+)
+def test_a_project_json_number_out_of_its_range_is_unreadable(
+    client: TestClient, key: str, value: object
+) -> None:
+    """Review of PR #36: every number read from disk is typed and bounded."""
+    created = client.post("/v1/projects", json={"name": "Shop"}).json()
+    folder = Path(created["path"])
+    record = json.loads((folder / PROJECT_FILE).read_text())
+    record[key] = value
+    (folder / PROJECT_FILE).write_text(json.dumps(record))
+    assert read_project(folder) is None
+    assert client.get("/v1/projects").json()[0]["available"] is False
+    response = client.get(f"/v1/projects/{created['id']}/model")
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "E186"
+
+
+def test_a_write_that_would_pass_the_largest_revision_is_400_with_e186(
+    client: TestClient,
+) -> None:
+    created = client.post("/v1/projects", json={"name": "Shop"}).json()
+    folder = Path(created["path"])
+    record = json.loads((folder / PROJECT_FILE).read_text())
+    record["model_revision"] = 2**63 - 1
+    (folder / PROJECT_FILE).write_text(json.dumps(record))
+    before = (folder / PROJECT_FILE).read_bytes(), (folder / MODEL_FILE).read_bytes()
+    model = client.get(f"/v1/projects/{created['id']}/model").json()["model"]
+    response = client.put(f"/v1/projects/{created['id']}/model", content=json.dumps(model))
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "E186"
+    assert ((folder / PROJECT_FILE).read_bytes(), (folder / MODEL_FILE).read_bytes()) == before

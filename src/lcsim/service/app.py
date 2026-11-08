@@ -24,12 +24,14 @@ from starlette.routing import WebSocketRoute
 
 from lcsim import __version__
 from lcsim.engines.registry import installed_adapters
-from lcsim.service import engines, projects, system, templates
+from lcsim.service import engines, models, projects, system, templates
 from lcsim.service.auth import Hardening
 from lcsim.service.config import ServiceConfig
-from lcsim.service.errors import install_error_handlers
+from lcsim.service.errors import AsciiJSONResponse, install_error_handlers
+from lcsim.service.events import ProjectEvents
 from lcsim.service.hardware import active_tier, detect_hardware
 from lcsim.service.lifetime import Lifetime, watch
+from lcsim.service.model_store import ModelStore
 from lcsim.service.projects_store import ProjectRegistry
 from lcsim.service.state import ServiceState
 
@@ -41,6 +43,7 @@ ROUTERS: tuple[APIRouter, ...] = (
     engines.router,
     templates.router,
     projects.router,
+    models.router,
 )
 
 # FastAPI's built-in telemetry, all off: no spans, metrics or logs, and no exporter even if
@@ -58,13 +61,18 @@ def create_app(config: ServiceConfig) -> FastAPI:
     """The service's application for ``config``."""
     hardware = config.hardware if config.hardware is not None else detect_hardware()
     lifetime = Lifetime(config.idle_timeout_s, config.clock)
+    adapters = installed_adapters() if config.adapters is None else config.adapters
+    registry = ProjectRegistry(config.config_dir, config.data_dir)
+    events = ProjectEvents()
     state = ServiceState(
         config=config,
         lifetime=lifetime,
         hardware=hardware,
         tier=active_tier(config.config_dir, hardware),
-        adapters=installed_adapters() if config.adapters is None else config.adapters,
-        projects=ProjectRegistry(config.config_dir, config.data_dir),
+        adapters=adapters,
+        projects=registry,
+        models=ModelStore(registry, adapters, events),
+        events=events,
     )
 
     @contextlib.asynccontextmanager
@@ -91,6 +99,8 @@ def create_app(config: ServiceConfig) -> FastAPI:
         redoc_url=None,
         openapi_url=None,
         lifespan=lifespan,
+        # Every body is ASCII JSON, so no text a client sent can stop it being sent.
+        default_response_class=AsciiJSONResponse,
         telemetry=_NO_TELEMETRY,  # type: ignore[arg-type]
     )
     app.state.service = state
