@@ -63,6 +63,7 @@ def test_the_templates_are_listed_in_id_order(templated: TestClient) -> None:
         "inventory_reorder_point",
         "machine_breakdowns",
         "three_machine_line",
+        "transport_plan",
         "warehouse_pick_pack",
     } <= set(ids)
     assert listed[ids.index("coffee_shop")] == read("template.json")

@@ -1,0 +1,124 @@
+{
+  "format_version": "0.2",
+  "meta": {
+    "name": "Transport plan",
+    "description": "A wholesaler's three depots (north, centre and south, with 300, 200 and 250 crates) supply four customers (city, harbour, park and market, ordering 180, 220, 150 and 170 crates) at a cost per crate on each of the twelve routes. The decision ship is one amount per route, over the sets depots and customers; the limits supply and demand repeat for each depot and each customer, with numbers from the tables. Minimizing the total cost gives 2,690: the transport benchmark (benchmarks/transport), proved optimal by LP duality."
+  },
+  "domain": "optimization",
+  "sets": {
+    "depots": [
+      "north",
+      "centre",
+      "south"
+    ],
+    "customers": [
+      "city",
+      "harbour",
+      "park",
+      "market"
+    ]
+  },
+  "tables": {
+    "supply": {
+      "over": [
+        "depots"
+      ],
+      "values": {
+        "north": 300,
+        "centre": 200,
+        "south": 250
+      }
+    },
+    "demand": {
+      "over": [
+        "customers"
+      ],
+      "values": {
+        "city": 180,
+        "harbour": 220,
+        "park": 150,
+        "market": 170
+      }
+    },
+    "cost": {
+      "over": [
+        "depots",
+        "customers"
+      ],
+      "values": {
+        "north": {
+          "city": 4,
+          "harbour": 6,
+          "park": 9,
+          "market": 5
+        },
+        "centre": {
+          "city": 7,
+          "harbour": 3,
+          "park": 5,
+          "market": 8
+        },
+        "south": {
+          "city": 6,
+          "harbour": 8,
+          "park": 4,
+          "market": 3
+        }
+      }
+    }
+  },
+  "variables": [
+    {
+      "id": "ship",
+      "type": "continuous",
+      "lower": 0,
+      "over": [
+        "depots",
+        "customers"
+      ]
+    }
+  ],
+  "objective": {
+    "sense": "minimize",
+    "terms": [
+      {
+        "variable": "ship",
+        "coefficient": {
+          "$table": "cost"
+        }
+      }
+    ]
+  },
+  "constraints": [
+    {
+      "id": "supply",
+      "for": [
+        "depots"
+      ],
+      "terms": [
+        {
+          "variable": "ship"
+        }
+      ],
+      "op": "<=",
+      "rhs": {
+        "$table": "supply"
+      }
+    },
+    {
+      "id": "demand",
+      "for": [
+        "customers"
+      ],
+      "terms": [
+        {
+          "variable": "ship"
+        }
+      ],
+      "op": ">=",
+      "rhs": {
+        "$table": "demand"
+      }
+    }
+  ]
+}

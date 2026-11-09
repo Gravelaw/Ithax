@@ -471,12 +471,20 @@ def _text(value: object) -> bool:
 
 def _names(model: Model) -> frozenset[str]:
     """What a lesson step may highlight: a component, or for an optimization model a
-    variable, a constraint or ``objective``."""
-    if model.program is None:
+    variable, a constraint or ``objective``, by its declared id (``ship``) or, for an
+    indexed one, an expanded name (``ship[north,city]``; spec 4, AKS-123)."""
+    if model.program is None or model.declared is None:
         return frozenset(component.id for component in model.components)
     program = model.program
+    declared = model.declared
     return frozenset(
-        {"objective", *(v.id for v in program.variables), *(c.id for c in program.constraints)}
+        {
+            "objective",
+            *(v.id for v in program.variables),
+            *(c.id for c in program.constraints),
+            *(v.id for v in declared.variables),
+            *(c.id for c in declared.constraints),
+        }
     )
 
 
