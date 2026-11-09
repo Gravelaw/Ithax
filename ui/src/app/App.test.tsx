@@ -124,7 +124,11 @@ describe("the frame", () => {
     socket?.serverClose(1008, "E185");
     expect(await screen.findByText(LOST_CONTACT)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Data" }));
-    expect(screen.getByRole("heading", { name: "Data" })).toBeVisible();
+    // The Data screen (AKS-120) loads the model and the project's files.
+    expect(await screen.findByRole("heading", { name: "Files" })).toBeVisible();
+    expect(fake.requested("GET", "/v1/projects/p1/data")).toHaveLength(1);
+    await userEvent.click(screen.getByRole("button", { name: "Run monitor" }));
+    expect(screen.getByRole("heading", { name: "Run monitor" })).toBeVisible();
     expect(screen.getByText(LATER)).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(screen.getByRole("heading", { name: "About" })).toBeVisible();

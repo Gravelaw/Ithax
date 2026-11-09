@@ -44,7 +44,7 @@ The block categories group spec 2's block reference by role: what moves items (f
 
 ### Charts
 
-- **Library:** Apache ECharts (Apache-2.0), drawn with SVG or canvas, never WebGL (`docs/research/spec-3-results-visualization.md`). Recorded for M9, not yet added.
+- **Library:** Apache ECharts (Apache-2.0), drawn with SVG or canvas, never WebGL (`docs/research/spec-3-results-visualization.md`). Added at M9 (AKS-120): `echarts` 6.1.0 with `zrender` 6.1.0, imported part by part (`echarts/core` with the custom and line charts, the grid and the SVG renderer) and bundled; no `echarts-for-react`, since a small component of the interface's own sets the option (`ui/src/charts/Chart.tsx`). The Data histogram is the first chart.
 - **Series colours:** `chart-1` to `chart-4` in order, each series with its own marker shape (circle, square, triangle, diamond) and a direct label. Beyond four series the colours repeat and the shape and label tell them apart.
 - **Colour-blind safe option** (owner review): Settings, Appearance, "Colour-blind safe charts". When on, charts use `chart-cb-1` to `chart-cb-4`, hues chosen by Okabe and Ito to stay distinct for the common forms of colour blindness. It is off by default; shapes and labels are always on, so charts never rely on colour alone either way.
 - **Every chart has a data table** beside it with the same numbers ("Show as table").

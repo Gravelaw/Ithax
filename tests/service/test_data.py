@@ -496,6 +496,10 @@ def test_the_fit_returns_spec_1_candidates_best_first(client: TestClient) -> Non
     body = response.json()
     assert body["file"] == "gaps.csv" and body["column"] == "gap" and body["unit"] == "min"
     assert body["values"] == 300 and body["score"] == "ks"
+    # The histogram of the column, in its unit, for the Data screen's chart (AKS-120).
+    histogram = body["histogram"]
+    assert len(histogram["counts"]) == 10 and len(histogram["edges"]) == 11
+    assert sum(histogram["counts"]) == 300
     names = [candidate["distribution"]["dist"] for candidate in body["candidates"]]
     assert set(names) == {"exponential", "uniform", "triangular", "normal", "lognormal", "weibull"}
     scores = [candidate["score"] for candidate in body["candidates"]]
@@ -525,6 +529,7 @@ def test_a_constant_column_gives_constant(client: TestClient) -> None:
     assert body["candidates"] == [
         {"distribution": {"dist": "constant", "value": "2.0 h"}, "score": 0.0}
     ]
+    assert body["histogram"] == {"edges": [2.0, 2.0], "counts": [3]}
 
 
 def test_the_fit_of_an_excel_column(client: TestClient) -> None:

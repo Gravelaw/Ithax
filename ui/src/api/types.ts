@@ -217,6 +217,10 @@ export type Edit =
   | { edit: "remove_parameter"; id: string }
   | { edit: "set_ui"; id: string; ui: Record<string, unknown> }
   | { edit: "set_label"; id: string; label: string | null }
+  | { edit: "set_experiment"; id: string; [field: string]: unknown }
+  | { edit: "remove_experiment"; id: string }
+  | { edit: "set_scenario"; experiment_id: string; id: string; set: Record<string, unknown> }
+  | { edit: "remove_scenario"; experiment_id: string; id: string }
   | { edit: "set_path"; path: string; value: unknown }
   | { edit: "remove_path"; path: string };
 
@@ -263,3 +267,48 @@ export interface SchemaBody {
 export type ProjectEvent =
   | { type: "model"; revision: number; client: string | null }
   | { type: "run"; run_id: string; state: string };
+
+/** A column of an imported file (spec 3 `GET .../data`). */
+export interface DataColumn {
+  name: string;
+  type: "number" | "text" | "empty";
+  /** A Phase 1 time unit, or `null` for plain numbers. */
+  unit: string | null;
+  /** A `number` column's largest absolute value; `null` for another type. */
+  largest: number | null;
+}
+
+/** An imported file as `GET .../data` lists it. */
+export interface DataFile {
+  name: string;
+  format: "csv" | "xlsx";
+  sheet: string | null;
+  size: number;
+  sha256: string;
+  imported: string;
+  rows: number;
+  columns: DataColumn[];
+}
+
+/** `POST .../data`: the file as listed, with its first 10 records. */
+export interface ImportedFile extends DataFile {
+  preview: (number | string | null)[][];
+}
+
+/** One candidate of a fit: a spec 1 distribution object and its Kolmogorov–Smirnov score. */
+export interface FitCandidate {
+  distribution: Record<string, unknown>;
+  score: number;
+}
+
+/** `POST .../data/{file}/fit`. */
+export interface FitBody {
+  file: string;
+  column: string;
+  unit: string | null;
+  values: number;
+  score: string;
+  candidates: FitCandidate[];
+  /** The column's values counted in bins of equal width, in its unit (AKS-120). */
+  histogram: { edges: number[]; counts: number[] };
+}

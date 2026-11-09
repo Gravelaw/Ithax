@@ -16,7 +16,8 @@ and notes, and "Project folder"; AKS-113).
 - **Removing** a file: its entry is removed from the index (the commit), then the file. A
   file the model names may be removed; validation then reports E162.
 - **Fitting** a column (``lcsim.model.fit``) from the file's bytes as they are now, which
-  must still have the hash recorded at import (E189 otherwise).
+  must still have the hash recorded at import (E189 otherwise), with the column's histogram
+  for the Data screen's chart (AKS-120).
 
 Errors are spec 3 bodies: 404 with E185 (no such project or file), 400 with E184, E186 or
 E189; never exception text.
@@ -41,7 +42,7 @@ from lcsim.model.data import (
     time_units,
 )
 from lcsim.model.data_files import Table, UnreadableData, file_format, file_name_problem, read_table
-from lcsim.model.fit import SCORE, fit_column
+from lcsim.model.fit import SCORE, fit_column, histogram
 from lcsim.model.issues import Issue, pointer
 from lcsim.service.commit import CommitFailed, Planned, replace_in_order
 from lcsim.service.errors import MALFORMED, NOT_FOUND, PROJECT_FOLDER, ServiceError, malformed
@@ -268,6 +269,7 @@ class DataStore:
             "values": int(values.size),
             "score": SCORE,
             "candidates": [candidate.as_dict() for candidate in candidates],
+            "histogram": histogram(values),
         }
 
 

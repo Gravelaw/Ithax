@@ -1316,3 +1316,72 @@ describe("reviewing an outside change (AKS-137)", () => {
     expect(within(toolbar).queryByRole("button", { name: /changes? to review/ })).toBeNull();
   });
 });
+
+describe("Try a change (AKS-120)", () => {
+  it("makes the field a parameter and adds the option beside the current model, in one write", async () => {
+    const { fake, service, toolbar, user } = renderCanvas();
+    await select(user, "till");
+    await settled(toolbar);
+    await user.click(screen.getByRole("button", { name: "Try a change to Mean" }));
+    const form = screen.getByRole("form", { name: "Try a change to Mean" });
+    const tried = within(form).getByRole("textbox", { name: "What value do you want to try?" });
+    expect(tried).toHaveValue("1.5 min");
+    await user.clear(tried);
+    await user.type(tried, "1.2 min");
+    await user.type(
+      within(form).getByRole("textbox", { name: "Name for the option" }),
+      "Faster coffee machine",
+    );
+    await user.click(within(form).getByRole("button", { name: "Add the option" }));
+    await settled(toolbar);
+    expect(sentEdits(fake).at(-1)).toEqual([
+      { edit: "set_parameter", id: "till_service_mean", value: "1.5 min", type: "quantity" },
+      {
+        edit: "set_setting",
+        id: "till",
+        path: "/service/mean",
+        value: { $param: "till_service_mean" },
+      },
+      { edit: "set_scenario", experiment_id: "base", id: "baseline", set: {} },
+      {
+        edit: "set_scenario",
+        experiment_id: "base",
+        id: "faster_coffee_machine",
+        set: { till_service_mean: "1.2 min" },
+      },
+    ]);
+    expect(service.model.experiments?.[0]?.scenarios).toHaveLength(2);
+    // The form went with the model it was filled against; the field now uses the parameter.
+    expect(screen.queryByRole("form", { name: "Try a change to Mean" })).toBeNull();
+    expect(screen.getByText("= till_service_mean")).toBeVisible();
+    expect(screen.getByText(/Added an option to experiment base/)).toBeVisible();
+    expect(
+      within(toolbar).getByRole("button", { name: "Undo: try a change to till/service/mean" }),
+    ).toBeEnabled();
+  });
+
+  it("is refused while a write awaits its answer, and says what to do without an experiment", async () => {
+    const model = coffeeShop();
+    const { fake, toolbar, user } = renderCanvas({ model });
+    await select(user, "till");
+    await settled(toolbar);
+    await user.click(screen.getByRole("button", { name: "Try a change to Mean" }));
+    const release = fake.holdWrites();
+    await user.click(screen.getByRole("checkbox", { name: "Use parameter for Capacity" }));
+    await user.click(screen.getByRole("button", { name: "Add the option" }));
+    expect(screen.getByText(WAIT)).toBeVisible();
+    release();
+    await settled(toolbar);
+    const noExperiment = coffeeShop();
+    noExperiment.experiments = [];
+    cleanup();
+    const second = renderCanvas({ model: noExperiment });
+    await select(second.user, "till");
+    await settled(second.toolbar);
+    await second.user.click(screen.getByRole("button", { name: "Try a change to Mean" }));
+    expect(screen.getByText("The model has no experiment to add the option to.")).toBeVisible();
+    await second.user.click(screen.getByRole("button", { name: "Add the option" }));
+    expect(screen.getByText(/Add an experiment on the Experiment screen first/)).toBeVisible();
+    expect(second.fake.requested("POST", `/v1/projects/${PID}/model/edits`)).toHaveLength(0);
+  });
+});

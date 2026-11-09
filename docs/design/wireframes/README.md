@@ -17,13 +17,13 @@ The approved look itself (block shapes per category, after-run overlay, results 
 | Delete confirmation dialog | `../canvas-interactions.md` "Deleting" | **drawn at M9 (AKS-136):** `01-canvas.svg`, as an inset |
 | "Try a change" beside settings | `../canvas-interactions.md` "Trying a change" | **drawn at M9 (AKS-136):** `01-canvas.svg`, beside the service mean and the queue capacity (built with the Experiment screen, AKS-120) |
 | Lesson rings the one field to change; prediction step | `../canvas-interactions.md` "Learn mode on the canvas" | **drawn at M9 (AKS-136):** `01b-canvas-learn.svg`, the exercise step (built with Learn mode, M10) |
-| "Does this column include time spent waiting?" | `../flows.md` step B7b | `03-data.svg` |
-| Data histogram with the fitted curve | `../design-system.md` "Charts" | `03-data.svg` |
+| "Does this column include time spent waiting?" | `../flows.md` step B7b | **drawn at M9 (AKS-120):** `03-data.svg` (asked under "Use for" because the setting chosen is a service time: Yes, No and Not sure; Not sure shows the warning and the field is set only with "Use it anyway") |
+| Data histogram with the fitted curve | `../design-system.md` "Charts" | **drawn at M9 (AKS-120):** `03-data.svg` (bars of the column, the chosen candidate's curve, the caption and "Show as table"; the fit table's score is "How well it fits") |
 | Live trends; search best-so-far chart | `../design-system.md` "Charts" | `05-run-monitor.svg` |
 | Headline card that says why; charts per run kind; table of all trials | `../canvas-interactions.md` "Learn mode on the canvas", `../design-system.md` "Charts" | `06-results.svg` |
 | Undo steps, Ask before deleting, Motion, Colour-blind safe charts, Restore all defaults | `../canvas-interactions.md`, `../design-system.md`, `../accessibility.md` | `07-settings.svg` |
 | Optimization models: Table view and Diagram view | `../canvas-interactions.md` "The model and the canvas" | **drawn at M9 (AKS-137):** `09-optimization.svg` (the product mix in the Table view, with the Diagram view beside it) |
-| Plain words ("repeat runs", "likely range") | `../design-system.md` "Type" | all screens; `02-home.svg`, `02c-new-project.svg` and `08-first-start-notice.svg` checked at M9 (AKS-119): they use no technical term |
+| Plain words ("repeat runs", "likely range") | `../design-system.md` "Type" | all screens; `02-home.svg`, `02c-new-project.svg` and `08-first-start-notice.svg` checked at M9 (AKS-119): they use no technical term; **drawn at M9 (AKS-120):** `04-experiment.svg` ("Settling-in time", "Repeat runs", "Sure of the likely range", "Repeat runs each", each with its technical term under it) and `03-data.svg` ("How well it fits") |
 | "New empty project" asks Process or Plan; Home before the templates (empty gallery, Build unavailable with its reason) | `../../DECISIONS.md` "Owner design review", "API additions and the open gap"; spec 3 `POST /v1/projects` | **drawn at M9 (AKS-119):** `02c-new-project.svg` |
 
 Values in the drawings are examples. Numbers taken from the specs are marked as such in the drawing; `{braced}` text is a placeholder for a value that does not exist yet (template minutes, engine versions, fit scores).
@@ -36,8 +36,8 @@ Values in the drawings are examples. Numbers taken from the specs are marked as 
 | [`02-home.svg`](02-home.svg) | 1 Home | Learn and Build entries, template gallery, recent projects | `../flows.md` "Shared start" |
 | [`02c-new-project.svg`](02c-new-project.svg) | 1 Home, New empty project | Home before the templates (Learn, Build unavailable with its reason, the gallery's empty state, recent projects) and the New empty project dialog: a name, Process or Plan, and a refusal shown as the service wrote it | `../flows.md` "Shared start"; spec 3 `POST /v1/projects` |
 | [`02b-build-form.svg`](02b-build-form.svg) | 1 Home, Build mode form | The two-step fixed form of spec 4 "Build mode" | `../flows.md` "Build mode" |
-| [`03-data.svg`](03-data.svg) | 3 Data | Imported files, columns and preview, distribution fit and "Use for" | `../flows.md` steps B5b to B7b |
-| [`04-experiment.svg`](04-experiment.svg) | 4 Experiment | Run length, warm-up, replications, seed, confidence, record interval; scenarios; objectives, constraints and search | `../flows.md` step B9 |
+| [`03-data.svg`](03-data.svg) | 3 Data | Imported files, columns and preview, distribution fit with the histogram and its fitted curve, "Use for" and the waiting question | `../flows.md` steps B5b to B7b |
+| [`04-experiment.svg`](04-experiment.svg) | 4 Experiment | Run length, settling-in time, repeat runs, seed, how sure the likely range is, record interval; scenarios; objectives, constraints and search | `../flows.md` step B9 |
 | [`05-run-monitor.svg`](05-run-monitor.svg) | 5 Run monitor | Progress with the service's message, live key numbers, Pause updates, Cancel run, the project's runs | `../flows.md` steps L8 and B11 |
 | [`06-results.svg`](06-results.svg) | 6 Results | Findings first, key numbers with intervals, chart with data table, tables, exports, and the footer with model name, run id, fidelity label, replications and confidence, engine name and version, and "Simulation results are estimates and carry no warranty." | `../flows.md` steps L9 and B12 |
 | [`07-settings.svg`](07-settings.svg) | 7 Settings | Run targets, runs and limits, hardware tier, engines, finding thresholds, appearance, remote access, about | `../flows.md` "Shared start" |

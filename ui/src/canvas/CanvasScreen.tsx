@@ -955,6 +955,11 @@ function ProcessCanvas({
     select: selectBlocks,
     remove: requestDelete,
     connect: connectEnds,
+    tryChange: {
+      experiment: chosenExperiment === "" ? null : chosenExperiment,
+      send: (label, edits) => send(label, edits),
+      say: setNotice,
+    },
   };
 
   const connectingBlock =

@@ -283,3 +283,60 @@ def test_every_candidate_validates_when_written_into_a_model(column: str, unit: 
             if issue.code in ("E123", "E140", "E141", "E160", "E161", "E162")
         ]
         assert bad == [], (candidate, bad)
+
+
+# --- The histogram of the fit response (spec 3 fit note; AKS-120) ---------------------
+
+
+def test_the_histogram_uses_sturges_bins_from_the_smallest_to_the_largest_value() -> None:
+    values = numpy.array([float(value) for value in range(1, 301)])
+    found = fit.histogram(values)
+    # ceil(log2(300)) + 1 = 10 bins of equal width from 1 to 300.
+    assert len(found["counts"]) == 10
+    assert len(found["edges"]) == 11
+    assert found["edges"][0] == 1.0 and found["edges"][-1] == 300.0
+    widths = numpy.diff(found["edges"])
+    assert numpy.allclose(widths, widths[0])
+    assert sum(found["counts"]) == 300
+    assert all(isinstance(count, int) for count in found["counts"])
+    assert all(isinstance(edge, float) for edge in found["edges"])
+
+
+def test_a_bin_holds_its_lower_edge_and_the_last_also_its_upper_edge() -> None:
+    found = fit.histogram(numpy.array([0.0, 1.0, 1.0, 2.0]))
+    # ceil(log2(4)) + 1 = 3 bins: [0, 2/3), [2/3, 4/3), [4/3, 2].
+    assert found["counts"] == [1, 2, 1]
+    assert found["edges"][0] == 0.0 and found["edges"][-1] == 2.0
+
+
+def test_the_histogram_has_at_most_fifty_bins() -> None:
+    values = numpy.linspace(0.0, 1.0, 2**60 // 2**40)  # 1,048,576 values: 21 bins
+    assert len(fit.histogram(values)["counts"]) == 21
+    assert fit.histogram_bins(2**60) == 50
+    assert fit.histogram_bins(1) == 1
+    assert fit.histogram_bins(2) == 2
+
+
+def test_a_constant_column_has_one_bin_at_its_value() -> None:
+    assert fit.histogram(numpy.array([2.5, 2.5, 2.5])) == {"edges": [2.5, 2.5], "counts": [3]}
+
+
+def test_a_single_value_has_one_bin() -> None:
+    assert fit.histogram(numpy.array([-4.0])) == {"edges": [-4.0, -4.0], "counts": [1]}
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        [-1.7976931348623157e308, 1.7976931348623157e308],
+        [1e-300, 3e-300, 2e-300],
+        [-5.0, -1.0, -3.0],
+    ],
+)
+def test_every_edge_is_finite_and_ordered(values: list[float]) -> None:
+    found = fit.histogram(numpy.array(values))
+    edges = found["edges"]
+    assert all(math.isfinite(edge) for edge in edges)
+    assert edges == sorted(edges)
+    assert edges[0] == min(values) and edges[-1] == max(values)
+    assert sum(found["counts"]) == len(values)

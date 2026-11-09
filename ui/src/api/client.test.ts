@@ -163,3 +163,45 @@ describe("ApiClient sockets", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("ApiClient data routes (AKS-120)", () => {
+  it("imports a file as a multipart form, with the units as JSON text", async () => {
+    const service = new FakeService().answer("POST /v1/projects/p%201/data", { name: "a.csv" });
+    const file = new Blob(["gap\n1\n"], { type: "text/csv" });
+    await service.client().importData("p 1", file, "a.csv", { gap: "min" });
+    const [request] = service.requests;
+    expect(request?.path).toBe("/v1/projects/p%201/data");
+    // The browser writes the multipart boundary itself: no JSON content type is set.
+    expect(request?.headers["content-type"]).toBeUndefined();
+    const form = request?.body as FormData;
+    expect((form.get("file") as File).name).toBe("a.csv");
+    expect(await (form.get("file") as File).text()).toBe("gap\n1\n");
+    expect(form.get("units")).toBe('{"gap":"min"}');
+  });
+
+  it("sends no units part when none are given", async () => {
+    const service = new FakeService().answer("POST /v1/projects/p/data", { name: "a.csv" });
+    await service.client().importData("p", new Blob(["x\n1\n"]), "a.csv");
+    await service.client().importData("p", new Blob(["x\n1\n"]), "a.csv", {});
+    for (const request of service.requests) {
+      expect((request.body as FormData).has("units")).toBe(false);
+    }
+  });
+
+  it("lists, removes and fits files at their documented paths", async () => {
+    const service = new FakeService()
+      .answer("GET /v1/projects/p/data", [])
+      .answer("DELETE /v1/projects/p/data/a%20b.csv", [])
+      .answer("POST /v1/projects/p/data/a%20b.csv/fit", { candidates: [] });
+    const client = service.client();
+    await client.listData("p");
+    await client.deleteData("p", "a b.csv");
+    await client.fitData("p", "a b.csv", "gap");
+    expect(service.requests.map((item) => `${item.method} ${item.path}`)).toEqual([
+      "GET /v1/projects/p/data",
+      "DELETE /v1/projects/p/data/a%20b.csv",
+      "POST /v1/projects/p/data/a%20b.csv/fit",
+    ]);
+    expect(service.requests[2]?.body).toEqual({ column: "gap" });
+  });
+});

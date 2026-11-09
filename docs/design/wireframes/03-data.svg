@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="title desc">
   <title id="title">Wireframe 03: Data</title>
-  <desc id="desc">Data screen. Imported files on the left with an Import button. In the centre, the selected file's columns with types and a preview. On the right, the distribution fit for the chosen column: candidates with fitted fields and fit score, and a Use for picker that sets a block setting. Values are examples.</desc>
+  <desc id="desc">Data screen. Imported files on the left with an Import button. In the centre, the selected file's columns with types and a preview. On the right, the distribution fit for the chosen column: candidates with their fitted fields and "how well it fits" (the Kolmogorov-Smirnov score, named on hover); a histogram of the column with the chosen candidate's fitted curve and a Show as table link; and a Use for picker that sets a block setting. Because the setting chosen is a service time, the screen asks "Does this column include time spent waiting?" with Yes, No and Not sure; Not sure shows the warning and the field is set only with Use it anyway (flows.md B7b). Values are examples.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#547076"/>
@@ -97,36 +97,67 @@
   <rect x="800" y="64" width="456" height="712" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
   <text x="816" y="96" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Fit a distribution to gap_min</text>
   <rect x="816" y="112" width="160" height="32" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="896.0" y="133.0" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="middle">Fit distribution</text>
+  <text x="896.0" y="133.0" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="middle">Fit a distribution</text>
   <rect x="816" y="160" width="424" height="32" rx="0" fill="#F7EEDC" stroke="none" stroke-width="1"/>
   <text x="828" y="181" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Distribution</text>
-  <text x="968" y="181" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Fitted fields</text>
-  <text x="1150" y="181" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Fit score</text>
+  <text x="950" y="181" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Fitted fields</text>
+  <text x="1110" y="181" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">How well it fits</text>
   <rect x="816" y="192" width="424" height="36" rx="0" fill="#F7EEDC" stroke="#CABD9E" stroke-width="1"/>
   <rect x="816" y="192" width="3" height="36" rx="0" fill="#1C4286" stroke="none" stroke-width="1"/>
   <text x="828" y="215" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">exponential</text>
-  <text x="968" y="215" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">mean 2.0 min</text>
-  <text x="1150" y="215" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">{score} (best)</text>
+  <text x="950" y="215" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">mean 2.0 min</text>
+  <text x="1110" y="215" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">{score} (best)</text>
   <rect x="816" y="228" width="424" height="36" rx="0" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
   <text x="828" y="251" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">weibull</text>
-  <text x="968" y="251" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">shape 1.1, scale 2.1 min</text>
-  <text x="1150" y="251" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">{score}</text>
+  <text x="950" y="251" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">shape 1.1, scale 2.1 min</text>
+  <text x="1110" y="251" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">{score}</text>
   <rect x="816" y="264" width="424" height="36" rx="0" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
   <text x="828" y="287" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">lognormal</text>
-  <text x="968" y="287" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">mean 2.0 min, sd 2.3 min</text>
-  <text x="1150" y="287" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">{score}</text>
-  <text x="816" y="330" font-family="sans-serif" font-size="16" font-weight="600" fill="#34454C" text-anchor="start">Use for</text>
-  <text x="816" y="352" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Block setting</text>
-  <rect x="816" y="358" width="424" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="824" y="378" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">arrivals · interarrival</text>
-  <circle cx="824" cy="424" r="7" fill="#FDFAF4" stroke="#6D7E77" stroke-width="2"/>
-  <circle cx="824" cy="424" r="4" fill="#1C4286" stroke="none" stroke-width="1"/>
-  <text x="840" y="429" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Use the fitted distribution (exponential, mean 2.0 min)</text>
-  <circle cx="824" cy="452" r="7" fill="#FDFAF4" stroke="#6D7E77" stroke-width="2"/>
-  <text x="840" y="457" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Use the data as it is (empirical, from this column)</text>
-  <rect x="816" y="480" width="160" height="32" rx="4" fill="#1C4286" stroke="none" stroke-width="1"/>
-  <text x="896.0" y="501.0" font-family="sans-serif" font-size="14" font-weight="600" fill="#FDFAF4" text-anchor="middle">Apply</text>
-  <text x="992" y="501" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">Go to the canvas</text>
-  <text x="816" y="560" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Candidates come from the spec 1 distribution list; the fit</text>
-  <text x="816" y="578" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">library and score are chosen at M6. Values are examples.</text>
+  <text x="950" y="287" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">mean 2.0 min, sd 2.3 min</text>
+  <text x="1110" y="287" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">{score}</text>
+  <!-- Histogram of the column with the chosen candidate's curve (design-system.md "Charts"); the bins come with the fit -->
+  <text x="816" y="318" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">Your data and the fitted exponential</text>
+  <rect x="816" y="326" width="424" height="132" rx="4" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <line x1="836" y1="438" x2="1228" y2="438" stroke="#547076" stroke-width="1"/>
+  <line x1="836" y1="338" x2="836" y2="438" stroke="#547076" stroke-width="1"/>
+  <rect x="840" y="346" width="38" height="92" rx="0" fill="#96A8BE" stroke="#1C4286" stroke-width="1"/>
+  <rect x="882" y="368" width="38" height="70" rx="0" fill="#96A8BE" stroke="#1C4286" stroke-width="1"/>
+  <rect x="924" y="386" width="38" height="52" rx="0" fill="#96A8BE" stroke="#1C4286" stroke-width="1"/>
+  <rect x="966" y="398" width="38" height="40" rx="0" fill="#96A8BE" stroke="#1C4286" stroke-width="1"/>
+  <rect x="1008" y="408" width="38" height="30" rx="0" fill="#96A8BE" stroke="#1C4286" stroke-width="1"/>
+  <rect x="1050" y="416" width="38" height="22" rx="0" fill="#96A8BE" stroke="#1C4286" stroke-width="1"/>
+  <rect x="1092" y="422" width="38" height="16" rx="0" fill="#96A8BE" stroke="#1C4286" stroke-width="1"/>
+  <rect x="1134" y="426" width="38" height="12" rx="0" fill="#96A8BE" stroke="#1C4286" stroke-width="1"/>
+  <rect x="1176" y="430" width="38" height="8" rx="0" fill="#96A8BE" stroke="#1C4286" stroke-width="1"/>
+  <polyline points="840.0,338.0 849.5,347.0 858.9,355.2 868.4,362.7 877.8,369.5 887.2,375.7 896.7,381.3 906.1,386.4 915.6,391.0 925.0,395.3 934.5,399.1 944.0,402.6 953.4,405.8 962.9,408.7 972.3,411.4 981.8,413.8 991.2,416.0 1000.6,417.9 1010.1,419.7 1019.5,421.4 1029.0,422.9 1038.5,424.3 1047.9,425.5 1057.3,426.6 1066.8,427.6 1076.2,428.6 1085.7,429.4 1095.2,430.2 1104.6,430.9 1114.0,431.5 1123.5,432.1 1133.0,432.7 1142.4,433.1 1151.8,433.6 1161.3,434.0 1170.8,434.3 1180.2,434.7 1189.7,435.0 1199.1,435.2 1208.5,435.5 1218.0,435.7" fill="none" stroke="#BB7125" stroke-width="2"/>
+  <text x="1228" y="452" font-family="sans-serif" font-size="11" font-weight="400" fill="#547076" text-anchor="end">gap_min (min)</text>
+  <text x="840" y="452" font-family="sans-serif" font-size="11" font-weight="400" fill="#547076" text-anchor="start">0</text>
+  <text x="816" y="474" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Bars: your data. Line: the fitted exponential. A good fit follows the bars.</text>
+  <text x="816" y="492" font-family="sans-serif" font-size="12" font-weight="400" fill="#1C4286" text-anchor="start">Show as table</text>
+  <text x="816" y="520" font-family="sans-serif" font-size="16" font-weight="600" fill="#34454C" text-anchor="start">Use for</text>
+  <text x="816" y="540" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Block setting</text>
+  <rect x="816" y="546" width="424" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="824" y="566" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">till · service (a service time)</text>
+  <circle cx="824" cy="596" r="7" fill="#FDFAF4" stroke="#6D7E77" stroke-width="2"/>
+  <circle cx="824" cy="596" r="4" fill="#1C4286" stroke="none" stroke-width="1"/>
+  <text x="840" y="601" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Use the fitted distribution (exponential, mean 2.0 min)</text>
+  <circle cx="824" cy="620" r="7" fill="#FDFAF4" stroke="#6D7E77" stroke-width="2"/>
+  <text x="840" y="625" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Use the data as it is (empirical, from this column)</text>
+  <!-- flows.md B7b: asked before a column becomes a service or process time -->
+  <rect x="816" y="636" width="424" height="98" rx="4" fill="#FCEBD1" stroke="#CABD9E" stroke-width="1"/>
+  <rect x="816" y="636" width="4" height="98" rx="0" fill="#915604" stroke="none" stroke-width="1"/>
+  <text x="830" y="656" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Does this column include time spent waiting?</text>
+  <circle cx="838" cy="676" r="7" fill="#FDFAF4" stroke="#6D7E77" stroke-width="2"/>
+  <text x="850" y="681" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Yes</text>
+  <circle cx="896" cy="676" r="7" fill="#FDFAF4" stroke="#6D7E77" stroke-width="2"/>
+  <text x="908" y="681" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">No</text>
+  <circle cx="948" cy="676" r="7" fill="#FDFAF4" stroke="#6D7E77" stroke-width="2"/>
+  <circle cx="948" cy="676" r="4" fill="#1C4286" stroke="none" stroke-width="1"/>
+  <text x="960" y="681" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Not sure</text>
+  <text x="830" y="704" font-family="sans-serif" font-size="12" font-weight="400" fill="#915604" text-anchor="start">Service time must not include waiting, or the model counts the wait twice.</text>
+  <text x="830" y="722" font-family="sans-serif" font-size="12" font-weight="400" fill="#915604" text-anchor="start">Use a column that measures only the work, or estimate it.</text>
+  <rect x="816" y="742" width="160" height="28" rx="14" fill="#1C4286" stroke="none" stroke-width="1"/>
+  <text x="896.0" y="761.0" font-family="sans-serif" font-size="14" font-weight="600" fill="#FDFAF4" text-anchor="middle">Use it anyway</text>
+  <text x="992" y="761" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">Cancel</text>
+  <text x="1060" y="761" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">Go to the canvas</text>
 </svg>
