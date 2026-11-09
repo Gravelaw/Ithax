@@ -4,7 +4,7 @@
 
 Two engine adapters, both in Python: discrete-event simulation on SimPy, and optimization on HiGHS; Optuna is a search driver inside the experiment manager, not an adapter. Together with an experiment manager they make Phase 1 a complete product.
 
-> **Warning: partly tested.** Five block types ran in a prototype and, from M2, in the SimPy adapter and its benchmarks; from M4 the other seven (`queue`, `batch`, `unbatch`, `store`, `resource_pool`, `schedule` and `failure`) run there too, each with a unit test and a benchmark. The optimization layout in the model file runs from M5 in the HiGHS adapter (AKS-108), with the four optimization benchmarks, and simulation-based optimization runs from M5 in the experiment manager (AKS-109), with the machine-count benchmark. Performance targets are proposals. Verify each at its milestone and update this spec. See "Known gaps" in the Build guide.
+> **Warning: partly tested.** Five block types ran in a prototype and, from M2, in the SimPy adapter and its benchmarks; from M4 the other seven (`queue`, `batch`, `unbatch`, `store`, `resource_pool`, `schedule` and `failure`) run there too, each with a unit test and a benchmark. The optimization layout in the model file runs from M5 in the HiGHS adapter (AKS-108), with the four optimization benchmarks, and its indexed form (sets and tables) from M10 (AKS-123), with the transport benchmark, and simulation-based optimization runs from M5 in the experiment manager (AKS-109), with the machine-count benchmark. Performance targets are proposals. Verify each at its milestone and update this spec. See "Known gaps" in the Build guide.
 
 ## Scope
 
@@ -66,7 +66,7 @@ Mathematical problems are entered in a table-style editor: decision variables, o
 | Schedule, deterministic | Event-by-event calculation | M4 |
 | Failure | Availability MTTF/(MTTF + MTTR) | M4 |
 | Four small linear and integer programs | Answers verified by enumeration, listed below | M5 |
-| Transport plan | With the indexed layout | M10 |
+| Transport plan | Optimum by LP duality: a feasible plan and dual prices of equal cost | M10 |
 | Machine count, simulation-based | Erlang C | M5 |
 
 A simulation benchmark checks every known answer in its row. A check passes when |estimate − known answer| ≤ 3 × standard error, the standard error being the sample standard deviation of the replication means divided by √n (a correct engine fails about 3 in 1,000 rerolls rather than 1 in 20). Deterministic cases must match exactly to four significant figures. Optimization benchmarks pass when the objective matches to four significant figures. Benchmark seeds are fixed in the benchmark files and queue cases use 100 replications so that a 5% bias in a mean wait is detected. A failure after a change that alters random-number use is investigated and recorded in `docs/DECISIONS.md`; a seed is changed only when the coverage run (20 consecutive seeds, `pytest -m benchmark_coverage`, run by hand) shows the case passing at least 19 of 20 times, proving a reroll, and the entry cites that run.
@@ -181,7 +181,7 @@ Each benchmark is a folder `benchmarks/<case>/` holding `model.json` (fixed `see
 | Knapsack (binary) | Maximize 10a + 13b + 8c + 7d, 5a + 6b + 4c + 3d ≤ 10 | 21 with b = c = 1 | M5 |
 | Assignment (binary) | 3×3 costs [[9, 2, 7], [6, 4, 3], [5, 8, 1]], each row and column once | 9 | M5 |
 | Diet (continuous) | Minimize 0.6x + y; 2x + 4y ≥ 8; 5x + y ≥ 10; x, y ≥ 0 | 2.178 at x = 1.778, y = 1.111 | M5 |
-| Transport | Defined with the indexed layout when the transport template is built |  | M10 |
+| Transport | Three depots (supply 300, 200, 250) to four customers (demand 180, 220, 150, 170), costs per unit [[4, 6, 9, 5], [7, 3, 5, 8], [6, 8, 4, 3]], minimize cost, supply at most and demand at least as given; the example of "Mathematical optimization in the model file" | Cost 2,690: north ships 180 to city, 20 to harbour and 70 to market; centre 200 to harbour; south 150 to park and 100 to market (unique: every unused route's reduced cost is positive) | M10 |
 | Machine count (simulation-based) | The coffee shop with parameter `tills` integer 1 to 5, objective minimize `till.wait.mean`, constraint `till.utilization >= 0.35` (feasibility judged on the mean), search budget 10, fixed seed | Best `tills` = 2 (theory: 1 till 4.500 min; 2 tills 0.245 min at utilization 0.375; 3 or more break the constraint); the test also enumerates all five and asserts the search's best equals the enumerated best. Because five candidates fit the budget this run takes the exhaustive path, so the same test repeats the search with budget 3 to exercise the Optuna path and asserts only that the reported best is feasible and that a second run with the same seed returns the same candidates and result | M5 |
 
 Stochastic cases use 100 replications of 200 hours with 10 hours of warm-up unless stated.
@@ -216,6 +216,13 @@ How the M5 machine-count file reads the table (AKS-109, proposed default, owner 
 - **File.** `benchmarks/machine_count/model.json` is `examples/coffee_shop.json` (its experiment `base`: 30 replications of 200 h with 10 h of warm-up, seed 12345) with objective `wait` (minimize `till.wait.mean`), constraint `busy` (`till.utilization` `>=` 0.35) and `search` `{"objective": "wait", "budget": 10}`, so `search.replications` is its default, 10, and the five combinations take the exhaustive path. The harness runs it through the experiment manager (`run_experiment`).
 - **Rows.** `search.best.tills` is the best candidate's value, one number judged by `sig_figs_4` like an optimization result: 2. `search.candidates[tills=1].till.wait.mean` (270 s), `search.candidates[tills=2].till.wait.mean` (27/110 min = 162/11 s) and `search.candidates[tills=2].till.utilization` (0.375) are the replication values of those candidates' confirmations, read with the adapter's `collect` from their `confirm-<n>` folders and judged by `three_se` over the 30 replications; such a row exists only for a confirmed candidate. Theory values from Erlang C (`docs/research/spec-2-benchmark-sources.md`, M5).
 - **Results** at seed 12345 (SimPy adapter): best `tills` 2; 1 till 267.63 s (−0.50 SE from 270), 2 tills 14.572 s (−0.67 SE from 14.727) at utilization 0.37431 (−0.61 SE); 3 to 5 tills infeasible at the search stage (utilization 0.249, 0.187 and 0.149). The coverage run passed 20 of 20 seeds from 12345.
+
+How the M10 transport file reads the table (AKS-123, owner to confirm):
+
+- **File.** `benchmarks/transport/model.json` is the example of "Indexed problems" above, the indexed layout's first benchmark, with no experiment or seed, solved once through the HiGHS adapter like the M5 files.
+- **Rows.** `objective` and each of the twelve `variables.ship[<depot>,<customer>]`, `sig_figs_4`, exact values (the six unused routes 0).
+- **Certificate.** The plan is optimal because LP duality says so, not because a solver found it: the dual prices u = (0, −3, −2) for the supply limits (north, centre, south) and v = (4, 6, 6, 5) for the demand limits (city, harbour, park, market) satisfy u ≤ 0, v ≥ 0 and c_ij − u_i − v_j ≥ 0 on every route, with equality on the six used routes; the plan meets every limit (north has 30 left); and the plan's cost 180·4 + 20·6 + 70·5 + 200·3 + 150·4 + 100·3 = 2,690 equals the dual value Σ u_i s_i + Σ v_j d_j = −600 − 500 + 720 + 1,320 + 900 + 850 = 2,690. The reduced costs of the six unused routes are 3, 6, 2, 6, 4 and 4, all positive, so the optimum is unique. `tests/benchmarks/test_transport_certificate.py` checks these sums from the files (Hitchcock 1941; Dantzig 1951; any LP text's duality theorem, such as Hillier and Lieberman, chapter 6; the problem's numbers are this project's).
+- **Results.** HiGHS 1.15.1 gives 2,690 at exactly these amounts, and the supply limits of centre and south and every demand limit tight.
 
 The Optuna path (budget 3) is checked by `tests/runs/test_search.py`, not by a benchmark file, since its known answer is only that the best is feasible and the search repeats.
 
@@ -263,7 +270,42 @@ A model with `"domain": "optimization"` uses `variables`, `objective` and `const
 - `objective.sense` is `minimize` or `maximize`; a constraint's `op` is `<=`, `>=` or `==`; coefficients and `rhs` are plain numbers.
 - Phase 1 supports linear objectives and constraints only.
 - Results report each variable's value, the objective value, and for each constraint whether it is tight.
-- Indexed problems, such as a transport plan over many routes, need sets and tables. That extension is designed when the transport template is built.
+- Indexed problems, such as a transport plan over many routes, use sets and tables (format 0.2, below).
+
+**Indexed problems** (AKS-123, built for the transport plan template; owner to confirm). Spec 1 "Top-level keys" gives the keys and their issue codes. A set names the members a decision or limit repeats over; a table gives a number per member, or per combination of members; a variable with `over` stands for one variable per combination of members of its sets, a constraint with `for` for one constraint per combination of members of its sets, and a term adds a variable times a coefficient, summed over the variable's sets that the constraint's `for` does not name. The transport plan, three depots supplying four customers at a cost per crate on each route:
+
+```json
+{
+  "format_version": "0.2",
+  "meta": {"name": "Transport plan"},
+  "domain": "optimization",
+  "sets": {"depots": ["north", "centre", "south"],
+           "customers": ["city", "harbour", "park", "market"]},
+  "tables": {
+    "supply": {"over": ["depots"], "values": {"north": 300, "centre": 200, "south": 250}},
+    "demand": {"over": ["customers"],
+               "values": {"city": 180, "harbour": 220, "park": 150, "market": 170}},
+    "cost": {"over": ["depots", "customers"], "values": {
+      "north":  {"city": 4, "harbour": 6, "park": 9, "market": 5},
+      "centre": {"city": 7, "harbour": 3, "park": 5, "market": 8},
+      "south":  {"city": 6, "harbour": 8, "park": 4, "market": 3}}}
+  },
+  "variables": [{"id": "ship", "type": "continuous", "lower": 0, "over": ["depots", "customers"]}],
+  "objective": {"sense": "minimize",
+                "terms": [{"variable": "ship", "coefficient": {"$table": "cost"}}]},
+  "constraints": [
+    {"id": "supply", "for": ["depots"], "terms": [{"variable": "ship"}],
+     "op": "<=", "rhs": {"$table": "supply"}},
+    {"id": "demand", "for": ["customers"], "terms": [{"variable": "ship"}],
+     "op": ">=", "rhs": {"$table": "demand"}}
+  ]
+}
+```
+
+- **Expansion.** Before the adapter sees it, an indexed model is written out as the flat layout above, so the adapter, `summary.json`, the findings and the results views work on it unchanged. A variable `ship` over `depots` and `customers` becomes one variable per combination, named `ship[north,city]`: the id, then the members in the order of `over`, comma-separated without spaces, in square brackets; it keeps the declared `type`, `lower` and `upper`. A constraint `supply` for `depots` becomes `supply[north]`, `supply[centre]` and `supply[south]`. A variable or constraint with no sets keeps its id. Combinations follow the order of the members, the first set outermost; the expanded variables follow the declared variables' order, and the expanded constraints the declared constraints'. A name with brackets is not an identifier, so it never clashes with a declared id.
+- **Coefficients.** In each expanded constraint (or the objective, which has no `for`), a term adds, for each combination of the term variable's sets not in `for`, the variable named by the constraint's members and that combination, with the coefficient: the plain number, or the table's value at the members of the table's own sets. Coefficients of one variable from several terms or from `linear` add up; a coefficient of 0 is kept. `rhs` is the plain number or the table's value at the constraint's members.
+- **Results.** `summary.json` reports the expanded names (`"variables": {"ship[north,city]": 180, ...}`, `"constraints": {"supply[north]": {...}, ...}`); an expected value names one as `variables.ship[north,city]`.
+- **Limits of this layout.** A variable is indexed over distinct sets (a set twice in one `over` is E178), so a flow between members of one set, such as a network over its own nodes, waits for aliases (Phase 2). Bounds are plain numbers, the same for every member; a per-member bound is a constraint with `for`. Tables hold plain numbers only.
 
 `summary.json` for `optimization` is:
 
@@ -335,7 +377,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 | All benchmarks tagged at or before the current milestone pass on every build | M2 onward | agent | `tests/benchmarks` |
 | The three example models run end to end | M2 | agent | `tests/engines/process/test_example_models.py` |
 | A 30-replication run of the three-machine line finishes in under one minute (proposed target; measured per the Build guide protocol, confirmed by the owner) | M3 measured, owner confirms | agent + owner | M3 measured: `tests/perf/test_three_machine_line.py` and `docs/research/perf-M3.md` (1.5 to 1.8 s with 4 workers, not on the low tier); owner confirmation pending (AKS-82) |
-| Mathematical optimization benchmarks pass | M5 | agent | `benchmarks/product_mix`, `knapsack`, `assignment` and `diet`, run by `test_benchmark` in `tests/benchmarks/test_benchmarks.py` through the HiGHS adapter (AKS-108); the adapter's status cases in `tests/engines/optimize/test_solver.py` |
+| Mathematical optimization benchmarks pass | M5; M10 for the transport plan | agent | `benchmarks/product_mix`, `knapsack`, `assignment` and `diet`, run by `test_benchmark` in `tests/benchmarks/test_benchmarks.py` through the HiGHS adapter (AKS-108); the adapter's status cases in `tests/engines/optimize/test_solver.py`; `benchmarks/transport` with the indexed layout (AKS-123) |
 | The machine-count test finds `tills` = 2 and equals the enumerated best | M5 | agent | `tests/runs/test_search.py`: `test_the_machine_count_search_finds_2_tills_equal_to_the_enumerated_best` (budget 10, the exhaustive path, against all five `tills` run as scenarios) and `test_the_machine_count_search_on_the_optuna_path_is_feasible_and_repeats` (budget 3); `benchmarks/machine_count` (AKS-109) |
 
 ## Changes in this version
@@ -391,3 +433,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 Since version 0.8, during the M10 build:
 
 - 2026-11-09, inventory template (AKS-139), found while writing `templates/inventory_reorder_point`: "Store" says that with unit items and at most one order outstanding the store is the textbook (R, Q) policy with backorders, so its formulas give the store's statistics. Owner to confirm.
+- 2026-11-09, indexed optimization layout and the transport benchmark (AKS-123): "Mathematical optimization in the model file" replaces "That extension is designed when the transport template is built" with "Indexed problems": sets, tables, a variable's `over`, a constraint's `for`, `terms` and `{"$table": ...}`, the transport plan as the example, how an indexed model is expanded into the flat layout before the adapter sees it (names `ship[north,city]`, the order of the expansion, coefficients adding up), what the results report, and what the layout cannot express (a set twice in one `over`; per-member bounds). "Benchmarks" and "Benchmark definitions" give the transport case (cost 2,690) and how its file reads the table, with the LP duality certificate that proves the optimum and its uniqueness; the warning line and the acceptance row name it. Owner to confirm.
