@@ -407,6 +407,68 @@ The facts below come from the projects' own configuration files and documentatio
 | Decision records | One 610 KB log | Nygard: "Large documents are never kept up to date. Small, modular documents have at least a chance", with one decision per record ([Nygard 2011](https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions)); MADR offers minimal templates ([MADR](https://adr.github.io/madr/)) | **Gap** (W5) |
 | Benchmarks for agents | — | SWE-bench Verified has been retired by OpenAI: "at least 59.4% of the audited problems have flawed test cases" ([OpenAI](https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/)). METR now marks its 2025 slowdown result as "out of date" ([METR 2025 study](https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/)), and calls its 2026 follow-up "only very weak evidence" ([METR 2026 update](https://metr.org/blog/2026-02-24-uplift-update/)). Agent PRs in 100-star repositories were accepted 69.3% of the time, Claude Code 71.9% ([Pinna et al.](https://dl.acm.org/doi/10.1145/3793302.3793576)) | Context only: public benchmarks say little about a project like this one |
 
+### Safety-critical and long-lived practice: NASA/JPL "Power of Ten", curl, the Linux kernel
+
+The owner added these three reference points on 2026-11-09. Sources were read on that day from the primary texts:
+- Holzmann's paper ([IEEE Computer 39(6), 2006, DOI 10.1109/MC.2006.212](https://doi.org/10.1109/MC.2006.212); author's copy at [spinroot.com](https://spinroot.com/gerard/pdf/P10.pdf));
+- the JPL Institutional Coding Standard for C (JPL D-60411, 2009, read from a [mirror](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf) because the JPL host did not respond);
+- [NPR 7150.2D](https://nodis3.gsfc.nasa.gov/displayDir.cfm?t=NPR&c=7150&s=2D);
+- curl's `docs/` and Daniel Stenberg's blog;
+- the kernel's [`Documentation/process`](https://docs.kernel.org/process/).
+
+**Python is not C.** Several of the ten rules exist because C lets a program corrupt its own memory. Python does not, so those rules are mapped to their purpose below, or marked as not transferring.
+
+**Measured on `src/lcsim` at `f36a6f5`**, for the rules that can be checked:
+- 1,094 functions; 20 longer than 60 lines.
+- Ruff's mccabe complexity: 12 functions above 10, 2 above 12, 1 above 14, **none above 15**.
+- 77 `assert` statements, 0.07 per function.
+- 11 `while True` loops; 10 directly recursive functions, all walking JSON-shaped data.
+- 0 `global` statements and 1 `nonlocal`; 17 blind `except Exception`.
+- The fast test tier (3,853 tests, no benchmarks or templates) run with `-W error` turning warnings into failures: **10 tests fail, every one on a `ResourceWarning`.** Seven say a subprocess "is still running" when its `Popen` object is collected, and the rest are unclosed files. They are in `tests/launcher/test_launch.py`, `tests/runs/test_limits.py` and `tests/runs/test_lock.py`. Whether the leak is in the product or in the tests was not determined. This is the process-lifetime class of W2, found by a tool instead of by review.
+
+#### The Power of Ten, rule by rule
+
+| Rule (Holzmann 2006) | Transfers to Python and this project? | Status here | What could enforce it |
+|---|---|---|---|
+| 1. "very simple control flow … do not use goto … setjmp or longjmp … and direct or indirect recursion" | Partly. Python has no `goto`. Recursion over untrusted input does matter: Codex found two `RecursionError` crashes (#18, #27). | 10 recursive functions over JSON trees; `load_text` catches `RecursionError` | An explicit depth limit in the strict JSON reader, as for JPL's loop bounds (P22) |
+| 2. "All loops must have a fixed upper-bound" (except loops "meant to be non-terminating", such as a scheduler) | Yes, in its purpose. Unbounded loops and waits are the W2 process-lifetime class: unbounded joins and a self-fed queue that never yields (#24, #27) | 11 `while True` | A conventions test that every `while True` names its bound or deadline; a timeout on every wait (P22) |
+| 3. "Do not use dynamic memory allocation after initialization" | **No.** Python allocates on almost every operation, and nothing can enforce this rule. Its purpose, bounded resource use, does transfer | Memory and time limits per run exist (E192). Codex's P1 on #32 was an unbounded allocation (the whole search space built before the budget check) | Size limits on inputs, and review (P22) |
+| 4. Functions no longer than "about 60 lines" | Yes | 20 of 1,094 over 60 | A conventions test with a shrinking allow-list of the 20; ruff `PLR0915` as a proxy (P21) |
+| 5. "assertion density … minimum of two assertions per function", side-effect free, with "an explicit recovery action … returning an error condition to the caller" | **Not as written.** Python's `assert` is removed under `-O`, and this project's error contract is an issue object, not an assertion. The purpose, checking "anomalous conditions" with recovery, is what the validators and P6's property tests do | 0.07 asserts per function, used for type narrowing | Do not set a density target. Property tests (P6) are the Python analogue |
+| 6. "declared at the smallest possible level of scope" | Yes | Met: 0 `global`, 1 `nonlocal` | ruff `PLW0603` (global statement) would keep it so |
+| 7. "return value of non-void functions must be checked … validity of parameters must be checked inside each function" | Partly. Exceptions replace return codes. Checking parameters at a boundary is exactly W2: the untrusted-input findings were unchecked parameters | Boundary checks exist, bypassed in places (W2) | Shared helpers and `banned-api` (P5); property tests (P6); boundary types (P17) |
+| 8. Preprocessor limited to includes and simple macros | **No preprocessor.** The nearest analogue is dynamic code (`exec`, `eval`) | None found by ruff `S102`/`S307` | ruff `S102`, `S307` (P21) |
+| 9. Restricted pointers: one level of dereferencing, "Function pointers are not permitted" | **No.** Python has no pointers. Banning callables would forbid the engine plug-in design (entry points) and every callback | — | None proposed |
+| 10. "compiled … with all compiler warnings enabled … without any warnings … checked daily with … static source code analyzer … zero warnings" | Yes | Static analysis is ahead (mypy `--strict`, ruff, both at zero). **Runtime warnings are not gated:** pytest does not set `filterwarnings = ["error"]`, and 10 tests fail with it | `filterwarnings = ["error"]`, after fixing the 10 (P20). pydantic and FastAPI already set it (industry digest, A1 and A2) |
+
+From the wider NASA practice:
+- JPL D-60411 rule 7, "Do not use task delays for task synchronization", names the fixed-sleep race tests of W7 exactly.
+- NPR 7150.2D requires static analysis (SWE-135), measured and reported code coverage (SWE-189, SWE-190), and repeatable unit test results (SWE-186). The project meets all three.
+- For safety-critical components it adds "100 percent code test coverage using the Modified Condition/Decision Coverage (MC/DC) criterion" (SWE-219) and "a cyclomatic complexity value of 15 or lower" (SWE-220).
+- lcsim is not safety-critical software, so MC/DC is not proposed *(judgement)*. Branch coverage (P9) is the nearest mainstream Python measure. The complexity cap of 15 costs nothing here, since no function exceeds it.
+
+#### curl
+
+| curl practice (primary source) | This project | What it suggests |
+|---|---|---|
+| "A libcurl upgrade does not break the ABI or change established and documented behavior"; the last SONAME bump was in 2006 ([`docs/libcurl/ABI.md`](https://github.com/curl/curl/blob/master/docs/libcurl/ABI.md)) | The model format has versions and a migration test (M1). The `/v1` API has no compatibility test; specs 1 to 4 changed 166 times in Phase 1 | A compatibility contract with a golden corpus (P24) |
+| "over two hundred CI jobs that are run for every commit and every PR. We do not merge commits that have unexplained test failures" ([`docs/VERIFY.md`](https://github.com/curl/curl/blob/master/docs/VERIFY.md)) | 4 CI jobs. #49 was merged with an unexplained failure (W4) | The no-unexplained-failures rule, through the required `all-green` check (P3, P4). A large matrix is not needed for a Linux-first desktop app (B4) *(judgement)* |
+| Fuzzing "non-stop as part of Google's OSS-Fuzz project, but also briefly as part of the CI setup for every commit and PR" (`docs/VERIFY.md`) | No generated tests (W2) | Property tests in CI (P6) and a scheduled long run (P23) |
+| Torture tests: each test is rerun "to have every invoked fallible function call fail once each, to make sure curl never leaks memory or crashes" (`docs/VERIFY.md`; [`docs/runtests.md`](https://github.com/curl/curl/blob/master/docs/runtests.md) `-t`) | The process-lifetime and file-write failures were found by review, one at a time (W2) | Fail each file write and process start in turn (P12) |
+| `-Werror` always, plus picky options; checksrc for house style ([`docs/internals/CHECKSRC.md`](https://github.com/curl/curl/blob/master/docs/internals/CHECKSRC.md)) | Zero static warnings; house rules in prose (W8) | P20 for runtime warnings; P5 for house rules |
+| AI use: AI-assisted code is accepted but "must still … feature test cases and adhere to all the normal requirements"; AI-found problems must be disclosed and verified ([`docs/CONTRIBUTE.md`](https://github.com/curl/curl/blob/master/docs/CONTRIBUTE.md)). On AI analysers: "we merged about 50 separately identifiable bugfixes" from one list ([blog, 2025-10-10](https://daniel.haxx.se/blog/2025/10/10/a-new-breed-of-analyzers/)); in 2026 AI reports are "typically accurate and correct, even if much too wordy" ([blog, 2026-10-22](https://daniel.haxx.se/blog/2026/10/22/ignore-the-slop/)) | Codex's 100 findings were all accepted (Patterns, item 5) | AI review is a sensor worth keeping, held to the same evidence rule as a human report (P7) |
+
+#### The Linux kernel
+
+| Kernel practice (primary source) | This project | What it suggests |
+|---|---|---|
+| "Separate each **logical change** into a separate patch … Each patch should be justifiable on its own merits"; describe the problem first ([submitting-patches](https://docs.kernel.org/process/submitting-patches.html)) | Milestone-sized PRs; 38 commits over 1,000 lines (W6) | Small PRs (P10) |
+| Maintainers per subsystem (`MAINTAINERS`, `get_maintainer.pl`); patches go through subsystem trees and linux-next | One orchestrator, and a reviewer bot with no subsystem knowledge of the specs | A maintainer role per area, with merges by the owner (P25, P11) |
+| "*We don't cause regressions*", the "first rule of Linux kernel development"; Torvalds: "If the kernel used to work for you, the rule is that it continues to work for you" ([handling-regressions](https://docs.kernel.org/process/handling-regressions.html)) | No regression contract for saved models or API clients | P24 |
+| A merge window of "approximately two weeks", then "six to ten weeks" of fixes only ([2.Process](https://docs.kernel.org/process/2.Process.html)); stable fixes "obviously correct and tested" and at most "100 lines, with context" ([stable rules](https://docs.kernel.org/process/stable-kernel-rules.html)) | Milestones closed when the last stack merged; fixes rode the feature PRs | A fix-only stabilisation step before each milestone closes (P25) |
+| checkpatch.pl, "not always right. Your judgement takes precedence"; bots: 0-day (kernel test robot), KernelCI, syzbot fuzzing (7,627 upstream bugs fixed, per its dashboard on 2026-11-09) | `check.sh`; Codex as the only bot | P5 (a checker), P23 (a fuzzing bot) |
+| AI rules: "AI agents MUST NOT add Signed-off-by tags"; an AI fixing a bug must build a reproducer, verify the fix, and "Indicate what could not be done"; generated work gets "additional scrutiny in proportion to how much of it was generated" ([coding-assistants](https://docs.kernel.org/process/coding-assistants.html), [generated-content](https://docs.kernel.org/process/generated-content.html)) | Agents commit and merge under the owner's identity (W4); the M9 close stated an unverified CI result (W5) | A separate identity (P11); a mandatory "not verified" section (P25); evidence-only status (P19) |
+
 Overall *(judgement)*: Phase 1 is ahead of most peers on type strictness, test volume and the discipline of its written process. It is behind on the mechanisms that make discipline unnecessary: lockfiles, parallel tests, generated tests, lint-enforced helpers, layer contracts, agent hooks, required checks and small batches. Several of the peers it should be compared with (attrs, FastAPI, pandas) already use each of these.
 
 ## Opportunities
@@ -423,3 +485,4 @@ Each opportunity maps to proposals in [`proposed-agent-setup.md`](proposed-agent
 | W6 PR size | A size budget per PR, and tickets cut to fit it | P10 |
 | W7 structure | Split `validation.py` and `loading.py` by rule group. A service protocol module for MCP and the launcher. Layer contracts. `TypedDict` and response models at the boundary | P16, P17 |
 | W8 enforcement | Agent hooks: format on edit, lint and types on stop. Lint-enforced helpers. A branch-coverage gate at the achieved level | P2, P5, P9 |
+| From the Power of Ten, curl and the kernel | Runtime warnings as errors. Complexity, length and dynamic-code limits. Bounded loops and waits. A compatibility contract for model files and `/v1`. A scheduled fuzzing run. A maintainer role, a fix-only stabilisation step, and a "not verified" section | P20 to P25, and marks on P3 to P12, P19 |

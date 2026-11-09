@@ -17,7 +17,8 @@ AKS-143, 2026-11-09. Draft for the owner's approval: **nothing here has been app
 7. [Sessions, sub-agents and merging](#7-sessions-sub-agents-and-merging) (P10, P11, P19)
 8. [CLAUDE.md, the build guide, hooks and skills](#8-claudemd-the-build-guide-hooks-and-skills) (P2, P8, P15)
 9. [Owner decisions](#9-owner-decisions) (P13, P14)
-10. [Order of adoption](#10-order-of-adoption)
+10. [From the Power of Ten, curl and the Linux kernel](#10-from-the-power-of-ten-curl-and-the-linux-kernel) (P20 to P25)
+11. [Order of adoption](#11-order-of-adoption)
 
 ## 1. Ranking
 
@@ -27,27 +28,40 @@ Ratings are *(judgement)*, each based on the evidence cited.
 - **Risk:** what could go wrong in adopting it.
 - **Quick win:** benefit H or M at cost XS or S, with low risk.
 
-| Rank | ID | Proposal | Fixes | Benefit | Cost | Risk | Quick win |
-|---|---|---|---|---|---|---|---|
-| 1 | P4 | Turn on "Automatically delete head branches", require one `all-green` check before merging, and stop Linear moving issues that a PR title merely names | W4 | H | XS | L | **Yes** |
-| 2 | P13 | Collect the blocking owner questions **before** a milestone starts; a milestone does not build on an unanswered one | W1 | H | XS | L | **Yes** |
-| 3 | P3 | CI: drop the duplicate benchmark job, add job timeouts, stop cancelling `main` runs, add the `all-green` job | W3, W4 | H | S | L | **Yes** |
-| 4 | P1 | Run pytest in parallel (`-n auto`), and make the one route test safe for it | W3 | H | S | L | **Yes** |
-| 5 | P7 | Give Codex review guidelines in `AGENTS.md`; redesign after the **second** finding of a class; turn each recurring finding into a check | W2 | H | S | L | **Yes** |
-| 6 | P14 | Triage readings: reversible defaults are logged, not queued; owner items go in a weekly digest of at most 10 with a default date | W1 | H | S | M | No |
-| 7 | P2 | Agent hooks: format on edit, lint and types on stop; a fast inner gate (`scripts/fast.sh`) | W8, W3 | M | S | L | **Yes** |
-| 8 | P19 | The monitor merges nothing on a message's word: a merge-readiness checklist read from GitHub facts | W4, W5 | M | XS | L | **Yes** |
-| 9 | P5 | One shared helper per house rule, enforced by ruff `banned-api` and a conventions test | W2, W8 | H | M | L | No |
-| 10 | P6 | Hypothesis property tests: no file, body or setting makes a loader raise | W2 | H | M | L | No |
-| 11 | P10 | Small PRs merged to `main` one at a time; at most one level of stacking; a size budget per PR | W4, W6 | H | M | M | No |
-| 12 | P8 | `CLAUDE.md` becomes a map of under 100 lines; status and known gaps move to `docs/` | W5, W8 | M | M | M | No |
-| 13 | P9 | Tooling baseline: uv with `uv.lock`, branch coverage gated, pydantic declared | W3, W7 | M | S | M | No |
-| 14 | P11 | A separate GitHub identity for agents, and a rule that only the owner merges | W4 | M | M | L | No |
-| 15 | P12 | Fault-injection tests for process lifetime (signals, OSError, a hung worker) | W2 | M | M | L | No |
-| 16 | P15 | One file per decision instead of one 610 KB log; counts and CI states taken from the source | W5 | M | M | L | No |
-| 17 | P16 | Split `validation.py` and `loading.py`; a service-protocol module for MCP and the launcher; import-linter contracts | W7 | M | M | M | No |
-| 18 | P17 | Typed boundaries: `TypedDict` and `response_model` for the routes; interface types generated from OpenAPI | W7 | M | L | M | No |
-| 19 | P18 | Weekly mutation testing (mutmut) on `model/` and `strict_json.py`, as a report rather than a gate | W2 | L | S | L | No |
+The **Source** column marks proposals that come from the three reference points the owner added on 2026-11-09 (section 10, and the review's "Safety-critical and long-lived practice"):
+- **P10**: NASA/JPL "Power of Ten" and NASA practice (JPL D-60411, NPR 7150.2D);
+- **curl**;
+- **kernel**: the Linux kernel's development process.
+
+A dash means the proposal comes from the Phase 1 evidence and the other sources in section 2 to 9 alone.
+
+| Rank | ID | Proposal | Source | Fixes | Benefit | Cost | Risk | Quick win |
+|---|---|---|---|---|---|---|---|---|
+| 1 | P4 | Turn on "Automatically delete head branches", require one `all-green` check before merging, and stop Linear moving issues that a PR title merely names | curl ("We do not merge commits that have unexplained test failures") | W4 | H | XS | L | **Yes** |
+| 2 | P13 | Collect the blocking owner questions **before** a milestone starts; a milestone does not build on an unanswered one | — | W1 | H | XS | L | **Yes** |
+| 3 | P3 | CI: drop the duplicate benchmark job, add job timeouts, stop cancelling `main` runs, add the `all-green` job | curl | W3, W4 | H | S | L | **Yes** |
+| 4 | P1 | Run pytest in parallel (`-n auto`), and make the one route test safe for it | — | W3 | H | S | L | **Yes** |
+| 5 | P7 | Give Codex review guidelines in `AGENTS.md`; redesign after the **second** finding of a class; turn each recurring finding into a check | — | W2 | H | S | L | **Yes** |
+| 6 | P21 | Complexity at most 15, no `exec` or `eval`, no `global`, and no new function over 60 lines: all at zero violations today | P10 (rules 4, 6, 8), NPR 7150.2D SWE-220 | W7, W8 | M | XS | L | **Yes** |
+| 7 | P2 | Agent hooks: format on edit, lint and types on stop; a fast inner gate (`scripts/fast.sh`) | P10 (rule 10) | W8, W3 | M | S | L | **Yes** |
+| 8 | P19 | The monitor merges nothing on a message's word: a merge-readiness checklist read from GitHub facts | kernel ("Indicate what could not be done") | W4, W5 | M | XS | L | **Yes** |
+| 9 | P14 | Triage readings: reversible defaults are logged, not queued; owner items go in a weekly digest of at most 10 with a default date | — | W1 | H | S | M | No |
+| 10 | P5 | One shared helper per house rule, enforced by ruff `banned-api` and a conventions test | curl (checksrc), kernel (checkpatch) | W2, W8 | H | M | L | No |
+| 11 | P6 | Hypothesis property tests: no file, body or setting makes a loader raise | curl (fuzzing) | W2 | H | M | L | No |
+| 12 | P20 | Runtime warnings are errors in tests (`filterwarnings = ["error"]`), after fixing the 10 tests that fail on a `ResourceWarning` today | P10 (rule 10), curl (`-Werror`) | W2, W8 | H | M | L | No |
+| 13 | P24 | A compatibility contract: no saved model file and no `/v1` client breaks; a golden corpus checks it | kernel ("We don't cause regressions"), curl (ABI) | W5, Phase 2 | H | M | L | No |
+| 14 | P12 | Fault injection for process lifetime, and torture tests that fail each file write and process start in turn | curl (torture tests) | W2 | H | M | L | No |
+| 15 | P10 | Small PRs merged to `main` one at a time; at most one level of stacking; a size budget per PR | kernel ("one logical change per patch") | W4, W6 | H | M | M | No |
+| 16 | P8 | `CLAUDE.md` becomes a map of under 100 lines; status and known gaps move to `docs/` | — | W5, W8 | M | M | M | No |
+| 17 | P9 | Tooling baseline: uv with `uv.lock`, branch coverage gated, pydantic declared | NPR 7150.2D (SWE-189, SWE-190) | W3, W7 | M | S | M | No |
+| 18 | P22 | Bounded loops and waits: every `while True` names its bound, every wait has a timeout, JSON nesting has a depth limit, no sleep-based synchronisation | P10 (rules 1, 2), JPL D-60411 (rules 3, 7) | W2, W7 | M | S | L | No |
+| 19 | P25 | A maintainer role per area, a fix-only stabilisation step before a milestone closes, and a "Not verified" section in every PR and summary | kernel | W4, W5 | M | S | M | No |
+| 20 | P11 | A separate GitHub identity for agents, and a rule that only the owner merges | kernel ("AI agents MUST NOT add Signed-off-by tags") | W4 | M | M | L | No |
+| 21 | P23 | A scheduled long fuzzing run of the property tests, with the example database cached | curl (OSS-Fuzz), kernel (syzbot) | W2 | M | S | L | No (needs P6) |
+| 22 | P15 | One file per decision instead of one 610 KB log; counts and CI states taken from the source | — | W5 | M | M | L | No |
+| 23 | P16 | Split `validation.py` and `loading.py`; a service-protocol module for MCP and the launcher; import-linter contracts | — | W7 | M | M | M | No |
+| 24 | P17 | Typed boundaries: `TypedDict` and `response_model` for the routes; interface types generated from OpenAPI | — | W7 | M | L | M | No |
+| 25 | P18 | Weekly mutation testing (mutmut) on `model/` and `strict_json.py`, as a report rather than a gate | — | W2 | L | S | L | No |
 
 ## 2. Python tooling and configuration
 
@@ -441,7 +455,7 @@ So the model loader has no open defect of this class today: the Phase 1 fixes ho
 
 **The interface.** The canvas races (22 findings, 17 of them on #45) suit stateful, model-based tests of `ui/src/canvas/session.ts` with fast-check: random sequences of edit, rename, move, undo and slow responses, checked against a simple model of the expected document. fast-check was not part of the industry research, so this is *(judgement)*. Check its licence and fit before adopting it.
 
-### P12. Fault injection for process lifetime
+### P12. Fault injection for process lifetime, and torture tests (from curl)
 
 11 Codex findings and the one late bug (`service.json` left after SIGTERM, M6 to M9) were about processes not cleaning up. The M6 tests "stop services without asserting the removal" (`docs/sessions/2026-11-08-M7.md:100`).
 
@@ -462,6 +476,12 @@ After each, it asserts the same invariants:
 - the slot is released.
 
 Run them in tier 3.
+
+**Torture tests.** curl reruns each test so as "to have every invoked fallible function call fail once each, to make sure curl never leaks memory or crashes due to this" ([curl `docs/VERIFY.md`](https://github.com/curl/curl/blob/master/docs/VERIFY.md)). The Python equivalent here:
+
+1. Once P5 routes every file write through `lcsim.files.atomic_write`, a fixture can count the fallible calls a test makes (writes, `os.replace`, process starts) and rerun the test once per call, raising `OSError` at that call.
+2. Each run must end in an issue or a clean failure, with no partial file, lock or child process left.
+3. Run this for the run-folder, project-store and service-file tests, in tier 4 (weekly). It multiplies run time by the number of calls.
 
 ### Seeded exact values
 
@@ -943,7 +963,215 @@ These are proposed as `.claude/skills/<name>/SKILL.md`. Each is a procedure that
 - The owner's sampling of readings.
 - Any reading the owner overturns is recorded with the criterion it missed, so the criteria can be improved.
 
-## 10. Order of adoption
+## 10. From the Power of Ten, curl and the Linux kernel
+
+The owner added these three reference points on 2026-11-09. The review's section "Safety-critical and long-lived practice" maps each rule and practice onto this project, with sources, and says where a rule does not transfer because Python is not C:
+- Power of Ten rule 3 (no dynamic allocation) and rule 9 (pointers) do not transfer.
+- Rule 5 (assertion density) does not transfer as written.
+- Rule 8 (the preprocessor) has only a weak analogue.
+
+The proposals below are the new ones. The ones that already existed and gained a source are marked in the ranking table: P3, P4, P5, P6, P9, P10, P11, P12 and P19.
+
+### P20. Runtime warnings are errors (Power of Ten rule 10; curl `-Werror`)
+
+**Evidence.** Holzmann: "All code must compile with these setting without any warnings" ([P10 paper](https://spinroot.com/gerard/pdf/P10.pdf)). curl: "We always use `-Werror` that converts warnings to errors" ([`docs/VERIFY.md`](https://github.com/curl/curl/blob/master/docs/VERIFY.md)). The project's static tools are already at zero warnings; its tests are not.
+
+On 2026-11-09 the fast tier was run with `-W error` (`python -m pytest -n 4 -W error`, without benchmarks and templates). **10 tests fail, every one on a `ResourceWarning`**: seven say a subprocess "is still running" when its `Popen` object is collected, and the rest are unclosed files. They are in `tests/launcher/test_launch.py`, `tests/runs/test_limits.py` and `tests/runs/test_lock.py`. That is the process-lifetime class Codex kept finding (W2), raised by the interpreter. Whether each leak is in the product or in the test was not determined.
+
+**Step 1, a ticket.** Triage and fix the 10. A deliberate detach, such as the launcher starting a service that outlives it, should keep its `Popen` handle or close it explicitly, rather than silence the warning.
+
+**Step 2, exact diff to `pyproject.toml`:**
+
+```diff
+ addopts = "-ra --strict-markers -m 'not benchmark_coverage and not perf and not remote and not cluster'"
++# Warnings are errors (Power of Ten rule 10; docs/retrospective/proposed-agent-setup.md,
++# P20). A third-party warning that cannot be fixed here gets its own "ignore:" entry
++# with the reason.
++filterwarnings = ["error"]
+```
+
+pydantic and FastAPI set the same option (industry digest A1 and A2).
+
+### P21. Complexity, length, scope and dynamic code (Power of Ten rules 4, 6 and 8; NPR 7150.2D SWE-220)
+
+NPR 7150.2D caps safety-critical components at "a cyclomatic complexity value of 15 or lower" (SWE-220, [Chapter 3](https://nodis3.gsfc.nasa.gov/displayDir.cfm?Internal_ID=N_PR_7150_002D_&page_name=Chapter3)). lcsim is not safety-critical, but **no function exceeds 15 today**: ruff's mccabe finds 12 above 10, 2 above 12 and 1 above 14. Nor are there any `exec` or `eval` calls (ruff `S102`, `S307`) or `global` statements (`PLW0603`) in `src` or `tests`. So these rules cost nothing to adopt and stop the code drifting.
+
+**Exact diff to `pyproject.toml`** (it combines with P5's diff, which adds `TID251` to the same line):
+
+```diff
+ [tool.ruff.lint]
+-select = ["E", "F", "W", "I", "B", "UP", "ANN", "RUF"]
++select = ["E", "F", "W", "I", "B", "UP", "ANN", "RUF", "C90", "S102", "S307", "PLW0603"]
++
++# Power of Ten rule 4 in spirit, and NPR 7150.2D SWE-220's cap for safety-critical code.
++# No function exceeded it on 2026-11-09 (P21).
++[tool.ruff.lint.mccabe]
++max-complexity = 15
+```
+
+**Function length, rule 4.** 20 of 1,094 functions exceed 60 lines. Proposed new file `tests/test_function_length.py`, a ratchet whose allow-list may only shrink. It was tried on 2026-11-09 against `f36a6f5`, from outside the repository: it passes, and mypy `--strict` is clean.
+
+```python
+"""Power of Ten rule 4 for Python: no function longer than 60 lines (P21).
+
+The allow-list holds the functions that were longer on 2026-11-09. It may only shrink:
+splitting one of them means deleting its line here, and no new name may be added.
+"""
+
+import ast
+from pathlib import Path
+
+SRC = Path(__file__).resolve().parent.parent / "src" / "lcsim"
+MAX_LINES = 60
+ALLOWED = {
+    "model/loading.py::_Builder.build",
+    "model/loading.py::_Builder.component",
+    "model/loading.py::_Builder.distribution",
+    "model/loading.py::_Builder.program",
+    "model/migration.py::migrate",
+    "model/schema.py::_issues_from_error",
+    "model/validation.py::identifier_issues",
+    "model/validation.py::setting_issues",
+    "model/validation.py::connection_issues",
+    "model/validation.py::_setting_values",
+    "model/validation.py::_distribution_issues",
+    "model/validation.py::data_issues",
+    "model/validation.py::experiment_issues",
+    "model/validation.py::_experiment_values",
+    "runs/snapshots.py::read_columns",
+    "runs/summary.py::build_summary",
+    "runs/targets.py::LocalRun.__init__",
+    "service/app.py::create_app",
+    "templates/package.py::_Loader.template",
+    "templates/package.py::_Loader.runnable",
+}
+
+
+def _long_functions(path: Path) -> set[str]:
+    found: set[str] = set()
+
+    def visit(node: ast.AST, prefix: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.ClassDef):
+                visit(child, f"{prefix}{child.name}.")
+            elif isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+                end = child.end_lineno if child.end_lineno is not None else child.lineno
+                if end - child.lineno + 1 > MAX_LINES:
+                    found.add(f"{path.relative_to(SRC).as_posix()}::{prefix}{child.name}")
+                visit(child, f"{prefix}{child.name}.")
+
+    visit(ast.parse(path.read_text(encoding="utf-8")), "")
+    return found
+
+
+def test_no_new_function_is_longer_than_60_lines() -> None:
+    long: set[str] = set()
+    for path in sorted(SRC.rglob("*.py")):
+        long |= _long_functions(path)
+    assert not long - ALLOWED, (
+        f"Split these functions (at most {MAX_LINES} lines): {sorted(long - ALLOWED)}"
+    )
+    assert not ALLOWED - long, f"Now short enough; remove from ALLOWED: {sorted(ALLOWED - long)}"
+```
+
+**Not adopted:**
+- **Rule 5's two assertions per function.** Python drops `assert` under `-O`, and errors here must be issue objects; P6's properties are the analogue.
+- **Rule 3 and rule 9.** There is nothing to enforce in Python, and banning callables would forbid the engine plug-ins.
+
+### P22. Bounded loops and waits (Power of Ten rules 1 and 2; JPL D-60411 rules 3 and 7)
+
+- **Rule 2:** "All loops must have a fixed upper-bound", except loops "meant to be non-terminating (e.g., in a process scheduler)" ([P10 paper](https://spinroot.com/gerard/pdf/P10.pdf)).
+- **JPL D-60411 rule 3:** "Use verifiable loop bounds for all loops meant to be terminating".
+- **JPL D-60411 rule 7:** "Do not use task delays for task synchronization" ([D-60411, mirror](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf)).
+
+These name the process-lifetime findings (unbounded joins, a cancel deadline that reset, a queue loop that never yields: #24, #27) and the fixed-sleep tests of W7.
+
+1. **Every `while True` names its bound.** Each of the 11 `while True` loops in `src` gets a comment on the loop line, `# bound: <deadline, cancel check or count that ends it>`, or `# bound: none, a server loop ended by <signal>`. Add to `tests/test_conventions.py` (P5) a test that every `while True` line carries `# bound:`. A reviewer then checks the stated bound instead of searching for it.
+2. **Every wait has a timeout.** Add an `AGENTS.md` review-guidelines bullet, and the same line in `CLAUDE.md`'s "Conventions the tools do not check": every `join`, `wait`, `communicate`, queue `get` and lock acquisition in `src` passes a timeout, or carries a comment naming what ends it. A lint rule for this would match too much (`str.join`), so it stays a review rule *(judgement)*.
+3. **JSON nesting has a depth limit.** `lcsim.strict_json.read_json` rejects nesting deeper than a fixed limit (for example 64 levels) with a coded issue, instead of relying on catching `RecursionError`. The 10 recursive walkers in `src` then have a proven bound (rule 1's purpose). Codex found two `RecursionError` crashes (#18, #27).
+4. **No sleep-based synchronisation.** Replace the fixed sleeps that widen race windows in tests (W7) with events or barriers. Keep sleeps only as polling intervals inside a loop that has a deadline.
+
+### P23. A scheduled fuzzing run (curl and OSS-Fuzz; kernel syzbot)
+
+- curl fuzzes "non-stop as part of Google's OSS-Fuzz project, but also briefly as part of the CI setup for every commit and PR" ([`docs/VERIFY.md`](https://github.com/curl/curl/blob/master/docs/VERIFY.md)).
+- The kernel's syzbot "continuously fuzzes main Linux kernel branches and automatically reports found bugs" ([syzbot](https://github.com/google/syzkaller/blob/master/docs/syzbot.md)).
+- The short version is P6 in every CI run. The long version is a nightly job that runs the same properties with many more examples and keeps Hypothesis's example database between runs, as CPython does (industry digest A6).
+- Standard runners are free for this public repository.
+- Whether lcsim qualifies for OSS-Fuzz itself was not checked.
+
+**Proposed new file `.github/workflows/fuzz.yml`** (needs P6's `tests/properties/` and its `thorough` profile):
+
+```yaml
+name: fuzz
+
+# Long property-based runs (docs/retrospective/proposed-agent-setup.md, P23). A failure is
+# filed as a ticket with the falsifying example Hypothesis prints.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  properties:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - uses: actions/cache@v4
+        with:
+          path: .hypothesis
+          key: hypothesis-${{ github.run_id }}
+          restore-keys: hypothesis-
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest tests/properties --hypothesis-profile=thorough
+```
+
+### P24. A compatibility contract (kernel "no regressions"; curl's ABI promise)
+
+**The two models.**
+- The kernel's "first rule": "*We don't cause regressions*"; "If the kernel used to work for you, the rule is that it continues to work for you" ([handling-regressions](https://docs.kernel.org/process/handling-regressions.html)).
+- curl: "A libcurl upgrade does not break the ABI or change established and documented behavior" ([`docs/libcurl/ABI.md`](https://github.com/curl/curl/blob/master/docs/libcurl/ABI.md)).
+
+**Why now.**
+- In Phase 1 the specs changed 166 times, and nothing outside the specs depended on them.
+- From Phase 2, saved models, template packages and assistants calling `/v1` through MCP do depend on them.
+- The model format already has versions and a migration test (M1). The `/v1` API has no compatibility check.
+
+**Proposed build-guide rule** (a new item under "Conventions"):
+
+> **Compatibility.** A model file that loads in a released version loads in every later version, through migration if its format version is older. A `/v1` request that works keeps working, and a `/v1` response keeps every field it had, with the same JSON type; new fields may be added. A change that cannot meet this needs a new format version with a migration, or a new API version, and an owner decision record.
+
+**Proposed tests** (`tests/compat/`):
+- `models/<format_version>/`: a corpus that only grows. It starts with every file in `examples/`, `templates/` and `benchmarks/` as they are at the Phase 1 close. Each file must load with zero errors in the current version.
+- `api/v1/<route>.json`: for one fixed, seeded scenario, the key paths and JSON types of each route's response. The test fails when a recorded key disappears or changes type, and passes when one is added.
+
+### P25. Maintainers, a stabilisation step, and what was not verified (the kernel process)
+
+1. **A maintainer per area.**
+   - The kernel routes every patch to the maintainers of the code it touches (`MAINTAINERS`, `scripts/get_maintainer.pl`; [submitting-patches](https://docs.kernel.org/process/submitting-patches.html)).
+   - Here, the orchestrating session acts as maintainer. For each PR it checks the diff against the spec of the area touched: model format (spec 1), engines (spec 2), service and interface (spec 3), MCP and findings (spec 4).
+   - It reports readiness by P19, and the owner merges (P11).
+   - Proposed kickoff-prompt line: "Before the PR is reported ready, the maintainer reads the spec sections for the areas the diff touches and lists in the PR any behaviour that differs from them."
+2. **A fix-only stabilisation step.**
+   - The kernel follows a merge window of "approximately two weeks" with "six to ten weeks" in which "only patches which fix problems should be submitted", and takes stable fixes only if "obviously correct and tested" and at most "100 lines, with context" ([2.Process](https://docs.kernel.org/process/2.Process.html), [stable rules](https://docs.kernel.org/process/stable-kernel-rules.html)).
+   - Proposed build-guide addition to "Milestones": "A milestone closes in two steps. Its feature PRs merge first; then one stabilisation ticket runs the full gate, the benchmarks and the scheduled fuzzing on `main`, and accepts only fixes, each under about 100 changed lines, until all are green. The session summary is written at the end of that ticket."
+   - This would have caught the red `main` after M9 before M10 began (W4).
+3. **"Not verified" in every PR and summary.**
+   - The kernel's rules for AI assistants: "Indicate what could not be done. If the fix could not be built or tested, or if no reproducer could be produced, say so explicitly" ([coding-assistants](https://docs.kernel.org/process/coding-assistants.html)).
+   - Proposed: every PR body and session summary has a "Not verified" heading, listing what was not run or not checked, or "Nothing".
+   - The kernel also says "AI agents MUST NOT add Signed-off-by tags" (same page), which supports P11's separate identity. A Developer Certificate of Origin is not proposed: there is one owner and no outside contributors *(judgement)*.
+
+**Not proposed: curl's large CI matrix.** curl runs "over two hundred CI jobs … for every commit and every PR" because it ships on dozens of platforms. This project is Linux-first (B4), so two Python versions and the interface job are proportionate *(judgement)*.
+
+## 11. Order of adoption
 
 **Before or alongside M11's merge** (settings only, no repository change, no conflict with M11):
 
@@ -954,7 +1182,7 @@ These are proposed as `.claude/skills/<name>/SKILL.md`. Each is a procedure that
 
 | PR | Contents | Proposals |
 |---|---|---|
-| 1 | `checks.yml` and the branch-protection check | P3 (then finish P4 item 2) |
+| 1 | `checks.yml` and the branch-protection check; the ruff complexity, `exec`, `eval` and `global` rules and the function-length test (zero violations today) | P3 (then finish P4 item 2), P21 |
 | 2 | xdist in `check.sh`, the route-test fix, the branch-coverage gate, pydantic declared | P1, part of P9 |
 | 3 | `scripts/fast.sh`, `.claude/settings.json`, `scripts/hooks/format_edited.py` | P2 |
 | 4 | `AGENTS.md`, plus the guide text on review findings | P7 |
@@ -963,8 +1191,10 @@ These are proposed as `.claude/skills/<name>/SKILL.md`. Each is a procedure that
 | 7 | `uv.lock` and the uv CI steps | rest of P9 |
 | 8 | the helper consolidation, then `banned-api` and `tests/test_conventions.py` | P5 |
 | 9 | the first property tests (`tests/properties/`) | P6 |
+| 10 | fix the 10 tests that fail with `-W error`, then `filterwarnings = ["error"]` | P20 |
+| 11 | the compatibility corpus and the `/v1` shape records, plus the guide rule | P24 |
 
-**Phase 2, as each area is touched:** P12 (fault injection), P16 (module splits, the service-protocol module, import-linter), P17 (typed boundaries), P11 (agent identity, which needs the owner), P18 (weekly mutation report).
+**Phase 2, as each area is touched:** P25 (from the first Phase 2 milestone), P22 (bounded loops and waits), P23 (after P6), P12 (fault injection and torture tests), P16 (module splits, the service-protocol module, import-linter), P17 (typed boundaries), P11 (agent identity, which needs the owner), P18 (weekly mutation report).
 
 **Measure after Phase 1a,** to check that the proposals worked *(judgement: the targets are starting points)*:
 
@@ -977,3 +1207,5 @@ These are proposed as `.claude/skills/<name>/SKILL.md`. Each is a procedure that
 | Manual base changes | 17 | 0 |
 | "Awaiting owner" items per milestone | 40 (median, M4 to M10) | at most 10 |
 | Owner wait on a blocking question | 76 h | under 24 h, or the default date |
+| Tests failing with `-W error` (fast tier) | 10 | 0, then gated (P20) |
+| Functions over complexity 15, and new functions over 60 lines | 0, and 20 old ones over 60 | 0, and the 20 shrinking |
