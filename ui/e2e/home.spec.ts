@@ -36,14 +36,18 @@ test("Home creates Process and Plan projects and lists them", async ({
 }) => {
   await home(page, service);
   await expect(page.getByText("No projects yet.")).toBeVisible();
-  // The service serves the repository's templates (AKS-122, AKS-139, AKS-123), so the
-  // gallery lists them in id order; Learn mode and the Build form arrive with AKS-124.
+  // The service serves the repository's ten templates (AKS-122, AKS-139, AKS-123,
+  // AKS-140), so the gallery lists them in id order; Learn mode and the Build form arrive
+  // with AKS-124.
   const gallery = page.getByRole("list", { name: "Templates" });
   await expect(gallery.locator(".card .subheading")).toHaveText([
     "Clinic patient flow",
     "Coffee shop queue",
+    "How many machines?",
     "Inventory reorder point",
     "Machine breakdowns",
+    "Product mix",
+    "Staff rota",
     "Three-machine production line",
     "Transport plan",
     "Warehouse pick and pack",
