@@ -115,10 +115,19 @@ def test_each_template_json_rule(
         assert found == [("E195", path)]
 
 
-def test_template_json_must_be_an_object(tmp_path: Path) -> None:
+@pytest.mark.parametrize("document", [[], None])
+def test_template_json_must_be_an_object(tmp_path: Path, document: object) -> None:
     folder = copy(tmp_path)
-    write(folder, "template.json", [])
+    write(folder, "template.json", document)
     assert issues(folder) == [("E195", "/template.json")]
+
+
+@pytest.mark.parametrize("document", [None, {}, []])
+def test_expected_json_must_be_an_array_of_rows(tmp_path: Path, document: object) -> None:
+    """A file holding JSON null is a shape problem, not a missing file (review of PR #50)."""
+    folder = copy(tmp_path)
+    write(folder, "expected.json", document)
+    assert issues(folder) == [("E195", "/expected.json")]
 
 
 @pytest.mark.parametrize("name", ["template.json", "model.json", "lesson.md", "expected.json"])

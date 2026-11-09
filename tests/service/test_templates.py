@@ -94,6 +94,33 @@ def broken_folder(tmp_path: Path) -> Path:
     return root
 
 
+def test_a_package_whose_json_is_null_is_left_out_not_a_500(
+    config: ServiceConfig, tmp_path: Path
+) -> None:
+    """Review of PR #50: ``null`` in ``expected.json`` or ``template.json`` is an E195
+    issue, so the gallery leaves the package out and the others are still served."""
+    root = tmp_path / "templates"
+    shutil.copytree(TEMPLATES / "coffee_shop", root / "coffee_shop")
+    for tid, name in (("null_rows", "expected.json"), ("null_template", "template.json")):
+        shutil.copytree(TEMPLATES / "coffee_shop", root / tid)
+        template = {**read("template.json"), "id": tid}
+        (root / tid / "template.json").write_text(json.dumps(template), encoding="utf-8")
+        (root / tid / name).write_text("null", encoding="utf-8")
+    with template_client(config, root) as test_client:
+        listed = test_client.get("/v1/templates")
+        assert listed.status_code == 200
+        assert [item["id"] for item in listed.json()] == ["coffee_shop"]
+        for tid, name in (("null_rows", "expected.json"), ("null_template", "template.json")):
+            response = test_client.get(f"/v1/templates/{tid}")
+            assert response.status_code == 404
+            assert_error(response.json(), "E185")
+            assert ("E195", f"/{name}") in [
+                (issue["code"], issue["path"]) for issue in response.json()["issues"]
+            ]
+            created = test_client.post("/v1/projects", json={"name": "X", "template": tid})
+            assert created.status_code == 404
+
+
 def test_a_package_with_issues_is_not_served_and_its_issues_are_logged(
     config: ServiceConfig, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:

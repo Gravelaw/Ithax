@@ -73,6 +73,10 @@ TEMPLATE_KEYS = (
 AUDIENCES = ("Students", "Business", "Both")
 MAX_MINUTES = 120
 
+#: What ``_Loader.json`` returns for a file it could not read, whose issue is recorded:
+#: distinct from a file that holds JSON ``null``.
+UNREAD = object()
+
 _BENCHMARK = re.compile(r"benchmarks/([a-z][a-z0-9_]{0,63})(?![a-z0-9_])")
 
 
@@ -194,9 +198,12 @@ class _Loader:
             return None
 
     def json(self, name: str) -> object:
+        """The file's JSON document, or ``UNREAD`` (its issue recorded) when it is missing
+        or cannot be read; a file holding ``null`` is the document ``None``, a shape the
+        caller refuses (review of PR #50)."""
         raw = self.read(name)
         if raw is None:
-            return None
+            return UNREAD
         try:
             return read_json(raw)
         except ValueError:
@@ -205,13 +212,13 @@ class _Loader:
                 f"The template's {name} is not JSON that can be read.",
                 f"Correct {name}: UTF-8 JSON with no NaN, infinity or repeated key.",
             )
-            return None
+            return UNREAD
 
     # --- template.json --------------------------------------------------------------
 
     def template(self, document: object) -> dict[str, Any] | None:
         if not isinstance(document, dict):
-            if document is not None:
+            if document is not UNREAD:
                 self.issue(
                     pointer(TEMPLATE_FILE),
                     "template.json is not a JSON object.",
@@ -397,7 +404,7 @@ class _Loader:
     def expected(
         self, document: object, model: Model | None, experiment: object
     ) -> tuple[ExpectedRow, ...] | None:
-        if document is None:
+        if document is UNREAD:
             return None
         rows, problems = read_rows(document)
         for problem in problems:
