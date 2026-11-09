@@ -319,9 +319,28 @@ class _Loader:
         assert isinstance(document, dict)  # the model loaded, so it is an object
         return loaded.model, document
 
-    def experiment(self, model: Model, document: Mapping[str, Any], name: object) -> None:
+    def runnable(self, model: Model, name: object, *, exercise: bool = False) -> None:
+        """Whether ``model`` runs as the template says: the one check applied to the
+        template's model and, with ``exercise``, to the model after the exercise's edits,
+        since the template test and Learn mode run both with the same experiment (review
+        of PR #50). An optimization model names no experiment. A simulation's experiment
+        ``name`` exists, sets a seed so its results repeat, has a non-zero warm-up (spec 4)
+        and lists no scenarios of its own, since the expected values are read from the
+        scenario ``default`` (spec 1 "Experiments"). For the template a problem is placed
+        at its key in ``model.json``; for the exercise at its edits."""
+
+        def report(where: Sequence[str | int], message: str, hint: str) -> None:
+            if exercise:
+                self.issue(
+                    pointer(TEMPLATE_FILE, "exercise", "edits"),
+                    f"After the exercise's edits, {message[0].lower()}{message[1:]}",
+                    hint,
+                )
+            else:
+                self.issue(pointer(*where), message, hint)
+
         if model.program is not None:
-            if name is not None:
+            if name is not None and not exercise:
                 self.issue(
                     pointer(TEMPLATE_FILE, "experiment"),
                     "An optimization model has no experiments, so 'experiment' is null.",
@@ -330,25 +349,36 @@ class _Loader:
             return
         index = next((at for at, item in enumerate(model.experiments) if item.id == name), None)
         if index is None:
-            self.issue(
-                pointer(TEMPLATE_FILE, "experiment"),
+            report(
+                (TEMPLATE_FILE, "experiment"),
                 f"The model has no experiment {name!r} for the template to run.",
-                "Name one of the model's experiments in 'experiment'.",
+                "Name one of the model's experiments in 'experiment', and keep it in the "
+                "exercise's model.",
             )
             return
-        if "seed" not in document["experiments"][index]:
-            self.issue(
-                pointer(MODEL_FILE, "experiments", index, "seed"),
+        chosen = model.experiments[index]
+        at = (MODEL_FILE, "experiments", index)
+        if chosen.seed_chosen:
+            report(
+                (*at, "seed"),
                 f"The template's experiment '{name}' sets no seed, so its results would "
                 "not repeat.",
                 "Set 'seed' in the experiment.",
             )
-        if model.experiments[index].warmup.magnitude <= 0:
-            self.issue(
-                pointer(MODEL_FILE, "experiments", index, "warmup"),
+        if chosen.warmup.magnitude <= 0:
+            report(
+                (*at, "warmup"),
                 f"The template's experiment '{name}' has no warm-up; every simulation "
                 "template sets a non-zero warmup (spec 4).",
                 "Set 'warmup' above 0 s, less than 'length'.",
+            )
+        if not chosen.default_scenario_added:
+            report(
+                (*at, "scenarios"),
+                f"The template's experiment '{name}' lists scenarios; its expected values "
+                "are read from the scenario 'default', which only an experiment without "
+                "scenarios runs.",
+                "Remove 'scenarios' from the experiment.",
             )
 
     def exercise(self, document: Mapping[str, Any], edits: Sequence[Any]) -> dict[str, Any] | None:
@@ -534,14 +564,21 @@ def load_package(
     loaded = loader.model()
     model, document = loaded if loaded is not None else (None, None)
     exercise_model = None
+    exercise = None
     if template is not None and model is not None and document is not None:
-        loader.experiment(model, document, template["experiment"])
+        found = len(loader.issues)
+        loader.runnable(model, template["experiment"])
+        runs = len(loader.issues) == found
         exercise_model = loader.exercise(document, template["exercise"]["edits"])
+        if exercise_model is not None and runs:
+            # A problem the template's model already has is reported once, there.
+            exercise = load_document(exercise_model).model
+            assert exercise is not None  # exercise() refused a model with errors
+            loader.runnable(exercise, template["experiment"], exercise=True)
     title = None if template is None else template["title"]
     lesson = loader.lesson(title, None if model is None else _names(model))
     experiment = None if template is None else template["experiment"]
     expected_document = loader.json(EXPECTED_FILE)
-    exercise = None if exercise_model is None else load_document(exercise_model).model
     rows = loader.expected(expected_document, model, experiment, exercise)
     if loader.issues:
         return PackageResult(None, tuple(loader.issues))

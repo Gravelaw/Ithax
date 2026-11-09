@@ -18,6 +18,7 @@ expansion is bookkeeping, and HiGHS solves the flat program (guide rule 7).
 from __future__ import annotations
 
 import itertools
+import math
 from collections.abc import Iterator, Mapping, Sequence
 from types import MappingProxyType
 
@@ -89,9 +90,13 @@ def _linear(
             name = expanded_name(term.variable, [binding[item] for item in sets])
             value = _coefficient(program, term.coefficient, binding)
             try:
-                coefficients[name] = coefficients.get(name, 0) + value
+                total = coefficients.get(name, 0) + value
             except OverflowError:
                 raise CoefficientTooLarge(constraint, position, name) from None
+            # Float addition overflows to infinity without raising (review of PR #53).
+            if isinstance(total, float) and not math.isfinite(total):
+                raise CoefficientTooLarge(constraint, position, name)
+            coefficients[name] = total
     return MappingProxyType(coefficients)
 
 
