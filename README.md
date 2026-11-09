@@ -70,8 +70,8 @@ pytest -m benchmark     # benchmarks with known answers
 pytest -m template      # the ten templates against their expected results
 pytest -m perf          # performance checks, excluded from check.sh
 
-cd ui && npm ci && npm run check && npm run build && npm run e2e   # the interface
-cd desktop && npm ci && npm run build && npm test                  # the desktop shell
+(cd ui && npm ci && npm run check && npm run build && npm run e2e)   # the interface
+(cd desktop && npm ci && npm run build && npm test)                  # the desktop shell
 pytest -m desktop       # the shell driven to Home (tauri-driver, Xvfb)
 
 python scripts/package_linux.py   # the Linux package, into dist/
