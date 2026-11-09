@@ -262,9 +262,25 @@ export function coefficientEdits(
   return [{ edit: "set_path", path: `${holder}/linear`, value: { [name]: readNumber(text) } }];
 }
 
+/**
+ * Whether a coefficient's key names decision `name`: its id, or for an indexed decision one
+ * of its expanded names, `name[member,member]` (spec 2 "Indexed problems"; review of PR #53).
+ */
+function namesDecision(key: string, name: string): boolean {
+  return key === name || (key.startsWith(`${name}[`) && key.endsWith("]"));
+}
+
+/** The keys of `linear` that name decision `name`. */
+function keysNaming(linear: Plain, name: string): string[] {
+  return Object.keys(linear).filter((key) => namesDecision(key, name));
+}
+
 function renamedKeys(linear: Plain, from: string, to: string): Plain {
   return Object.fromEntries(
-    Object.entries(linear).map(([key, value]) => [key === from ? to : key, value]),
+    Object.entries(linear).map(([key, value]) => [
+      namesDecision(key, from) ? `${to}${key.slice(from.length)}` : key,
+      value,
+    ]),
   );
 }
 
@@ -281,7 +297,7 @@ export function renameDecision(model: Model, index: number, text: string): Edit[
   const taken = variables.some((other, at) => at !== index && isPlain(other) && other.id === text);
   if (typeof from !== "string" || taken) return edits;
   const objective = linearOf(model.objective);
-  if (hasOwn(objective, from) && isPlain(model.objective)) {
+  if (keysNaming(objective, from).length > 0 && isPlain(model.objective)) {
     edits.push({
       edit: "set_path",
       path: "/objective/linear",
@@ -290,7 +306,7 @@ export function renameDecision(model: Model, index: number, text: string): Edit[
   }
   for (const { index: at, item } of constraintsOf(model)) {
     const linear = linearOf(item);
-    if (hasOwn(linear, from)) {
+    if (keysNaming(linear, from).length > 0) {
       edits.push({
         edit: "set_path",
         path: `/constraints/${at}/linear`,
@@ -330,12 +346,12 @@ export function removeDecision(model: Model, index: number): Edit[] | null {
   const edits: Edit[] = [{ edit: "remove_path", path: `/variables/${index}` }];
   const name = isPlain(variable) ? variable.id : undefined;
   if (typeof name !== "string") return edits;
-  if (hasOwn(linearOf(model.objective), name)) {
-    edits.push({ edit: "remove_path", path: `/objective/linear${pointer([name])}` });
+  for (const key of keysNaming(linearOf(model.objective), name)) {
+    edits.push({ edit: "remove_path", path: `/objective/linear${pointer([key])}` });
   }
   for (const { index: at, item } of constraintsOf(model)) {
-    if (hasOwn(linearOf(item), name)) {
-      edits.push({ edit: "remove_path", path: `/constraints/${at}/linear${pointer([name])}` });
+    for (const key of keysNaming(linearOf(item), name)) {
+      edits.push({ edit: "remove_path", path: `/constraints/${at}/linear${pointer([key])}` });
     }
   }
   // Its terms too, the last first, so each index still names the term it was read from.

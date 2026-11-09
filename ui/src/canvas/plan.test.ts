@@ -297,4 +297,40 @@ describe("an indexed plan (AKS-123)", () => {
       { edit: "remove_path", path: "/constraints/1/terms/0" },
     ]);
   });
+
+  it("renames and removes the expanded names of a decision in coefficients (review of PR #53)", () => {
+    const model = transport();
+    (model.constraints as unknown[]).push({
+      id: "closed",
+      linear: { "ship[north,park]": 1, shipping: 2, "ship[x": 3 },
+      op: "==",
+      rhs: 0,
+    });
+    (model.objective as { linear?: unknown }).linear = { "ship[south,city]": 1 };
+    const renamed = renameDecision(model, 0, "send");
+    expect(renamed).toContainEqual({
+      edit: "set_path",
+      path: "/objective/linear",
+      value: { "send[south,city]": 1 },
+    });
+    expect(renamed).toContainEqual({
+      edit: "set_path",
+      path: "/constraints/2/linear",
+      value: { "send[north,park]": 1, shipping: 2, "ship[x": 3 },
+    });
+    const removed = removeDecision(model, 0);
+    expect(removed).toContainEqual({
+      edit: "remove_path",
+      path: "/objective/linear/ship[south,city]",
+    });
+    expect(removed).toContainEqual({
+      edit: "remove_path",
+      path: "/constraints/2/linear/ship[north,park]",
+    });
+    expect(
+      removed?.filter((edit) =>
+        String((edit as { path?: string }).path).startsWith("/constraints/2/linear"),
+      ),
+    ).toHaveLength(1);
+  });
 });
