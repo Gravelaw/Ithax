@@ -153,7 +153,7 @@ Running three example models against the first draft of the format forced four c
 | Key | Type | Required | Default |
 | --- | --- | --- | --- |
 | `format_version` | string | yes |  |
-| `meta` | object with `name` (required), `description`, `author`, `template` | yes |  |
+| `meta` | object with `name` (required), `description`, `author`, `template` (the id of the template the project was created from, set by spec 3's `POST /v1/projects`; AKS-122) | yes |  |
 | `domain` | string; Phase 1 values `process` and `optimization` | yes |  |
 | `parameters` | object keyed by parameter id | no | empty |
 | `components` | array of component objects | yes for `process`; not allowed for `optimization` |  |
@@ -315,13 +315,14 @@ Every issue is one object:
 | E192 | run | Run exceeded its time or memory limit |
 | E193 | mcp | The MCP server cannot reach the engine service: it cannot be started, does not answer, or sends an answer that is not JSON the service's strict reader takes (spec 4 "How the server runs and answers"; AKS-115, owner to confirm) |
 | E194 | mcp | The MCP server has already started two runs of this project that are not finished (`queued` or `running`), the most spec 4 "Limits" allows; the result lists their `run_ids` (AKS-134, owner to confirm) |
+| E195 | template | A template package cannot be used: a file missing or unreadable, `template.json` or `expected.json` not of the layout spec 4 "Template package" gives, a lesson that breaks its rules (a step without a `Component:` line or naming nothing in the model, more than 80 words, an exercise without its three parts or its one right choice), an exercise whose edits cannot be applied or leave a model with an error, an expected `metric` the model does not report, a `benchmark` reference to no case, no `theory` or `benchmark` row, or a process template whose experiment has no `seed` or a zero `warmup`. `path` points into the package, its first segment the file's name (`/template.json/minutes`); the model's own issues keep their codes with `/model.json` before their `path` (AKS-122, owner to confirm) |
 | W200 | meaning | Component with an `in` port cannot be reached from any source (over connections whose two ends are valid, the first from each output port) |
 | W201 | meaning | Mean arrival rate at a server times its mean service time is at least its capacity, and its queue is unlimited, so the queue will grow without limit |
 | W202 | meaning | Normal distribution will clip about 2% or more of its samples at zero (`mean` < 2 × `sd`) |
 | W210 | run | Results were still changing after warm-up; lengthen `warmup` |
 | W220 | service | A finding threshold in `settings.json` cannot be used: a value that is not a number in its range, a key that is not one of the five thresholds, `finding_thresholds` that is not an object, or a `settings.json` that is not a JSON object the service can read. The default is used for what is refused, and `GET .../summary` and `GET /v1/settings` list the issue in `issues`, with `path` the place in `settings.json` (spec 3 "Service rules"; AKS-135, AKS-119, owner to confirm) |
 
-Codes E300 to E399 are reserved for engine-specific issues from `validate(model)`; each adapter documents its own. Errors block a run. Warnings do not. Run and service codes are raised by the experiment manager or the service, and E193 and E194 by the MCP server; they are tested at their milestones, not by validation fixtures. A service code's `path` points into the request, or for W220 into `settings.json`, rather than into the model file.
+Codes E300 to E399 are reserved for engine-specific issues from `validate(model)`; each adapter documents its own. Errors block a run. Warnings do not. Run and service codes are raised by the experiment manager or the service, E193 and E194 by the MCP server, and E195 by the template loader; they are tested at their milestones, not by validation fixtures. A service code's `path` points into the request, or for W220 into `settings.json`, rather than into the model file.
 
 ### Engine adapter interface
 
@@ -541,3 +542,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 2026-11-08, version 1.2, M9 closed (AKS-121); the lines below were added after version 1.1, during the M9 build:
 
 - 2026-11-08, settings endpoint (AKS-119): "Validation issues" says `GET /v1/settings` also lists W220 issues (spec 3 "Endpoints"). A `PUT /v1/settings` value that cannot be used is refused as E184 at its place in the request, since the request is malformed; W220 stays the code for a value read from the file. Owner to confirm.
+
+Since version 1.2, during the M10 build:
+
+- 2026-11-09, template packages (AKS-122): "Validation issues" adds E195, a template package that cannot be used (spec 4 "Template package"), raised by the template loader, with a `path` into the package; the sentence on who raises the codes that validation fixtures do not test names it. "Top-level keys" says `meta.template` is the id of the template a project was created from, set by `POST /v1/projects`. Owner to confirm.
