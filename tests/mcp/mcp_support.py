@@ -47,7 +47,7 @@ from lcsim.mcp.client import ServiceClient
 from lcsim.mcp.server import build_server
 from lcsim.runs.statistics import t_quantile
 from lcsim.service.app import create_app
-from lcsim.service.config import ServiceConfig, new_token
+from lcsim.service.config import ServiceConfig, default_templates_dir, new_token
 from lcsim.service.discovery import (
     ServiceInfo,
     probe,
@@ -115,7 +115,9 @@ def wait_until(condition: Callable[[], object], timeout_s: float = TIMEOUT_S) ->
 @contextlib.contextmanager
 def in_process_service(config_dir: Path, data_dir: Path) -> Iterator[ServiceInfo]:
     """The M6 application served on a port the operating system chose, with
-    ``service.json`` naming it; stopped and its file removed on exit."""
+    ``service.json`` naming it, serving the repository's templates as
+    ``python -m lcsim.service`` does by default (AKS-122); stopped and its file removed on
+    exit."""
     sock = bind_local()
     port = sock.getsockname()[1]
     config = ServiceConfig(
@@ -123,6 +125,7 @@ def in_process_service(config_dir: Path, data_dir: Path) -> Iterator[ServiceInfo
         data_dir=data_dir,
         port=port,
         token=new_token(),
+        templates_dir=default_templates_dir(),
         hardware=Hardware(cores=4, memory=8 * 1024**3, graphics=None),
     )
     server = uvicorn.Server(

@@ -1,6 +1,6 @@
 /**
  * Home against a real service: recent projects, a new Process or Plan project, opening a
- * folder, the empty template gallery, the Learn and Build entries; every request with the
+ * folder, the template gallery, the Learn and Build entries; every request with the
  * token and `X-Client: ui`, the WebSocket from the interface's own origin, nothing fetched
  * from outside, and WCAG 2.2 AA in both themes (AKS-119).
  */
@@ -36,10 +36,17 @@ test("Home creates Process and Plan projects and lists them", async ({
 }) => {
   await home(page, service);
   await expect(page.getByText("No projects yet.")).toBeVisible();
-  await expect(page.getByText("No templates are installed yet.")).toBeVisible();
+  // The service serves the repository's templates (AKS-122), so the gallery lists them;
+  // Learn mode and the Build form arrive with AKS-124.
+  const gallery = page.getByRole("list", { name: "Templates" });
+  await expect(gallery.locator(".card .subheading")).toContainText([
+    "Coffee shop queue",
+    "Machine breakdowns",
+    "Three-machine production line",
+  ]);
   const build = page.getByRole("button", { name: /^Build/ });
   await expect(build).toHaveAttribute("aria-disabled", "true");
-  await expect(page.getByText("The Build form needs the templates")).toBeVisible();
+  await expect(page.getByText("The Build form is not built yet.")).toBeVisible();
   await page.getByRole("button", { name: /^Learn/ }).click();
   await expect(page.getByRole("heading", { name: "Templates" })).toBeFocused();
 

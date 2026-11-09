@@ -18,7 +18,7 @@ import logging
 import os
 import threading
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -227,9 +227,16 @@ class ProjectRegistry:
 
     # --- creating and opening ------------------------------------------------------
 
-    def create(self, name: str, domain: Domain, path: Path | None) -> dict[str, Any]:
-        """Create a project named ``name`` with the default model of ``domain`` in
-        ``path`` (absolute; missing or empty) or under the data folder, and register it."""
+    def create(
+        self,
+        name: str,
+        domain: Domain,
+        path: Path | None,
+        model: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a project named ``name`` in ``path`` (absolute; missing or empty) or
+        under the data folder, and register it. Its model is ``model`` (a template's,
+        AKS-122) or, when ``None``, the default model of ``domain``."""
         pid = self._new_id()
         folder = self.data_dir / "projects" / pid if path is None else canonical(path)
         if folder.exists() and (not folder.is_dir() or any(folder.iterdir())):
@@ -241,7 +248,7 @@ class ProjectRegistry:
             folder.mkdir(parents=True, exist_ok=True)
             (folder / "data").mkdir()
             (folder / "runs").mkdir()
-            write_json(folder / MODEL_FILE, default_model(name, domain))
+            write_json(folder / MODEL_FILE, default_model(name, domain) if model is None else model)
             write_json(folder / PROJECT_FILE, asdict(record))
         except OSError:
             _log.warning("Creating the project folder %s failed.", folder, exc_info=True)

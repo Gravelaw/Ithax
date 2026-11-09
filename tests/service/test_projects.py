@@ -181,7 +181,9 @@ def test_a_relative_path_is_400_with_e184(client: TestClient) -> None:
     assert response.json()["issues"][0]["path"] == "/path"
 
 
-def test_a_template_is_404_with_e185_until_m10(client: TestClient) -> None:
+def test_a_template_is_404_with_e185_when_the_service_has_none(client: TestClient) -> None:
+    """This client's service has no templates folder; projects from a template are
+    tested in ``test_templates.py`` (AKS-122)."""
     response = client.post("/v1/projects", json={"name": "X", "template": "coffee_shop"})
     assert response.status_code == 404
     assert_error(response.json(), "E185")
@@ -195,6 +197,7 @@ def test_a_template_is_404_with_e185_until_m10(client: TestClient) -> None:
         ({"name": ""}, "/name"),
         ({"name": 5}, "/name"),
         ({"name": "X", "domain": "physics"}, "/domain"),
+        ({"name": "X", "domain": None}, "/domain"),
         ({"name": "X", "colour": "red"}, "/colour"),
         ({"name": "X", "path": 3}, "/path"),
     ],

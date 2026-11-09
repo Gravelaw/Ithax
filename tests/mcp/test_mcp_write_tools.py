@@ -442,12 +442,39 @@ def test_create_model_of_an_optimization_model(client: ServiceClient) -> None:
     run(check, client)
 
 
+def test_create_model_from_a_template_copies_its_model(client: ServiceClient) -> None:
+    """AKS-122: a template_id starts the project from that template's model, named after
+    the project; validate_model finds nothing to report."""
+
+    async def check(mcp_client: Client) -> None:
+        error, project = await call(
+            mcp_client, "create_model", {"name": "My line", "template_id": "three_machine_line"}
+        )
+        assert not error
+        error, model = await call(mcp_client, "get_model", {"project_id": project["id"]})
+        assert not error
+        assert model["model"]["meta"]["name"] == "My line"
+        assert model["model"]["meta"]["template"] == "three_machine_line"
+        assert "buffer" in [item["id"] for item in model["model"]["components"]]
+        error, checked = await call(mcp_client, "validate_model", {"project_id": project["id"]})
+        assert not error and checked["issues"] == []
+
+    run(check, client)
+
+
 def test_create_model_refusals_are_data(client: ServiceClient, http: httpx2.Client) -> None:
     async def check(mcp_client: Client) -> None:
         error, body = await call(
-            mcp_client, "create_model", {"name": "x", "template_id": "coffee_shop"}
+            mcp_client, "create_model", {"name": "x", "template_id": "no_such_template"}
         )
-        assert error and body["error"]["code"] == "E185" and "coffee_shop" in str(body)
+        assert error and body["error"]["code"] == "E185" and "no_such_template" in str(body)
+        error, body = await call(
+            mcp_client,
+            "create_model",
+            {"name": "x", "template_id": "coffee_shop", "domain": "optimization"},
+        )
+        assert error and body["error"]["code"] == "E184"
+        assert [issue["path"] for issue in body["issues"]] == ["/domain"]
         error, body = await call(mcp_client, "create_model", {"name": ""})
         assert error and body["error"]["code"] == "E184"
         assert [issue["path"] for issue in body["issues"]] == ["/name"]

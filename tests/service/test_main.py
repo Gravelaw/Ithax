@@ -9,6 +9,7 @@ import contextlib
 import io
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -308,3 +309,24 @@ def test_main_serves_the_interface_folder_it_is_given(folders: list[str], tmp_pa
 def test_the_default_interface_folder_is_ui_dist_of_the_checkout() -> None:
     root = Path(__file__).resolve().parents[2]
     assert default_ui_dir() == root / "ui" / "dist"
+
+
+def test_main_serves_the_templates_folder_it_is_given(folders: list[str], tmp_path: Path) -> None:
+    """``--templates-dir`` (AKS-122): the service serves that folder's packages."""
+    templates = tmp_path / "templates"
+    root = Path(__file__).resolve().parents[2]
+    shutil.copytree(root / "templates" / "coffee_shop", templates / "coffee_shop")
+    started = Started([*folders, "--templates-dir", str(templates), "--idle-minutes", "0.05"])
+    config_dir = tmp_path / "config"
+    wait_for(lambda: read_service_file(config_dir) is not None)
+    info = read_service_file(config_dir)
+    assert info is not None
+    with httpx2.Client(trust_env=False, timeout=5) as client:
+        response = client.get(
+            f"http://{LOCAL_ADDRESS}:{info.port}/v1/templates",
+            headers={"Authorization": f"Bearer {info.token}"},
+        )
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == ["coffee_shop"]
+    started.thread.join(30)
+    assert started.status == [0]

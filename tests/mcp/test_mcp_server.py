@@ -208,5 +208,7 @@ def test_python_dash_m_lcsim_mcp_uses_a_running_service(tmp_path: Path) -> None:
                 assert isinstance(block, TextContent)
                 return [result.is_error, json.loads(block.text)]
 
-        assert anyio.run(session) == [False, []]
+        error, listed = anyio.run(session)
+        assert error is False
+        assert "coffee_shop" in [item["id"] for item in listed]
         assert read_service_file(config_dir) == info
