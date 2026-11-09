@@ -1,0 +1,339 @@
+{
+  "about": "Every component the Linux package bundles, with its licence (SPDX), checked against the installed package at build time by scripts/package_linux.py: each installed distribution must be listed here with its version, and each licence term must be in 'compatible', the terms judged compatible with distributing the whole under AGPL-3.0 (docs/research/spec-3-linux-packaging.md; docs/DECISIONS.md, 2026-11-09 · M11, The Linux package). Licences of distributions were read from their PyPI metadata (License-Expression, License, classifiers) and licence files on 2026-11-09.",
+  "compatible": [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "blessing",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "bzip2-1.0.6",
+    "CC0-1.0",
+    "GPL-3.0-or-later WITH GCC-exception-3.1",
+    "LGPL-2.1-or-later",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "PSF-2.0",
+    "TCL",
+    "X11",
+    "Zlib",
+    "ZPL-2.1"
+  ],
+  "python": {
+    "name": "CPython",
+    "version": "3.13.16",
+    "licence": "PSF-2.0",
+    "note": "python-build-standalone's PYTHON.json lists Python-2.0 and CNRI-Python: the Python licence stack, which the FSF lists as GPL-compatible for Python 2.0.1 and later",
+    "source": "python-build-standalone release 20261020, cpython-3.13.16+20261020-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz; licences from PYTHON.json and licenses/ of the same release's pgo+lto-full archive, copied to packaging/linux/python-licences",
+    "removed": "_dbm (Berkeley DB 6.0.19 under the Sleepycat licence), which lcsim does not use; the dbm module still has dbm.sqlite3 and dbm.dumb",
+    "bundled": [
+      {
+        "name": "OpenSSL",
+        "version": "3.5.9",
+        "licence": "Apache-2.0"
+      },
+      {
+        "name": "SQLite",
+        "version": "3.53.1",
+        "licence": "blessing"
+      },
+      {
+        "name": "zlib",
+        "version": "1.3.2",
+        "licence": "Zlib"
+      },
+      {
+        "name": "libedit",
+        "licence": "BSD-3-Clause"
+      },
+      {
+        "name": "ncurses",
+        "licence": "X11"
+      },
+      {
+        "name": "Expat",
+        "version": "2.9.0",
+        "licence": "MIT"
+      },
+      {
+        "name": "mpdecimal",
+        "licence": "BSD-2-Clause"
+      },
+      {
+        "name": "libffi",
+        "licence": "MIT"
+      },
+      {
+        "name": "liblzma (XZ Utils)",
+        "licence": "0BSD"
+      },
+      {
+        "name": "bzip2",
+        "licence": "bzip2-1.0.6"
+      },
+      {
+        "name": "libuuid",
+        "licence": "BSD-3-Clause"
+      },
+      {
+        "name": "Tcl/Tk",
+        "version": "9.0.4",
+        "licence": "TCL"
+      },
+      {
+        "name": "libX11, libXau, libxcb",
+        "licence": "MIT AND X11"
+      }
+    ]
+  },
+  "distributions": {
+    "alembic": {
+      "version": "1.20.1",
+      "licence": "MIT"
+    },
+    "annotated-doc": {
+      "version": "0.0.5",
+      "licence": "MIT"
+    },
+    "annotated-types": {
+      "version": "0.8.0",
+      "licence": "MIT"
+    },
+    "anyio": {
+      "version": "4.16.0",
+      "licence": "MIT"
+    },
+    "attrs": {
+      "version": "26.1.0",
+      "licence": "MIT"
+    },
+    "cffi": {
+      "version": "2.1.1",
+      "licence": "MIT-0"
+    },
+    "click": {
+      "version": "8.5.1",
+      "licence": "BSD-3-Clause"
+    },
+    "colorlog": {
+      "version": "6.12.0",
+      "licence": "MIT",
+      "note": "PyPI metadata License: 'MIT License' and the MIT classifier"
+    },
+    "cryptography": {
+      "version": "50.0.2",
+      "licence": "Apache-2.0 OR BSD-3-Clause"
+    },
+    "defusedxml": {
+      "version": "0.7.1",
+      "licence": "PSF-2.0",
+      "note": "PyPI metadata License: 'PSFL' and the PSF classifier"
+    },
+    "et_xmlfile": {
+      "version": "2.0.0",
+      "licence": "MIT",
+      "note": "PyPI metadata License: 'MIT'"
+    },
+    "fastapi": {
+      "version": "0.162.2",
+      "licence": "MIT"
+    },
+    "flexcache": {
+      "version": "0.3",
+      "licence": "BSD-3-Clause",
+      "note": "PyPI metadata License: 'BSD'; its LICENSE file is the 3-clause BSD text"
+    },
+    "flexparser": {
+      "version": "0.4",
+      "licence": "BSD-3-Clause"
+    },
+    "h11": {
+      "version": "0.16.0",
+      "licence": "MIT"
+    },
+    "highspy": {
+      "version": "1.15.1",
+      "licence": "MIT"
+    },
+    "httpcore2": {
+      "version": "2.16.0",
+      "licence": "BSD-3-Clause"
+    },
+    "httpx2": {
+      "version": "2.16.0",
+      "licence": "BSD-3-Clause"
+    },
+    "idna": {
+      "version": "3.20",
+      "licence": "BSD-3-Clause"
+    },
+    "jsonschema": {
+      "version": "4.26.0",
+      "licence": "MIT"
+    },
+    "jsonschema-specifications": {
+      "version": "2025.9.1",
+      "licence": "MIT"
+    },
+    "Mako": {
+      "version": "1.4.3",
+      "licence": "MIT",
+      "note": "License-Expression MIT"
+    },
+    "MarkupSafe": {
+      "version": "3.0.4",
+      "licence": "BSD-3-Clause"
+    },
+    "mcp": {
+      "version": "2.3.0",
+      "licence": "MIT"
+    },
+    "mcp-types": {
+      "version": "2.3.0",
+      "licence": "MIT"
+    },
+    "numpy": {
+      "version": "2.5.4",
+      "licence": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+      "note": "License-Expression; the wheel's LICENSE.txt adds the libraries it bundles in numpy.libs: OpenBLAS (BSD-3-Clause), LAPACK (BSD-3-Clause), the GCC runtime library libgfortran (GPL-3.0-or-later WITH GCC-exception-3.1) and libquadmath (LGPL-2.1-or-later)",
+      "bundled": [
+        "OpenBLAS: BSD-3-Clause",
+        "LAPACK: BSD-3-Clause",
+        "libgfortran: GPL-3.0-or-later WITH GCC-exception-3.1",
+        "libquadmath: LGPL-2.1-or-later"
+      ]
+    },
+    "openpyxl": {
+      "version": "3.1.5",
+      "licence": "MIT"
+    },
+    "opentelemetry-api": {
+      "version": "1.45.2",
+      "licence": "Apache-2.0"
+    },
+    "optuna": {
+      "version": "5.0.0",
+      "licence": "MIT",
+      "note": "PyPI metadata: the MIT classifier; LICENSE and LICENSE_THIRD_PARTY in .dist-info"
+    },
+    "packaging": {
+      "version": "26.3",
+      "licence": "Apache-2.0 OR BSD-2-Clause"
+    },
+    "Pint": {
+      "version": "0.26.2",
+      "licence": "BSD-3-Clause"
+    },
+    "pip": {
+      "version": "26.2.2",
+      "licence": "MIT",
+      "note": "shipped with python-build-standalone"
+    },
+    "platformdirs": {
+      "version": "4.14.5",
+      "licence": "MIT"
+    },
+    "pyarrow": {
+      "version": "26.0.1",
+      "licence": "Apache-2.0",
+      "note": "License-Expression Apache-2.0; its LICENSE.txt lists bundled code under Apache-2.0 (with the LLVM exception), BSD-2-Clause, BSD-3-Clause, MIT and ZPL-2.1",
+      "bundled": [
+        "BSD-2-Clause",
+        "BSD-3-Clause",
+        "MIT",
+        "ZPL-2.1",
+        "Apache-2.0 WITH LLVM-exception"
+      ]
+    },
+    "pycparser": {
+      "version": "3.12",
+      "licence": "BSD-3-Clause"
+    },
+    "pydantic": {
+      "version": "2.14.3",
+      "licence": "MIT"
+    },
+    "pydantic_core": {
+      "version": "2.50.4",
+      "licence": "MIT"
+    },
+    "PyJWT": {
+      "version": "2.15.1",
+      "licence": "MIT"
+    },
+    "pyomo": {
+      "version": "6.10.1",
+      "licence": "BSD-3-Clause"
+    },
+    "python-multipart": {
+      "version": "0.0.33",
+      "licence": "Apache-2.0"
+    },
+    "PyYAML": {
+      "version": "6.0.3",
+      "licence": "MIT"
+    },
+    "referencing": {
+      "version": "0.37.0",
+      "licence": "MIT"
+    },
+    "rpds-py": {
+      "version": "2026.9.1",
+      "licence": "MIT"
+    },
+    "scipy": {
+      "version": "1.18.1",
+      "licence": "BSD-3-Clause",
+      "note": "PyPI metadata: the BSD classifier and a BSD-3-Clause LICENSE.txt; it adds the libraries it bundles in scipy.libs, as numpy's",
+      "bundled": [
+        "OpenBLAS: BSD-3-Clause",
+        "LAPACK: BSD-3-Clause",
+        "libgfortran: GPL-3.0-or-later WITH GCC-exception-3.1",
+        "libquadmath: LGPL-2.1-or-later"
+      ]
+    },
+    "simpy": {
+      "version": "4.1.2",
+      "licence": "MIT",
+      "note": "PyPI metadata License: 'MIT'"
+    },
+    "SQLAlchemy": {
+      "version": "2.1.8",
+      "licence": "MIT"
+    },
+    "sse-starlette": {
+      "version": "3.7.0",
+      "licence": "BSD-3-Clause"
+    },
+    "starlette": {
+      "version": "1.10.0",
+      "licence": "BSD-3-Clause"
+    },
+    "tqdm": {
+      "version": "4.70.1",
+      "licence": "MPL-2.0 AND MIT",
+      "note": "PyPI metadata License: 'MPL-2.0 AND MIT'"
+    },
+    "truststore": {
+      "version": "0.10.5",
+      "licence": "MIT"
+    },
+    "typing-inspection": {
+      "version": "0.4.5",
+      "licence": "MIT"
+    },
+    "typing_extensions": {
+      "version": "4.16.0",
+      "licence": "PSF-2.0"
+    },
+    "uvicorn": {
+      "version": "0.54.0",
+      "licence": "BSD-3-Clause"
+    },
+    "websockets": {
+      "version": "17.4",
+      "licence": "BSD-3-Clause"
+    }
+  }
+}

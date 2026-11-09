@@ -2,7 +2,7 @@
 
 Nov 5, 2026 · @Akshay
 
-> Version 0.3 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.4 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 ## Purpose
 
@@ -142,6 +142,10 @@ Recorded at M10 (2026-11-09, AKS-125; the owner confirms each, AKS-82):
 - **Low-tier performance:** the ten templates and their exercises run to completion on 4 cores within an 8 GiB memory cap, 20 runs in 37.2 s, the slowest 8.1 s (`docs/research/performance.md`); measured in the agent container, not yet on the owner's low-tier machine.
 - **Assistant access:** Claude Code with Claude Opus 5.5, connected through MCP to a service serving no templates, built and ran each of the ten templates' problems from a text description, and every answer agreed with the template's theory or benchmark value (`docs/research/mcp/`). "How many machines?" passed on a second attempt, after two tool descriptions named the parameter reference, and as five scenarios rather than a search.
 
+Recorded at M11 (2026-11-09, AKS-127; the owner confirms, AKS-82):
+
+- **Time to a first template run:** the Linux package exists (spec 3 "Packaging"), so the tester's clock starts at the installer (`docs/research/usability.md`). In a clean `ubuntu:24.04` container, as an ordinary user, checking the checksum, unpacking, `install.sh` and the coffee shop template's first result through the API took about 12 s, also offline (`pytest -m package`). The install is three typed commands; no outside tester has timed it.
+
 ## Risks and open items
 
 Ten risks could sink the project; each has a response built into the plan. The last six were added by the review of 2026-11-05 and are proposals.
@@ -179,6 +183,7 @@ The background for this brief is in the research brief, "Low-Code Simulation, Mo
 
 - 2026-11-09, M10 closed (AKS-125): "Success measures" records what M10 measured for the first four measures (the tester script with the timing left to the owner; the benchmarks; the ten templates on 4 cores within 8 GiB; the assistant trials of the ten templates). The targets stay proposals. Version 0.3.
 
-Since version 0.3, during the M11 build:
+2026-11-09, version 0.4, M11 closed (AKS-127); the lines below were added after version 0.3, during the M11 build:
 
 - 2026-11-09, owner decisions A1 and B4 (AKS-81, AKS-77; part of AKS-127): "Scope and build order" puts the remote (SSH) run target in Phase 2 and adds a Phase 4 for the cluster (Slurm) run target, and "What Phase 1 does not do", principle 3 and the Cluster tier say so; "Platform and hardware" says Phase 1 is packaged and tested on Linux only, the Windows version and its WSL point deferred until the Phase 1 review, the code staying platform-neutral; the unsigned-package risk covers the Phase 1 Linux package too.
+- 2026-11-09, M11 closed (AKS-127): "Success measures" records, for the time to a first template run, that the Linux installer exists from M11 and how long it took in a clean container (`docs/research/usability.md`); the outside testers' timing stays the owner's. Version 0.4.

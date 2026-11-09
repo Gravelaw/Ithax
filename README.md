@@ -1,32 +1,93 @@
-# lcsim (working name)
+# Ithax (lcsim, working name)
 
-A free, open-source desktop tool to model, simulate and optimize processes, machines and
-materials without writing code. It wraps proven open-source engines behind one visual
-interface. The product name is not chosen yet; `lcsim` is a placeholder.
+A free, open-source desktop tool that lets people model, simulate and optimize processes,
+machines and materials without writing code. It wraps proven open-source engines behind one
+visual interface. Commercial tools in this field are priced by quote and built for
+specialists, and their free editions cap model size or forbid real use; open-source engines
+match them on capability but need programming and Linux skills. This product closes that
+gap. The product name is not chosen yet: `lcsim` is a placeholder for the package, its
+commands and its folders.
 
-**Status: milestone M0 (repository skeleton).** No product features exist yet.
+**Status: Phase 1 complete (milestone M11, 2026-11-09), on Linux.** Process simulation
+(SimPy) and optimization (HiGHS through Pyomo, simulation-based search with Optuna) in a
+desktop app with a canvas, ten templates with Learn and Build modes, plain-language findings,
+and an MCP server so an AI assistant can build and run models. The Windows version is
+deferred until the Phase 1 review. The owner's acceptance checks are listed in
+[`docs/sessions/2026-11-09-M11.md`](docs/sessions/2026-11-09-M11.md).
 
-- Product brief and build specs: [`docs/specs/`](docs/specs/)
-- How the build proceeds, milestone by milestone: [`CLAUDE.md`](CLAUDE.md)
-- Decision log: [`docs/DECISIONS.md`](docs/DECISIONS.md)
+## Install on Linux
+
+The package is one archive for Linux on x86_64, `lcsim-<version>-linux-x86_64.tar.gz`, with
+its checksum file `lcsim-<version>-linux-x86_64.tar.gz.sha256`. It brings its own Python,
+the engine service, the engines, the interface, the templates and the desktop window, so it
+needs no network and no administrator rights to install or run. Get both files from the
+`lcsim-linux-x86_64` artifact of the `package` job of a CI run (until releases are
+published), or build them (see Development).
+
+**The package is not signed.** Check the archive against its checksum before installing; if
+the check does not print `OK`, do not install it:
+
+```bash
+sha256sum -c lcsim-<version>-linux-x86_64.tar.gz.sha256
+```
+
+Install as yourself, not as root:
+
+```bash
+mkdir -p ~/.local/opt
+tar -xzf lcsim-<version>-linux-x86_64.tar.gz -C ~/.local/opt
+~/.local/opt/lcsim-<version>-linux-x86_64/install.sh
+```
+
+`install.sh` checks the engines, links `lcsim`, `lcsim-launcher` and `lcsim-mcp` into
+`~/.local/bin` and adds lcsim to your desktop's applications.
+
+Start it with `lcsim` (or from the applications menu). It opens the desktop window; where the
+window's system libraries are missing it opens the interface in your browser instead (on
+Ubuntu or Debian, `sudo apt install libwebkit2gtk-4.1-0` brings them). On a machine without
+a display, `lcsim-launcher --print-url` starts the engine service and prints the interface's
+address. `lcsim-mcp` is the MCP server for an AI assistant.
+
+Your first result: press **Continue** on the welcome notice, then **Learn**, then **Start
+the lesson** on "Coffee shop queue", and follow the steps to the results.
+
+Requirements: Linux on x86_64 with glibc 2.39 or later for the desktop window (Ubuntu 24.04
+or later) and glibc 2.34 or later for the browser (Ubuntu 22.04, Debian 12); tested on
+Ubuntu 24.04. To remove it, run `uninstall.sh` in its folder and delete the folder; your
+projects and settings stay in `~/.local/share/lcsim` and `~/.config/lcsim`.
 
 ## Development
 
-Python 3.11 or later.
+Python 3.11 or later, Node 22, and for the desktop shell Rust with Tauri's Linux packages
+(see `.github/workflows/checks.yml`, job `desktop`).
 
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -e ".[dev]"
 bash scripts/check.sh   # format, lint, types, tests with the coverage gate
-pytest tests/model      # the model layer only
 pytest -m benchmark     # benchmarks with known answers
+pytest -m template      # the ten templates against their expected results
 pytest -m perf          # performance checks, excluded from check.sh
+
+(cd ui && npm ci && npm run check && npm run build && npm run e2e)   # the interface
+(cd desktop && npm ci && npm run build && npm test)                  # the desktop shell
+pytest -m desktop       # the shell driven to Home (tauri-driver, Xvfb)
+
+python scripts/package_linux.py   # the Linux package, into dist/
+pytest -m package                 # install it in a clean container, online and offline
 ```
 
-Research notes live in `docs/research/`, session summaries in `docs/sessions/`.
-The specs in `docs/specs/` are the source of truth and each carries a version line.
+Run the app from a checkout with `python -m lcsim.launcher` once `ui/` is built.
+
+- Product brief and build specs: [`docs/specs/`](docs/specs/), the source of truth, each with
+  a version line
+- How the build proceeds, milestone by milestone: [`CLAUDE.md`](CLAUDE.md)
+- Decision log: [`docs/DECISIONS.md`](docs/DECISIONS.md); research notes in
+  `docs/research/`, session summaries in `docs/sessions/`
 
 ## Licence
 
-AGPL version 3 only. See [`LICENSE`](LICENSE).
+GNU Affero General Public License version 3 only. See [`LICENSE`](LICENSE). The Linux
+package lists every bundled component and its licence in `THIRD-PARTY-LICENSES.txt`.
+Simulation results are estimates and carry no warranty.

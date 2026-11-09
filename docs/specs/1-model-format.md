@@ -1,6 +1,6 @@
 # Spec 1: Model Format and Engine Contract
 
-> Version 1.3 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 1.4 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 A model is one JSON file that passes a published schema. Every engine is a plugin that implements the same five functions. The interface, the engines and any AI assistant all work through these two contracts.
 
@@ -569,7 +569,8 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-09, review of PR #53 (AKS-123): the E123 row adds a term's coefficient that, summed with the other coefficients of the same expanded variable, is too large for a float (loading raised an exception). Owner to confirm.
 - 2026-11-09, review of PR #53 (AKS-123): "too large for a float" in the E123 row also covers a sum of floats that overflows to infinity, which raises no error in Python and is checked to be finite. Owner to confirm.
 
-Since version 1.3, during the M11 build:
+2026-11-09, version 1.4, M11 closed (AKS-127); the lines below were added after version 1.3, during the M11 build:
 
 - 2026-11-09, owner decision A1 (AKS-81, part of AKS-127): the warning line and "Run targets" say the `remote` target is built in Phase 2 and the `cluster` target in Phase 4, not at M11; the contract stays as written, and E172 refuses both until each is built. The research item "M11 · Cluster submission" is split into "Phase 2 · Remote submission" (SSH) and "Phase 4 · Cluster submission" (Slurm); the acceptance row for remote and cluster is tagged Phase 2 (remote) and Phase 4 (cluster), its text unchanged.
 - 2026-11-09, owner decision B5 (AKS-78; part of AKS-127): the W220 row adds the idle timeout `idle_timeout_minutes` in `settings.json` (spec 3 "Lifetime"), a value that is not a whole number from 1 to 10,080, listed by `GET /v1/settings`; the summary still lists only the thresholds' W220 issues. Owner to confirm.
+- 2026-11-09, M11 closed (AKS-127): no further change to spec 1 at the close. Version 1.4.
