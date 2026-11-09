@@ -62,8 +62,10 @@ def to_test_format(document: dict[str, Any]) -> dict[str, Any]:
 
 
 def from_test_format(document: dict[str, Any]) -> dict[str, Any]:
-    """The test-only migration down: 99.0 to 0.1, renaming them back."""
-    return renamed(document, {new: old for old, new in RENAMES.items()}, FORMAT_VERSION)
+    """The test-only migration down: 99.0 to 0.1, renaming them back. It writes 0.1, a
+    minor of the reader's major no higher than the reader's 0.2 (AKS-123), so a 0.1 file
+    comes back as it was."""
+    return renamed(document, {new: old for old, new in RENAMES.items()}, "0.1")
 
 
 def serialized(document: object) -> bytes:
@@ -161,7 +163,7 @@ def test_a_fresh_program_has_no_migration_registered() -> None:
 
 
 def test_format_version_is_shared_with_the_schema_pass() -> None:
-    assert FORMAT_VERSION == "0.1"
+    assert FORMAT_VERSION == "0.2"
     assert SCHEMA_FORMAT_VERSION is FORMAT_VERSION
 
 
@@ -265,13 +267,13 @@ def test_route_of_a_very_long_major_never_converts_it_to_a_number() -> None:
 # --- can_open and version_issue (the reader, version 0.1) ------------------------------------
 
 
-@pytest.mark.parametrize("version", ["0.0", "0.1"])
+@pytest.mark.parametrize("version", ["0.0", "0.1", "0.2"])
 def test_the_reader_opens_its_own_major_up_to_its_minor(version: str) -> None:
     assert can_open(version)
     assert version_issue(version) is None
 
 
-@pytest.mark.parametrize("version", ["0.2", "1.0", "0.1.0", "v0.1", "", "1" * 5000 + ".0"])
+@pytest.mark.parametrize("version", ["0.3", "1.0", "0.1.0", "v0.1", "", "1" * 5000 + ".0"])
 def test_the_reader_cannot_open_other_versions_without_a_migration(version: str) -> None:
     assert not can_open(version)
     issue = version_issue(version)
@@ -286,15 +288,15 @@ def test_a_major_with_a_migration_can_be_opened_after_converting() -> None:
     assert can_open("2.7", registry=registry)
     assert not can_open("3.0", registry=registry)
     # A minor above the reader's is never migrated within one major.
-    assert not can_open("0.2", registry=registry)
+    assert not can_open("0.3", registry=registry)
     issue = version_issue("2.7", registry=registry)
     assert issue is not None
     assert issue.code == "E101"
     assert issue.message == (
-        "'format_version' is '2.7', but this program reads format versions 0.0 to 0.1."
+        "'format_version' is '2.7', but this program reads format versions 0.0 to 0.2."
     )
     assert issue.hint == (
-        "This program can convert the file to format version 0.1. Convert it when the "
+        "This program can convert the file to format version 0.2. Convert it when the "
         "program offers to; the file is rewritten only after you agree."
     )
 
@@ -304,7 +306,7 @@ def test_the_schema_pass_says_when_a_file_can_be_converted(test_migrations: None
     document["format_version"] = TEST_VERSION
     issue = only(schema_pass(document))
     assert issue.code == "E101"
-    assert "can convert the file to format version 0.1" in issue.hint
+    assert "can convert the file to format version 0.2" in issue.hint
 
 
 def test_loading_never_migrates(test_migrations: None) -> None:
@@ -318,7 +320,7 @@ def test_loading_never_migrates(test_migrations: None) -> None:
 # --- migrate ----------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("version", ["0.0", "0.1"])
+@pytest.mark.parametrize("version", ["0.0", "0.1", "0.2"])
 def test_migrate_within_the_readers_major_returns_an_unchanged_copy(version: str) -> None:
     document = coffee()
     document["format_version"] = version
@@ -394,7 +396,7 @@ def test_migrate_reports_a_version_that_is_not_text_as_e100(version: object) -> 
     ("version", "hint_part"),
     [
         ("v0.1", "two whole numbers"),
-        ("0.2", "newer version of the program"),
+        ("0.3", "newer version of the program"),
         ("1.0", "cannot read or convert"),
     ],
 )
@@ -414,8 +416,8 @@ def test_migrate_to_the_reader_reports_what_the_schema_pass_reports(
 @pytest.mark.parametrize(
     ("version", "message_end"),
     [
-        ("v0.1", "which is not of the form MAJOR.MINOR, such as '0.1'."),
-        ("0.2", "which this program cannot convert to format version 99.0."),
+        ("v0.1", "which is not of the form MAJOR.MINOR, such as '0.2'."),
+        ("0.3", "which this program cannot convert to format version 99.0."),
         ("1.0", "which this program cannot convert to format version 99.0."),
         ("99.1", "which this program cannot convert to format version 99.0."),
     ],
@@ -460,12 +462,12 @@ def test_migrate_refuses_a_migration_that_writes_no_version(written: object) -> 
 
 def test_migrate_refuses_a_migration_that_writes_a_minor_above_the_target() -> None:
     def too_new(document: dict[str, Any]) -> dict[str, Any]:
-        document["format_version"] = "0.2"
+        document["format_version"] = "0.3"
         return document
 
     registry = MigrationRegistry()
     registry.register(1, 0, too_new)
-    with pytest.raises(ValueError, match=r"wrote format_version '0\.2'"):
+    with pytest.raises(ValueError, match=r"wrote format_version '0\.3'"):
         migrate({"format_version": "1.0"}, registry=registry)
 
 
@@ -497,3 +499,31 @@ def test_module_lists_its_public_names() -> None:
         "parse_version",
         "version_issue",
     }
+
+
+# --- the 0.2 minor (AKS-123) ----------------------------------------------------------------
+
+OLDER_MINOR_FILES = sorted(
+    [*(ROOT / "examples").glob("*.json"), *(ROOT / "benchmarks").glob("*/model.json")]
+)
+
+
+def test_the_reader_is_0_2_and_its_first_minor_change_needs_no_migration() -> None:
+    """Spec 1 "Versioning": a minor increase is additive, so format 0.2 (the indexed
+    optimization keys) registers no migration."""
+    assert FORMAT_VERSION == "0.2"
+    assert MIGRATIONS.pairs() == ()
+
+
+@pytest.mark.parametrize(
+    "path", OLDER_MINOR_FILES, ids=[f"{path.parent.name}/{path.name}" for path in OLDER_MINOR_FILES]
+)
+def test_the_0_1_examples_and_benchmarks_still_open_under_the_0_2_reader(path: Path) -> None:
+    document = json.loads(path.read_text(encoding="utf-8"))
+    if path.parent.name == "transport":
+        assert document["format_version"] == "0.2"
+    else:
+        assert document["format_version"] == "0.1"
+    result = load_document(document)
+    assert result.model is not None, [issue.as_dict() for issue in result.issues]
+    assert result.model.format_version == document["format_version"]

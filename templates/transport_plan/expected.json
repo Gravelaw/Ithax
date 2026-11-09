@@ -1,0 +1,90 @@
+[
+  {
+    "metric": "objective",
+    "value": 2690.0,
+    "method": "sig_figs_4",
+    "source": "benchmark",
+    "reference": "benchmarks/transport: the same model; its optimum is proved by LP duality (spec 2 'Benchmark definitions'): dual prices u = (0, -3, -2) for the depots and v = (4, 6, 6, 5) for the customers are feasible, and their value equals the plan's cost, 2,690"
+  },
+  {
+    "metric": "variables.ship[north,city]",
+    "value": 180.0,
+    "method": "sig_figs_4",
+    "source": "benchmark",
+    "reference": "benchmarks/transport: the same model; its optimum is proved by LP duality (spec 2 'Benchmark definitions'): dual prices u = (0, -3, -2) for the depots and v = (4, 6, 6, 5) for the customers are feasible, and their value equals the plan's cost, 2,690"
+  },
+  {
+    "metric": "variables.ship[north,harbour]",
+    "value": 20.0,
+    "method": "sig_figs_4",
+    "source": "benchmark",
+    "reference": "benchmarks/transport: the same model; its optimum is proved by LP duality (spec 2 'Benchmark definitions'): dual prices u = (0, -3, -2) for the depots and v = (4, 6, 6, 5) for the customers are feasible, and their value equals the plan's cost, 2,690"
+  },
+  {
+    "metric": "variables.ship[north,market]",
+    "value": 70.0,
+    "method": "sig_figs_4",
+    "source": "benchmark",
+    "reference": "benchmarks/transport: the same model; its optimum is proved by LP duality (spec 2 'Benchmark definitions'): dual prices u = (0, -3, -2) for the depots and v = (4, 6, 6, 5) for the customers are feasible, and their value equals the plan's cost, 2,690"
+  },
+  {
+    "metric": "variables.ship[centre,harbour]",
+    "value": 200.0,
+    "method": "sig_figs_4",
+    "source": "benchmark",
+    "reference": "benchmarks/transport: the same model; its optimum is proved by LP duality (spec 2 'Benchmark definitions'): dual prices u = (0, -3, -2) for the depots and v = (4, 6, 6, 5) for the customers are feasible, and their value equals the plan's cost, 2,690"
+  },
+  {
+    "metric": "variables.ship[south,park]",
+    "value": 150.0,
+    "method": "sig_figs_4",
+    "source": "benchmark",
+    "reference": "benchmarks/transport: the same model; its optimum is proved by LP duality (spec 2 'Benchmark definitions'): dual prices u = (0, -3, -2) for the depots and v = (4, 6, 6, 5) for the customers are feasible, and their value equals the plan's cost, 2,690"
+  },
+  {
+    "metric": "variables.ship[south,market]",
+    "value": 100.0,
+    "method": "sig_figs_4",
+    "source": "benchmark",
+    "reference": "benchmarks/transport: the same model; its optimum is proved by LP duality (spec 2 'Benchmark definitions'): dual prices u = (0, -3, -2) for the depots and v = (4, 6, 6, 5) for the customers are feasible, and their value equals the plan's cost, 2,690"
+  },
+  {
+    "metric": "variables.ship[north,park]",
+    "value": 0.0,
+    "method": "sig_figs_4",
+    "source": "benchmark",
+    "reference": "benchmarks/transport: the same model; its optimum is proved by LP duality (spec 2 'Benchmark definitions'): dual prices u = (0, -3, -2) for the depots and v = (4, 6, 6, 5) for the customers are feasible, and their value equals the plan's cost, 2,690; an unused route (reduced cost 3)"
+  },
+  {
+    "metric": "objective",
+    "value": 2660.0,
+    "method": "sig_figs_4",
+    "source": "theory",
+    "reference": "LP duality, as for benchmarks/transport: with centre's supply 210 the same dual prices u = (0, -3, -2) and v = (4, 6, 6, 5) stay feasible, and the plan with north to harbour 10 and centre to harbour 210 (the rest unchanged) meets every limit and costs 2,690 - 10 x 3 = 2,660 = -600 - 3 x 10 - 500 + 3,790, the dual value; unused routes' reduced costs stay positive, so it is unique",
+    "run": "exercise"
+  },
+  {
+    "metric": "variables.ship[north,harbour]",
+    "value": 10.0,
+    "method": "sig_figs_4",
+    "source": "theory",
+    "reference": "LP duality, as for benchmarks/transport: with centre's supply 210 the same dual prices u = (0, -3, -2) and v = (4, 6, 6, 5) stay feasible, and the plan with north to harbour 10 and centre to harbour 210 (the rest unchanged) meets every limit and costs 2,690 - 10 x 3 = 2,660 = -600 - 3 x 10 - 500 + 3,790, the dual value; unused routes' reduced costs stay positive, so it is unique",
+    "run": "exercise"
+  },
+  {
+    "metric": "variables.ship[centre,harbour]",
+    "value": 210.0,
+    "method": "sig_figs_4",
+    "source": "theory",
+    "reference": "LP duality, as for benchmarks/transport: with centre's supply 210 the same dual prices u = (0, -3, -2) and v = (4, 6, 6, 5) stay feasible, and the plan with north to harbour 10 and centre to harbour 210 (the rest unchanged) meets every limit and costs 2,690 - 10 x 3 = 2,660 = -600 - 3 x 10 - 500 + 3,790, the dual value; unused routes' reduced costs stay positive, so it is unique",
+    "run": "exercise"
+  },
+  {
+    "metric": "variables.ship[north,city]",
+    "value": 180.0,
+    "method": "sig_figs_4",
+    "source": "theory",
+    "reference": "LP duality, as for benchmarks/transport: with centre's supply 210 the same dual prices u = (0, -3, -2) and v = (4, 6, 6, 5) stay feasible, and the plan with north to harbour 10 and centre to harbour 210 (the rest unchanged) meets every limit and costs 2,690 - 10 x 3 = 2,660 = -600 - 3 x 10 - 500 + 3,790, the dual value; unused routes' reduced costs stay positive, so it is unique",
+    "run": "exercise"
+  }
+]

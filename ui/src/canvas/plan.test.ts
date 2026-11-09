@@ -12,10 +12,13 @@ import {
   diagramLayout,
   fieldEdits,
   goalSentence,
+  isIndexed,
   limitText,
+  references,
   removeDecision,
   removeLimit,
   renameDecision,
+  repeatsText,
   variablesOf,
 } from "./plan";
 
@@ -175,5 +178,236 @@ describe("the Diagram view's layout", () => {
       "tables>limit:1:15",
     ]);
     expect(layout.height).toBeGreaterThan(0);
+  });
+});
+
+/** The transport plan of spec 2 "Indexed problems" (format 0.2; AKS-123), as written. */
+function transport(): Model {
+  return {
+    format_version: "0.2",
+    meta: { name: "Transport plan" },
+    domain: "optimization",
+    sets: {
+      depots: ["north", "centre", "south"],
+      customers: ["city", "harbour", "park", "market"],
+    },
+    tables: {
+      supply: { over: ["depots"], values: { north: 300, centre: 200, south: 250 } },
+      demand: { over: ["customers"], values: { city: 180, harbour: 220, park: 150, market: 170 } },
+      cost: {
+        over: ["depots", "customers"],
+        values: {
+          north: { city: 4, harbour: 6, park: 9, market: 5 },
+          centre: { city: 7, harbour: 3, park: 5, market: 8 },
+          south: { city: 6, harbour: 8, park: 4, market: 3 },
+        },
+      },
+    },
+    variables: [{ id: "ship", type: "continuous", lower: 0, over: ["depots", "customers"] }],
+    objective: {
+      sense: "minimize",
+      terms: [{ variable: "ship", coefficient: { $table: "cost" } }],
+    },
+    constraints: [
+      {
+        id: "supply",
+        for: ["depots"],
+        terms: [{ variable: "ship" }],
+        op: "<=",
+        rhs: { $table: "supply" },
+      },
+      {
+        id: "demand",
+        for: ["customers"],
+        terms: [{ variable: "ship" }],
+        op: ">=",
+        rhs: { $table: "demand" },
+      },
+    ],
+  };
+}
+
+describe("an indexed plan (AKS-123)", () => {
+  it("is told apart from a flat one", () => {
+    expect(isIndexed(transport())).toBe(true);
+    expect(isIndexed(mix())).toBe(false);
+    expect(isIndexed(empty())).toBe(false);
+    expect(
+      isIndexed({ ...mix(), constraints: [{ id: "a", for: [], linear: {}, op: "<=", rhs: 1 }] }),
+    ).toBe(true);
+  });
+
+  it("reads its decisions, goal and limits in words", () => {
+    const model = transport();
+    expect(repeatsText(variablesOf(model)[0]?.item)).toBe("one for each depots × customers");
+    expect(repeatsText(variablesOf(mix())[0]?.item)).toBeNull();
+    expect(goalSentence(model)).toBe(
+      "Minimize Σ over depots, customers cost[depots, customers] × ship[depots, customers]",
+    );
+    const [supply, demand] = constraintsOf(model).map((row) => row.item);
+    expect(supply && limitText(supply, model)).toBe(
+      "For each depots: Σ over customers ship[depots, customers] ≤ supply[depots]",
+    );
+    expect(demand && limitText(demand, model)).toBe(
+      "For each customers: Σ over depots ship[depots, customers] ≥ demand[customers]",
+    );
+    // Coefficients and terms together, a number coefficient, and a flat limit unchanged.
+    const both = {
+      id: "x",
+      linear: { extra: 2 },
+      terms: [{ variable: "ship", coefficient: 3 }],
+      op: "<=",
+      rhs: 9,
+    };
+    expect(limitText(both, model)).toBe(
+      "2 × extra + Σ over depots, customers 3 × ship[depots, customers] ≤ 9",
+    );
+    expect(limitText({ id: "w", linear: { chairs: 5 }, op: "<=", rhs: 400 }, model)).toBe(
+      "5 × chairs ≤ 400",
+    );
+  });
+
+  it("draws a line for each term, labelled with its table or number", () => {
+    const layout = diagramLayout(transport());
+    expect(layout.decisions.map((card) => card.id)).toEqual(["ship"]);
+    expect(layout.lines).toEqual([
+      { from: "ship", to: "goal", label: "cost" },
+      { from: "ship", to: "limit:0", label: "1" },
+      { from: "ship", to: "limit:1", label: "1" },
+    ]);
+  });
+
+  it("renames and removes a decision with its terms", () => {
+    const model = transport();
+    expect(renameDecision(model, 0, "send")).toEqual([
+      { edit: "set_path", path: "/variables/0/id", value: "send" },
+      { edit: "set_path", path: "/objective/terms/0/variable", value: "send" },
+      { edit: "set_path", path: "/constraints/0/terms/0/variable", value: "send" },
+      { edit: "set_path", path: "/constraints/1/terms/0/variable", value: "send" },
+    ]);
+    const twice = transport();
+    (twice.constraints as { terms: unknown[] }[])[0]?.terms.push(
+      { variable: "other" },
+      { variable: "ship" },
+    );
+    expect(removeDecision(twice, 0)).toEqual([
+      { edit: "remove_path", path: "/variables/0" },
+      { edit: "remove_path", path: "/objective/terms/0" },
+      { edit: "remove_path", path: "/constraints/0/terms/2" },
+      { edit: "remove_path", path: "/constraints/0/terms/0" },
+      { edit: "remove_path", path: "/constraints/1/terms/0" },
+    ]);
+  });
+
+  it("renames and removes the expanded names of a decision in coefficients (review of PR #53)", () => {
+    const model = transport();
+    (model.constraints as unknown[]).push({
+      id: "closed",
+      linear: { "ship[north,park]": 1, shipping: 2, "ship[x": 3 },
+      op: "==",
+      rhs: 0,
+    });
+    (model.objective as { linear?: unknown }).linear = { "ship[south,city]": 1 };
+    const renamed = renameDecision(model, 0, "send");
+    expect(renamed).toContainEqual({
+      edit: "set_path",
+      path: "/objective/linear",
+      value: { "send[south,city]": 1 },
+    });
+    expect(renamed).toContainEqual({
+      edit: "set_path",
+      path: "/constraints/2/linear",
+      value: { "send[north,park]": 1, shipping: 2, "ship[x": 3 },
+    });
+    const removed = removeDecision(model, 0);
+    expect(removed).toContainEqual({
+      edit: "remove_path",
+      path: "/objective/linear/ship[south,city]",
+    });
+    expect(removed).toContainEqual({
+      edit: "remove_path",
+      path: "/constraints/2/linear/ship[north,park]",
+    });
+    expect(
+      removed?.filter((edit) =>
+        String((edit as { path?: string }).path).startsWith("/constraints/2/linear"),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("labels a line with every part a decision adds to a card (review of PR #53)", () => {
+    const model = transport();
+    (model.variables as unknown[]).push({ id: "agency", type: "integer" });
+    (model.objective as { linear?: unknown }).linear = { agency: 150 };
+    (model.objective as { terms: unknown[] }).terms.push(
+      { variable: "agency", coefficient: 50 },
+      { variable: "ship", coefficient: 2 },
+    );
+    const goal = diagramLayout(model).lines.filter((line) => line.to === "goal");
+    expect(goal).toEqual([
+      { from: "agency", to: "goal", label: "150 + 50" },
+      { from: "ship", to: "goal", label: "cost + 2" },
+    ]);
+  });
+
+  it("resolves every use of a decision once, for renaming, removing and the Diagram alike", () => {
+    // Uses of `ship` by its id, by an expanded name and by terms, beside a decision `agency`
+    // used by a coefficient and a term in one card, and keys that name no decision.
+    const model = transport();
+    (model.variables as unknown[]).push({ id: "agency", type: "integer" });
+    (model.objective as { linear?: unknown }).linear = { agency: 150, shipping: 1 };
+    (model.objective as { terms: unknown[] }).terms.push({ variable: "agency", coefficient: 50 });
+    (model.constraints as unknown[]).push({
+      id: "closed",
+      linear: { "ship[north,park]": 1, "ship[x": 3, "nothing[a]": 4 },
+      terms: [{ variable: "ship", coefficient: 2 }],
+      op: "==",
+      rhs: 0,
+    });
+    const uses = references(model).map((use) => [use.decision, use.card, use.kind, use.label]);
+    expect(uses).toEqual([
+      ["agency", "goal", "linear", "150"],
+      ["ship", "goal", "term", "cost"],
+      ["agency", "goal", "term", "50"],
+      ["ship", "limit:0", "term", "1"],
+      ["ship", "limit:1", "term", "1"],
+      ["ship", "limit:2", "linear", "1 [north,park]"],
+      ["ship", "limit:2", "term", "2"],
+    ]);
+    // The Diagram draws one line per decision and card from the same uses.
+    expect(diagramLayout(model).lines).toEqual([
+      { from: "agency", to: "goal", label: "150 + 50" },
+      { from: "ship", to: "goal", label: "cost" },
+      { from: "ship", to: "limit:0", label: "1" },
+      { from: "ship", to: "limit:1", label: "1" },
+      { from: "ship", to: "limit:2", label: "1 [north,park] + 2" },
+    ]);
+    // Renaming reaches every one of them, and nothing else.
+    expect(renameDecision(model, 0, "send")).toEqual([
+      { edit: "set_path", path: "/variables/0/id", value: "send" },
+      {
+        edit: "set_path",
+        path: "/constraints/2/linear",
+        value: { "send[north,park]": 1, "ship[x": 3, "nothing[a]": 4 },
+      },
+      { edit: "set_path", path: "/objective/terms/0/variable", value: "send" },
+      { edit: "set_path", path: "/constraints/0/terms/0/variable", value: "send" },
+      { edit: "set_path", path: "/constraints/1/terms/0/variable", value: "send" },
+      { edit: "set_path", path: "/constraints/2/terms/0/variable", value: "send" },
+    ]);
+    // Removing too, and the other decision's uses stay.
+    expect(removeDecision(model, 0)).toEqual([
+      { edit: "remove_path", path: "/variables/0" },
+      { edit: "remove_path", path: "/constraints/2/linear/ship[north,park]" },
+      { edit: "remove_path", path: "/objective/terms/0" },
+      { edit: "remove_path", path: "/constraints/0/terms/0" },
+      { edit: "remove_path", path: "/constraints/1/terms/0" },
+      { edit: "remove_path", path: "/constraints/2/terms/0" },
+    ]);
+    expect(renameDecision(model, 1, "temp")).toEqual([
+      { edit: "set_path", path: "/variables/1/id", value: "temp" },
+      { edit: "set_path", path: "/objective/linear", value: { temp: 150, shipping: 1 } },
+      { edit: "set_path", path: "/objective/terms/1/variable", value: "temp" },
+    ]);
   });
 });

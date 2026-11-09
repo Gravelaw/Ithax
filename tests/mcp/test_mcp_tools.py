@@ -214,6 +214,7 @@ def test_list_templates_returns_the_installed_templates(
             "inventory_reorder_point",
             "machine_breakdowns",
             "three_machine_line",
+            "transport_plan",
             "warehouse_pick_pack",
         } <= {item["id"] for item in listed}
         assert all({"id", "title", "summary"} <= set(item) for item in listed)

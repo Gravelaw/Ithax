@@ -1,0 +1,93 @@
+[
+  {
+    "metric": "objective",
+    "value": 2690.0,
+    "method": "sig_figs_4",
+    "source": "LP duality certificate (spec 2 'Benchmark definitions', transport): the plan meets every limit; dual prices u = (0, -3, -2) for the supply limits of north, centre and south and v = (4, 6, 6, 5) for the demand limits of city, harbour, park and market satisfy u <= 0, v >= 0 and cost - u - v >= 0 on every route, with equality on the six used routes; the plan's cost 2,690 equals the dual value -600 - 500 + 720 + 1,320 + 900 + 850 = 2,690, so it is optimal; the unused routes' reduced costs 3, 6, 2, 6, 4 and 4 are positive, so it is unique; checked by tests/benchmarks/test_transport_certificate.py, M10",
+    "milestone": "M10"
+  },
+  {
+    "metric": "variables.ship[north,city]",
+    "value": 180.0,
+    "method": "sig_figs_4",
+    "source": "LP duality certificate (spec 2 'Benchmark definitions', transport): the plan meets every limit; dual prices u = (0, -3, -2) for the supply limits of north, centre and south and v = (4, 6, 6, 5) for the demand limits of city, harbour, park and market satisfy u <= 0, v >= 0 and cost - u - v >= 0 on every route, with equality on the six used routes; the plan's cost 2,690 equals the dual value -600 - 500 + 720 + 1,320 + 900 + 850 = 2,690, so it is optimal; the unused routes' reduced costs 3, 6, 2, 6, 4 and 4 are positive, so it is unique; checked by tests/benchmarks/test_transport_certificate.py, M10",
+    "milestone": "M10"
+  },
+  {
+    "metric": "variables.ship[north,harbour]",
+    "value": 20.0,
+    "method": "sig_figs_4",
+    "source": "LP duality certificate (spec 2 'Benchmark definitions', transport): the plan meets every limit; dual prices u = (0, -3, -2) for the supply limits of north, centre and south and v = (4, 6, 6, 5) for the demand limits of city, harbour, park and market satisfy u <= 0, v >= 0 and cost - u - v >= 0 on every route, with equality on the six used routes; the plan's cost 2,690 equals the dual value -600 - 500 + 720 + 1,320 + 900 + 850 = 2,690, so it is optimal; the unused routes' reduced costs 3, 6, 2, 6, 4 and 4 are positive, so it is unique; checked by tests/benchmarks/test_transport_certificate.py, M10",
+    "milestone": "M10"
+  },
+  {
+    "metric": "variables.ship[north,park]",
+    "value": 0.0,
+    "method": "sig_figs_4",
+    "source": "LP duality certificate (spec 2 'Benchmark definitions', transport): the plan meets every limit; dual prices u = (0, -3, -2) for the supply limits of north, centre and south and v = (4, 6, 6, 5) for the demand limits of city, harbour, park and market satisfy u <= 0, v >= 0 and cost - u - v >= 0 on every route, with equality on the six used routes; the plan's cost 2,690 equals the dual value -600 - 500 + 720 + 1,320 + 900 + 850 = 2,690, so it is optimal; the unused routes' reduced costs 3, 6, 2, 6, 4 and 4 are positive, so it is unique; checked by tests/benchmarks/test_transport_certificate.py, M10",
+    "milestone": "M10"
+  },
+  {
+    "metric": "variables.ship[north,market]",
+    "value": 70.0,
+    "method": "sig_figs_4",
+    "source": "LP duality certificate (spec 2 'Benchmark definitions', transport): the plan meets every limit; dual prices u = (0, -3, -2) for the supply limits of north, centre and south and v = (4, 6, 6, 5) for the demand limits of city, harbour, park and market satisfy u <= 0, v >= 0 and cost - u - v >= 0 on every route, with equality on the six used routes; the plan's cost 2,690 equals the dual value -600 - 500 + 720 + 1,320 + 900 + 850 = 2,690, so it is optimal; the unused routes' reduced costs 3, 6, 2, 6, 4 and 4 are positive, so it is unique; checked by tests/benchmarks/test_transport_certificate.py, M10",
+    "milestone": "M10"
+  },
+  {
+    "metric": "variables.ship[centre,city]",
+    "value": 0.0,
+    "method": "sig_figs_4",
+    "source": "LP duality certificate (spec 2 'Benchmark definitions', transport): the plan meets every limit; dual prices u = (0, -3, -2) for the supply limits of north, centre and south and v = (4, 6, 6, 5) for the demand limits of city, harbour, park and market satisfy u <= 0, v >= 0 and cost - u - v >= 0 on every route, with equality on the six used routes; the plan's cost 2,690 equals the dual value -600 - 500 + 720 + 1,320 + 900 + 850 = 2,690, so it is optimal; the unused routes' reduced costs 3, 6, 2, 6, 4 and 4 are positive, so it is unique; checked by tests/benchmarks/test_transport_certificate.py, M10",
+    "milestone": "M10"
+  },
+  {
+    "metric": "variables.ship[centre,harbour]",
+    "value": 200.0,
+    "method": "sig_figs_4",
+    "source": "LP duality certificate (spec 2 'Benchmark definitions', transport): the plan meets every limit; dual prices u = (0, -3, -2) for the supply limits of north, centre and south and v = (4, 6, 6, 5) for the demand limits of city, harbour, park and market satisfy u <= 0, v >= 0 and cost - u - v >= 0 on every route, with equality on the six used routes; the plan's cost 2,690 equals the dual value -600 - 500 + 720 + 1,320 + 900 + 850 = 2,690, so it is optimal; the unused routes' reduced costs 3, 6, 2, 6, 4 and 4 are positive, so it is unique; checked by tests/benchmarks/test_transport_certificate.py, M10",
+    "milestone": "M10"
+  },
+  {
+    "metric": "variables.ship[centre,park]",
+    "value": 0.0,
+    "method": "sig_figs_4",
+    "source": "LP duality certificate (spec 2 'Benchmark definitions', transport): the plan meets every limit; dual prices u = (0, -3, -2) for the supply limits of north, centre and south and v = (4, 6, 6, 5) for the demand limits of city, harbour, park and market satisfy u <= 0, v >= 0 and cost - u - v >= 0 on every route, with equality on the six used routes; the plan's cost 2,690 equals the dual value -600 - 500 + 720 + 1,320 + 900 + 850 = 2,690, so it is optimal; the unused routes' reduced costs 3, 6, 2, 6, 4 and 4 are positive, so it is unique; checked by tests/benchmarks/test_transport_certificate.py, M10",
+    "milestone": "M10"
+  },
+  {
+    "metric": "variables.ship[centre,market]",
+    "value": 0.0,
+    "method": "sig_figs_4",
+    "source": "LP duality certificate (spec 2 'Benchmark definitions', transport): the plan meets every limit; dual prices u = (0, -3, -2) for the supply limits of north, centre and south and v = (4, 6, 6, 5) for the demand limits of city, harbour, park and market satisfy u <= 0, v >= 0 and cost - u - v >= 0 on every route, with equality on the six used routes; the plan's cost 2,690 equals the dual value -600 - 500 + 720 + 1,320 + 900 + 850 = 2,690, so it is optimal; the unused routes' reduced costs 3, 6, 2, 6, 4 and 4 are positive, so it is unique; checked by tests/benchmarks/test_transport_certificate.py, M10",
+    "milestone": "M10"
+  },
+  {
+    "metric": "variables.ship[south,city]",
+    "value": 0.0,
+    "method": "sig_figs_4",
+    "source": "LP duality certificate (spec 2 'Benchmark definitions', transport): the plan meets every limit; dual prices u = (0, -3, -2) for the supply limits of north, centre and south and v = (4, 6, 6, 5) for the demand limits of city, harbour, park and market satisfy u <= 0, v >= 0 and cost - u - v >= 0 on every route, with equality on the six used routes; the plan's cost 2,690 equals the dual value -600 - 500 + 720 + 1,320 + 900 + 850 = 2,690, so it is optimal; the unused routes' reduced costs 3, 6, 2, 6, 4 and 4 are positive, so it is unique; checked by tests/benchmarks/test_transport_certificate.py, M10",
+    "milestone": "M10"
+  },
+  {
+    "metric": "variables.ship[south,harbour]",
+    "value": 0.0,
+    "method": "sig_figs_4",
+    "source": "LP duality certificate (spec 2 'Benchmark definitions', transport): the plan meets every limit; dual prices u = (0, -3, -2) for the supply limits of north, centre and south and v = (4, 6, 6, 5) for the demand limits of city, harbour, park and market satisfy u <= 0, v >= 0 and cost - u - v >= 0 on every route, with equality on the six used routes; the plan's cost 2,690 equals the dual value -600 - 500 + 720 + 1,320 + 900 + 850 = 2,690, so it is optimal; the unused routes' reduced costs 3, 6, 2, 6, 4 and 4 are positive, so it is unique; checked by tests/benchmarks/test_transport_certificate.py, M10",
+    "milestone": "M10"
+  },
+  {
+    "metric": "variables.ship[south,park]",
+    "value": 150.0,
+    "method": "sig_figs_4",
+    "source": "LP duality certificate (spec 2 'Benchmark definitions', transport): the plan meets every limit; dual prices u = (0, -3, -2) for the supply limits of north, centre and south and v = (4, 6, 6, 5) for the demand limits of city, harbour, park and market satisfy u <= 0, v >= 0 and cost - u - v >= 0 on every route, with equality on the six used routes; the plan's cost 2,690 equals the dual value -600 - 500 + 720 + 1,320 + 900 + 850 = 2,690, so it is optimal; the unused routes' reduced costs 3, 6, 2, 6, 4 and 4 are positive, so it is unique; checked by tests/benchmarks/test_transport_certificate.py, M10",
+    "milestone": "M10"
+  },
+  {
+    "metric": "variables.ship[south,market]",
+    "value": 100.0,
+    "method": "sig_figs_4",
+    "source": "LP duality certificate (spec 2 'Benchmark definitions', transport): the plan meets every limit; dual prices u = (0, -3, -2) for the supply limits of north, centre and south and v = (4, 6, 6, 5) for the demand limits of city, harbour, park and market satisfy u <= 0, v >= 0 and cost - u - v >= 0 on every route, with equality on the six used routes; the plan's cost 2,690 equals the dual value -600 - 500 + 720 + 1,320 + 900 + 850 = 2,690, so it is optimal; the unused routes' reduced costs 3, 6, 2, 6, 4 and 4 are positive, so it is unique; checked by tests/benchmarks/test_transport_certificate.py, M10",
+    "milestone": "M10"
+  }
+]

@@ -230,7 +230,7 @@ def test_a_lower_minor_loads_with_defaults_filled_in_memory() -> None:
 
 def test_schema_issues_stop_loading() -> None:
     document = coffee()
-    document["format_version"] = "0.2"
+    document["format_version"] = "0.3"
     issue = only_issue(document)
     assert issue.code == "E101"
     document = coffee()

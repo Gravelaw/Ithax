@@ -293,6 +293,112 @@ describe("the Diagram view", () => {
   });
 });
 
+/** The transport plan of spec 2 "Indexed problems" (format 0.2; AKS-123), as written. */
+function transport(): Model {
+  return {
+    ...plan(),
+    format_version: "0.2",
+    sets: {
+      depots: ["north", "centre", "south"],
+      customers: ["city", "harbour", "park", "market"],
+    },
+    tables: {
+      supply: { over: ["depots"], values: { north: 300, centre: 200, south: 250 } },
+      demand: { over: ["customers"], values: { city: 180, harbour: 220, park: 150, market: 170 } },
+      cost: {
+        over: ["depots", "customers"],
+        values: {
+          north: { city: 4, harbour: 6, park: 9, market: 5 },
+          centre: { city: 7, harbour: 3, park: 5, market: 8 },
+          south: { city: 6, harbour: 8, park: 4, market: 3 },
+        },
+      },
+    },
+    variables: [{ id: "ship", type: "continuous", lower: 0, over: ["depots", "customers"] }],
+    objective: {
+      sense: "minimize",
+      terms: [{ variable: "ship", coefficient: { $table: "cost" } }],
+    },
+    constraints: [
+      {
+        id: "supply",
+        for: ["depots"],
+        terms: [{ variable: "ship" }],
+        op: "<=",
+        rhs: { $table: "supply" },
+      },
+      {
+        id: "demand",
+        for: ["customers"],
+        terms: [{ variable: "ship" }],
+        op: ">=",
+        rhs: { $table: "demand" },
+      },
+    ],
+  };
+}
+
+describe("an indexed plan (AKS-123)", () => {
+  it("opens in the Table view as written, says it is indexed, and edits what it can", {
+    timeout: 15_000,
+  }, async () => {
+    const { fake, toolbar, user } = renderPlan(transport());
+    expect(await screen.findByTestId("indexed-notice")).toHaveTextContent("This plan is indexed");
+    expect(box("Name of decision 1")).toHaveValue("ship");
+    expect(screen.getByText("one for each depots × customers")).toBeVisible();
+    expect(
+      screen.getByText(
+        "Minimize Σ over depots, customers cost[depots, customers] × ship[depots, customers]",
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole("columnheader", { name: "Reads as" })).toBeVisible();
+    expect(
+      screen.getByText(
+        "For each depots: Σ over customers ship[depots, customers] ≤ supply[depots]",
+      ),
+    ).toBeVisible();
+    expect(screen.getByText("table supply")).toBeVisible();
+    // An indexed decision has no coefficient field: its coefficients are its terms.
+    expect(screen.queryByRole("textbox", { name: "Coefficient of ship in the goal" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Limit of supply" })).toBeNull();
+    await settled(toolbar);
+    // A field it shows still edits: the bound of `ship`.
+    await user.clear(box("Upper bound of ship"));
+    await user.type(box("Upper bound of ship"), "500{Enter}");
+    await waitFor(() =>
+      expect(lastEdits(fake)).toEqual([
+        { edit: "set_path", path: "/variables/0/upper", value: 500 },
+      ]),
+    );
+  });
+
+  it("draws the Diagram view with a line per term", async () => {
+    const { toolbar, user } = renderPlan(transport());
+    await settled(toolbar);
+    await user.click(screen.getByRole("button", { name: "Diagram" }));
+    expect(
+      screen.getByRole("button", {
+        name: "ship decision, continuous ≥ 0, one for each depots × customers",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", {
+        name: "demand For each customers: Σ over depots ship[depots, customers] ≥ demand[customers]",
+      }),
+    ).toBeVisible();
+    expect(
+      [...document.querySelectorAll(".plan-line-text")].map((label) => label.textContent),
+    ).toEqual(["cost", "1", "1"]);
+  });
+
+  it("opens a flat plan without the notice", async () => {
+    const { toolbar } = renderPlan(mix());
+    await settled(toolbar);
+    expect(screen.queryByTestId("indexed-notice")).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: "Reads as" })).toBeNull();
+  });
+});
+
 describe("an outside change to a plan", () => {
   it("names the client and marks the rows, with Accept and Reject", async () => {
     const { fake, service, toolbar, user } = renderPlan(mix());

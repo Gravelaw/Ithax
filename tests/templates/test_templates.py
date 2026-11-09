@@ -35,9 +35,10 @@ IDS = [folder.name for folder in package_folders(TEMPLATES)]
 # Results do not depend on the number of workers (spec 1 "Random streams").
 WORKERS = min(4, os.cpu_count() or 1)
 
-#: The templates of AKS-122 and AKS-139; later tickets add folders.
+#: The templates of AKS-122, AKS-139 and AKS-123; later tickets add folders.
 AKS_122 = {"coffee_shop", "three_machine_line", "machine_breakdowns"}
 AKS_139 = {"clinic_patient_flow", "warehouse_pick_pack", "inventory_reorder_point"}
+AKS_123 = {"transport_plan"}
 
 
 def load(tid: str) -> TemplatePackage:
@@ -58,8 +59,8 @@ def run_summary(document: Mapping[str, Any], experiment: str | None, workdir: Pa
     return outcome.summary
 
 
-def test_the_aks_122_and_aks_139_templates_exist() -> None:
-    assert set(IDS) >= AKS_122 | AKS_139
+def test_the_aks_122_aks_139_and_aks_123_templates_exist() -> None:
+    assert set(IDS) >= AKS_122 | AKS_139 | AKS_123
 
 
 @pytest.mark.template
@@ -322,3 +323,32 @@ def test_the_inventory_values_are_the_reorder_point_formulas(run: Run, reorder_p
     for row in theory:
         if row.metric in answers:
             assert row.value == pytest.approx(answers[row.metric], rel=1e-9), row.metric
+
+
+def test_the_transport_plan_is_the_transport_benchmark_with_a_description() -> None:
+    """Spec 4 "Template package": the transport plan is spec 2's indexed example, the
+    `benchmarks/transport` model, with the indexed layout (format 0.2; AKS-123)."""
+    package = load("transport_plan")
+    benchmark = json.loads((ROOT / "benchmarks" / "transport" / "model.json").read_text("utf-8"))
+    assert without_description(package.model) == benchmark
+    assert package.model["format_version"] == "0.2"
+    assert package.model["domain"] == "optimization"
+    assert set(package.model["sets"]) == {"depots", "customers"}
+    assert package.template["audience"] == "Business"
+    assert package.experiment is None
+    benchmark_rows = [row for row in package.rows("template") if row.source == "benchmark"]
+    assert benchmark_rows and all(
+        row.reference.startswith("benchmarks/transport") for row in benchmark_rows
+    )
+    expected = json.loads((ROOT / "benchmarks" / "transport" / "expected.json").read_text("utf-8"))
+    published = {row["metric"]: row["value"] for row in expected}
+    assert all(published[row.metric] == row.value for row in benchmark_rows)
+
+
+def test_the_transport_exercise_changes_one_table_value() -> None:
+    package = load("transport_plan")
+    exercise = package.document("exercise")
+    assert exercise["tables"]["supply"]["values"]["centre"] == 210
+    changed = json.loads(json.dumps(package.model))
+    changed["tables"]["supply"]["values"]["centre"] = 210
+    assert exercise == changed

@@ -1,0 +1,25 @@
+{
+  "id": "transport_plan",
+  "title": "Transport plan",
+  "summary": "Three depots supply four customers, and every route has its own cost per crate. Find the cheapest plan that meets every order without sending more than a depot holds.",
+  "audience": "Business",
+  "concepts": [
+    "network optimization",
+    "linear programming",
+    "sets and tables",
+    "shadow price"
+  ],
+  "minutes": 15,
+  "experiment": null,
+  "origin": "Written for this project: spec 2's transport example (benchmarks/transport), with its optimum proved by LP duality (docs/research/spec-4-template-sources.md); PuLP's MIT-licensed beer distribution problem was the fallback and is not used.",
+  "licence": "AGPL-3.0-only",
+  "exercise": {
+    "edits": [
+      {
+        "edit": "set_path",
+        "path": "/tables/supply/values/centre",
+        "value": 210
+      }
+    ]
+  }
+}

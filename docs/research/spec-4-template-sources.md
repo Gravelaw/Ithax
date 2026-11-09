@@ -50,7 +50,7 @@ own content, so its licence is the product's, `AGPL-3.0-only`.
 | Warehouse pick and pack (`warehouse_pick_pack`) | Written for the project, fresh rather than extending `examples/warehouse.json` (see below): orders every minute onto carts of 5, pickers on day and night shifts, a 3 min transfer, unloading and packing | Cart wait (n − 1)/(2λ) = 120 s (benchmark `batch_unbatch`); scheduled fraction 7/9 from the shift table; throughput 1/60 per s and packer utilization 0.5 by flow conservation over whole days; 11,520 arrivals. Exercise, 2 pickers overnight: scheduled fraction 8/9. Pickers' utilization and waits: `recorded` | AKS-139 |
 | Inventory reorder point (`inventory_reorder_point`) | Written for the project: a shop selling a spare part, 4 a day at random, reordering 50 at a reorder point of 20 with a 5-day lead time | The (R, Q) policy with Poisson demand (Zipkin 6.2; Axsäter 5.3): stock mean 25.588, stock-outs 135.03 in 950 days, waiting customers 0.088181, cycle time 1,904.7 s; orders λ/Q; throughput λ; 3,800 arrivals. Exercise, reorder point 30: stock mean 35.501 (theory); stock-outs `recorded` (theory 2.4414, too rare for 30 replications) | AKS-139 |
 | Product mix (`product_mix`) | Spec 2's product mix (chairs and tables), written for the project by the review council; the idea of a two-product LP is Hillier and Lieberman's prototype, but no number or wording of theirs is used | Optimum 24 chairs, 14 tables, profit 2,200, by vertex enumeration (benchmark `product_mix`) | AKS-140 |
-| Transport plan (`transport_plan`) | To be written for the project with the indexed layout (supply points to demand points); PuLP's MIT-licensed beer distribution problem is the fallback | Optimum verified by enumeration of the basic solutions or by hand, and the spec 2 transport benchmark of the same ticket | AKS-123 |
+| Transport plan (`transport_plan`) | Written for the project with the indexed layout: three depots (supply 300, 200, 250 crates) to four customers (demand 180, 220, 150, 170), a cost per crate on each route; PuLP's MIT-licensed beer distribution problem was the fallback and is not used | Optimum 2,690, proved by an LP duality certificate (below; benchmark `transport`, spec 2), not by enumeration: enumerating basic solutions would mean solving linear systems, which guide rule 7 forbids in product or test code. Exercise, centre's supply 210: 2,660 by the same certificate | AKS-123 |
 | Staff rota (`staff_rota`) | To be written for the project: staff on five-consecutive-day patterns covering daily needs (the classic pattern of Winston's post office problem; the idea only, not its numbers) | Optimum verified by enumeration (small enough to list every pattern count) | AKS-140 |
 | How many machines? (`how_many_machines`) | The coffee shop with `tills` searched, as `benchmarks/machine_count` (spec 2) | Erlang C: best `tills` 2, wait 162/11 s at utilization 0.375 (benchmark `machine_count`) | AKS-140 |
 
@@ -58,7 +58,7 @@ The ids above are proposed for the later tickets, which may refine the problems;
 licence rule does not change: written for the project, `AGPL-3.0-only`, or a source whose
 licence permits reuse, recorded in `template.json`.
 
-**The answers of the templates**, recomputed (AKS-122 for the first three, AKS-139 for the next three):
+**The answers of the templates**, recomputed (AKS-122 for the first three, AKS-139 for the next three, AKS-123 for the transport plan):
 
 - Coffee shop: λ = 1/120 per s, E(S) = 90 s, ρ = 0.75. E(W) = (ρ/μ)/(1 − ρ) = 270 s;
   E(Lq) = ρ²/(1 − ρ) = 2.25; E(T) = 360 s; Little: L = λE(T) = 3.0. The experiment's
@@ -113,6 +113,30 @@ licence permits reuse, recorded in `template.json`.
   0.088181 customers wait on average and, by Little's law, the mean cycle time is
   0.088181/λ = 1,904.7 s; orders λ/Q, one every 12.5 days. Reorder point 30 (the
   exercise): P = 0.00064248, stock-outs 2.4414, mean stock 35.501.
+- Transport plan: minimize Σ c_ij x_ij subject to Σ_j x_ij ≤ s_i (depots north, centre,
+  south: 300, 200, 250), Σ_i x_ij ≥ d_j (customers city, harbour, park, market: 180, 220,
+  150, 170), x ≥ 0, costs c = [[4, 6, 9, 5], [7, 3, 5, 8], [6, 8, 4, 3]]. The plan north →
+  city 180, harbour 20, market 70; centre → harbour 200; south → park 150, market 100 meets
+  every limit (north keeps 30) and costs 720 + 120 + 350 + 600 + 600 + 300 = 2,690. Its dual
+  certificate: u = (0, −3, −2) for the supply limits and v = (4, 6, 6, 5) for the demand
+  limits, with u ≤ 0 and v ≥ 0 as the signs of the dual of a minimization with ≤ and ≥
+  limits require, and c_ij − u_i − v_j ≥ 0 on every route: zero on the six used ones and
+  3, 6, 2, 6, 4 and 4 on north–park, centre–city, centre–park, centre–market, south–city
+  and south–harbour. The dual value Σ u_i s_i + Σ v_j d_j = −600 − 500 + 720 + 1,320 + 900 +
+  850 = 2,690 equals the plan's cost, so by weak duality no plan costs less; every unused
+  route's reduced cost is positive, so no other plan costs as little (the optimum is
+  unique). The plan has 6 = 3 + 4 − 1 positive amounts, a non-degenerate basis. With
+  centre's supply 210 (the exercise) the same prices stay feasible, and the plan with north
+  → harbour 10 and centre → harbour 210 still meets every limit with every amount
+  non-negative, costing 2,690 − 10 × (6 − 3) = 2,660, equal to the dual value −630 − 500 +
+  3,790: optimal and unique. Each crate more at centre saves 3 (its price) up to 20 crates,
+  when north's harbour amount reaches 0; HiGHS gives 2,600 at 250, so the saving falls
+  after that (the lesson says "save less"). Sources: F. L. Hitchcock, "The distribution of a
+  product from several sources to numerous localities", J. Math. Phys. 20 (1941); G. B.
+  Dantzig, "Application of the simplex method to a transportation problem", in Koopmans
+  (ed.), *Activity Analysis of Production and Allocation* (1951); the duality theorem as in
+  F. S. Hillier and G. J. Lieberman, *Introduction to Operations Research*, chapter 6. Only
+  the theorems are used; the numbers and the story are the project's.
 
 ## Sources
 
@@ -148,7 +172,9 @@ licence permits reuse, recorded in `template.json`.
   `recorded` regression rows (spec 4 "Template package").
 - The ids and problems of the seven later templates in the table were proposals for
   AKS-139, AKS-123 and AKS-140; AKS-139 kept its three ids and wrote the problems above
-  (owner to confirm), and the other four remain proposals for AKS-123 and AKS-140.
+  (owner to confirm), AKS-123 kept `transport_plan` and wrote its problem with an optimum
+  proved by LP duality rather than "published" elsewhere, since the problem is the
+  project's own (owner to confirm), and the other three remain proposals for AKS-140.
 
 ## Tested
 
@@ -174,3 +200,10 @@ counting of busy time does not reach exactly) and the exercise's stock-outs, 1.2
 underestimate; 400 replications at seed 777 gave 2.505 plus or minus 0.296, +0.42). The
 clinic's Erlang C values and the inventory's (R, Q) values are recomputed from their
 formulas by `tests/templates/test_templates.py`.
+
+AKS-123 wrote the transport plan on 2026-11-09 and solved it, and its exercise, with HiGHS
+1.15.1 through the adapter: 2,690 and 2,660 at exactly the amounts above, every unused
+route at exactly 0. `tests/benchmarks/test_transport_certificate.py` checks the primal
+feasibility, the dual feasibility, the equal objective values and the positive reduced
+costs from `benchmarks/transport`'s own files, in integers; `tests/templates/test_templates.py`
+judges the template's and the exercise's rows.

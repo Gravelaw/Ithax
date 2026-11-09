@@ -43,7 +43,7 @@ from __future__ import annotations
 import json
 import secrets
 import sys
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
@@ -60,6 +60,7 @@ from lcsim.model.catalogue import (
     SettingSpec,
 )
 from lcsim.model.data import EMPTY_DATA_INDEX, DataIndex
+from lcsim.model.indexed import CoefficientTooLarge, expand
 from lcsim.model.issues import Issue, pointer
 from lcsim.model.model import (
     Component,
@@ -68,8 +69,10 @@ from lcsim.model.model import (
     Distribution,
     Endpoint,
     Experiment,
-    LinearConstraint,
-    LinearObjective,
+    IndexedConstraint,
+    IndexedObjective,
+    IndexedProgram,
+    IndexedVariable,
     LinearProgram,
     Meta,
     MetricConstraint,
@@ -83,7 +86,9 @@ from lcsim.model.model import (
     Scenario,
     Search,
     SettingValue,
-    Variable,
+    Table,
+    TableRef,
+    Term,
 )
 from lcsim.model.schema import schema_pass
 from lcsim.model.units import Dimension, Quantity, QuantityError, read_number, read_quantity
@@ -126,6 +131,20 @@ _VARIABLE_TYPES = ("continuous", "integer", "binary")
 SeedSource = Callable[[], int]
 _T = TypeVar("_T")
 Segment = str | int
+Segments = tuple[Segment, ...]
+
+
+@dataclass(frozen=True)
+class _Index:
+    """What a term or a ``$table`` of an indexed model may name: the sets, the tables that
+    loaded, the ids of every table written (one with issues is reported where it is
+    declared, not at each use), and each variable's sets (``None`` when its ``over`` has
+    issues, so nothing is checked against them)."""
+
+    sets: Mapping[str, tuple[str, ...]]
+    tables: Mapping[str, Table]
+    table_names: frozenset[str]
+    variables: dict[str, tuple[str, ...] | None]
 
 
 @dataclass(frozen=True)
@@ -385,6 +404,29 @@ def _show(value: object) -> str:
     return "an object"
 
 
+def _kind(value: object) -> str:
+    """The kind of a JSON value, as a message names it."""
+    if isinstance(value, dict):
+        return "an object"
+    if isinstance(value, list):
+        return "an array"
+    return _show(value)
+
+
+def _missing_hint(noun: str, name: str, known: Collection[str], key: str) -> str:
+    """The hint for a name that is not among ``known``, the ids of ``key``."""
+    if not known:
+        return f"The model has no {key}; add a {noun} '{name}' to '{key}'."
+    listed = sorted(known)
+    if len(listed) > _LISTED_NAMES:
+        return f"Correct the name to one of the {key}, or add a {noun} '{name}' to '{key}'."
+    return f"Correct the name to one of the {key}, {_words(listed)}, or add '{name}' to '{key}'."
+
+
+# A hint lists at most this many names.
+_LISTED_NAMES = 12
+
+
 def _words(words: Sequence[str]) -> str:
     quoted = [f"'{word}'" for word in words]
     if len(quoted) == 1:
@@ -517,6 +559,7 @@ class _Builder:
         objectives: tuple[MetricObjective, ...] = ()
         constraints: tuple[MetricConstraint, ...] = ()
         program: LinearProgram | None = None
+        declared: IndexedProgram | None = None
         if domain == "process":
             components = _present(
                 self.component(index, raw) for index, raw in enumerate(document["components"])
@@ -536,7 +579,9 @@ class _Builder:
                 for index, raw in enumerate(document.get("constraints", []))
             )
         else:
-            program = self.program()
+            built = self.program()
+            if built is not None:
+                declared, program = built
         if self.issues:
             return None
         return Model(
@@ -556,6 +601,7 @@ class _Builder:
             constraints=constraints,
             program=program,
             run=self.run(),
+            declared=declared,
         )
 
     # --- parameters ---
@@ -1163,12 +1209,31 @@ class _Builder:
 
     # --- the optimization domain ---
 
-    def program(self) -> LinearProgram | None:
+    def program(self) -> tuple[IndexedProgram, LinearProgram] | None:
+        """The program as declared, and expanded into the flat layout (spec 2 "Indexed
+        problems"). A declaration with an issue that stops the expansion (E175 for a term,
+        E176 to E178, E123 for a table value, coefficient or ``rhs``) gives ``None``."""
         document = self.document
         before = len(self.issues)
-        variables: list[Variable] = []
-        for index, raw in enumerate(document["variables"]):
-            at = ("variables", index)
+        sets = {name: tuple(members) for name, members in document.get("sets", {}).items()}
+        for name, members in sets.items():
+            if not members:
+                self.issue(
+                    "E177",
+                    ("sets", name),
+                    f"The set '{name}' has no members.",
+                    f"Add at least one member to '{name}', or remove the set and what uses it.",
+                )
+        raw_tables: dict[str, Any] = document.get("tables", {})
+        tables: dict[str, Table] = {}
+        for name, raw in raw_tables.items():
+            table = self.table(name, raw, sets)
+            if table is not None:
+                tables[name] = table
+        index = _Index(sets, tables, frozenset(raw_tables), {})
+        variables: list[IndexedVariable] = []
+        for position, raw in enumerate(document["variables"]):
+            at = ("variables", position)
             variable_id: str = raw["id"]
             kind = self.word(
                 raw["type"],
@@ -1183,47 +1248,322 @@ class _Builder:
                     if key in raw
                     else None
                 )
-            if kind is not None:
+            over = self.index_sets(
+                raw.get("over", []), sets, f"The 'over' of variable '{variable_id}'", (*at, "over")
+            )
+            # The first variable of an id is the one a term names (a repeat is E110).
+            index.variables.setdefault(variable_id, over)
+            if kind is not None and over is not None:
                 variables.append(
-                    Variable(
+                    IndexedVariable(
                         id=variable_id,
                         type=kind,  # type: ignore[arg-type]  # one of _VARIABLE_TYPES
                         lower=bounds["lower"],
                         upper=bounds["upper"],
+                        over=over,
                     )
                 )
         objective_raw = document["objective"]
         sense = self.word(
             objective_raw["sense"], _SENSES, "the 'sense' of the objective", ("objective", "sense")
         )
-        objective_linear = self.linear(objective_raw["linear"], "the objective", ("objective",))
-        constraints: list[LinearConstraint] = []
-        for index, raw in enumerate(document.get("constraints", [])):
-            at = ("constraints", index)
+        objective_linear = self.linear(
+            objective_raw.get("linear", {}), "the objective", ("objective",)
+        )
+        objective_terms = self.terms(
+            objective_raw.get("terms", []), "the objective", ("objective",), (), index
+        )
+        constraints: list[IndexedConstraint] = []
+        for position, raw in enumerate(document.get("constraints", [])):
+            at = ("constraints", position)
             constraint_id: str = raw["id"]
-            linear = self.linear(raw["linear"], f"constraint '{constraint_id}'", at)
+            owner = f"constraint '{constraint_id}'"
+            over = self.index_sets(raw.get("for", []), sets, f"The 'for' of {owner}", (*at, "for"))
+            linear = self.linear(raw.get("linear", {}), owner, at)
+            terms = self.terms(raw.get("terms", []), owner, at, over, index)
             op = self.word(
                 raw["op"], _LINEAR_OPS, f"the 'op' of constraint '{constraint_id}'", (*at, "op")
             )
-            rhs = self.number(
-                raw["rhs"], f"the 'rhs' of constraint '{constraint_id}'", (*at, "rhs")
-            )
-            if linear is not None and op is not None and rhs is not None:
+            rhs = self.rhs(raw["rhs"], owner, at, over, index)
+            if (
+                over is not None
+                and linear is not None
+                and terms is not None
+                and op is not None
+                and rhs is not None
+            ):
                 constraints.append(
-                    LinearConstraint(
+                    IndexedConstraint(
                         id=constraint_id,
+                        over=over,
                         linear=linear,
+                        terms=terms,
                         op=op,  # type: ignore[arg-type]  # one of _LINEAR_OPS
                         rhs=rhs,
                     )
                 )
-        if len(self.issues) != before or sense is None or objective_linear is None:
+        if (
+            len(self.issues) != before
+            or sense is None
+            or objective_linear is None
+            or objective_terms is None
+        ):
             return None
-        return LinearProgram(
+        declared = IndexedProgram(
+            sets=MappingProxyType(sets),
+            tables=MappingProxyType(tables),
             variables=tuple(variables),
-            objective=LinearObjective(sense=sense, linear=objective_linear),  # type: ignore[arg-type]
+            objective=IndexedObjective(
+                sense=sense,  # type: ignore[arg-type]  # one of _SENSES
+                linear=objective_linear,
+                terms=objective_terms,
+            ),
             constraints=tuple(constraints),
         )
+        try:
+            return declared, expand(declared)
+        except CoefficientTooLarge as problem:
+            place: Segments = (
+                ("objective",)
+                if problem.constraint is None
+                else ("constraints", problem.constraint)
+            )
+            where = (
+                "the objective"
+                if problem.constraint is None
+                else f"constraint '{declared.constraints[problem.constraint].id}'"
+            )
+            self.issue(
+                "E123",
+                (*place, "terms", problem.term, "coefficient"),
+                f"The 'coefficient' of term {problem.term + 1} in {where}, added to the other "
+                f"coefficients of '{problem.variable}', gives a number too large to compute.",
+                "Write coefficients whose sum is a number of at most about 1.8e308.",
+            )
+            return None
+
+    def index_sets(
+        self, names: Sequence[str], sets: Mapping[str, tuple[str, ...]], where: str, at: Segments
+    ) -> tuple[str, ...] | None:
+        """The set ids of an ``over`` or ``for``: E176 for one that is not in ``sets``, E178
+        for one named twice; ``None`` when either."""
+        complete = True
+        seen: set[str] = set()
+        for position, name in enumerate(names):
+            if name not in sets:
+                self.issue(
+                    "E176",
+                    (*at, position),
+                    f"{where} names the set '{name}', which is not in 'sets'.",
+                    _missing_hint("set", name, sets, "sets"),
+                )
+                complete = False
+            elif name in seen:
+                self.issue(
+                    "E178",
+                    (*at, position),
+                    f"{where} names the set '{name}' twice, so its members cannot be told apart.",
+                    f"Name '{name}' once; a flow between members of one set is not supported yet.",
+                )
+                complete = False
+            seen.add(name)
+        return tuple(names) if complete else None
+
+    def table(
+        self, name: str, raw: Mapping[str, Any], sets: Mapping[str, tuple[str, ...]]
+    ) -> Table | None:
+        """A table: its ``over`` checked, then its ``values`` read against its sets."""
+        at = ("tables", name)
+        over = self.index_sets(raw["over"], sets, f"The 'over' of table '{name}'", (*at, "over"))
+        if over is None:
+            return None
+        values: dict[tuple[str, ...], int | float] = {}
+        before = len(self.issues)
+        self.table_values(name, raw["values"], over, sets, (), (*at, "values"), values)
+        if len(self.issues) != before:
+            return None
+        return Table(over=over, values=MappingProxyType(values))
+
+    def table_values(
+        self,
+        name: str,
+        value: object,
+        over: tuple[str, ...],
+        sets: Mapping[str, tuple[str, ...]],
+        members: tuple[str, ...],
+        at: Segments,
+        values: dict[tuple[str, ...], int | float],
+    ) -> None:
+        """One level of a table's nested ``values``: an object keyed by exactly the members
+        of the next set, down to a plain number (E177 for the shape, E123 for a value)."""
+        label = f"'{at[-1]}'"
+        if len(members) == len(over):
+            if isinstance(value, dict | list):
+                self.issue(
+                    "E177",
+                    at,
+                    f"In table '{name}', {label} must be a number, since the table is over "
+                    f"{len(over)} set(s), not {_kind(value)}.",
+                    "Write one number here, or correct the table's 'over'.",
+                )
+                return
+            number = self.number(value, f"table '{name}' at {label}", at)
+            if number is not None:
+                values[members] = number
+            return
+        set_name = over[len(members)]
+        expected = sets[set_name]
+        if not isinstance(value, dict):
+            self.issue(
+                "E177",
+                at,
+                f"In table '{name}', {label} must be an object keyed by the members of the set "
+                f"'{set_name}', not {_kind(value)}.",
+                f"Write an object with one key for each of {_words(expected)}.",
+            )
+            return
+        for member in expected:
+            if member not in value:
+                self.issue(
+                    "E177",
+                    at,
+                    f"In table '{name}', {label} has no value for '{member}' of the set "
+                    f"'{set_name}'.",
+                    f"Add '{member}' to {label}.",
+                )
+        for key, item in value.items():
+            if key not in expected:
+                self.issue(
+                    "E177",
+                    (*at, key),
+                    f"In table '{name}', '{key}' is not a member of the set '{set_name}'.",
+                    f"Remove '{key}', or add it to the set '{set_name}'.",
+                )
+            else:
+                self.table_values(name, item, over, sets, (*members, key), (*at, key), values)
+
+    def table_ref(self, value: object, where: str, at: Segments) -> int | float | TableRef | None:
+        """A plain number or a ``{"$table": "id"}`` reference; anything else is E123."""
+        if isinstance(value, dict):
+            name = value.get("$table")
+            if len(value) == 1 and isinstance(name, str):
+                return TableRef(name)
+            self.issue(
+                "E123",
+                at,
+                f"In {where}, {_show(value)} is neither a number nor a table reference.",
+                'Write a number, or {"$table": "<table id>"} naming a table.',
+            )
+            return None
+        if isinstance(value, str):
+            self.issue(
+                "E123",
+                at,
+                f"In {where}, {_show(value)} is text, not a number or a table reference.",
+                'Write a number, or {"$table": "<table id>"} naming a table.',
+            )
+            return None
+        return self.number(value, where, at)
+
+    def known_table(self, ref: TableRef, where: str, at: Segments, index: _Index) -> Table | None:
+        """The table ``ref`` names; E176 when no table has that id. ``None`` also for a table
+        with issues of its own, which are reported where it is declared."""
+        if ref.table not in index.table_names:
+            self.issue(
+                "E176",
+                at,
+                f"{where} names the table '{ref.table}', which is not in 'tables'.",
+                _missing_hint("table", ref.table, index.table_names, "tables"),
+            )
+            return None
+        return index.tables.get(ref.table)
+
+    def terms(
+        self,
+        raw: Sequence[Mapping[str, Any]],
+        owner: str,
+        at: Segments,
+        bound: tuple[str, ...] | None,
+        index: _Index,
+    ) -> tuple[Term, ...] | None:
+        """The ``terms`` of the objective or a constraint whose ``for`` is ``bound``
+        (``None`` when the ``for`` has issues, so nothing is checked against it)."""
+        terms: list[Term] = []
+        complete = True
+        for position, item in enumerate(raw):
+            term_at = (*at, "terms", position)
+            place = f"the 'coefficient' of term {position + 1} in {owner}"
+            where = place[0].upper() + place[1:]
+            variable: str = item["variable"]
+            coefficient = self.table_ref(
+                item.get("coefficient", 1), place, (*term_at, "coefficient")
+            )
+            if variable not in index.variables:
+                self.issue(
+                    "E175",
+                    (*term_at, "variable"),
+                    f"The 'variable' of term {position + 1} in {owner} names '{variable}', which "
+                    "is not a variable in 'variables'.",
+                    _missing_hint("variable", variable, index.variables, "variables"),
+                )
+                complete = False
+            if coefficient is None:
+                complete = False
+                continue
+            if isinstance(coefficient, TableRef):
+                table = self.known_table(coefficient, where, (*term_at, "coefficient"), index)
+                over = index.variables.get(variable)
+                if table is None:
+                    complete = False
+                elif bound is not None and over is not None:
+                    unbound = [name for name in table.over if name not in (*bound, *over)]
+                    if unbound:
+                        naming = (
+                            f"neither the 'for' of {owner} nor the 'over' of '{variable}' names"
+                            if bound
+                            else f"the 'over' of '{variable}' does not name"
+                        )
+                        self.issue(
+                            "E178",
+                            (*term_at, "coefficient"),
+                            f"{where} is the table '{coefficient.table}', over the set "
+                            f"'{unbound[0]}', which {naming}, so no member of it is chosen.",
+                            f"Use a table over sets that the 'over' of '{variable}' or the 'for' "
+                            f"of {owner} names.",
+                        )
+                        complete = False
+            terms.append(Term(variable, coefficient))
+        return tuple(terms) if complete else None
+
+    def rhs(
+        self,
+        value: object,
+        owner: str,
+        at: Segments,
+        bound: tuple[str, ...] | None,
+        index: _Index,
+    ) -> int | float | TableRef | None:
+        """A constraint's ``rhs``: a plain number, or a table over sets its ``for`` names."""
+        rhs = self.table_ref(value, f"the 'rhs' of {owner}", (*at, "rhs"))
+        if not isinstance(rhs, TableRef):
+            return rhs
+        where = f"The 'rhs' of {owner}"
+        table = self.known_table(rhs, where, (*at, "rhs"), index)
+        if table is None:
+            return None
+        if bound is None:
+            return rhs
+        unbound = [name for name in table.over if name not in bound]
+        if unbound:
+            self.issue(
+                "E178",
+                (*at, "rhs"),
+                f"{where} is the table '{rhs.table}', over the set '{unbound[0]}', which its "
+                "'for' does not name, so no member of it is chosen.",
+                f"Add '{unbound[0]}' to the 'for' of {owner}, or use a table over its 'for'.",
+            )
+            return None
+        return rhs
 
     def linear(
         self, raw: Mapping[str, Any], owner: str, at: tuple[Segment, ...]
