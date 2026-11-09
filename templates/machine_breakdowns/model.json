@@ -1,0 +1,29 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Machine breakdowns",
+    "description": "Jobs arrive every 4 min on average and take 2 min on one machine, both exponential. The machine fails on average 90 min after each repair, busy or idle, and is repaired in 10 min on average (exponential); a job in progress resumes after the repair. Availability MTTF/(MTTF + MTTR) = 0.9; utilization over available time 0.5/0.9 = 0.556. The run is 200 h long including 10 h of warm-up, so 190 h are measured."
+  },
+  "domain": "process",
+  "components": [
+    {"id": "arrivals", "type": "source",
+     "params": {"interarrival": {"dist": "exponential", "mean": "4 min"}}},
+    {"id": "machine", "type": "server",
+     "params": {"capacity": 1,
+                "service": {"dist": "exponential", "mean": "2 min"}}},
+    {"id": "breakdown", "type": "failure",
+     "params": {"target": "machine",
+                "time_to_failure": {"dist": "exponential", "mean": "90 min"},
+                "time_to_repair": {"dist": "exponential", "mean": "10 min"}}},
+    {"id": "exit", "type": "sink", "params": {}}
+  ],
+  "connections": [
+    {"from": "arrivals.out", "to": "machine.in"},
+    {"from": "machine.out", "to": "exit.in"}
+  ],
+  "experiments": [
+    {"id": "base", "length": "200 h", "warmup": "10 h",
+     "replications": 30, "seed": 12345}
+  ],
+  "run": {"target": "local", "fidelity": "standard"}
+}

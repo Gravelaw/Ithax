@@ -1,0 +1,28 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Coffee shop",
+    "description": "Customers arrive about every 2 minutes at random; one till serves them in about 1.5 minutes, also at random (spec 1's example, examples/coffee_shop.json). The run is 200 h long including 10 h of warm-up, so 190 h are measured. M/M/1 theory: utilization 0.75, mean wait 4.5 min, 2.25 waiting, 6 min in the shop, 3 customers inside (Little's law)."
+  },
+  "domain": "process",
+  "parameters": {
+    "tills": {"value": 1, "type": "integer", "min": 1, "max": 5}
+  },
+  "components": [
+    {"id": "arrivals", "type": "source",
+     "params": {"interarrival": {"dist": "exponential", "mean": "2 min"}}},
+    {"id": "till", "type": "server",
+     "params": {"capacity": {"$param": "tills"},
+                "service": {"dist": "exponential", "mean": "1.5 min"}}},
+    {"id": "exit", "type": "sink", "params": {}}
+  ],
+  "connections": [
+    {"from": "arrivals.out", "to": "till.in"},
+    {"from": "till.out", "to": "exit.in"}
+  ],
+  "experiments": [
+    {"id": "base", "length": "200 h", "warmup": "10 h",
+     "replications": 30, "seed": 12345}
+  ],
+  "run": {"target": "local", "fidelity": "standard"}
+}
