@@ -13,6 +13,7 @@ import {
   AT_NEXT_RESULTS,
   AT_NEXT_START,
   bytesText,
+  IDLE_LABEL,
   SETTINGS_WAIT,
   SettingsScreen,
   typed,
@@ -119,12 +120,15 @@ describe("Settings reads", () => {
     expect(screen.getByRole("rowheader", { name: "simpy" }).closest("tr")).toHaveTextContent(
       "simpy0.0.0processMIT",
     );
-    expect(screen.getByText(AT_NEXT_START)).toBeVisible();
+    // The run settings and the idle timeout each say so.
+    expect(screen.getAllByText(AT_NEXT_START)).toHaveLength(2);
     expect(screen.getByText(new RegExp(`^${AT_NEXT_RESULTS}`))).toBeVisible();
     expect(screen.getAllByText("Takes effect at once.")).toHaveLength(2);
     expect(screen.getByRole("textbox", { name: "Time limit, in seconds" })).toHaveValue("600");
     expect(screen.getByText("= 10 min")).toBeVisible();
     expect(screen.getByText("= 8.59 GB")).toBeVisible();
+    expect(screen.getByRole("textbox", { name: IDLE_LABEL })).toHaveValue("30");
+    expect(screen.getByText("= 30 min (1 to 10,080)")).toBeVisible();
     expect(screen.getByText("= 1 per hour")).toBeVisible();
     expect(screen.getByRole("combobox", { name: "Tier at the next start" })).toHaveValue("mid");
     expect(screen.getByText("Empty: the tier's recommendation, 500 (100 to 10,000)")).toBeVisible();
@@ -212,6 +216,51 @@ describe("Settings writes", () => {
     await user.clear(screen.getByRole("textbox", { name: "Runs at once" }));
     await user.tab();
     await waitFor(() => expect(lastPut(fake)).toEqual({ max_concurrent_runs: null }));
+  });
+
+  it("writes the idle timeout, and shows the service's refusal of one it cannot use", async () => {
+    const { fake, current } = settingsService();
+    const user = await open(fake);
+    const box = await screen.findByRole("textbox", { name: IDLE_LABEL });
+    await user.clear(box);
+    await user.type(box, "5{Enter}");
+    await waitFor(() => expect(current().idle_timeout_minutes).toBe(5));
+    expect(lastPut(fake)).toEqual({ idle_timeout_minutes: 5 });
+    expect(screen.getByRole("textbox", { name: IDLE_LABEL })).toHaveValue("5");
+    expect(screen.getByText("= 5 min (1 to 10,080)")).toBeVisible();
+    // The service's own E184 issue is shown, never text the interface makes up.
+    const refusal: Issue = {
+      code: "E184",
+      severity: "error",
+      component: null,
+      path: "/idle_timeout_minutes",
+      message:
+        "The setting 'idle_timeout_minutes' must be a whole number of minutes from 1 to " +
+        "10,080 (7 days).",
+      hint: "Send a whole number of minutes from 1 to 10,080 (7 days), or null to use the default.",
+    };
+    fake.answer(
+      "PUT /v1/settings",
+      { error: { code: "E184", message: "The settings were not written." }, issues: [refusal] },
+      400,
+    );
+    const again = screen.getByRole("textbox", { name: IDLE_LABEL });
+    await user.clear(again);
+    await user.type(again, "0{Enter}");
+    expect(await screen.findByText(refusal.message)).toBeVisible();
+    expect(lastPut(fake)).toEqual({ idle_timeout_minutes: 0 });
+    await waitFor(() => expect(screen.getByRole("textbox", { name: IDLE_LABEL })).toHaveValue("5"));
+  });
+
+  it("restores the idle timeout's default when its field is emptied", async () => {
+    const changed: Settings = { ...SETTINGS, idle_timeout_minutes: 120 };
+    const { fake, current } = settingsService(changed);
+    const user = await open(fake, changed);
+    expect(screen.getByText("= 2 h (1 to 10,080)")).toBeVisible();
+    await user.clear(screen.getByRole("textbox", { name: IDLE_LABEL }));
+    await user.tab();
+    await waitFor(() => expect(lastPut(fake)).toEqual({ idle_timeout_minutes: null }));
+    await waitFor(() => expect(current().idle_timeout_minutes).toBe(30));
   });
 
   it("restores one threshold's default by leaving it out of the object sent", async () => {

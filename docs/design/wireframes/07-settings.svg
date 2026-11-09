@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="title desc">
   <title id="title">Wireframe 07: Settings</title>
-  <desc id="desc">Settings screen with sections: run targets (local only in Phase 1), runs and limits (runs at once, time limit in seconds, memory limit in bytes, each with its plain value), hardware (detected from GET /v1/system, the tier override), engines (GET /v1/engines), the five findings thresholds with the service's W220 issues, appearance (theme, text size, motion, colour-blind safe charts), canvas (ask before deleting, undo steps), Restore all defaults for those preferences after a question, service (remote access not available) and about. Each section says when its settings take effect: the run settings and the tier at the next start of the service, the thresholds at the next results, the preferences at once.</desc>
+  <desc id="desc">Settings screen with sections: run targets (local only in Phase 1), runs and limits (runs at once, time limit in seconds, memory limit in bytes, each with its plain value), hardware (detected from GET /v1/system, the tier override), engines (GET /v1/engines), the five findings thresholds with the service's W220 issues, appearance (theme, text size, motion, colour-blind safe charts), canvas (ask before deleting, undo steps), Restore all defaults for those preferences after a question, service (remote access not available; the idle timeout in minutes, added at M11 for AKS-141) and about. Each section says when its settings take effect: the run settings, the tier and the idle timeout at the next start of the service, the thresholds at the next results, the preferences at once.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#547076"/>
@@ -156,10 +156,15 @@
   <text x="880" y="627" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="middle">Restore all defaults</text>
   <text x="980" y="622" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Appearance and canvas only, after a question</text>
   <text x="980" y="638" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">(focus on Cancel); other settings keep their values.</text>
-  <text x="792" y="676" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Service</text>
-  <text x="792" y="698" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Remote access: not available in this version (only this computer can connect).</text>
-  <text x="792" y="730" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">About</text>
-  <text x="792" y="752" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Free software under the GNU AGPL version 3.</text>
-  <text x="792" y="774" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">Read the licence</text>
-  <text x="932" y="774" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">Notices of the software it includes</text>
+  <text x="792" y="662" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Service</text>
+  <text x="792" y="682" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Remote access: not available in this version (only this computer can connect).</text>
+  <text x="792" y="702" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Stop when idle for, in minutes</text>
+  <rect x="792" y="708" width="140" height="26" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="800" y="726" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">30</text>
+  <text x="944" y="726" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">= 30 minutes (1 to 10,080)</text>
+  <text x="792" y="750" font-family="sans-serif" font-size="12" font-weight="400" fill="#915604" text-anchor="start">Takes effect at the next start of the engine service. Empty restores the default.</text>
+  <text x="792" y="776" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">About</text>
+  <text x="872" y="776" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">Read the licence</text>
+  <text x="996" y="776" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">Notices of the software it includes</text>
+  <text x="792" y="796" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Free software under the GNU AGPL version 3.</text>
 </svg>
