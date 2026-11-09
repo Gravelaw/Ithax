@@ -30,7 +30,7 @@ function screenTitle(route: Route): string {
 export function App({ client }: { client: ApiClient }) {
   const [route, go] = useRoute();
   const { settings, save } = useSettings();
-  const { start: startLesson } = useLearning();
+  const { start: startLesson, exit: exitLesson } = useLearning();
   const [noticeOpen, setNoticeOpen] = useState(!settings.interface.first_start_seen);
   const [saveProblem, setSaveProblem] = useState<ApiResult<SettingsBody> | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -105,7 +105,11 @@ export function App({ client }: { client: ApiClient }) {
         {route.screen === "home" ? (
           <Home
             client={client}
-            onOpen={open}
+            onOpen={(opened) => {
+              // An ordinary open shows the model without a lesson (spec 4).
+              exitLesson();
+              open(opened);
+            }}
             onBuild={() => go({ screen: "build", projectId: null })}
             onLesson={(made, template, lesson) => {
               startLesson(newLearning(made.id, template, lesson));
@@ -114,7 +118,14 @@ export function App({ client }: { client: ApiClient }) {
           />
         ) : null}
         {route.screen === "build" ? (
-          <BuildForm client={client} onCreated={built} onBack={() => go(HOME)} />
+          <BuildForm
+            client={client}
+            onCreated={(made, data) => {
+              exitLesson();
+              built(made, data);
+            }}
+            onBack={() => go(HOME)}
+          />
         ) : null}
         {route.screen === "canvas" ? (
           <CanvasScreen client={client} project={shownProject} toolbar={tools} onGo={go} />

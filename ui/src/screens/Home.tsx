@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Project, Template } from "../api/types";
 import { ServiceProblem } from "../components/ServiceProblem";
+import { useMounted } from "../components/useMounted";
 import { type Lesson, parseLesson } from "../learn/lesson";
 import { BUILD_TEMPLATES } from "./BuildForm";
 import { NewProjectDialog } from "./NewProjectDialog";
@@ -61,6 +62,8 @@ export function Home({
   const [starting, setStarting] = useState<string | null>(null);
   const [startProblem, setStartProblem] = useState<ApiResult<unknown> | null>(null);
   const [unreadable, setUnreadable] = useState(false);
+  // An answer that arrives after Home was left neither navigates nor sets state.
+  const mounted = useMounted();
   const [templates, setTemplates] = useState<Loaded<Template[]>>(null);
   const [dialog, setDialog] = useState<"new" | "open" | null>(null);
   const [lessonsFirst, setLessonsFirst] = useState(false);
@@ -87,6 +90,7 @@ export function Home({
     setStartProblem(null);
     setUnreadable(false);
     const read = await client.getTemplate(template.id);
+    if (!mounted.current) return;
     if (read.kind !== "ok") {
       setStarting(null);
       setStartProblem(read);
@@ -102,6 +106,7 @@ export function Home({
       name: read.data.template.title,
       template: template.id,
     });
+    if (!mounted.current) return;
     setStarting(null);
     if (made.kind !== "ok") {
       setStartProblem(made);

@@ -138,6 +138,28 @@ describe("Home", () => {
     });
   });
 
+  it("does nothing with answers that arrive after Home was left", async () => {
+    const onLesson = vi.fn();
+    const shop = { id: "coffee_shop", title: "Coffee shop queue" };
+    const lesson =
+      "# T\n## A\nComponent: `a`\nText\n## Exercise: x\nComponent: `a`\n### Change\nc\n" +
+      "### Prediction\n- [x] y\n- [ ] n\n### Explanation\ne\n";
+    const fake = service([], [shop])
+      .answer("GET /v1/templates/coffee_shop", { template: shop, lesson, expected: [] })
+      .answer("POST /v1/projects", project("made", "Coffee shop queue"));
+    const shown = render(<Home client={fake.client()} onOpen={() => {}} onLesson={onLesson} />);
+    const release = fake.holdWrites();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Start the lesson Coffee shop queue" }),
+    );
+    await waitFor(() => expect(fake.held).toBe(1));
+    shown.unmount();
+    release();
+    await waitFor(() => expect(fake.requested("POST", "/v1/projects")).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(onLesson).not.toHaveBeenCalled();
+  });
+
   it("makes no project when the template cannot be read, and shows the service's issue", async () => {
     const onLesson = vi.fn();
     const shop = { id: "coffee_shop", title: "Coffee shop queue" };

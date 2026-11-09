@@ -204,6 +204,27 @@ describe("the Build form", () => {
     expect(screen.getByRole("radio", { name: /How much stock should I hold\?/ })).toBeChecked();
   });
 
+  it("does nothing with an answer that arrives after the form was left", async () => {
+    const fake = new FakeService()
+      .answer("GET /v1/templates", [{ id: "coffee_shop", title: "Coffee shop queue" }])
+      .answer("POST /v1/projects", made("Coffee shop queue"));
+    const onCreated = vi.fn();
+    const shown = render(
+      <BuildForm client={fake.client()} onCreated={onCreated} onBack={() => {}} />,
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("radio", { name: /How long will people/ }));
+    await user.click(screen.getByRole("radio", { name: /No, I will estimate/ }));
+    const release = fake.holdWrites();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(fake.held).toBe(1));
+    shown.unmount();
+    release();
+    await waitFor(() => expect(fake.requested("POST", "/v1/projects")).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(onCreated).not.toHaveBeenCalled();
+  });
+
   it("shows an answer whose template is not served as unavailable", async () => {
     const { user } = setup(["coffee_shop", "product_mix"]);
     const line = await screen.findByRole("radio", { name: /Where is the bottleneck\?/ });

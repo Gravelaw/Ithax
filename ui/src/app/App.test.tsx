@@ -245,6 +245,42 @@ describe("the frame", () => {
     );
     expect(await screen.findByRole("region", { name: "Arrive" })).toBeVisible();
     expect(window.location.hash).toBe("#/canvas/p1");
+    // Opened again from Recent projects, the project shows no lesson (spec 4).
+    fake.answer("GET /v1/projects", [made]);
+    await userEvent.click(screen.getByRole("button", { name: "Home" }));
+    await userEvent.click(await screen.findByText("/p1"));
+    expect(await screen.findByRole("heading", { name: "Canvas" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("Saved"));
+    expect(screen.queryByRole("region", { name: "Arrive" })).toBeNull();
+    expect(document.querySelector(".step-card")).toBeNull();
+  });
+
+  it("ends a lesson with Exit lesson", async () => {
+    const shop = { id: "coffee_shop", title: "Coffee shop queue", experiment: "base" };
+    const lesson =
+      "# Coffee shop queue\n\n## Arrive\n\nComponent: `arrivals`\n\nThey arrive.\n\n" +
+      "## Exercise: two tills\n\nComponent: `till`\n\n### Change\n\nSet it.\n\n" +
+      "### Prediction\n\n- [x] Less.\n- [ ] More.\n\n### Explanation\n\nBecause.\n";
+    const made = {
+      id: "p1",
+      name: "Coffee shop queue",
+      created: "2026-11-09T10:00:00Z",
+      layout_version: 1,
+      model_revision: 0,
+      path: "/p1",
+      available: true,
+    };
+    window.location.hash = "#/";
+    const { fake } = boot(seen);
+    new ModelService(fake);
+    fake
+      .answer("GET /v1/templates", [shop])
+      .answer("GET /v1/templates/coffee_shop", { template: shop, lesson, expected: [] })
+      .answer("POST /v1/projects", made);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Start the lesson Coffee shop queue" }),
+    );
+    expect(await screen.findByRole("region", { name: "Arrive" })).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Exit lesson" }));
     expect(screen.queryByRole("region", { name: "Arrive" })).toBeNull();
   });

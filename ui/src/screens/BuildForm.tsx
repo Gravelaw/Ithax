@@ -14,6 +14,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Project, Template } from "../api/types";
 import { ServiceProblem } from "../components/ServiceProblem";
+import { useMounted } from "../components/useMounted";
 
 export interface Answer {
   answer: string;
@@ -70,6 +71,8 @@ export function BuildForm({
   const [refusal, setRefusal] = useState<ApiResult<Project> | null>(null);
   const ids = { first: useId(), second: useId(), data: useId() };
   const heading = useRef<HTMLHeadingElement>(null);
+  // An answer that arrives after the form was left neither navigates nor sets state.
+  const mounted = useMounted();
 
   // The focus starts on the form's heading, so Tab goes to its first question.
   useEffect(() => {
@@ -114,6 +117,7 @@ export function BuildForm({
     setSending(true);
     setRefusal(null);
     const result = await client.createProject({ name: shownName, template });
+    if (!mounted.current) return;
     setSending(false);
     if (result.kind === "ok") onCreated(result.data, data === true);
     else setRefusal(result);
