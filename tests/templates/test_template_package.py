@@ -144,6 +144,53 @@ def test_a_json_file_must_be_readable(tmp_path: Path, name: str) -> None:
     assert issues(folder) == [("E195", f"/{name}")]
 
 
+def test_a_model_the_strict_reader_refuses_is_a_package_issue(tmp_path: Path) -> None:
+    """A lone surrogate loads as a model but cannot be written back as UTF-8, so the
+    strict reader refuses it; that is an E195 issue, not an exception (review of PR #50)."""
+    folder = copy(tmp_path)
+    change(folder, "model.json", lambda model: model["meta"].update(description="\ud800"))
+    assert '"\\ud800"' in (folder / "model.json").read_text(encoding="utf-8")
+    assert issues(folder) == [("E195", "/model.json")]
+
+
+def _rename_the_till_in_the_exercise(folder: Path, exercise_prefix: str) -> None:
+    change(
+        folder,
+        "template.json",
+        lambda template: template["exercise"]["edits"].append(
+            {"edit": "rename_component", "id": "till", "new_id": "counter"}
+        ),
+    )
+
+    def rename(rows: list[Document]) -> None:
+        for row in rows:
+            if row.get("run") == "exercise":
+                row["metric"] = row["metric"].replace("till.", exercise_prefix, 1)
+
+    change(folder, "expected.json", rename)
+
+
+def test_exercise_rows_are_checked_against_the_exercise_s_model(tmp_path: Path) -> None:
+    """An exercise that renames a component reports its metrics under the new name; its
+    rows are judged against the edited model, the template's against the original
+    (review of PR #50)."""
+    folder = copy(tmp_path)
+    _rename_the_till_in_the_exercise(folder, "counter.")
+    result = load_package(folder, benchmark_cases=CASES)
+    assert result.issues == ()
+    assert result.package is not None
+
+
+def test_an_exercise_row_naming_a_component_the_edits_removed_is_refused(
+    tmp_path: Path,
+) -> None:
+    folder = copy(tmp_path)
+    _rename_the_till_in_the_exercise(folder, "till.")
+    codes = issues(folder)
+    assert codes and all(code == "E195" for code, _ in codes)
+    assert all(path.startswith("/expected.json/") and path.endswith("/metric") for _, path in codes)
+
+
 def test_the_model_s_own_issues_keep_their_codes_under_model_json(tmp_path: Path) -> None:
     folder = copy(tmp_path)
     change(folder, "model.json", lambda m: m["connections"].pop())
