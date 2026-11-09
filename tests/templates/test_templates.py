@@ -14,6 +14,7 @@ import json
 import math
 import os
 from collections.abc import Mapping
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -35,10 +36,11 @@ IDS = [folder.name for folder in package_folders(TEMPLATES)]
 # Results do not depend on the number of workers (spec 1 "Random streams").
 WORKERS = min(4, os.cpu_count() or 1)
 
-#: The templates of AKS-122, AKS-139 and AKS-123; later tickets add folders.
+#: The templates of AKS-122, AKS-139, AKS-123 and AKS-140: spec 4's ten.
 AKS_122 = {"coffee_shop", "three_machine_line", "machine_breakdowns"}
 AKS_139 = {"clinic_patient_flow", "warehouse_pick_pack", "inventory_reorder_point"}
 AKS_123 = {"transport_plan"}
+AKS_140 = {"product_mix", "staff_rota", "how_many_machines"}
 
 
 def load(tid: str) -> TemplatePackage:
@@ -59,8 +61,10 @@ def run_summary(document: Mapping[str, Any], experiment: str | None, workdir: Pa
     return outcome.summary
 
 
-def test_the_aks_122_aks_139_and_aks_123_templates_exist() -> None:
-    assert set(IDS) >= AKS_122 | AKS_139 | AKS_123
+def test_spec_4s_ten_templates_exist() -> None:
+    """Spec 4 "Template library": the ten Phase 1 templates (AKS-122, AKS-139, AKS-123,
+    AKS-140)."""
+    assert set(IDS) == AKS_122 | AKS_139 | AKS_123 | AKS_140
 
 
 @pytest.mark.template
@@ -154,6 +158,7 @@ def test_the_coffee_shop_template_is_the_example_with_a_description() -> None:
         ("clinic_patient_flow", "190 h", "remaining 190 hours"),
         ("warehouse_pick_pack", "192 h", "remaining 192 hours"),
         ("inventory_reorder_point", "950 d", "remaining 950 days"),
+        ("how_many_machines", "190 h", "remaining 190 hours"),
     ],
 )
 def test_the_template_states_the_time_measured_as_length_minus_warmup(
@@ -352,3 +357,168 @@ def test_the_transport_exercise_changes_one_table_value() -> None:
     changed = json.loads(json.dumps(package.model))
     changed["tables"]["supply"]["values"]["centre"] = 210
     assert exercise == changed
+
+
+# --- AKS-140: product mix, staff rota, how many machines ---------------------------------
+
+
+def benchmark_files(case: str) -> tuple[dict[str, Any], dict[str, float]]:
+    folder = ROOT / "benchmarks" / case
+    model = json.loads((folder / "model.json").read_text(encoding="utf-8"))
+    rows = json.loads((folder / "expected.json").read_text(encoding="utf-8"))
+    return model, {row["metric"]: row["value"] for row in rows}
+
+
+@pytest.mark.parametrize(
+    ("tid", "case"),
+    [("product_mix", "product_mix"), ("how_many_machines", "machine_count")],
+)
+def test_the_template_is_its_benchmark_with_its_own_name_and_description(
+    tid: str, case: str
+) -> None:
+    """Spec 4 "Template package": an optimization template cites the published optimum;
+    the product mix and the machine count are spec 2's benchmark models, so every
+    `benchmark` row is the benchmark's own value."""
+    package = load(tid)
+    model, published = benchmark_files(case)
+    assert {key: value for key, value in package.model.items() if key != "meta"} == {
+        key: value for key, value in model.items() if key != "meta"
+    }
+    assert package.model["meta"]["name"] == package.template["title"]
+    rows = [row for row in package.rows("template") if row.source == "benchmark"]
+    assert rows and all(row.reference.startswith(f"benchmarks/{case}") for row in rows)
+    for row in rows:
+        metric = row.metric
+        if case == "machine_count" and metric != "search.best.tills":
+            metric = f"search.candidates[tills=2].{metric}"
+        assert published[metric] == row.value, row.metric
+
+
+def test_the_product_mix_exercise_keeps_the_plan_by_lp_duality() -> None:
+    """The exercise raises the table's profit from 80 to 100. The plan (24, 14) stays
+    optimal: dual prices y = (2.6, 3.2) on wood and labour solve 5 y1 + 10 y2 = 45 and
+    20 y1 + 15 y2 = 100 (both variables basic), are non-negative, and their value
+    400 y1 + 450 y2 equals the plan's profit, 2,480 (weak duality; Hillier and Lieberman,
+    chapter 6). Both prices are positive, so both limits stay used up at every optimum,
+    and their two equations fix the plan: it is unique. Sums only; nothing is solved."""
+    package = load("product_mix")
+    exercise = package.document("exercise")
+    assert exercise["objective"]["linear"] == {"chairs": 45, "tables": 100}
+    limits = {item["id"]: item for item in exercise["constraints"]}
+    plan = {"chairs": Fraction(24), "tables": Fraction(14)}
+    prices = {"wood": Fraction(13, 5), "labour": Fraction(16, 5)}
+    for limit in limits.values():
+        used = sum(limit["linear"][name] * amount for name, amount in plan.items())
+        assert used == limit["rhs"]  # both limits used up: the plan is a vertex
+    for name, profit in exercise["objective"]["linear"].items():
+        assert sum(prices[c] * limits[c]["linear"][name] for c in limits) == profit
+    assert all(price > 0 for price in prices.values())
+    dual = sum(prices[c] * limits[c]["rhs"] for c in limits)
+    profit = sum(exercise["objective"]["linear"][name] * amount for name, amount in plan.items())
+    assert dual == profit == 2480
+    rows = {row.metric: row.value for row in package.rows("exercise")}
+    assert rows == {"objective": 2480.0, "variables.chairs": 24.0, "variables.tables": 14.0}
+
+
+#: The staff rota's certificate (AKS-140): a rota of whole people meeting every day's need
+#: with 9 staff, and a rota of fractions meeting it exactly with 8.8.
+WHOLE_ROTA = {"wed_sun": 3, "thu_mon": 1, "fri_tue": 3, "sat_wed": 1, "sun_thu": 1}
+FRACTIONAL_ROTA = {
+    "mon_fri": Fraction(2, 5),
+    "tue_sat": Fraction(2, 5),
+    "wed_sun": Fraction(12, 5),
+    "thu_mon": Fraction(7, 5),
+    "fri_tue": Fraction(12, 5),
+    "sat_wed": Fraction(7, 5),
+    "sun_thu": Fraction(2, 5),
+}
+
+
+def covered(rota: Mapping[str, Fraction | int], works: Mapping[str, Any], day: str) -> Fraction:
+    return sum(
+        (Fraction(works[pattern][day]) * amount for pattern, amount in rota.items()), Fraction(0)
+    )
+
+
+def test_the_staff_rota_is_an_indexed_integer_programme() -> None:
+    package = load("staff_rota")
+    model = package.model
+    assert model["format_version"] == "0.2"
+    assert package.template["audience"] == "Business"
+    assert package.experiment is None
+    assert model["variables"] == [
+        {"id": "staff", "type": "integer", "lower": 0, "over": ["patterns"]}
+    ]
+    assert model["objective"] == {"sense": "minimize", "terms": [{"variable": "staff"}]}
+    days = model["sets"]["days"]
+    works = model["tables"]["works"]["values"]
+    # Each pattern is five days in a row, then two days off.
+    for start, pattern in enumerate(model["sets"]["patterns"]):
+        on = [day for at, day in enumerate(days) if (at - start) % 7 < 5]
+        assert [works[pattern][day] for day in days] == [int(day in on) for day in days]
+        assert pattern == f"{days[start]}_{days[(start + 4) % 7]}"
+
+
+@pytest.mark.parametrize("run", RUNS)
+def test_the_staff_rota_optimum_is_proved_by_counting(run: Run) -> None:
+    """Every pattern works 5 of the 7 days, so adding the seven cover limits gives
+    5 x (staff hired) >= the week's needs, 44: at least 8.8 people (the LP dual with a
+    price of 1/5 on every day). With whole people (the template) that is at least 9, and
+    a rota of 9 meets every day: 9 is the optimum. With fractions allowed (the exercise
+    makes `staff` continuous) a rota of 8.8 meets every day exactly: 8.8 is the optimum.
+    A rota is checked by sums; nothing is solved (guide rule 7)."""
+    package = load("staff_rota")
+    document = package.document(run)
+    need = document["tables"]["need"]["values"]
+    works = document["tables"]["works"]["values"]
+    assert all(sum(row.values()) == 5 for row in works.values())
+    bound = Fraction(sum(need.values()), 5)
+    assert bound == Fraction(44, 5)
+    integer = document["variables"][0]["type"] == "integer"
+    assert integer == (run == "template")
+    rota: Mapping[str, Fraction | int] = WHOLE_ROTA if integer else FRACTIONAL_ROTA
+    assert all(amount >= 0 for amount in rota.values())
+    assert all(covered(rota, works, day) >= need[day] for day in need)
+    best = sum(rota.values())
+    assert best == (math.ceil(bound) if integer else bound)
+    rows = {row.metric: row.value for row in package.rows(run)}
+    assert rows == {"objective": float(best)}
+    if not integer:
+        # The fractions meet every need exactly, as the day prices of 1/5 require.
+        assert all(covered(rota, works, day) == need[day] for day in need)
+
+
+def test_how_many_machines_searches_the_tills_on_the_exhaustive_path() -> None:
+    """A `search` over `tills` 1 to 5 with a budget of at least 5 takes the exhaustive
+    path (spec 2 "Which path"), as the machine-count benchmark does, so the template test
+    runs each value with the file's seed and does not depend on Optuna's sequence."""
+    package = load("how_many_machines")
+    experiment = next(
+        item for item in package.model["experiments"] if item["id"] == package.experiment
+    )
+    tills = package.model["parameters"]["tills"]
+    assert (tills["type"], tills["min"], tills["max"]) == ("integer", 1, 5)
+    assert experiment["search"]["budget"] >= tills["max"] - tills["min"] + 1
+    assert experiment["warmup"] == "10 h"
+
+
+@pytest.mark.parametrize(("run", "busy", "best"), [("template", 0.35, 2), ("exercise", 0.2, 3)])
+def test_how_many_machines_best_is_the_fewest_waits_that_keep_the_tills_busy(
+    run: Run, busy: float, best: int
+) -> None:
+    """Erlang C (Adan and Resing, (5.1) and (5.3)): with c tills each is busy 0.75/c of
+    the time and the wait falls as c grows, so the best is the largest c whose
+    utilization still meets the limit: 2 at 0.35, 3 at 0.2 (the exercise)."""
+    package = load("how_many_machines")
+    document = package.document(run)
+    assert document["constraints"] == [
+        {"id": "busy", "metric": "till.utilization", "op": ">=", "value": busy}
+    ]
+    arrival_rate, mean_service = 1 / 120, 90.0
+    feasible = [c for c in range(1, 6) if arrival_rate * mean_service / c >= busy]
+    waits = {c: erlang_c_wait(arrival_rate, mean_service, c) for c in feasible}
+    assert min(waits, key=lambda c: waits[c]) == best
+    rows = {row.metric: row.value for row in package.rows(run)}
+    assert rows["search.best.tills"] == best
+    assert rows["till.wait.mean"] == pytest.approx(waits[best])
+    assert rows["till.utilization"] == pytest.approx(arrival_rate * mean_service / best)

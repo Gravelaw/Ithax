@@ -1,0 +1,47 @@
+[
+  {
+    "metric": "search.best.tills",
+    "value": 2.0,
+    "method": "sig_figs_4",
+    "source": "benchmark",
+    "reference": "benchmarks/machine_count: the same model and search; Erlang C for the M/M/c queue, lambda = 1/120 per s, E(S) = 90 s (Adan and Resing, Queueing Systems (2015), equations 5.1 and 5.3): 1 till waits 270 s at utilization 0.75, 2 tills 162/11 s at 0.375, and 3 to 5 tills fall below the limit 0.35 (0.25, 0.1875, 0.15), so the best is 2"
+  },
+  {
+    "metric": "till.wait.mean",
+    "value": 14.727272727272727,
+    "method": "three_se",
+    "source": "benchmark",
+    "reference": "benchmarks/machine_count: the same model and search; Erlang C for the M/M/c queue, lambda = 1/120 per s, E(S) = 90 s (Adan and Resing, Queueing Systems (2015), equations 5.1 and 5.3): the best, 2 tills, confirmed with 30 replications: Pi_W = 9/44, E(W) = Pi_W/(c mu - lambda) = 162/11 s"
+  },
+  {
+    "metric": "till.utilization",
+    "value": 0.375,
+    "method": "three_se",
+    "source": "benchmark",
+    "reference": "benchmarks/machine_count: the same model and search; Erlang C for the M/M/c queue, lambda = 1/120 per s, E(S) = 90 s (Adan and Resing, Queueing Systems (2015), equations 5.1 and 5.3): the best, 2 tills: utilization lambda E(S)/c = 0.75/2 = 0.375"
+  },
+  {
+    "metric": "search.best.tills",
+    "value": 3.0,
+    "method": "sig_figs_4",
+    "source": "theory",
+    "run": "exercise",
+    "reference": "Erlang C for the M/M/c queue (Adan and Resing, Queueing Systems (2015), equations 5.1 and 5.3), lambda = 1/120 per s, E(S) = 90 s, with the limit lowered to 0.2: utilization 0.75/c is 0.75, 0.375, 0.25, 0.1875 and 0.15 for 1 to 5 tills, so 1 to 3 are allowed, and the wait falls with c (270 s, 162/11 s, 30/17 s), so the best is 3 tills: Pi_W = 3/68, E(W) = Pi_W/(c mu - lambda) = 30/17 s at utilization 0.25"
+  },
+  {
+    "metric": "till.wait.mean",
+    "value": 1.7647058823529411,
+    "method": "three_se",
+    "source": "theory",
+    "run": "exercise",
+    "reference": "Erlang C for the M/M/c queue (Adan and Resing, Queueing Systems (2015), equations 5.1 and 5.3), lambda = 1/120 per s, E(S) = 90 s, with the limit lowered to 0.2: utilization 0.75/c is 0.75, 0.375, 0.25, 0.1875 and 0.15 for 1 to 5 tills, so 1 to 3 are allowed, and the wait falls with c (270 s, 162/11 s, 30/17 s), so the best is 3 tills: Pi_W = 3/68, E(W) = Pi_W/(c mu - lambda) = 30/17 s at utilization 0.25"
+  },
+  {
+    "metric": "till.utilization",
+    "value": 0.25,
+    "method": "three_se",
+    "source": "theory",
+    "run": "exercise",
+    "reference": "Erlang C for the M/M/c queue (Adan and Resing, Queueing Systems (2015), equations 5.1 and 5.3), lambda = 1/120 per s, E(S) = 90 s, with the limit lowered to 0.2: utilization 0.75/c is 0.75, 0.375, 0.25, 0.1875 and 0.15 for 1 to 5 tills, so 1 to 3 are allowed, and the wait falls with c (270 s, 162/11 s, 30/17 s), so the best is 3 tills: Pi_W = 3/68, E(W) = Pi_W/(c mu - lambda) = 30/17 s at utilization 0.25"
+  }
+]

@@ -1,0 +1,25 @@
+{
+  "id": "staff_rota",
+  "title": "Staff rota",
+  "summary": "A shop open every day needs a different number of staff each day, and everyone works five days in a row. Find the fewest people who cover the week, and see why whole people need integer programming.",
+  "audience": "Business",
+  "concepts": [
+    "integer programming",
+    "shift patterns",
+    "sets and tables",
+    "rounding"
+  ],
+  "minutes": 15,
+  "experiment": null,
+  "origin": "Written for this project: the classic five-days-on, two-off pattern problem (the idea only, as in Winston's post office example; none of its numbers or wording), with its optimum proved by a counting bound and a rota that meets it (docs/research/spec-4-template-sources.md).",
+  "licence": "AGPL-3.0-only",
+  "exercise": {
+    "edits": [
+      {
+        "edit": "set_path",
+        "path": "/variables/0/type",
+        "value": "continuous"
+      }
+    ]
+  }
+}

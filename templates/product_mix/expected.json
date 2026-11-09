@@ -1,0 +1,47 @@
+[
+  {
+    "metric": "objective",
+    "value": 2200.0,
+    "method": "sig_figs_4",
+    "source": "benchmark",
+    "reference": "benchmarks/product_mix: the same model; Enumeration of the vertices of the feasible region (fundamental theorem of linear programming): (0, 0) 0, (0, 20) 1,600, (45, 0) 2,025, (24, 14) 2,200; the best is the single vertex (24, 14), unique since the duals 1 and 4 are both positive"
+  },
+  {
+    "metric": "variables.chairs",
+    "value": 24.0,
+    "method": "sig_figs_4",
+    "source": "benchmark",
+    "reference": "benchmarks/product_mix: the same model; Enumeration of the vertices of the feasible region (fundamental theorem of linear programming): (0, 0) 0, (0, 20) 1,600, (45, 0) 2,025, (24, 14) 2,200; the best is the single vertex (24, 14), unique since the duals 1 and 4 are both positive"
+  },
+  {
+    "metric": "variables.tables",
+    "value": 14.0,
+    "method": "sig_figs_4",
+    "source": "benchmark",
+    "reference": "benchmarks/product_mix: the same model; Enumeration of the vertices of the feasible region (fundamental theorem of linear programming): (0, 0) 0, (0, 20) 1,600, (45, 0) 2,025, (24, 14) 2,200; the best is the single vertex (24, 14), unique since the duals 1 and 4 are both positive"
+  },
+  {
+    "metric": "objective",
+    "value": 2480.0,
+    "method": "sig_figs_4",
+    "source": "theory",
+    "reference": "LP duality (Hillier and Lieberman, Introduction to Operations Research, chapter 6): with the table's profit 100, dual prices 2.6 for wood and 3.2 for labour solve 5 y1 + 10 y2 = 45 and 20 y1 + 15 y2 = 100, are positive, and their value 400 x 2.6 + 450 x 3.2 = 2,480 equals the profit of 24 chairs and 14 tables, 45 x 24 + 100 x 14; both prices positive, so both limits stay used up and the plan is unique",
+    "run": "exercise"
+  },
+  {
+    "metric": "variables.chairs",
+    "value": 24.0,
+    "method": "sig_figs_4",
+    "source": "theory",
+    "reference": "LP duality (Hillier and Lieberman, Introduction to Operations Research, chapter 6): with the table's profit 100, dual prices 2.6 for wood and 3.2 for labour solve 5 y1 + 10 y2 = 45 and 20 y1 + 15 y2 = 100, are positive, and their value 400 x 2.6 + 450 x 3.2 = 2,480 equals the profit of 24 chairs and 14 tables, 45 x 24 + 100 x 14; both prices positive, so both limits stay used up and the plan is unique",
+    "run": "exercise"
+  },
+  {
+    "metric": "variables.tables",
+    "value": 14.0,
+    "method": "sig_figs_4",
+    "source": "theory",
+    "reference": "LP duality (Hillier and Lieberman, Introduction to Operations Research, chapter 6): with the table's profit 100, dual prices 2.6 for wood and 3.2 for labour solve 5 y1 + 10 y2 = 45 and 20 y1 + 15 y2 = 100, are positive, and their value 400 x 2.6 + 450 x 3.2 = 2,480 equals the profit of 24 chairs and 14 tables, 45 x 24 + 100 x 14; both prices positive, so both limits stay used up and the plan is unique",
+    "run": "exercise"
+  }
+]

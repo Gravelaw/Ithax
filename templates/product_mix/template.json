@@ -1,0 +1,26 @@
+{
+  "id": "product_mix",
+  "title": "Product mix",
+  "summary": "A workshop makes chairs and tables from limited wood and labour. Find the mix that earns the most, and see why the best plan sits at a corner of what is possible.",
+  "audience": "Students",
+  "concepts": [
+    "linear programming",
+    "decision variables",
+    "constraints",
+    "corner points",
+    "sensitivity"
+  ],
+  "minutes": 15,
+  "experiment": null,
+  "origin": "Written for this project: spec 2's product mix (benchmarks/product_mix), written by the review council; the idea of a two-product linear programme is the textbook prototype (Hillier and Lieberman), but no number or wording of theirs is used (docs/research/spec-4-template-sources.md).",
+  "licence": "AGPL-3.0-only",
+  "exercise": {
+    "edits": [
+      {
+        "edit": "set_path",
+        "path": "/objective/linear/tables",
+        "value": 100
+      }
+    ]
+  }
+}
