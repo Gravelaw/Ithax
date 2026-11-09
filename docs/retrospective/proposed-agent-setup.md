@@ -614,6 +614,14 @@ jobs:
 
 **After P9 (uv).** Replace the `setup-python` and `pip install` steps with `astral-sh/setup-uv` (`enable-cache: true`) and `uv sync --frozen --extra dev`, as pydantic and FastAPI do. Use the action version current on the day; it is not given here because it was not checked.
 
+`uv sync` creates `.venv` but does not activate it for later steps, so every later command must use that environment:
+- `checks` job: `uv run bash scripts/check.sh`.
+- `interface` job:
+  - Set `LCSIM_PYTHON: ${{ github.workspace }}/.venv/bin/python`, or remove `LCSIM_PYTHON`. `ui/e2e/service.ts::python()` uses `LCSIM_PYTHON` first and falls back to the repository's `.venv` only when it is unset, so today's `LCSIM_PYTHON: python` would bypass the environment.
+  - Run the Python install step as `uv sync --frozen --extra dev` in the repository root.
+
+Codex found the first draft of this paragraph incomplete on PR #60.
+
 **Not proposed.** Path filters for docs-only pushes.
 - A workflow skipped by a path filter leaves its required check "Pending" and blocks the merge ([GitHub docs](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks)).
 - The safe pattern (a `paths-filter` job plus `if:` on each job) adds moving parts for little gain once runs are fast and free *(judgement)*.
