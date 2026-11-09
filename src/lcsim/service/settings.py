@@ -1,9 +1,9 @@
 """``/v1/settings``: the user's settings (spec 3 "Endpoints"; AKS-119, owner to confirm).
 
-``GET`` gives ``{settings, issues}``, the six settings of ``settings.json`` as the service
+``GET`` gives ``{settings, issues}``, the seven settings of ``settings.json`` as the service
 takes them; ``PUT`` writes any of them and gives the same body after the write. The
 checks and the file are ``lcsim.service.settings_store``. The thresholds take effect at the
-next summary, the tier and the run settings at the next start.
+next summary, the tier, the run settings and the idle timeout at the next start.
 """
 
 from __future__ import annotations

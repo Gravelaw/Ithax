@@ -54,6 +54,7 @@ def test_get_gives_every_setting_with_its_default(
     assert settings["run_time_limit_s"] == 600
     memory = read_run_settings(config.config_dir).limits
     assert settings["run_memory_limit_bytes"] == memory.memory_bytes
+    assert settings["idle_timeout_minutes"] == 30
     assert settings["finding_thresholds"] == DEFAULT_FINDINGS
     assert settings["interface"] == INTERFACE_DEFAULTS
 
@@ -124,6 +125,7 @@ def test_every_value_in_range_is_taken(client: TestClient) -> None:
         "max_concurrent_runs": 64,
         "run_time_limit_s": 604800,
         "run_memory_limit_bytes": 2**63 - 1,
+        "idle_timeout_minutes": 10080,
         "finding_thresholds": {
             "bottleneck_utilization": 1,
             "idle_utilization": 0,
@@ -161,6 +163,12 @@ def test_every_value_in_range_is_taken(client: TestClient) -> None:
         ({"run_time_limit_s": "600"}, ["/run_time_limit_s"]),
         ({"run_memory_limit_bytes": 0}, ["/run_memory_limit_bytes"]),
         ({"run_memory_limit_bytes": 2**63}, ["/run_memory_limit_bytes"]),
+        ({"idle_timeout_minutes": 0}, ["/idle_timeout_minutes"]),
+        ({"idle_timeout_minutes": 10081}, ["/idle_timeout_minutes"]),
+        ({"idle_timeout_minutes": 1.5}, ["/idle_timeout_minutes"]),
+        ({"idle_timeout_minutes": 30.0}, ["/idle_timeout_minutes"]),
+        ({"idle_timeout_minutes": True}, ["/idle_timeout_minutes"]),
+        ({"idle_timeout_minutes": "30"}, ["/idle_timeout_minutes"]),
         ({"finding_thresholds": []}, ["/finding_thresholds"]),
         ({"finding_thresholds": {"bottleneck": 0.9}}, ["/finding_thresholds/bottleneck"]),
         (
@@ -301,3 +309,40 @@ def test_new_thresholds_are_what_the_next_summary_reads(
 ) -> None:
     put(client, {"finding_thresholds": {"bottleneck_utilization": 0.95}})
     assert read_finding_settings(config.config_dir).thresholds.bottleneck_utilization == 0.95
+
+
+# --- the idle timeout (spec 3 "Lifetime"; owner decision B5, AKS-141) ----------------------
+
+
+def test_put_writes_the_idle_timeout_and_get_returns_it(
+    client: TestClient, config: ServiceConfig
+) -> None:
+    body = put(client, {"idle_timeout_minutes": 1})
+    assert body["settings"]["idle_timeout_minutes"] == 1
+    assert body["issues"] == []
+    assert settings_file(config)["idle_timeout_minutes"] == 1
+    assert client.get("/v1/settings").json()["settings"]["idle_timeout_minutes"] == 1
+    put(client, {"idle_timeout_minutes": None})
+    assert "idle_timeout_minutes" not in settings_file(config)
+    assert client.get("/v1/settings").json()["settings"]["idle_timeout_minutes"] == 30
+
+
+def test_the_idle_timeout_refused_names_its_range(client: TestClient) -> None:
+    response = client.put("/v1/settings", json={"idle_timeout_minutes": 0})
+    [issue] = response.json()["issues"]
+    assert issue["path"] == "/idle_timeout_minutes"
+    assert "a whole number of minutes from 1 to 10,080 (7 days)" in issue["message"]
+
+
+@pytest.mark.parametrize("value", [0, 10081, 2.5, "30", False, None])
+def test_a_stored_idle_timeout_that_cannot_be_used_is_w220_and_30(
+    client: TestClient, config: ServiceConfig, value: object
+) -> None:
+    stored = {"idle_timeout_minutes": value, "finding_thresholds": {"min_time_s": -1}}
+    (config.config_dir / SETTINGS_FILE).write_text(json.dumps(stored), encoding="utf-8")
+    got = client.get("/v1/settings").json()
+    assert got["settings"]["idle_timeout_minutes"] == 30
+    assert [(issue["code"], issue["path"]) for issue in got["issues"]] == [
+        ("W220", "/finding_thresholds/min_time_s"),
+        ("W220", "/idle_timeout_minutes"),
+    ]

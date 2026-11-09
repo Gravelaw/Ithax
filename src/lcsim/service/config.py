@@ -19,6 +19,7 @@ from pathlib import Path
 
 from lcsim.engines.adapter import EngineAdapter
 from lcsim.service.hardware import Hardware
+from lcsim.service.idle_settings import DEFAULT_IDLE_MINUTES
 from lcsim.service.paths import canonical
 
 __all__ = [
@@ -38,8 +39,9 @@ __all__ = [
 #: placeholder package.
 APP_FOLDER = "lcsim"
 
-#: Spec 3 "Lifetime": exit after 30 idle minutes (proposed default, AKS-78 open).
-DEFAULT_IDLE_TIMEOUT_S = 30 * 60.0
+#: Spec 3 "Lifetime": exit after 30 idle minutes unless ``idle_timeout_minutes`` in
+#: ``settings.json`` or ``--idle-minutes`` says otherwise (owner decision B5, AKS-141).
+DEFAULT_IDLE_TIMEOUT_S = DEFAULT_IDLE_MINUTES * 60.0
 
 #: Spec 3 "Token": the first WebSocket message must arrive within 5 seconds.
 WEBSOCKET_AUTH_TIMEOUT_S = 5.0
