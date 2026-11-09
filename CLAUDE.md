@@ -77,7 +77,7 @@ examples/               coffee_shop.json, three_machine_line.json, warehouse.jso
 benchmarks/             <case>/model.json and expected.json; run by tests/benchmarks/test_benchmarks.py
 tests/                  mirrors src/
 tests/perf/             performance checks (marker perf)
-tests/packaging/        the Linux package's install checks (marker package)
+tests/linux_package/    the Linux package's install checks (marker package)
 ui/                     the interface
 desktop/                the desktop shell (Tauri 2): src-tauri/ and its own page
 packaging/linux/        the Linux package: pinned wheels, licence list, commands, install scripts
