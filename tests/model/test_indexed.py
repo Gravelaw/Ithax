@@ -630,3 +630,23 @@ def test_coefficients_too_large_to_add_are_e123_not_an_exception(
     [issue] = issues_of(document)
     assert (issue.code, issue.path) == ("E123", path)
     assert "'x'" in issue.message and "too large" in issue.message
+
+
+@pytest.mark.parametrize("holder", [("objective",), ("constraints", 2)])
+def test_coefficients_whose_float_sum_is_not_finite_are_e123(
+    holder: tuple[str | int, ...],
+) -> None:
+    """Review of PR #53: two float coefficients of 1e308 for one variable add to infinity
+    without raising, so the sum is checked to be finite."""
+    document = transport()
+    document["variables"].append({"id": "x", "type": "continuous", "lower": 0})
+    document["constraints"].append({"id": "cap", "linear": {"x": 1}, "op": "<=", "rhs": 5})
+    target: Any = document
+    for segment in holder:
+        target = target[segment]
+    target["linear"] = {"x": 1e308}
+    target.setdefault("terms", []).append({"variable": "x", "coefficient": 1e308})
+    position = len(target["terms"]) - 1
+    path = "/" + "/".join(map(str, holder)) + f"/terms/{position}/coefficient"
+    [issue] = issues_of(document)
+    assert (issue.code, issue.path) == ("E123", path)
