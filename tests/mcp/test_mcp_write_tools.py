@@ -1044,6 +1044,14 @@ def test_the_edit_model_description_says_validate_model_adds_the_engine_s_check(
     assert "the engine's own check" in text
 
 
+def test_the_descriptions_name_the_parameter_reference() -> None:
+    """The M10 trial of "How many machines?" (AKS-125) tried five spellings of a parameter in
+    the till's capacity, each E123, and gave up: no description named spec 1's
+    ``{"$param": "<id>"}``."""
+    for name in ("edit_model", "get_schema"):
+        assert '{"$param": "<id>"}' in (tool_named(name).tool().description or ""), name
+
+
 #: The longest tool description the trial's Claude Code CLI took whole: it ran with
 #: ``CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH`` 4096 (AKS-116), and a longer description would
 #: be cut, losing its worked example, which comes last.
