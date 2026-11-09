@@ -67,6 +67,8 @@ WORKERS = min(4, os.cpu_count() or 1)
 M2_CASES = {"mm1", "mm2", "tandem", "delay", "branch"}
 # The four M5 linear and integer programs (AKS-108).
 M5_OPTIMIZATION_CASES = {"product_mix", "knapsack", "assignment", "diet"}
+# The M10 linear program with the indexed layout (AKS-123).
+M10_OPTIMIZATION_CASES = {"transport"}
 # The M5 simulation-based search (AKS-109).
 M5_SEARCH_CASES = {"machine_count"}
 M2_BLOCKS = {"source", "server", "delay", "branch", "sink"}
@@ -383,7 +385,16 @@ def test_the_four_m5_optimization_cases_exist() -> None:
     """Spec 2 "Benchmark definitions": product mix, knapsack, assignment and diet."""
     assert M5_OPTIMIZATION_CASES <= set(CASES)
     found = {case for case in CASES if is_optimization(read_case(case)[0])}
-    assert found == M5_OPTIMIZATION_CASES
+    assert found == M5_OPTIMIZATION_CASES | M10_OPTIMIZATION_CASES
+
+
+def test_the_m10_transport_case_uses_the_indexed_layout() -> None:
+    """Spec 2 "Benchmarks": "Transport plan | ... | M10", with sets and tables (AKS-123)."""
+    document, expected = read_case("transport")
+    assert document["format_version"] == "0.2"
+    assert set(document["sets"]) == {"depots", "customers"}
+    assert {row.milestone for row in expected} == {"M10"}
+    assert len(expected) == 13
 
 
 @pytest.mark.parametrize("case", CASES)
