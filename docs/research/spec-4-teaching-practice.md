@@ -118,3 +118,9 @@ written to this structure; `tests/templates/test_templates.py` checks each lesso
 names a component of its model and stays within 80 words, that the exercise has a change,
 two to four choices with one marked right, and an explanation, and runs each template and
 its exercise against `expected.json` (2026-11-09).
+
+The next three (clinic patient flow, warehouse pick and pack, inventory reorder point,
+AKS-139) follow the same structure, each with a closed form beside the simulation where
+one exists (Erlang C on shared staff, the batch wait, the (R, Q) policy), and the
+inventory lesson follows Law's (s, S) example in kind only: a reorder rule, random demand
+and stock-outs, with the project's own numbers (2026-11-09).
