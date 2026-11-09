@@ -12,10 +12,12 @@ import {
   diagramLayout,
   fieldEdits,
   goalSentence,
+  isIndexed,
   limitText,
   removeDecision,
   removeLimit,
   renameDecision,
+  repeatsText,
   variablesOf,
 } from "./plan";
 
@@ -175,5 +177,124 @@ describe("the Diagram view's layout", () => {
       "tables>limit:1:15",
     ]);
     expect(layout.height).toBeGreaterThan(0);
+  });
+});
+
+/** The transport plan of spec 2 "Indexed problems" (format 0.2; AKS-123), as written. */
+function transport(): Model {
+  return {
+    format_version: "0.2",
+    meta: { name: "Transport plan" },
+    domain: "optimization",
+    sets: {
+      depots: ["north", "centre", "south"],
+      customers: ["city", "harbour", "park", "market"],
+    },
+    tables: {
+      supply: { over: ["depots"], values: { north: 300, centre: 200, south: 250 } },
+      demand: { over: ["customers"], values: { city: 180, harbour: 220, park: 150, market: 170 } },
+      cost: {
+        over: ["depots", "customers"],
+        values: {
+          north: { city: 4, harbour: 6, park: 9, market: 5 },
+          centre: { city: 7, harbour: 3, park: 5, market: 8 },
+          south: { city: 6, harbour: 8, park: 4, market: 3 },
+        },
+      },
+    },
+    variables: [{ id: "ship", type: "continuous", lower: 0, over: ["depots", "customers"] }],
+    objective: {
+      sense: "minimize",
+      terms: [{ variable: "ship", coefficient: { $table: "cost" } }],
+    },
+    constraints: [
+      {
+        id: "supply",
+        for: ["depots"],
+        terms: [{ variable: "ship" }],
+        op: "<=",
+        rhs: { $table: "supply" },
+      },
+      {
+        id: "demand",
+        for: ["customers"],
+        terms: [{ variable: "ship" }],
+        op: ">=",
+        rhs: { $table: "demand" },
+      },
+    ],
+  };
+}
+
+describe("an indexed plan (AKS-123)", () => {
+  it("is told apart from a flat one", () => {
+    expect(isIndexed(transport())).toBe(true);
+    expect(isIndexed(mix())).toBe(false);
+    expect(isIndexed(empty())).toBe(false);
+    expect(
+      isIndexed({ ...mix(), constraints: [{ id: "a", for: [], linear: {}, op: "<=", rhs: 1 }] }),
+    ).toBe(true);
+  });
+
+  it("reads its decisions, goal and limits in words", () => {
+    const model = transport();
+    expect(repeatsText(variablesOf(model)[0]?.item)).toBe("one for each depots × customers");
+    expect(repeatsText(variablesOf(mix())[0]?.item)).toBeNull();
+    expect(goalSentence(model)).toBe(
+      "Minimize Σ over depots, customers cost[depots, customers] × ship[depots, customers]",
+    );
+    const [supply, demand] = constraintsOf(model).map((row) => row.item);
+    expect(supply && limitText(supply, model)).toBe(
+      "For each depots: Σ over customers ship[depots, customers] ≤ supply[depots]",
+    );
+    expect(demand && limitText(demand, model)).toBe(
+      "For each customers: Σ over depots ship[depots, customers] ≥ demand[customers]",
+    );
+    // Coefficients and terms together, a number coefficient, and a flat limit unchanged.
+    const both = {
+      id: "x",
+      linear: { extra: 2 },
+      terms: [{ variable: "ship", coefficient: 3 }],
+      op: "<=",
+      rhs: 9,
+    };
+    expect(limitText(both, model)).toBe(
+      "2 × extra + Σ over depots, customers 3 × ship[depots, customers] ≤ 9",
+    );
+    expect(limitText({ id: "w", linear: { chairs: 5 }, op: "<=", rhs: 400 }, model)).toBe(
+      "5 × chairs ≤ 400",
+    );
+  });
+
+  it("draws a line for each term, labelled with its table or number", () => {
+    const layout = diagramLayout(transport());
+    expect(layout.decisions.map((card) => card.id)).toEqual(["ship"]);
+    expect(layout.lines).toEqual([
+      { from: "ship", to: "goal", label: "cost" },
+      { from: "ship", to: "limit:0", label: "1" },
+      { from: "ship", to: "limit:1", label: "1" },
+    ]);
+  });
+
+  it("renames and removes a decision with its terms", () => {
+    const model = transport();
+    expect(renameDecision(model, 0, "send")).toEqual([
+      { edit: "set_path", path: "/variables/0/id", value: "send" },
+      { edit: "set_path", path: "/objective/terms/0/variable", value: "send" },
+      { edit: "set_path", path: "/constraints/0/terms/0/variable", value: "send" },
+      { edit: "set_path", path: "/constraints/1/terms/0/variable", value: "send" },
+    ]);
+    const twice = transport();
+    (twice.constraints as { terms: unknown[] }[])[0]?.terms.push(
+      { variable: "other" },
+      { variable: "ship" },
+    );
+    expect(removeDecision(twice, 0)).toEqual([
+      { edit: "remove_path", path: "/variables/0" },
+      { edit: "remove_path", path: "/objective/terms/0" },
+      { edit: "remove_path", path: "/constraints/0/terms/2" },
+      { edit: "remove_path", path: "/constraints/0/terms/0" },
+      { edit: "remove_path", path: "/constraints/1/terms/0" },
+    ]);
   });
 });

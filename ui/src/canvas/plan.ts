@@ -8,6 +8,12 @@
  * `/variables`, `/objective` and `/constraints`, built from the model shown; `null` sends
  * nothing. The interface checks nothing itself: a number is sent as a number when it
  * follows spec 1's number grammar and as typed otherwise, so the service says what is wrong.
+ *
+ * An indexed model (spec 1 "Indexed optimization", format 0.2; AKS-123) is read as written,
+ * not expanded: a decision with `over` repeats over sets, a limit with `for` repeats too, and
+ * `terms` add a decision times a number or a table, summed over the decision's other sets.
+ * The views read them in words and draw them, but do not edit sets, tables or terms; renaming
+ * or removing a decision carries its terms with it.
  */
 import type { Edit, LinearConstraint, Model, Variable } from "../api/types";
 import { pointer, readNumber, shown } from "./model";
@@ -62,6 +68,91 @@ function terms(linear: Plain): string {
   return parts.length === 0 ? "0" : parts.join("");
 }
 
+/** The set ids of an `over` or a `for`, or `[]` when there are none that can be read. */
+export function setsOf(holder: unknown, key: "over" | "for"): string[] {
+  const value = own(holder, key);
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+/** A term of the goal or a limit, as the file holds it. */
+export interface PlanTerm {
+  index: number;
+  variable: unknown;
+  coefficient?: unknown;
+}
+
+/** The terms of the goal or a limit that are objects. */
+export function termsOf(holder: unknown): PlanTerm[] {
+  const list = own(holder, "terms");
+  if (!Array.isArray(list)) return [];
+  return list.flatMap((item, index) =>
+    isPlain(item)
+      ? [{ index, variable: own(item, "variable"), coefficient: own(item, "coefficient") }]
+      : [],
+  );
+}
+
+/** The table a `{"$table": "id"}` names, or `null`. */
+export function tableOf(value: unknown): string | null {
+  if (!isPlain(value)) return null;
+  const id = own(value, "$table");
+  return Object.keys(value).length === 1 && typeof id === "string" ? id : null;
+}
+
+/** Whether the model uses the indexed layout: sets, tables, `over`, `for` or `terms`. */
+export function isIndexed(model: Model): boolean {
+  if (hasOwn(model, "sets") || hasOwn(model, "tables") || hasOwn(model.objective, "terms")) {
+    return true;
+  }
+  return (
+    variablesOf(model).some(({ item }) => hasOwn(item, "over")) ||
+    constraintsOf(model).some(({ item }) => hasOwn(item, "for") || hasOwn(item, "terms"))
+  );
+}
+
+/** "one for each depots × customers", or `null` for a decision with no sets. */
+export function repeatsText(holder: unknown): string | null {
+  const sets = setsOf(holder, "over");
+  return sets.length === 0 ? null : `one for each ${sets.join(" × ")}`;
+}
+
+/** `name[a, b]` for a value over sets `a` and `b`; `name` for none. */
+function indexed(name: string, sets: readonly string[]): string {
+  return sets.length === 0 ? name : `${name}[${sets.join(", ")}]`;
+}
+
+/** The sets of the table `id`. */
+function tableSets(model: Model, id: string): string[] {
+  return setsOf(own(model.tables, id), "over");
+}
+
+/** A table reference or a number, as text: `cost[depots, customers]`, `2`. */
+function amountText(model: Model, value: unknown): string {
+  const table = tableOf(value);
+  return table === null ? shown(value) : indexed(table, tableSets(model, table));
+}
+
+/** "Σ over customers cost[depots, customers] × ship[depots, customers]". */
+function termText(model: Model, term: PlanTerm, bound: readonly string[]): string {
+  const name = typeof term.variable === "string" ? term.variable : shown(term.variable);
+  const variable = variablesOf(model).find(({ item }) => item.id === term.variable)?.item;
+  const sets = setsOf(variable, "over");
+  const summed = sets.filter((set) => !bound.includes(set));
+  const factor = term.coefficient === undefined ? "" : `${amountText(model, term.coefficient)} × `;
+  const sum = summed.length === 0 ? "" : `Σ over ${summed.join(", ")} `;
+  return `${sum}${factor}${indexed(name, sets)}`;
+}
+
+/** The left-hand side: the coefficients, then the terms. */
+function sideText(model: Model, holder: unknown, bound: readonly string[]): string {
+  const linear = linearOf(holder);
+  const parts = termsOf(holder).map((term) => termText(model, term, bound));
+  if (Object.keys(linear).length > 0) parts.unshift(terms(linear));
+  return parts.join(" + ");
+}
+
 /** "Maximize 45 × chairs + 80 × tables". */
 export function goalSentence(model: Model): string {
   const objective = isPlain(model.objective) ? model.objective : {};
@@ -71,17 +162,21 @@ export function goalSentence(model: Model): string {
       : objective.sense === "maximize"
         ? "Maximize"
         : shown(objective.sense);
-  const linear = linearOf(objective);
-  return Object.keys(linear).length === 0
-    ? `${sense}: no decision has a coefficient yet`
-    : `${sense} ${terms(linear)}`;
+  const side = sideText(model, objective, []);
+  return side === "" ? `${sense}: no decision has a coefficient yet` : `${sense} ${side}`;
 }
 
-/** "5 × chairs + 20 × tables ≤ 400". */
-export function limitText(limit: LinearConstraint): string {
+/**
+ * "5 × chairs + 20 × tables ≤ 400"; for an indexed limit "For each depots: Σ over customers
+ * ship[depots, customers] ≤ supply[depots]".
+ */
+export function limitText(limit: LinearConstraint, model: Model = {}): string {
   const op =
     typeof limit.op === "string" ? (own<string>(OPS, limit.op) ?? limit.op) : shown(limit.op);
-  return `${terms(linearOf(limit))} ${op} ${shown(limit.rhs)}`;
+  const bound = setsOf(limit, "for");
+  const side = sideText(model, limit, bound) || "0";
+  const each = bound.length === 0 ? "" : `For each ${bound.join(" × ")}: `;
+  return `${each}${side} ${op} ${amountText(model, limit.rhs)}`;
 }
 
 /** `<prefix>_<n>`, `n` one more than the highest of any id of that form in the list. */
@@ -203,7 +298,29 @@ export function renameDecision(model: Model, index: number, text: string): Edit[
       });
     }
   }
+  for (const [holder, item] of termHolders(model)) {
+    for (const term of termsOf(item)) {
+      if (term.variable === from) {
+        edits.push({
+          edit: "set_path",
+          path: `${holder}/terms/${term.index}/variable`,
+          value: text,
+        });
+      }
+    }
+  }
   return edits;
+}
+
+/** The goal and each limit, with their pointers. */
+function termHolders(model: Model): [string, unknown][] {
+  return [
+    ["/objective", model.objective],
+    ...constraintsOf(model).map(({ index, item }): [string, unknown] => [
+      `/constraints/${index}`,
+      item,
+    ]),
+  ];
 }
 
 /** Removes decision `index` and its coefficients in the goal and the limits. */
@@ -219,6 +336,14 @@ export function removeDecision(model: Model, index: number): Edit[] | null {
   for (const { index: at, item } of constraintsOf(model)) {
     if (hasOwn(linearOf(item), name)) {
       edits.push({ edit: "remove_path", path: `/constraints/${at}/linear${pointer([name])}` });
+    }
+  }
+  // Its terms too, the last first, so each index still names the term it was read from.
+  for (const [holder, item] of termHolders(model)) {
+    for (const term of termsOf(item).reverse()) {
+      if (term.variable === name) {
+        edits.push({ edit: "remove_path", path: `${holder}/terms/${term.index}` });
+      }
     }
   }
   return edits;
@@ -291,13 +416,23 @@ export function diagramLayout(model: Model): {
   ];
   const known = new Set(decisions.map((card) => card.id));
   const lines: Line[] = [];
-  const link = (to: string, linear: Plain) => {
-    for (const [name, value] of Object.entries(linear)) {
+  const link = (to: string, holder: unknown) => {
+    for (const [name, value] of Object.entries(linearOf(holder))) {
       if (known.has(name)) lines.push({ from: name, to, label: shown(value) });
     }
+    // A term draws a line as a coefficient does, labelled with its table or number.
+    for (const term of termsOf(holder)) {
+      if (typeof term.variable !== "string" || !known.has(term.variable)) continue;
+      if (lines.some((line) => line.from === term.variable && line.to === to)) continue;
+      const label =
+        term.coefficient === undefined
+          ? "1"
+          : (tableOf(term.coefficient) ?? shown(term.coefficient));
+      lines.push({ from: term.variable, to, label });
+    }
   };
-  link("goal", linearOf(model.objective));
-  for (const { index, item } of constraintsOf(model)) link(`limit:${index}`, linearOf(item));
+  link("goal", model.objective);
+  for (const { index, item } of constraintsOf(model)) link(`limit:${index}`, item);
   const rowsDrawn = Math.max(decisions.length, targets.length);
   return {
     decisions,

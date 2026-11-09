@@ -44,12 +44,16 @@ import {
   diagramLayout,
   fieldEdits,
   goalSentence,
+  isIndexed,
   limitText,
   linearOf,
   type Row,
   removeDecision,
   removeLimit,
   renameDecision,
+  repeatsText,
+  setsOf,
+  tableOf,
   textEdits,
   variablesOf,
 } from "./plan";
@@ -75,6 +79,8 @@ type Build = (model: Model) => Edit[] | null;
 
 interface PlanContext {
   model: Model;
+  /** Whether the model uses sets and tables (spec 1 format 0.2; AKS-123). */
+  indexed: boolean;
   issues: Issue[];
   readOnly: boolean;
   marks: readonly Change[];
@@ -335,6 +341,7 @@ function DecisionRow({ ctx, row }: { ctx: PlanContext; row: Row<Variable> }) {
               ctx.edit(`rename ${id} to ${name}`, (model) => renameDecision(model, index, name))
             }
           />
+          {repeatsText(item) ? <span className="small muted">{repeatsText(item)}</span> : null}
         </td>
         <td>
           <Choice
@@ -387,7 +394,8 @@ function DecisionRow({ ctx, row }: { ctx: PlanContext; row: Row<Variable> }) {
 function Goal({ ctx }: { ctx: PlanContext }) {
   const objective = (ctx.model.objective ?? {}) as { sense?: unknown };
   const linear = linearOf(ctx.model.objective);
-  const decisions = variablesOf(ctx.model);
+  // A decision over sets gets its coefficients from terms, which these views do not edit.
+  const decisions = variablesOf(ctx.model).filter(({ item }) => setsOf(item, "over").length === 0);
   const mark = ctx.marks.find((item) => item.ref.kind === "top" && item.ref.key === "objective");
   const shownPaths = [
     "/objective/sense",
@@ -449,7 +457,10 @@ function Goal({ ctx }: { ctx: PlanContext }) {
 
 function Limits({ ctx }: { ctx: PlanContext }) {
   const limits = constraintsOf(ctx.model);
-  const decisions = variablesOf(ctx.model).map(({ item }) => text(item.id));
+  const decisions = variablesOf(ctx.model)
+    .filter(({ item }) => setsOf(item, "over").length === 0)
+    .map(({ item }) => text(item.id));
+  const reads = ctx.indexed ? 1 : 0;
   return (
     <section className="plan-section" aria-labelledby="limits-heading">
       <h3 className="heading plan-heading" id="limits-heading">
@@ -467,6 +478,7 @@ function Limits({ ctx }: { ctx: PlanContext }) {
                 {name}
               </th>
             ))}
+            {ctx.indexed ? <th scope="col">Reads as</th> : null}
             <th scope="col">Must be</th>
             <th scope="col">Limit</th>
             <th scope="col">
@@ -486,7 +498,12 @@ function Limits({ ctx }: { ctx: PlanContext }) {
               decisions={decisions}
             />
           ))}
-          <GhostRows ctx={ctx} list="constraints" noun="limit" columns={decisions.length + 4} />
+          <GhostRows
+            ctx={ctx}
+            list="constraints"
+            noun="limit"
+            columns={decisions.length + reads + 4}
+          />
         </tbody>
       </table>
       <AddButton
@@ -548,6 +565,7 @@ function LimitRow({
             />
           </td>
         ))}
+        {ctx.indexed ? <td className="small">{limitText(item, ctx.model)}</td> : null}
         <td>
           <Choice
             label={`How ${id} must hold`}
@@ -562,17 +580,24 @@ function LimitRow({
           <FieldIssues issues={at(ctx.issues, `${base}/op`)} />
         </td>
         <td>
-          <Cell
-            ctx={ctx}
-            path={`${base}/rhs`}
-            label={`Limit of ${id}`}
-            value={item.rhs}
-            onCommit={(value) =>
-              ctx.edit(`set the limit of ${id}`, (model) =>
-                fieldEdits(model, `${base}/rhs`, value, false),
-              )
-            }
-          />
+          {tableOf(item.rhs) !== null ? (
+            <span className="mono" data-path={`${base}/rhs`}>
+              {`table ${tableOf(item.rhs)}`}
+              <FieldIssues issues={at(ctx.issues, `${base}/rhs`)} />
+            </span>
+          ) : (
+            <Cell
+              ctx={ctx}
+              path={`${base}/rhs`}
+              label={`Limit of ${id}`}
+              value={item.rhs}
+              onCommit={(value) =>
+                ctx.edit(`set the limit of ${id}`, (model) =>
+                  fieldEdits(model, `${base}/rhs`, value, false),
+                )
+              }
+            />
+          )}
         </td>
         <td>
           <RemoveButton
@@ -585,7 +610,7 @@ function LimitRow({
       </tr>
       {besides(ctx.issues, base, fields).length > 0 ? (
         <tr>
-          <td colSpan={decisions.length + 5}>
+          <td colSpan={decisions.length + (ctx.indexed ? 6 : 5)}>
             <FieldIssues issues={besides(ctx.issues, base, fields)} />
           </td>
         </tr>
@@ -652,6 +677,7 @@ function Diagram({ model, onOpen }: { model: Model; onOpen: (path: string) => vo
             <span className="small muted">
               decision, {text(variable?.type)}
               {bounds.length > 0 ? ` ${bounds.join(", ")}` : ""}
+              {repeatsText(variable) ? `, ${repeatsText(variable)}` : ""}
             </span>
           </button>
         );
@@ -676,7 +702,7 @@ function Diagram({ model, onOpen }: { model: Model; onOpen: (path: string) => vo
               {goal ? "Goal" : <span className="mono">{text(limit?.id)}</span>}
             </span>{" "}
             <span className="small muted">
-              {goal ? goalSentence(model) : limit ? limitText(limit) : ""}
+              {goal ? goalSentence(model) : limit ? limitText(limit, model) : ""}
             </span>
           </button>
         );
@@ -891,7 +917,8 @@ export function PlanScreen({
     </div>
   );
 
-  const ctx: PlanContext = { model, issues: state.issues, readOnly, marks, edit };
+  const indexed = isIndexed(model);
+  const ctx: PlanContext = { model, indexed, issues: state.issues, readOnly, marks, edit };
   const views: ReactNode =
     view === "table" ? (
       <div className="plan-table-view">
@@ -972,6 +999,14 @@ export function PlanScreen({
                     </button>
                   </fieldset>
                 </div>
+                {indexed ? (
+                  <p className="notice" data-testid="indexed-notice">
+                    This plan is indexed: some decisions and limits repeat over sets, with numbers
+                    from tables. The views show them as written; change their sets, tables and terms
+                    in the model file or with an assistant. A run solves every repeat, and Results
+                    names each one, as in ship[north,city].
+                  </p>
+                ) : null}
                 <ReviewList
                   marks={marks}
                   model={model}
