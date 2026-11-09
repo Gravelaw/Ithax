@@ -6,20 +6,26 @@
  *
  * Readings (AKS-119, `docs/DECISIONS.md`): recent projects are listed newest registered
  * first, since the service keeps no last-edited time; Learn moves to the gallery, ordered
- * students first; Build is shown, unavailable with its reason, until its form exists (M10).
+ * students first. Since AKS-124 each card starts its lesson ("Start the lesson": the
+ * template with `GET /v1/templates/{tid}`, then `POST /v1/projects` with `template`), and
+ * Build opens the Build form, unavailable with its reason when none of its templates is
+ * served (spec 3 "Screens", spec 4 "Learn and Build modes").
  */
 import { FolderOpenIcon, GraduationCapIcon, HammerIcon, PlusIcon } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Project, Template } from "../api/types";
 import { ServiceProblem } from "../components/ServiceProblem";
+import { type Lesson, parseLesson } from "../learn/lesson";
+import { BUILD_TEMPLATES } from "./BuildForm";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { OpenProjectDialog } from "./OpenProjectDialog";
 
 export const EMPTY_GALLERY = "No templates are installed yet.";
 export const NO_PROJECTS = "No projects yet. Create one, or open a project folder.";
 export const BUILD_UNAVAILABLE = "The Build form needs the templates, and none are installed yet.";
-export const BUILD_LATER = "The Build form is not built yet.";
+/** Said when a served template's lesson does not read (the service serves only those that do). */
+export const LESSON_UNREADABLE = "This template's lesson cannot be read.";
 
 const AUDIENCE_ORDER = ["Students", "Both", "Business"];
 
@@ -40,11 +46,21 @@ type Loaded<T> = ApiResult<T> | null;
 export function Home({
   client,
   onOpen,
+  onBuild = () => undefined,
+  onLesson = () => undefined,
 }: {
   client: ApiClient;
   onOpen: (project: Project) => void;
+  /** Opens the Build form. */
+  onBuild?: () => void;
+  /** A project made from `template`, to open with its lesson. */
+  onLesson?: (project: Project, template: Template, lesson: Lesson) => void;
 }) {
   const [projects, setProjects] = useState<Loaded<Project[]>>(null);
+  // The lesson being started (one at a time), and why the last one did not start.
+  const [starting, setStarting] = useState<string | null>(null);
+  const [startProblem, setStartProblem] = useState<ApiResult<unknown> | null>(null);
+  const [unreadable, setUnreadable] = useState(false);
   const [templates, setTemplates] = useState<Loaded<Template[]>>(null);
   const [dialog, setDialog] = useState<"new" | "open" | null>(null);
   const [lessonsFirst, setLessonsFirst] = useState(false);
@@ -62,7 +78,37 @@ export function Home({
 
   const shown = templates?.kind === "ok" ? [...templates.data] : [];
   if (lessonsFirst) shown.sort((a, b) => audienceRank(a) - audienceRank(b));
-  const buildReason = shown.length === 0 ? BUILD_UNAVAILABLE : BUILD_LATER;
+  const buildable = shown.some((template) => BUILD_TEMPLATES.includes(template.id));
+
+  /** Reads the template and its lesson, then makes the project; one at a time. */
+  const startLesson = async (template: Template) => {
+    if (starting !== null) return;
+    setStarting(template.id);
+    setStartProblem(null);
+    setUnreadable(false);
+    const read = await client.getTemplate(template.id);
+    if (read.kind !== "ok") {
+      setStarting(null);
+      setStartProblem(read);
+      return;
+    }
+    const lesson = parseLesson(read.data.lesson);
+    if (lesson === null) {
+      setStarting(null);
+      setUnreadable(true);
+      return;
+    }
+    const made = await client.createProject({
+      name: read.data.template.title,
+      template: template.id,
+    });
+    setStarting(null);
+    if (made.kind !== "ok") {
+      setStartProblem(made);
+      return;
+    }
+    onLesson(made.data, read.data.template, lesson);
+  };
 
   return (
     <div className="home">
@@ -90,17 +136,22 @@ export function Home({
             <button
               type="button"
               className="entry"
-              aria-disabled="true"
-              aria-describedby="build-reason"
+              aria-disabled={buildable ? undefined : "true"}
+              aria-describedby={buildable ? undefined : "build-reason"}
+              onClick={() => {
+                if (buildable) onBuild();
+              }}
             >
               <HammerIcon aria-hidden="true" size={32} weight="duotone" />
               <span className="heading">Build</span>
               <span className="muted">Answer a question of your own</span>
               <span>Two questions pick the closest template; your data is optional.</span>
             </button>
-            <p id="build-reason" className="reason">
-              {buildReason}
-            </p>
+            {buildable ? null : (
+              <p id="build-reason" className="reason">
+                {BUILD_UNAVAILABLE}
+              </p>
+            )}
           </div>
         </div>
 
@@ -118,14 +169,35 @@ export function Home({
             {shown.map((template) => (
               <li key={template.id} className="card">
                 <p className="subheading">{template.title}</p>
-                {template.audience ? <p className="muted small">{template.audience}</p> : null}
-                {template.minutes !== undefined ? (
-                  <p className="muted small">{template.minutes} min</p>
+                {template.summary ? <p className="small">{template.summary}</p> : null}
+                <p className="muted small">
+                  {[
+                    template.audience,
+                    template.minutes !== undefined ? `${template.minutes} min` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                <button
+                  type="button"
+                  className="secondary"
+                  aria-label={`Start the lesson ${template.title}`}
+                  aria-disabled={starting !== null || undefined}
+                  onClick={() => void startLesson(template)}
+                >
+                  Start the lesson
+                </button>
+                {starting === template.id ? (
+                  <p className="muted small" role="status">
+                    Starting the lesson…
+                  </p>
                 ) : null}
               </li>
             ))}
           </ul>
         )}
+        {unreadable ? <p role="alert">{LESSON_UNREADABLE}</p> : null}
+        <ServiceProblem result={startProblem} />
       </section>
 
       <section className="recent" aria-labelledby="recent-heading">

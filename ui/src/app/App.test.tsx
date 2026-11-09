@@ -171,6 +171,84 @@ describe("the frame", () => {
     ).toBeVisible();
   });
 
+  it("Build opens the form, and Continue opens the project on the Data screen or the Canvas", async () => {
+    const shop = { id: "coffee_shop", title: "Coffee shop queue" };
+    const made = {
+      id: "p1",
+      name: "Coffee shop queue",
+      created: "2026-11-09T10:00:00Z",
+      layout_version: 1,
+      model_revision: 0,
+      path: "/p1",
+      available: true,
+    };
+    window.location.hash = "#/";
+    const { fake } = boot(seen);
+    new ModelService(fake);
+    fake
+      .answer("GET /v1/templates", [shop])
+      .answer("POST /v1/projects", made)
+      .answer("GET /v1/projects/p1/data", []);
+    await userEvent.click(await screen.findByRole("button", { name: /^Build/ }));
+    expect(await screen.findByRole("heading", { name: "Build a model" })).toBeVisible();
+    expect(window.location.hash).toBe("#/build");
+    expect(screen.getByRole("banner")).toHaveTextContent("Build a model");
+    // The rail shows Home as the current screen.
+    expect(screen.getByRole("button", { name: "Home" })).toHaveAttribute("aria-current", "page");
+    await userEvent.click(
+      await screen.findByRole("radio", { name: /How long will people or items wait\?/ }),
+    );
+    await userEvent.click(screen.getByRole("radio", { name: /Yes, import a file/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("heading", { name: "Files" })).toBeVisible();
+    expect(window.location.hash).toBe("#/data/p1");
+
+    await userEvent.click(screen.getByRole("button", { name: "Home" }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Build/ }));
+    await userEvent.click(
+      await screen.findByRole("radio", { name: /How long will people or items wait\?/ }),
+    );
+    await userEvent.click(screen.getByRole("radio", { name: /No, I will estimate/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("heading", { name: "Canvas" })).toBeInTheDocument();
+    expect(window.location.hash).toBe("#/canvas/p1");
+    await userEvent.click(screen.getByRole("button", { name: "Home" }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Build/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Back" }));
+    expect(window.location.hash).toBe("#/");
+  });
+
+  it("starts a lesson from the gallery on the Canvas, with its step card", async () => {
+    const shop = { id: "coffee_shop", title: "Coffee shop queue", experiment: "base" };
+    const lesson =
+      "# Coffee shop queue\n\n## Arrive\n\nComponent: `arrivals`\n\nThey arrive.\n\n" +
+      "## Exercise: two tills\n\nComponent: `till`\n\n### Change\n\nSet it.\n\n" +
+      "### Prediction\n\n- [x] Less.\n- [ ] More.\n\n### Explanation\n\nBecause.\n";
+    const made = {
+      id: "p1",
+      name: "Coffee shop queue",
+      created: "2026-11-09T10:00:00Z",
+      layout_version: 1,
+      model_revision: 0,
+      path: "/p1",
+      available: true,
+    };
+    window.location.hash = "#/";
+    const { fake } = boot(seen);
+    new ModelService(fake);
+    fake
+      .answer("GET /v1/templates", [shop])
+      .answer("GET /v1/templates/coffee_shop", { template: shop, lesson, expected: [] })
+      .answer("POST /v1/projects", made);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Start the lesson Coffee shop queue" }),
+    );
+    expect(await screen.findByRole("region", { name: "Arrive" })).toBeVisible();
+    expect(window.location.hash).toBe("#/canvas/p1");
+    await userEvent.click(screen.getByRole("button", { name: "Exit lesson" }));
+    expect(screen.queryByRole("region", { name: "Arrive" })).toBeNull();
+  });
+
   it("moves between regions with F6", async () => {
     boot(seen);
     await screen.findByRole("heading", { name: "What would you like to do?" });

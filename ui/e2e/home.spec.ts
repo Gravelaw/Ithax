@@ -37,8 +37,8 @@ test("Home creates Process and Plan projects and lists them", async ({
   await home(page, service);
   await expect(page.getByText("No projects yet.")).toBeVisible();
   // The service serves the repository's ten templates (AKS-122, AKS-139, AKS-123,
-  // AKS-140), so the gallery lists them in id order; Learn mode and the Build form arrive
-  // with AKS-124.
+  // AKS-140), so the gallery lists them in id order, each with "Start the lesson", and
+  // Build is available (AKS-124; `e2e/learn.spec.ts` and `e2e/build.spec.ts` use them).
   const gallery = page.getByRole("list", { name: "Templates" });
   await expect(gallery.locator(".card .subheading")).toHaveText([
     "Clinic patient flow",
@@ -52,9 +52,9 @@ test("Home creates Process and Plan projects and lists them", async ({
     "Transport plan",
     "Warehouse pick and pack",
   ]);
+  await expect(gallery.getByRole("button", { name: /^Start the lesson/ })).toHaveCount(10);
   const build = page.getByRole("button", { name: /^Build/ });
-  await expect(build).toHaveAttribute("aria-disabled", "true");
-  await expect(page.getByText("The Build form is not built yet.")).toBeVisible();
+  await expect(build).not.toHaveAttribute("aria-disabled", "true");
   await page.getByRole("button", { name: /^Learn/ }).click();
   await expect(page.getByRole("heading", { name: "Templates" })).toBeFocused();
 

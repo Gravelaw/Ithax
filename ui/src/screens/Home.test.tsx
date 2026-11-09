@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiClient } from "../api/client";
 import type { Project } from "../api/types";
 import { errorBody, FakeService, issue, ORIGIN, TOKEN } from "../test/fakes";
-import { BUILD_LATER, BUILD_UNAVAILABLE, EMPTY_GALLERY, Home, NO_PROJECTS } from "./Home";
+import { BUILD_UNAVAILABLE, EMPTY_GALLERY, Home, LESSON_UNREADABLE, NO_PROJECTS } from "./Home";
 
 function project(id: string, name: string, available = true): Project {
   return {
@@ -73,14 +73,115 @@ describe("Home", () => {
     ];
     render(<Home client={service([], templates).client()} onOpen={() => {}} />);
     await screen.findByText("Product mix");
-    expect(screen.getByRole("button", { name: /^Build/ })).toHaveAccessibleDescription(BUILD_LATER);
+    // None of these ids is one the Build form opens, so Build stays unavailable.
+    expect(screen.getByRole("button", { name: /^Build/ })).toHaveAccessibleDescription(
+      BUILD_UNAVAILABLE,
+    );
     await userEvent.click(screen.getByRole("button", { name: /^Learn/ }));
     expect(screen.getByRole("heading", { name: "Templates" })).toHaveFocus();
     const titles = within(screen.getByRole("list", { name: "Templates" }))
       .getAllByRole("listitem")
       .map((item) => item.querySelector(".subheading")?.textContent);
     expect(titles).toEqual(["Coffee shop queue", "Product mix", "Other"]);
-    expect(screen.getByText("15 min")).toBeInTheDocument();
+    expect(screen.getByText("Students · 15 min")).toBeInTheDocument();
+  });
+
+  it("opens the Build form when the service serves one of its templates", async () => {
+    const onBuild = vi.fn();
+    const templates = [{ id: "coffee_shop", title: "Coffee shop queue" }];
+    render(<Home client={service([], templates).client()} onOpen={() => {}} onBuild={onBuild} />);
+    await screen.findByText("Coffee shop queue");
+    const build = screen.getByRole("button", { name: /^Build/ });
+    expect(build).not.toHaveAttribute("aria-disabled");
+    expect(screen.queryByText(BUILD_UNAVAILABLE)).toBeNull();
+    await userEvent.click(build);
+    expect(onBuild).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts a lesson: the template first, then a project named after it", async () => {
+    const onLesson = vi.fn();
+    const shop = { id: "coffee_shop", title: "Coffee shop queue", summary: "Customers wait." };
+    const lesson =
+      "# Coffee shop queue\n\n## Arrive\n\nComponent: `arrivals`\n\nThey arrive.\n\n" +
+      "## Exercise: two tills\n\nComponent: `till`\n\n### Change\n\nSet it.\n\n" +
+      "### Prediction\n\n- [x] Less.\n- [ ] More.\n\n### Explanation\n\nBecause.\n";
+    const created = project("made", "Coffee shop queue");
+    const fake = service([], [shop])
+      .answer("GET /v1/templates/coffee_shop", { template: shop, lesson, expected: [] })
+      .answer("POST /v1/projects", created);
+    render(<Home client={fake.client()} onOpen={() => {}} onLesson={onLesson} />);
+    expect(await screen.findByText("Customers wait.")).toBeVisible();
+    const start = screen.getByRole("button", { name: "Start the lesson Coffee shop queue" });
+    const release = fake.holdWrites();
+    await userEvent.click(start);
+    await waitFor(() => expect(fake.held).toBe(1));
+    // One lesson starts at a time: a press meanwhile sends nothing.
+    expect(start).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("status")).toHaveTextContent("Starting the lesson…");
+    await userEvent.click(start);
+    release();
+    await waitFor(() => expect(onLesson).toHaveBeenCalledTimes(1));
+    const [made, template, read] = onLesson.mock.calls[0] ?? [];
+    expect(made).toEqual(created);
+    expect(template).toEqual(shop);
+    expect(read.steps.map((step: { component: string }) => step.component)).toEqual(["arrivals"]);
+    expect(read.exercise.choices).toHaveLength(2);
+    expect(fake.requests.map((request) => `${request.method} ${request.path}`)).toEqual([
+      "GET /v1/projects",
+      "GET /v1/templates",
+      "GET /v1/templates/coffee_shop",
+      "POST /v1/projects",
+    ]);
+    expect(fake.requested("POST", "/v1/projects")[0]?.body).toEqual({
+      name: "Coffee shop queue",
+      template: "coffee_shop",
+    });
+  });
+
+  it("makes no project when the template cannot be read, and shows the service's issue", async () => {
+    const onLesson = vi.fn();
+    const shop = { id: "coffee_shop", title: "Coffee shop queue" };
+    const fake = service([], [shop]).answer(
+      "GET /v1/templates/coffee_shop",
+      errorBody("E185", "There is no template 'coffee_shop'."),
+      404,
+    );
+    render(<Home client={fake.client()} onOpen={() => {}} onLesson={onLesson} />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Start the lesson Coffee shop queue" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "E185 There is no template 'coffee_shop'.",
+    );
+    expect(fake.requested("POST", "/v1/projects")).toHaveLength(0);
+    expect(onLesson).not.toHaveBeenCalled();
+  });
+
+  it("says when a lesson does not read, and when the project is refused", async () => {
+    const onLesson = vi.fn();
+    const shop = { id: "coffee_shop", title: "Coffee shop queue" };
+    const good =
+      "# T\n## A\nComponent: `a`\nText\n## Exercise: x\nComponent: `a`\n### Change\nc\n" +
+      "### Prediction\n- [x] y\n- [ ] n\n### Explanation\ne\n";
+    let lesson = "not a lesson";
+    const fake = service([], [shop])
+      .on("GET /v1/templates/coffee_shop", () => ({
+        status: 200,
+        body: { template: shop, lesson, expected: [] },
+      }))
+      .answer("POST /v1/projects", errorBody("E186", "The folder cannot be written."), 400);
+    render(<Home client={fake.client()} onOpen={() => {}} onLesson={onLesson} />);
+    const start = await screen.findByRole("button", { name: "Start the lesson Coffee shop queue" });
+    await userEvent.click(start);
+    expect(await screen.findByRole("alert")).toHaveTextContent(LESSON_UNREADABLE);
+    expect(fake.requested("POST", "/v1/projects")).toHaveLength(0);
+    lesson = good;
+    await userEvent.click(start);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "E186 The folder cannot be written.",
+    );
+    expect(screen.queryByText(LESSON_UNREADABLE)).toBeNull();
+    expect(onLesson).not.toHaveBeenCalled();
   });
 
   it("says contact was lost when the projects cannot be listed, and tries again", async () => {

@@ -7,6 +7,8 @@ describe("routes", () => {
     ["", HOME],
     ["#/", HOME],
     ["#/settings", { screen: "settings", projectId: null }],
+    ["#/build", { screen: "build", projectId: null }],
+    ["#/build/x", HOME],
     ["#/canvas/abc", { screen: "canvas", projectId: "abc" }],
     ["#/results/a%2Fb", { screen: "results", projectId: "a/b" }],
     ["#/canvas", HOME],
@@ -32,6 +34,7 @@ describe("routes", () => {
   it("writes each route back to its fragment", () => {
     expect(routeHash(HOME)).toBe("#/");
     expect(routeHash({ screen: "settings", projectId: null })).toBe("#/settings");
+    expect(routeHash({ screen: "build", projectId: null })).toBe("#/build");
     expect(routeHash({ screen: "monitor", projectId: "a/b" })).toBe("#/monitor/a%2Fb");
     expect(routeHash({ screen: "results", projectId: "p", runId: "r/1" })).toBe(
       "#/results/p/r%2F1",
