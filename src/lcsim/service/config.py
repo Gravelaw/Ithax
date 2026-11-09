@@ -29,6 +29,7 @@ __all__ = [
     "ServiceConfig",
     "default_config_dir",
     "default_data_dir",
+    "default_ui_dir",
     "new_token",
 ]
 
@@ -118,14 +119,24 @@ def default_data_dir(
     )
 
 
+def default_ui_dir() -> Path:
+    """The built interface the service serves by default: ``ui/dist`` beside the package's
+    source folder, which a source checkout has once the interface is built (``npm run
+    build`` in ``ui/``). An installed package has no such folder, so its ``/v1/ui/`` is 404
+    until packaging (M11) names the installed one (AKS-119, owner to confirm)."""
+    return Path(__file__).resolve().parents[3] / "ui" / "dist"
+
+
 @dataclass(frozen=True)
 class ServiceConfig:
     """What one service instance needs; ``config_dir`` and ``data_dir`` are made
     canonical (``lcsim.service.paths``).
 
     ``port`` is the port the service listens on, for the ``Host`` check; ``token`` the
-    bearer token. ``allowed_origins`` are the WebSocket ``Origin`` values let through
-    (none until the interface's own is fixed at M9). ``idle_timeout_s`` is the lifetime's
+    bearer token. ``ui_dir`` is the built interface served at ``/v1/ui/`` (``None``: none).
+    ``allowed_origins`` are WebSocket ``Origin`` values let through besides the
+    interface's own, ``http://127.0.0.1:<port>`` and ``http://localhost:<port>`` (AKS-119;
+    the desktop shell's is added at M11). ``idle_timeout_s`` is the lifetime's
     idle limit and ``idle_check_s`` how often it is checked; ``on_idle`` is called once
     when it is reached (``None``: never checked). ``hardware`` is detected when ``None``;
     ``adapters`` are the installed adapters when ``None``. ``clock`` measures idle time.
@@ -135,6 +146,7 @@ class ServiceConfig:
     data_dir: Path
     port: int
     token: str
+    ui_dir: Path | None = None
     allowed_origins: frozenset[str] = frozenset()
     idle_timeout_s: float = DEFAULT_IDLE_TIMEOUT_S
     idle_check_s: float = 10.0
@@ -149,6 +161,8 @@ class ServiceConfig:
         # directory (review of PR #34).
         object.__setattr__(self, "config_dir", canonical(self.config_dir))
         object.__setattr__(self, "data_dir", canonical(self.data_dir))
+        if self.ui_dir is not None:
+            object.__setattr__(self, "ui_dir", canonical(self.ui_dir))
         if not 0 < self.port < 65536:
             raise ValueError(f"port {self.port!r} is not from 1 to 65535")
         if not self.token:

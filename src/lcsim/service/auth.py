@@ -4,10 +4,14 @@
 WebSocket upgrade it checks, in this order:
 
 1. ``Host`` is ``127.0.0.1:<port>`` or ``localhost:<port>``, else 403 with E183;
-2. for a WebSocket, an ``Origin``, when present, is one of the allowed origins (none until
-   M9), else the upgrade is refused before it is accepted (the server answers 403);
+2. for a WebSocket, an ``Origin``, when present, is the interface's own, the service's
+   ``http://127.0.0.1:<port>`` or ``http://localhost:<port>`` (AKS-119), or one of the
+   extra allowed origins, else the upgrade is refused before it is accepted (the server
+   answers 403);
 3. for HTTP, ``Authorization: Bearer <token>`` carries the service's token, else 401 with
-   E182 and ``WWW-Authenticate: Bearer``;
+   E182 and ``WWW-Authenticate: Bearer``; a ``GET`` or ``HEAD`` under ``/v1/ui/``, the
+   interface's own files, needs none (AKS-119), since a browser loads the page before the
+   page can send the token;
 4. for HTTP, an ``X-Client`` header, when present, is ``ui``, ``mcp`` or ``script``, else
    400 with E184 (review of PR #34: no route may see another value).
 
@@ -47,6 +51,7 @@ __all__ = [
     "authenticate_websocket",
     "bearer_token",
     "host_allowed",
+    "origin_allowed",
     "request_client",
     "token_matches",
 ]
@@ -62,6 +67,9 @@ CLIENTS: tuple[Client, ...] = get_args(Client)
 
 _LOCAL_HOSTS = ("127.0.0.1", "localhost")
 
+#: The path prefix of the interface's files, which need no token (spec 3 "Token").
+INTERFACE_PREFIX = "/v1/ui/"
+
 
 def host_allowed(host: str | None, port: int) -> bool:
     """Whether a ``Host`` header names this service: ``127.0.0.1:<port>`` or
@@ -70,6 +78,19 @@ def host_allowed(host: str | None, port: int) -> bool:
         return False
     name, separator, given_port = host.rpartition(":")
     return bool(separator) and name.lower() in _LOCAL_HOSTS and given_port == str(port)
+
+
+def origin_allowed(origin: str | None, port: int) -> bool:
+    """Whether a WebSocket ``Origin`` is the interface's own: ``http://127.0.0.1:<port>`` or
+    ``http://localhost:<port>`` (the host in any letter case), the origins of the pages the
+    service serves at ``/v1/ui/`` (spec 3 "Hardening", AKS-119)."""
+    if origin is None:
+        return False
+    scheme, separator, rest = origin.partition("://")
+    if scheme != "http" or not separator:
+        return False
+    name, colon, given_port = rest.rpartition(":")
+    return bool(colon) and name.lower() in _LOCAL_HOSTS and given_port == str(port)
 
 
 def bearer_token(authorization: str | None) -> str | None:
@@ -127,13 +148,20 @@ class Hardening:
             return
         if kind == "websocket":
             origin = headers.get("origin")
-            if origin is not None and origin not in self.allowed_origins:
+            if origin is not None and not (
+                origin_allowed(origin, self.port) or origin in self.allowed_origins
+            ):
                 await self._refuse(scope, receive, send, "")
                 return
             with self.lifetime.hold():
                 await self.app(scope, receive, send)
             return
-        if not token_matches(bearer_token(headers.get("authorization")), self.token):
+        interface_file = scope["method"] in ("GET", "HEAD") and str(scope["path"]).startswith(
+            INTERFACE_PREFIX
+        )
+        if not interface_file and not token_matches(
+            bearer_token(headers.get("authorization")), self.token
+        ):
             response = error_response(
                 401,
                 TOKEN,

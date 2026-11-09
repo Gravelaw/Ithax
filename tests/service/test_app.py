@@ -1,7 +1,8 @@
 """The application factory (spec 3 "Architecture" and "Endpoints"; AKS-110).
 
 The full route table test against spec 3 is AKS-114's ``tests/service/test_routes.py``;
-this checks the routes AKS-110 to AKS-113 add and that FastAPI adds none of its own.
+this checks the routes AKS-110 to AKS-113 and AKS-119 add and that FastAPI adds none of its
+own.
 """
 
 from fastapi import FastAPI
@@ -47,9 +48,19 @@ AKS_113_ROUTES = {
     ("POST", "/v1/projects/{pid}/data/{file}/fit"),
 }
 
+AKS_119_ROUTES = {
+    ("GET", "/v1/settings"),
+    ("PUT", "/v1/settings"),
+    ("GET", "/v1/ui/{path}"),
+}
 
-def test_the_app_has_the_aks_110_to_aks_113_routes_and_nothing_else(app: FastAPI) -> None:
-    assert route_table(app) == AKS_110_ROUTES | AKS_111_ROUTES | AKS_112_ROUTES | AKS_113_ROUTES
+
+def test_the_app_has_the_aks_110_to_aks_113_and_aks_119_routes_and_nothing_else(
+    app: FastAPI,
+) -> None:
+    assert route_table(app) == (
+        AKS_110_ROUTES | AKS_111_ROUTES | AKS_112_ROUTES | AKS_113_ROUTES | AKS_119_ROUTES
+    )
 
 
 def test_every_path_starts_with_v1(app: FastAPI) -> None:
@@ -59,12 +70,14 @@ def test_every_path_starts_with_v1(app: FastAPI) -> None:
 def test_there_is_one_router_per_area() -> None:
     assert [router.prefix for router in ROUTERS] == [
         "/v1",
+        "/v1/settings",
         "/v1",
         "/v1/templates",
         "/v1/projects",
         "/v1/projects",
         "/v1",
         "/v1/projects",
+        "/v1/ui",
     ]
 
 

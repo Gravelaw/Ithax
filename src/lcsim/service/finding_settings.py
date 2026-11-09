@@ -36,7 +36,9 @@ from lcsim.strict_json import read_json_file, real_in
 __all__ = [
     "FINDING_THRESHOLDS",
     "SETTINGS_PROBLEM",
+    "THRESHOLD_RANGES",
     "FindingSettings",
+    "ThresholdRange",
     "read_finding_settings",
 ]
 
@@ -50,24 +52,27 @@ _log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class _Range:
+class ThresholdRange:
+    """The range of one threshold, and how a message words it."""
+
     minimum: float
     maximum: float
     above_minimum: bool
     words: str
 
 
-#: The range of each threshold, as ``Thresholds`` checks it.
-_RANGES: dict[str, _Range] = {
-    "bottleneck_utilization": _Range(0.0, 1.0, False, "a number from 0 to 1"),
-    "idle_utilization": _Range(0.0, 1.0, False, "a number from 0 to 1"),
-    "relative_half_width": _Range(0.0, 1.0, True, "a number above 0 and at most 1"),
-    "min_time_s": _Range(0.0, sys.float_info.max, False, "a number of seconds from 0"),
-    "min_rate_per_s": _Range(0.0, sys.float_info.max, False, "a number per second from 0"),
+#: The range of each threshold, as ``Thresholds`` checks it; ``PUT /v1/settings`` checks a
+#: new value by the same ranges (AKS-119).
+THRESHOLD_RANGES: dict[str, ThresholdRange] = {
+    "bottleneck_utilization": ThresholdRange(0.0, 1.0, False, "a number from 0 to 1"),
+    "idle_utilization": ThresholdRange(0.0, 1.0, False, "a number from 0 to 1"),
+    "relative_half_width": ThresholdRange(0.0, 1.0, True, "a number above 0 and at most 1"),
+    "min_time_s": ThresholdRange(0.0, sys.float_info.max, False, "a number of seconds from 0"),
+    "min_rate_per_s": ThresholdRange(0.0, sys.float_info.max, False, "a number per second from 0"),
 }
-assert list(_RANGES) == [item.name for item in fields(Thresholds)]
+assert list(THRESHOLD_RANGES) == [item.name for item in fields(Thresholds)]
 
-_KEYS = ", ".join(_RANGES)
+_KEYS = ", ".join(THRESHOLD_RANGES)
 
 
 @dataclass(frozen=True)
@@ -119,7 +124,7 @@ def read_finding_settings(config_dir: Path) -> FindingSettings:
     issues: list[Issue] = []
     for key, value in given.items():
         place = pointer(FINDING_THRESHOLDS, key)
-        bounds = _RANGES.get(key)
+        bounds = THRESHOLD_RANGES.get(key)
         if bounds is None:
             issues.append(
                 _issue(

@@ -9,6 +9,7 @@ import contextlib
 import io
 import json
 import os
+import signal
 import subprocess
 import sys
 import threading
@@ -18,9 +19,11 @@ from pathlib import Path
 
 import httpx2
 import pytest
+import uvicorn
 
+from lcsim.service.config import default_ui_dir
 from lcsim.service.discovery import SERVICE_FILE, ServiceInfo, read_service_file
-from lcsim.service.main import LOCAL_ADDRESS, bind_local, main
+from lcsim.service.main import LOCAL_ADDRESS, SignalServer, bind_local, main, raise_again
 
 
 def wait_for(condition: object, timeout_s: float = 20.0) -> None:
@@ -227,3 +230,81 @@ def test_python_dash_m_lcsim_service_runs_as_a_process(tmp_path: Path) -> None:
     assert process.returncode == 0, stderr
     assert f"lcsim service on 127.0.0.1:{info.port}" in stdout
     assert not (config_dir / SERVICE_FILE).exists()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows has no SIGTERM to send to a process")
+@pytest.mark.parametrize("stop", [signal.SIGTERM, signal.SIGINT], ids=["SIGTERM", "SIGINT"])
+def test_a_service_stopped_by_a_signal_removes_its_file(tmp_path: Path, stop: int) -> None:
+    """Spec 3 "Discovery": the file is removed when the service exits. uvicorn raises a
+    caught signal again once it has shut down, which ended the process before the file was
+    removed (M7 "Left"); the service still ends by that signal, so its status says so."""
+    config_dir = tmp_path / "config"
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "lcsim.service",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(tmp_path / "data"),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        wait_for(lambda: read_service_file(config_dir) is not None or process.poll() is not None)
+        info = read_service_file(config_dir)
+        assert info is not None, process.communicate()
+        assert get_system(info).status_code == 200
+        process.send_signal(stop)
+        process.communicate(timeout=60)
+    finally:
+        if process.poll() is None:  # pragma: no cover - only when the test fails
+            process.kill()
+    assert process.returncode == -stop
+    assert not (config_dir / SERVICE_FILE).exists()
+
+
+def test_the_server_keeps_a_caught_signal_for_main() -> None:
+    """In the main thread uvicorn installs its handlers; a signal caught while serving is
+    kept in ``caught_signals`` instead of being raised as the server finishes."""
+    server = SignalServer(uvicorn.Config(app=lambda: None))
+    assert threading.current_thread() is threading.main_thread()
+    with server.capture_signals():
+        server.handle_exit(signal.SIGTERM, None)
+    assert server.caught_signals == [signal.SIGTERM]
+    assert server.should_exit
+
+
+def test_main_raises_a_caught_signal_again_after_cleaning_up(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raised: list[int] = []
+    monkeypatch.setattr(signal, "raise_signal", raised.append)
+    raise_again([signal.SIGINT, signal.SIGTERM])
+    # Last caught first, as uvicorn does.
+    assert raised == [signal.SIGTERM, signal.SIGINT]
+
+
+def test_main_serves_the_interface_folder_it_is_given(folders: list[str], tmp_path: Path) -> None:
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html>", encoding="utf-8")
+    started = Started([*folders, "--ui-dir", str(dist), "--idle-minutes", "0.05"])
+    config_dir = tmp_path / "config"
+    wait_for(lambda: read_service_file(config_dir) is not None)
+    info = read_service_file(config_dir)
+    assert info is not None
+    with httpx2.Client(trust_env=False, timeout=5) as client:
+        response = client.get(f"http://{LOCAL_ADDRESS}:{info.port}/v1/ui/")
+    assert response.status_code == 200
+    assert response.text == "<!doctype html>"
+    started.thread.join(30)
+    assert started.status == [0]
+
+
+def test_the_default_interface_folder_is_ui_dist_of_the_checkout() -> None:
+    root = Path(__file__).resolve().parents[2]
+    assert default_ui_dir() == root / "ui" / "dist"

@@ -20,6 +20,7 @@ from lcsim.service.lifetime import Lifetime
 from lcsim.service.model_store import ModelStore
 from lcsim.service.projects_store import ProjectRegistry
 from lcsim.service.run_service import RunService
+from lcsim.service.settings_store import SettingsStore
 
 __all__ = ["ServiceState", "service_state"]
 
@@ -27,8 +28,8 @@ __all__ = ["ServiceState", "service_state"]
 @dataclass(frozen=True)
 class ServiceState:
     """The configuration, lifetime, hardware and active tier, the installed adapters,
-    the project registry, the projects' models, the project events, the runs and the
-    imported data of one service."""
+    the project registry, the projects' models, the project events, the runs, the
+    imported data and the settings file of one service."""
 
     config: ServiceConfig
     lifetime: Lifetime
@@ -40,6 +41,7 @@ class ServiceState:
     events: ProjectEvents
     runs: RunService
     data: DataStore
+    settings: SettingsStore
 
 
 def service_state(connection: HTTPConnection) -> ServiceState:
