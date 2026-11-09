@@ -4,7 +4,7 @@
 
 A model is one JSON file that passes a published schema. Every engine is a plugin that implements the same five functions. The interface, the engines and any AI assistant all work through these two contracts.
 
-> **Warning: partly tested.** A prototype ran this format on three models. The `weibull` and `empirical` with `values` distributions passed the sampling test at M2, and `empirical` with `data` at M6 (AKS-113); the remote and cluster run targets have never run. Scenarios run from M3 in the experiment manager, and objectives and constraints from M5 in the simulation-based search (AKS-109). Verify each when its milestone arrives, and update this spec. See "Known gaps" in the Build guide.
+> **Warning: partly tested.** A prototype ran this format on three models. The `weibull` and `empirical` with `values` distributions passed the sampling test at M2, and `empirical` with `data` at M6 (AKS-113); the remote and cluster run targets have never run; they are built in Phase 2 (remote) and Phase 4 (cluster), owner decision A1 of 2026-11-09. Scenarios run from M3 in the experiment manager, and objectives and constraints from M5 in the simulation-based search (AKS-109). Verify each when its milestone arrives, and update this spec. See "Known gaps" in the Build guide.
 
 ## Scope
 
@@ -110,7 +110,7 @@ Where each method runs:
 | `validate`, `translate`, `collect` | The service's worker process on this machine | The same | The same |
 | `run` | In the worker process | `runs/<run_id>/` is synced to the host; `python -m lcsim.runs.worker <workdir>` is invoked over SSH (package and engine installed there; the service checks this first); the folder is synced back | The same through `sbatch`; cancel through `scancel` |
 
-At M3 only `local` can run. A file naming `remote` or `cluster` still loads; starting it before M11 is refused with E172 and no run is created (spec 3: `POST .../runs` returns 422). The remote and cluster rows are proposed and built at M11 (the council recommends moving them to Phase 2; owner question).
+At M3 only `local` can run. A file naming `remote` or `cluster` still loads; starting it is refused with E172 and no run is created (spec 3: `POST .../runs` returns 422) until that target is built. The `remote` target is built in Phase 2 and the `cluster` target in Phase 4 (owner decision A1, 2026-11-09, `docs/DECISIONS.md`); the contract in the two tables above stays as written for them.
 
 The worker entry point (AKS-103, proposed default, owner to confirm): `python -m lcsim.runs.worker <workdir> [--workers N]` (`N` defaults to 1). `<workdir>` is `runs/<run_id>/engine/`, into which `translate` has already written the engine's input. The worker reads the adapter's name from `engine.name` in `<workdir>/../manifest.json`, creates that installed adapter with no arguments and calls `run(workdir, on_progress, cancel, N)`, with `cancel` reading as set once a file named `CANCEL` exists in `<workdir>`. It prints one line per progress report to standard output, `{"type": "progress", "fraction": ..., "message": ...}` as spec 3 "Progress events" shows it, and ends with exit status 0 when `run` returned, 3 when it was cancelled, 1 when the adapter raised (the traceback on standard error), and 2 when its arguments or the manifest cannot be used. It writes nothing itself; time and memory limits are enforced by the side that started it.
 
@@ -338,7 +338,7 @@ Every issue is one object:
 | W201 | meaning | Mean arrival rate at a server times its mean service time is at least its capacity, and its queue is unlimited, so the queue will grow without limit |
 | W202 | meaning | Normal distribution will clip about 2% or more of its samples at zero (`mean` < 2 × `sd`) |
 | W210 | run | Results were still changing after warm-up; lengthen `warmup` |
-| W220 | service | A finding threshold in `settings.json` cannot be used: a value that is not a number in its range, a key that is not one of the five thresholds, `finding_thresholds` that is not an object, or a `settings.json` that is not a JSON object the service can read. The default is used for what is refused, and `GET .../summary` and `GET /v1/settings` list the issue in `issues`, with `path` the place in `settings.json` (spec 3 "Service rules"; AKS-135, AKS-119, owner to confirm) |
+| W220 | service | A finding threshold in `settings.json` cannot be used: a value that is not a number in its range, a key that is not one of the five thresholds, `finding_thresholds` that is not an object, or a `settings.json` that is not a JSON object the service can read; or the idle timeout `idle_timeout_minutes` cannot be used: a value that is not a whole number from 1 to 10,080 (M11, AKS-141). The default is used for what is refused, and `GET /v1/settings` lists the issue in `issues`, as `GET .../summary` does for a threshold, with `path` the place in `settings.json` (spec 3 "Service rules"; AKS-135, AKS-119, owner to confirm) |
 
 Codes E300 to E399 are reserved for engine-specific issues from `validate(model)`; each adapter documents its own. Errors block a run. Warnings do not. Run and service codes are raised by the experiment manager or the service, E193 and E194 by the MCP server, and E195 by the template loader; they are tested at their milestones, not by validation fixtures. A service code's `path` points into the request, or for W220 into `settings.json`, rather than into the model file.
 
@@ -462,7 +462,8 @@ Complete these and record the findings, with sources, in a short note in the rep
 - **M1 · How existing tools save models.** JaamSim configuration files, CalculiX input files, OpenModelica.
 - **M1 · Schema and units.** Current JSON Schema version and tooling; unit-handling libraries and their limits.
 - **M2 · Plugin mechanisms.** How mature Python projects discover and load plugins.
-- **M11 · Cluster submission.** Libraries for SSH and Slurm job handling from Python.
+- **Phase 2 · Remote submission.** Libraries for SSH job handling from Python (moved from M11 by owner decision A1).
+- **Phase 4 · Cluster submission.** Libraries for Slurm job handling from Python (moved from M11 by owner decision A1).
 
 ## Acceptance tests
 
@@ -472,7 +473,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 | One deliberately broken file per issue code with Pass `schema` or `meaning`, in `tests/model/fixtures/issues/<code>_<slug>.json`, yields that code as its only issue of that severity, with `path` filled and `component` filled where the code concerns a component; every `message` names the component id or key concerned and contains no exception text | M1 | agent | `tests/model/test_issues.py` |
 | Every distribution passes the sampling test | M2 | agent | `tests/model/test_distributions.py` |
 | A dummy adapter passes through all five methods on the local target | M3 | agent | `tests/runs/test_dummy_adapter.py` |
-| The same on remote and cluster, markers `remote` and `cluster`, against a local sshd and a local Slurm test queue or stub scheduler | M11 | agent |  |
+| The same on remote and cluster, markers `remote` and `cluster`, against a local sshd and a local Slurm test queue or stub scheduler | Phase 2 (remote), Phase 4 (cluster) | agent |  |
 | A repeated run is identical as defined above | M3 | agent | `tests/runs/test_repeat.py` |
 | Two separately started worker processes produce `replications` tables equal row for row for the same model and seed | M3 | agent | `tests/runs/test_cross_process.py` |
 | A test-only migration rewrites a 0.1 file to a test version and back; the first real format change replaces it with the real migration and a 0.1 fixture that must still open | M1 | agent | `tests/model/test_migration.py`; the 0.2 minor (AKS-123, M10), which needs no migration: the 0.1 examples and benchmarks still open under the 0.2 reader, and a 0.1 file holding a 0.2 key is E100 (`tests/model/test_migration.py`, `tests/model/test_indexed.py`) |
@@ -567,3 +568,8 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-09, indexed optimization layout (AKS-123), for the transport plan template: "Model file", "Top-level keys" and the new paragraph "Indexed optimization" add `sets`, `tables`, a variable's `over`, a constraint's `for` and `terms` in a constraint or the objective (with `linear` then optional) and the `{"$table": ...}` reference; "Versioning" makes this reader 0.2, a minor and additive change with no migration, a 0.2 key in a 0.1 file E100, and a new project 0.2; "Identifiers" covers set and table ids and set members; "Validation issues" adds E176, E177 and E178, extends E175 to terms and E100 to the 0.2 keys and to a constraint or objective with neither `linear` nor `terms`; "Validation" lists E174 to E178 among the meaning-pass codes; the acceptance row for migrations names the 0.2 evidence. Owner to confirm.
 - 2026-11-09, review of PR #53 (AKS-123): the E123 row adds a term's coefficient that, summed with the other coefficients of the same expanded variable, is too large for a float (loading raised an exception). Owner to confirm.
 - 2026-11-09, review of PR #53 (AKS-123): "too large for a float" in the E123 row also covers a sum of floats that overflows to infinity, which raises no error in Python and is checked to be finite. Owner to confirm.
+
+Since version 1.3, during the M11 build:
+
+- 2026-11-09, owner decision A1 (AKS-81, part of AKS-127): the warning line and "Run targets" say the `remote` target is built in Phase 2 and the `cluster` target in Phase 4, not at M11; the contract stays as written, and E172 refuses both until each is built. The research item "M11 · Cluster submission" is split into "Phase 2 · Remote submission" (SSH) and "Phase 4 · Cluster submission" (Slurm); the acceptance row for remote and cluster is tagged Phase 2 (remote) and Phase 4 (cluster), its text unchanged.
+- 2026-11-09, owner decision B5 (AKS-78; part of AKS-127): the W220 row adds the idle timeout `idle_timeout_minutes` in `settings.json` (spec 3 "Lifetime"), a value that is not a whole number from 1 to 10,080, listed by `GET /v1/settings`; the summary still lists only the thresholds' W220 issues. Owner to confirm.

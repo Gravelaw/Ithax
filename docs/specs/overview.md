@@ -37,7 +37,7 @@ You asked for all specs at once, so I made these calls. Each is easy to change n
 | Optimization through Pyomo and HiGHS; Optuna for simulation-based search | Spec 2 | OR-Tools; SciPy |
 | Engine service in Python with FastAPI | Spec 3 | Any local service framework |
 | Interface in React with React Flow, packaged with Tauri | Spec 3 | Electron; a Qt desktop interface in Python |
-| Phase 1 runs natively on Windows (proposed default after review); WSL deferred to Phase 3 | Spec 3 | Service under WSL |
+| Phase 1 runs natively on Windows (proposed default after review); WSL deferred to Phase 3. The owner chose Linux first on 2026-11-09 (B4): the Windows version is deferred, its phase set at the Phase 1 review | Spec 3 | Service under WSL |
 | Ten Phase 1 templates, listed by name | Spec 4 | Your own priority list |
 | Findings written by fixed rules, not by a language model | Spec 4 | Assistant-written findings |
 | OpenMDAO as the design study layer | Spec 5 | Dakota |
