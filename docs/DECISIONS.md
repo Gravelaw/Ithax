@@ -1972,9 +1972,9 @@ All 130 installed packages are permissive or MPL-2.0: 95 MIT, 10 ISC, 10 Apache-
 - **Spec sections updated:** spec 1, 3 and 4 version lines and "Changes in this version" (1.2, 0.6, 0.6); the overview's version sentence; the known-gaps rows in the guide and `CLAUDE.md`.
 - **Dependencies added:** during M9, the npm packages of AKS-119 and AKS-120 and the development packages of AKS-138, each with its licence in its entry; no Python package. AKS-121 added none.
 
-## 2026-11-09 · Owner decisions on the spec-review questions (A1, B1 to B7)
+## 2026-11-09 · Owner decisions on the spec-review questions (A1, B1 to B7, B9)
 
-The owner answered these on 2026-11-09 in the orchestrating Claude Code session, from the consolidated list `Ithax-owner-decisions-2026-11-09.md` (Parts A and B). Each answer is quoted, then the reading taken. The other items of that list (B7 items 2, 4 and 5; B8; B9; Parts C, D and E) stay open for the Phase 1 review (AKS-130).
+The owner answered these on 2026-11-09 in the orchestrating Claude Code session, from the consolidated list `Ithax-owner-decisions-2026-11-09.md` (Parts A and B). Each answer is quoted, then the reading taken. The other items of that list (B7 items 2, 4 and 5; B8; Parts C, D and E) stay open for the Phase 1 review (AKS-130).
 
 ### A1 (AKS-81): remote run target in Phase 2, cluster run target in Phase 4
 
@@ -2046,3 +2046,17 @@ The owner answered these on 2026-11-09 in the orchestrating Claude Code session,
   - Item 3: an eleventh template (forklift/AGV transport), and template expansion in general, is Phase 3. Phase 1 keeps its ten templates.
   - Items 2, 4 and 5 are not answered yet and stay open. Item 2 is weighted-sum objectives naming parameters; item 4 is the success-measure methods and risk rows; item 5 is the hardware-table date. Until answered, the defaults stand: no; accept as proposals; leave as noted.
 - **Spec sections updated:** none yet.
+
+### B9 (AKS-84): specs 5 to 7 are detailed after Phase 1, with extensive research first
+
+- **Owner:** "Specs from 5 to 7 require a detailed expansion. We decided to do once the previous things are completed. Specs 5 to Spec 7 will require extensive research, understanding of current product landscape as well as understanding how 3D models for simulations of process, force, thermal and other aspects need to be married with optimisation and modelling."
+- **Decision:**
+  - Specs 5, 6 and 7 stay structure only during Phase 1. That includes the sections on people, machine elements and reliability that question 6 asked about.
+  - They are detailed only after Phase 1 and its review (AKS-130) are done, in their own detailing work.
+  - That work starts with extensive research, before any Phase 2 or Phase 3 code (guide known-gaps row "Specs 5, 6 and 7 are structure only"). The research covers:
+    - the current product landscape;
+    - how 3D models for process, force, thermal and other physics simulations are combined with optimization and modelling.
+  - Whether people, machine elements and reliability stay in scope, and in which phase, is settled during that detailing, not now.
+- **Reason:** the owner's call. These domains need research and an understanding of the landscape before any input format or behaviour is written, which agrees with the guide's rule not to invent formats for engines nobody has installed or tested.
+- **Spec sections updated:** none.
+
