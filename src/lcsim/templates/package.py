@@ -305,7 +305,17 @@ class _Loader:
             )
         if loaded.model is None or loaded.issues:
             return None
-        document = read_json(raw)
+        try:
+            document = read_json(raw)
+        except ValueError:
+            # Loading accepts a lone surrogate the strict reader cannot write back as
+            # UTF-8; the package is refused, not the gallery (review of PR #50).
+            self.issue(
+                pointer(MODEL_FILE),
+                f"The template's {MODEL_FILE} is not JSON that can be read.",
+                f"Correct {MODEL_FILE}: UTF-8 JSON with no NaN, infinity or repeated key.",
+            )
+            return None
         assert isinstance(document, dict)  # the model loaded, so it is an object
         return loaded.model, document
 
@@ -402,8 +412,17 @@ class _Loader:
     # --- expected.json --------------------------------------------------------------
 
     def expected(
-        self, document: object, model: Model | None, experiment: object
+        self,
+        document: object,
+        model: Model | None,
+        experiment: object,
+        exercise: Model | None = None,
     ) -> tuple[ExpectedRow, ...] | None:
+        """Read ``expected.json``. A row is judged against the model its run uses: the
+        template's for ``template`` rows, the model after the exercise's edits for
+        ``exercise`` rows, so a renamed or added component is named as it is there; with
+        no exercise model (its edits failed, an issue already recorded) an exercise row's
+        metric is not checked (review of PR #50)."""
         if document is UNREAD:
             return None
         rows, problems = read_rows(document)
@@ -412,13 +431,14 @@ class _Loader:
         if problems:
             return None
         found = len(self.issues)
-        metrics = (
-            None
-            if model is None
-            else model_metrics(model, experiment if isinstance(experiment, str) else None)
-        )
+        name = experiment if isinstance(experiment, str) else None
+        metrics = None if model is None else model_metrics(model, name)
+        exercise_metrics = None if exercise is None else model_metrics(exercise, name)
         for index, row in enumerate(rows):
-            self.row(index, row, model, metrics)
+            if row.run == "exercise":
+                self.row(index, row, model, exercise_metrics)
+            else:
+                self.row(index, row, model, metrics)
         if not any(row.source != "recorded" and row.run == "template" for row in rows):
             self.issue(
                 pointer(EXPECTED_FILE),
@@ -513,7 +533,8 @@ def load_package(
     lesson = loader.lesson(title, None if model is None else _names(model))
     experiment = None if template is None else template["experiment"]
     expected_document = loader.json(EXPECTED_FILE)
-    rows = loader.expected(expected_document, model, experiment)
+    exercise = None if exercise_model is None else load_document(exercise_model).model
+    rows = loader.expected(expected_document, model, experiment, exercise)
     if loader.issues:
         return PackageResult(None, tuple(loader.issues))
     assert template is not None and document is not None and exercise_model is not None
