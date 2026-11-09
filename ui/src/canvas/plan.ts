@@ -263,30 +263,88 @@ export function coefficientEdits(
 }
 
 /**
- * Whether a coefficient's key names decision `name`: its id, or for an indexed decision one
- * of its expanded names, `name[member,member]` (spec 2 "Indexed problems"; review of PR #53).
+ * One place where the goal or a limit uses a decision: a `linear` coefficient, keyed by the
+ * decision's id or, for an indexed decision, by one of its expanded names
+ * (`ship[north,park]`, spec 2 "Indexed problems"), or a term naming it (AKS-123).
+ *
+ * `references` is the one resolver that renaming, removing and the Diagram view all read,
+ * so the three can never disagree about what uses a decision (review of PR #53, three
+ * findings on this mapping).
  */
-function namesDecision(key: string, name: string): boolean {
-  return key === name || (key.startsWith(`${name}[`) && key.endsWith("]"));
+export interface Reference {
+  /** The declared id of the decision used. */
+  decision: string;
+  /** The goal (`/objective`) or a limit (`/constraints/<i>`). */
+  holder: string;
+  /** The Diagram card of the holder: `goal` or `limit:<i>`. */
+  card: string;
+  kind: "linear" | "term";
+  /** The `linear` key, as written (`ship`, `ship[north,park]`). */
+  key: string;
+  /** For an expanded key, its members with their brackets (`[north,park]`); else `""`. */
+  members: string;
+  /** For a term, its index in `terms`; else -1. */
+  term: number;
+  /** What it adds, as text: the coefficient, or the term's table id or number. */
+  label: string;
 }
 
-/** The keys of `linear` that name decision `name`. */
-function keysNaming(linear: Plain, name: string): string[] {
-  return Object.keys(linear).filter((key) => namesDecision(key, name));
-}
+const EXPANDED = /^(.+)(\[[^[\]]*\])$/;
 
-function renamedKeys(linear: Plain, from: string, to: string): Plain {
-  return Object.fromEntries(
-    Object.entries(linear).map(([key, value]) => [
-      namesDecision(key, from) ? `${to}${key.slice(from.length)}` : key,
-      value,
-    ]),
+/** Every use of a declared decision in the goal and the limits, in model order: within each
+ * holder its `linear` keys first, then its terms. Keys and terms naming no decision are not
+ * listed (the service reports them, E175). */
+export function references(model: Model): Reference[] {
+  const ids = new Set(
+    variablesOf(model).flatMap(({ item }) => (typeof item.id === "string" ? [item.id] : [])),
   );
+  const holders: [string, string, unknown][] = [
+    ["/objective", "goal", model.objective],
+    ...constraintsOf(model).map(({ index, item }): [string, string, unknown] => [
+      `/constraints/${index}`,
+      `limit:${index}`,
+      item,
+    ]),
+  ];
+  const found: Reference[] = [];
+  for (const [holder, card, item] of holders) {
+    for (const [key, value] of Object.entries(linearOf(item))) {
+      const expanded = EXPANDED.exec(key);
+      const decision = ids.has(key)
+        ? key
+        : expanded && ids.has(expanded[1] ?? "")
+          ? expanded[1]
+          : null;
+      if (decision === null || decision === undefined) continue;
+      const members = decision === key ? "" : key.slice(decision.length);
+      const label = members === "" ? shown(value) : `${shown(value)} ${members}`;
+      found.push({ decision, holder, card, kind: "linear", key, members, term: -1, label });
+    }
+    for (const term of termsOf(item)) {
+      if (typeof term.variable !== "string" || !ids.has(term.variable)) continue;
+      const label =
+        term.coefficient === undefined
+          ? "1"
+          : (tableOf(term.coefficient) ?? shown(term.coefficient));
+      found.push({
+        decision: term.variable,
+        holder,
+        card,
+        kind: "term",
+        key: "",
+        members: "",
+        term: term.index,
+        label,
+      });
+    }
+  }
+  return found;
 }
 
 /**
- * Renames decision `index` to `text`, and its coefficients in the goal and the limits in
- * the same batch, unless another decision has that name (the service reports it).
+ * Renames decision `index` to `text`, and its uses in the goal and the limits (coefficients,
+ * expanded names and terms) in the same batch, unless another decision has that name (the
+ * service reports it).
  */
 export function renameDecision(model: Model, index: number, text: string): Edit[] | null {
   const variables = Array.isArray(model.variables) ? model.variables : [];
@@ -296,70 +354,57 @@ export function renameDecision(model: Model, index: number, text: string): Edit[
   const from = variable.id;
   const taken = variables.some((other, at) => at !== index && isPlain(other) && other.id === text);
   if (typeof from !== "string" || taken) return edits;
-  const objective = linearOf(model.objective);
-  if (keysNaming(objective, from).length > 0 && isPlain(model.objective)) {
+  const uses = references(model).filter((use) => use.decision === from);
+  // A holder's coefficients are written whole, with each key naming it renamed in place.
+  const renamed = new Map<string, Map<string, string>>();
+  for (const use of uses) {
+    if (use.kind !== "linear") continue;
+    const keys = renamed.get(use.holder) ?? new Map<string, string>();
+    keys.set(use.key, `${text}${use.members}`);
+    renamed.set(use.holder, keys);
+  }
+  for (const [holder, keys] of renamed) {
+    const linear = linearOf(valueAtPath(model, holder));
     edits.push({
       edit: "set_path",
-      path: "/objective/linear",
-      value: renamedKeys(objective, from, text),
+      path: `${holder}/linear`,
+      value: Object.fromEntries(
+        Object.entries(linear).map(([key, value]) => [keys.get(key) ?? key, value]),
+      ),
     });
   }
-  for (const { index: at, item } of constraintsOf(model)) {
-    const linear = linearOf(item);
-    if (keysNaming(linear, from).length > 0) {
+  for (const use of uses) {
+    if (use.kind === "term") {
       edits.push({
         edit: "set_path",
-        path: `/constraints/${at}/linear`,
-        value: renamedKeys(linear, from, text),
+        path: `${use.holder}/terms/${use.term}/variable`,
+        value: text,
       });
-    }
-  }
-  for (const [holder, item] of termHolders(model)) {
-    for (const term of termsOf(item)) {
-      if (term.variable === from) {
-        edits.push({
-          edit: "set_path",
-          path: `${holder}/terms/${term.index}/variable`,
-          value: text,
-        });
-      }
     }
   }
   return edits;
 }
 
-/** The goal and each limit, with their pointers. */
-function termHolders(model: Model): [string, unknown][] {
-  return [
-    ["/objective", model.objective],
-    ...constraintsOf(model).map(({ index, item }): [string, unknown] => [
-      `/constraints/${index}`,
-      item,
-    ]),
-  ];
-}
-
-/** Removes decision `index` and its coefficients in the goal and the limits. */
+/** Removes decision `index` and its uses in the goal and the limits. */
 export function removeDecision(model: Model, index: number): Edit[] | null {
   const variable = Array.isArray(model.variables) ? model.variables[index] : undefined;
   if (variable === undefined) return null;
   const edits: Edit[] = [{ edit: "remove_path", path: `/variables/${index}` }];
   const name = isPlain(variable) ? variable.id : undefined;
   if (typeof name !== "string") return edits;
-  for (const key of keysNaming(linearOf(model.objective), name)) {
-    edits.push({ edit: "remove_path", path: `/objective/linear${pointer([key])}` });
-  }
-  for (const { index: at, item } of constraintsOf(model)) {
-    for (const key of keysNaming(linearOf(item), name)) {
-      edits.push({ edit: "remove_path", path: `/constraints/${at}/linear${pointer([key])}` });
+  const uses = references(model).filter((use) => use.decision === name);
+  for (const use of uses) {
+    if (use.kind === "linear") {
+      edits.push({ edit: "remove_path", path: `${use.holder}/linear${pointer([use.key])}` });
     }
   }
-  // Its terms too, the last first, so each index still names the term it was read from.
-  for (const [holder, item] of termHolders(model)) {
-    for (const term of termsOf(item).reverse()) {
-      if (term.variable === name) {
-        edits.push({ edit: "remove_path", path: `${holder}/terms/${term.index}` });
-      }
+  // Terms the last first within each holder, so each index still names the term it was
+  // read from.
+  const terms = uses.filter((use) => use.kind === "term");
+  const holders = [...new Set(terms.map((use) => use.holder))];
+  for (const holder of holders) {
+    for (const use of terms.filter((item) => item.holder === holder).reverse()) {
+      edits.push({ edit: "remove_path", path: `${holder}/terms/${use.term}` });
     }
   }
   return edits;
@@ -430,31 +475,20 @@ export function diagramLayout(model: Model): {
       y: (at + 1) * STEP_Y,
     })),
   ];
+  // One line per decision and card, labelled with every part the decision adds there, in
+  // model order, joined with "+": a coefficient, an expanded name's coefficient with its
+  // members (`1 [north,park]`), a term's table or number (review of PR #53).
   const known = new Set(decisions.map((card) => card.id));
-  const lines: Line[] = [];
-  const link = (to: string, holder: unknown) => {
-    // One line per decision and card, labelled with every part it adds there: its
-    // coefficient, then each term's table or number, joined with "+" (review of PR #53).
-    const parts = new Map<string, string[]>();
-    const add = (name: string, label: string) => {
-      if (!known.has(name)) return;
-      const found = parts.get(name);
-      if (found) found.push(label);
-      else parts.set(name, [label]);
-    };
-    for (const [name, value] of Object.entries(linearOf(holder))) add(name, shown(value));
-    for (const term of termsOf(holder)) {
-      if (typeof term.variable !== "string") continue;
-      const label =
-        term.coefficient === undefined
-          ? "1"
-          : (tableOf(term.coefficient) ?? shown(term.coefficient));
-      add(term.variable, label);
-    }
-    for (const [from, labels] of parts) lines.push({ from, to, label: labels.join(" + ") });
-  };
-  link("goal", model.objective);
-  for (const { index, item } of constraintsOf(model)) link(`limit:${index}`, item);
+  const parts = new Map<string, Line>();
+  for (const use of references(model)) {
+    if (!known.has(use.decision)) continue;
+    const key = `${use.decision}>${use.card}`;
+    const line = parts.get(key);
+    if (line) line.label = `${line.label} + ${use.label}`;
+    else parts.set(key, { from: use.decision, to: use.card, label: use.label });
+  }
+  const order = new Map(targets.map((card, at) => [card.key, at]));
+  const lines = [...parts.values()].sort((a, b) => (order.get(a.to) ?? 0) - (order.get(b.to) ?? 0));
   const rowsDrawn = Math.max(decisions.length, targets.length);
   return {
     decisions,

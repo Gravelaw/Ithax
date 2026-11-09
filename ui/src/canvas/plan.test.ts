@@ -14,6 +14,7 @@ import {
   goalSentence,
   isIndexed,
   limitText,
+  references,
   removeDecision,
   removeLimit,
   renameDecision,
@@ -346,6 +347,67 @@ describe("an indexed plan (AKS-123)", () => {
     expect(goal).toEqual([
       { from: "agency", to: "goal", label: "150 + 50" },
       { from: "ship", to: "goal", label: "cost + 2" },
+    ]);
+  });
+
+  it("resolves every use of a decision once, for renaming, removing and the Diagram alike", () => {
+    // Uses of `ship` by its id, by an expanded name and by terms, beside a decision `agency`
+    // used by a coefficient and a term in one card, and keys that name no decision.
+    const model = transport();
+    (model.variables as unknown[]).push({ id: "agency", type: "integer" });
+    (model.objective as { linear?: unknown }).linear = { agency: 150, shipping: 1 };
+    (model.objective as { terms: unknown[] }).terms.push({ variable: "agency", coefficient: 50 });
+    (model.constraints as unknown[]).push({
+      id: "closed",
+      linear: { "ship[north,park]": 1, "ship[x": 3, "nothing[a]": 4 },
+      terms: [{ variable: "ship", coefficient: 2 }],
+      op: "==",
+      rhs: 0,
+    });
+    const uses = references(model).map((use) => [use.decision, use.card, use.kind, use.label]);
+    expect(uses).toEqual([
+      ["agency", "goal", "linear", "150"],
+      ["ship", "goal", "term", "cost"],
+      ["agency", "goal", "term", "50"],
+      ["ship", "limit:0", "term", "1"],
+      ["ship", "limit:1", "term", "1"],
+      ["ship", "limit:2", "linear", "1 [north,park]"],
+      ["ship", "limit:2", "term", "2"],
+    ]);
+    // The Diagram draws one line per decision and card from the same uses.
+    expect(diagramLayout(model).lines).toEqual([
+      { from: "agency", to: "goal", label: "150 + 50" },
+      { from: "ship", to: "goal", label: "cost" },
+      { from: "ship", to: "limit:0", label: "1" },
+      { from: "ship", to: "limit:1", label: "1" },
+      { from: "ship", to: "limit:2", label: "1 [north,park] + 2" },
+    ]);
+    // Renaming reaches every one of them, and nothing else.
+    expect(renameDecision(model, 0, "send")).toEqual([
+      { edit: "set_path", path: "/variables/0/id", value: "send" },
+      {
+        edit: "set_path",
+        path: "/constraints/2/linear",
+        value: { "send[north,park]": 1, "ship[x": 3, "nothing[a]": 4 },
+      },
+      { edit: "set_path", path: "/objective/terms/0/variable", value: "send" },
+      { edit: "set_path", path: "/constraints/0/terms/0/variable", value: "send" },
+      { edit: "set_path", path: "/constraints/1/terms/0/variable", value: "send" },
+      { edit: "set_path", path: "/constraints/2/terms/0/variable", value: "send" },
+    ]);
+    // Removing too, and the other decision's uses stay.
+    expect(removeDecision(model, 0)).toEqual([
+      { edit: "remove_path", path: "/variables/0" },
+      { edit: "remove_path", path: "/constraints/2/linear/ship[north,park]" },
+      { edit: "remove_path", path: "/objective/terms/0" },
+      { edit: "remove_path", path: "/constraints/0/terms/0" },
+      { edit: "remove_path", path: "/constraints/1/terms/0" },
+      { edit: "remove_path", path: "/constraints/2/terms/0" },
+    ]);
+    expect(renameDecision(model, 1, "temp")).toEqual([
+      { edit: "set_path", path: "/variables/1/id", value: "temp" },
+      { edit: "set_path", path: "/objective/linear", value: { temp: 150, shipping: 1 } },
+      { edit: "set_path", path: "/objective/terms/1/variable", value: "temp" },
     ]);
   });
 });
