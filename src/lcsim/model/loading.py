@@ -60,7 +60,7 @@ from lcsim.model.catalogue import (
     SettingSpec,
 )
 from lcsim.model.data import EMPTY_DATA_INDEX, DataIndex
-from lcsim.model.indexed import expand
+from lcsim.model.indexed import CoefficientTooLarge, expand
 from lcsim.model.issues import Issue, pointer
 from lcsim.model.model import (
     Component,
@@ -1320,7 +1320,27 @@ class _Builder:
             ),
             constraints=tuple(constraints),
         )
-        return declared, expand(declared)
+        try:
+            return declared, expand(declared)
+        except CoefficientTooLarge as problem:
+            place: Segments = (
+                ("objective",)
+                if problem.constraint is None
+                else ("constraints", problem.constraint)
+            )
+            where = (
+                "the objective"
+                if problem.constraint is None
+                else f"constraint '{declared.constraints[problem.constraint].id}'"
+            )
+            self.issue(
+                "E123",
+                (*place, "terms", problem.term, "coefficient"),
+                f"The 'coefficient' of term {problem.term + 1} in {where}, added to the other "
+                f"coefficients of '{problem.variable}', gives a number too large to compute.",
+                "Write coefficients whose sum is a number of at most about 1.8e308.",
+            )
+            return None
 
     def index_sets(
         self, names: Sequence[str], sets: Mapping[str, tuple[str, ...]], where: str, at: Segments

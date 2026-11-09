@@ -31,7 +31,20 @@ from lcsim.model.model import (
     Variable,
 )
 
-__all__ = ["combinations", "expand", "expanded_name"]
+__all__ = ["CoefficientTooLarge", "combinations", "expand", "expanded_name"]
+
+
+class CoefficientTooLarge(Exception):
+    """Adding a term's coefficient to the other coefficients of one variable gives no float:
+    a whole number too large for a float (the loader accepts any JSON integer) added to a
+    float. ``constraint`` is the declared constraint's position, ``None`` for the objective;
+    ``term`` the term's position; ``variable`` the expanded name (review of PR #53)."""
+
+    def __init__(self, constraint: int | None, term: int, variable: str) -> None:
+        super().__init__(f"the coefficients of {variable} add up to a number too large")
+        self.constraint = constraint
+        self.term = term
+        self.variable = variable
 
 
 def expanded_name(identifier: str, members: Sequence[str]) -> str:
@@ -62,18 +75,23 @@ def _linear(
     linear: Mapping[str, int | float],
     terms: Sequence[Term],
     bound: Mapping[str, str],
+    constraint: int | None,
 ) -> Mapping[str, int | float]:
-    """``linear`` plus every term, with the sets of ``bound`` fixed to its members."""
+    """``linear`` plus every term, with the sets of ``bound`` fixed to its members.
+    ``CoefficientTooLarge`` when a sum cannot be computed (``constraint`` names where)."""
     coefficients: dict[str, int | float] = dict(linear)
     over = {variable.id: variable.over for variable in reversed(program.variables)}
-    for term in terms:
+    for position, term in enumerate(terms):
         sets = over[term.variable]
         free = [name for name in sets if name not in bound]
         for combination in combinations(program.sets, free):
             binding = {**bound, **combination}
             name = expanded_name(term.variable, [binding[item] for item in sets])
             value = _coefficient(program, term.coefficient, binding)
-            coefficients[name] = coefficients.get(name, 0) + value
+            try:
+                coefficients[name] = coefficients.get(name, 0) + value
+            except OverflowError:
+                raise CoefficientTooLarge(constraint, position, name) from None
     return MappingProxyType(coefficients)
 
 
@@ -91,16 +109,16 @@ def expand(program: IndexedProgram) -> LinearProgram:
     )
     objective = LinearObjective(
         sense=program.objective.sense,
-        linear=_linear(program, program.objective.linear, program.objective.terms, {}),
+        linear=_linear(program, program.objective.linear, program.objective.terms, {}, None),
     )
     constraints = tuple(
         LinearConstraint(
             id=expanded_name(constraint.id, list(combination.values())),
-            linear=_linear(program, constraint.linear, constraint.terms, combination),
+            linear=_linear(program, constraint.linear, constraint.terms, combination, position),
             op=constraint.op,
             rhs=_coefficient(program, constraint.rhs, combination),
         )
-        for constraint in program.constraints
+        for position, constraint in enumerate(program.constraints)
         for combination in combinations(program.sets, constraint.over)
     )
     return LinearProgram(variables=variables, objective=objective, constraints=constraints)
