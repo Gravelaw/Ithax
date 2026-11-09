@@ -1,0 +1,14 @@
+{
+  "id": "clinic_patient_flow",
+  "title": "Clinic patient flow",
+  "summary": "Reception sends patients to exam rooms or treatment rooms, and every visit needs one of two shared nurses. See why the rooms are not what patients wait for.",
+  "audience": "Both",
+  "concepts": ["routing", "shared staff", "resource pools", "Erlang C", "Little's law"],
+  "minutes": 15,
+  "experiment": "base",
+  "origin": "Written for this project: a clinic with two kinds of room sharing a pool of nurses; answers from the branch split, utilization = arrival rate x mean service time / capacity, Erlang C and Little's law (docs/research/spec-4-template-sources.md).",
+  "licence": "AGPL-3.0-only",
+  "exercise": {
+    "edits": [{"edit": "set_setting", "id": "nurses", "path": "/capacity", "value": 3}]
+  }
+}

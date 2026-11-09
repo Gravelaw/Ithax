@@ -57,7 +57,14 @@ def test_the_templates_are_listed_in_id_order(templated: TestClient) -> None:
     listed = response.json()
     ids = [item["id"] for item in listed]
     assert ids == sorted(ids)
-    assert {"coffee_shop", "three_machine_line", "machine_breakdowns"} <= set(ids)
+    assert {
+        "clinic_patient_flow",
+        "coffee_shop",
+        "inventory_reorder_point",
+        "machine_breakdowns",
+        "three_machine_line",
+        "warehouse_pick_pack",
+    } <= set(ids)
     assert listed[ids.index("coffee_shop")] == read("template.json")
 
 

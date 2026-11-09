@@ -1,0 +1,41 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Warehouse pick and pack",
+    "description": "Orders arrive every minute on average (exponential), 60 an hour, day and night. They are gathered onto carts of 5 orders (a batch), and a picker takes each cart round the shelves in 9 min on average (exponential). The pickers work in shifts that repeat every day: 1 from 22:00 to 06:00 and 3 from 06:00 to 22:00. A full cart is wheeled to packing in exactly 3 min (a delay) and unloaded (an unbatch); each order is packed in 30 s on average (exponential) and dispatched. Theory: an order waits (5 - 1)/(2 x 1 per min) = 2 min for its cart to fill; the pickers are on shift 56 of 72 picker-hours a day, 7/9; no block loses an order, so 60 an hour are dispatched and the packer is busy 0.5 of the time. The run is 216 h long including 24 h of warm-up, so 192 h are measured: 8 whole days, sampled every hour."
+  },
+  "domain": "process",
+  "components": [
+    {"id": "orders", "type": "source",
+     "params": {"interarrival": {"dist": "exponential", "mean": "1 min"}}},
+    {"id": "carts", "type": "batch", "params": {"size": 5}},
+    {"id": "pickers", "type": "server",
+     "params": {"capacity": 3,
+                "service": {"dist": "exponential", "mean": "9 min"}}},
+    {"id": "shifts", "type": "schedule",
+     "params": {"target": "pickers",
+                "shifts": [{"start": "0 h", "end": "6 h", "capacity": 1},
+                           {"start": "6 h", "end": "22 h", "capacity": 3},
+                           {"start": "22 h", "end": "24 h", "capacity": 1}]}},
+    {"id": "to_packing", "type": "delay",
+     "params": {"time": {"dist": "constant", "value": "3 min"}}},
+    {"id": "unload", "type": "unbatch", "params": {}},
+    {"id": "packer", "type": "server",
+     "params": {"capacity": 1,
+                "service": {"dist": "exponential", "mean": "30 s"}}},
+    {"id": "dispatch", "type": "sink", "params": {}}
+  ],
+  "connections": [
+    {"from": "orders.out", "to": "carts.in"},
+    {"from": "carts.out", "to": "pickers.in"},
+    {"from": "pickers.out", "to": "to_packing.in"},
+    {"from": "to_packing.out", "to": "unload.in"},
+    {"from": "unload.out", "to": "packer.in"},
+    {"from": "packer.out", "to": "dispatch.in"}
+  ],
+  "experiments": [
+    {"id": "base", "length": "216 h", "warmup": "24 h", "record_interval": "1 h",
+     "replications": 30, "seed": 12345}
+  ],
+  "run": {"target": "local", "fidelity": "standard"}
+}
