@@ -225,6 +225,27 @@ def test_install_links_the_commands_and_uninstall_removes_them(
     assert folder.is_dir()
 
 
+def test_the_bundled_console_scripts_run_from_where_the_package_was_unpacked(
+    unpacked: tuple[Path, dict[str, str]],
+) -> None:
+    folder, environment = unpacked
+    bin_dir = folder / "python" / "bin"
+    for path in sorted(bin_dir.iterdir()):
+        if path.is_file() and not path.is_symlink() and path.read_bytes().startswith(b"#!"):
+            first_lines = path.read_bytes().split(b"\n")[:3]
+            # Every script runs the Python beside it, none a path from the build.
+            assert not [line for line in first_lines if b"/dist/" in line or b"/tmp" in line], path
+    done = subprocess.run(
+        [bin_dir / "uvicorn", "--version"], env=environment, capture_output=True, text=True
+    )
+    assert done.returncode == 0, done.stderr
+    assert "uvicorn 0.54.0" in done.stdout
+    record = next(
+        (folder / "python" / "lib" / "python3.13" / "site-packages").glob("lcsim-*/RECORD")
+    )
+    assert "direct_url.json" not in record.read_text("utf-8")
+
+
 def test_lcsim_without_a_display_opens_the_interface_through_the_launcher(
     unpacked: tuple[Path, dict[str, str]],
 ) -> None:

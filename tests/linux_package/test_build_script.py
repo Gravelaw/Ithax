@@ -170,6 +170,44 @@ def test_other_scripts_are_left_alone(tmp_path: Path) -> None:
     assert build.relocatable_script(f"#!{python_bin}/python3", python_bin) is not None
 
 
+def test_pips_sh_stub_for_a_long_path_becomes_the_relative_stub(tmp_path: Path) -> None:
+    python_bin = tmp_path / "a long folder" / "bin"
+    relative = '\'\'\'exec\' "$(dirname -- "$(realpath -- "$0")")"/\'python3\' "$0" "$@"'
+    for quote in ("", "'"):
+        exec_line = f"'''exec' {quote}{python_bin}/python3{quote} \"$0\" \"$@\""
+        text = f"#!/bin/sh\n{exec_line}\n' '''\nimport sys\n"
+        new = build.relocatable_script(text, python_bin)
+        assert new is not None
+        assert new == f"#!/bin/sh\n{relative}\n' '''\nimport sys\n"
+        assert str(tmp_path) not in new
+    other = "#!/bin/sh\n'''exec' /elsewhere/python3 \"$0\" \"$@\"\n' '''\nx\n"
+    assert build.relocatable_script(other, python_bin) is None
+    assert build.relocatable_script("#!/bin/sh\n", python_bin) is None
+
+
+def test_records_follow_the_files_the_build_changed_or_removed(tmp_path: Path) -> None:
+    site = tmp_path / "lib" / "python3.13" / "site-packages"
+    info = site / "x-1.dist-info"
+    info.mkdir(parents=True)
+    script = tmp_path / "bin" / "x"
+    script.parent.mkdir()
+    script.write_bytes(b"new body")
+    (info / "direct_url.json").write_text("{}")
+    (info / "RECORD").write_text(
+        "x/__init__.py,sha256=abc,3\n"
+        "../../../bin/x,sha256=old,99\n"
+        "x-1.dist-info/direct_url.json,sha256=def,2\n"
+        "x-1.dist-info/RECORD,,\n"
+    )
+    build.refresh_records(site, [script], [info / "direct_url.json"])
+    assert (info / "RECORD").read_text() == (
+        "x/__init__.py,sha256=abc,3\n"
+        f"../../../bin/x,{build.record_hash(b'new body')},8\n"
+        "x-1.dist-info/RECORD,,\n"
+    )
+    assert build.record_hash(b"") == "sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU"
+
+
 def test_a_rewritten_script_runs_after_its_folder_moves(tmp_path: Path) -> None:
     # A stand-in "python" that prints its arguments, and a script made for that folder.
     first = tmp_path / "first" / "bin"
@@ -182,7 +220,7 @@ def test_a_rewritten_script_runs_after_its_folder_moves(tmp_path: Path) -> None:
     script.chmod(0o755)
     (first / "data").write_bytes(b"\xff\xfe")  # not text: skipped
     os.symlink("python3", first / "python")  # a link: skipped
-    assert build.make_scripts_relocatable(first) == ["tool"]
+    assert build.make_scripts_relocatable(first) == [script]
     moved = tmp_path / "second"
     (tmp_path / "first").rename(moved)
     done = subprocess.run([moved / "bin" / "tool"], capture_output=True, text=True, check=True)

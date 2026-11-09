@@ -24,6 +24,7 @@ network; the archive it makes needs none to install or run.
 from __future__ import annotations
 
 import argparse
+import base64
 import gzip
 import hashlib
 import json
@@ -151,26 +152,38 @@ def check_licences(installed: Mapping[str, str], record: Mapping[str, Any]) -> l
 
 
 def relocatable_script(text: str, python_bin: Path) -> str | None:
-    """The script ``text`` made to run from wherever the package is unpacked, when its
-    first line names the interpreter in ``python_bin`` by its absolute path (as pip
-    writes console scripts): the line becomes a ``/bin/sh`` stub that runs the Python
-    beside the script, as python-build-standalone's own scripts do. ``None`` otherwise."""
-    first, newline, rest = text.partition("\n")
-    match = re.fullmatch(r"#!" + re.escape(str(python_bin)) + r"/(python[0-9.]*)", first)
-    if match is None:
+    """The script ``text`` made to run from wherever the package is unpacked, when it
+    names the interpreter in ``python_bin`` by its absolute path, as pip writes console
+    scripts: a first line ``#!<python_bin>/python3``, or, when that path is long, pip's
+    three-line ``/bin/sh`` stub whose ``exec`` names ``<python_bin>/python3``. Either
+    becomes a ``/bin/sh`` stub that runs the Python beside the script, as
+    python-build-standalone's own scripts do. ``None`` otherwise."""
+    folder = re.escape(str(python_bin))
+    lines = text.split("\n")
+    shebang = re.fullmatch("#!" + folder + "/(python[0-9.]*)", lines[0])
+    pip_stub = re.compile("'''exec' ('?)" + folder + '/(python[0-9.]*)\\1 "\\$0" "\\$@"')
+    if shebang is not None:
+        interpreter, rest = shebang[1], lines[1:]
+    elif (
+        len(lines) > 2
+        and lines[0] == "#!/bin/sh"
+        and (exec_line := pip_stub.fullmatch(lines[1])) is not None
+        and lines[2] == "' '''"
+    ):
+        interpreter, rest = exec_line[2], lines[3:]
+    else:
         return None
-    stub = (
-        "#!/bin/sh\n"
-        '\'\'\'exec\' "$(dirname -- "$(realpath -- "$0")")"/'
-        f'\'{match[1]}\' "$0" "$@"\n'
-        "' '''\n"
-    )
-    return stub + rest if newline else stub
+    stub = [
+        "#!/bin/sh",
+        f'\'\'\'exec\' "$(dirname -- "$(realpath -- "$0")")"/\'{interpreter}\' "$0" "$@"',
+        "' '''",
+    ]
+    return "\n".join(stub + rest) if rest else "\n".join(stub) + "\n"
 
 
-def make_scripts_relocatable(python_bin: Path) -> list[str]:
+def make_scripts_relocatable(python_bin: Path) -> list[Path]:
     """Rewrite the console scripts in ``python_bin`` that name it by absolute path; the
-    names of those rewritten."""
+    scripts rewritten."""
     rewritten = []
     for path in sorted(python_bin.iterdir()):
         if path.is_symlink() or not path.is_file():
@@ -182,8 +195,34 @@ def make_scripts_relocatable(python_bin: Path) -> list[str]:
         new = relocatable_script(text, python_bin)
         if new is not None:
             path.write_text(new, encoding="utf-8")
-            rewritten.append(path.name)
+            rewritten.append(path)
     return rewritten
+
+
+def record_hash(data: bytes) -> str:
+    """A file's hash as a wheel's ``RECORD`` writes it."""
+    digest = base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
+    return f"sha256={digest}"
+
+
+def refresh_records(site_packages: Path, changed: Sequence[Path], removed: Sequence[Path]) -> None:
+    """Bring every ``RECORD`` in ``site_packages`` in line with the files the build
+    changed (new hash and size) or removed (line dropped), so the installed metadata is
+    true and the same in every build."""
+    changed_set = {path.resolve() for path in changed}
+    removed_set = {path.resolve() for path in removed}
+    for record in sorted(site_packages.glob("*.dist-info/RECORD")):
+        lines = []
+        for line in record.read_text(encoding="utf-8").splitlines():
+            name = line.rsplit(",", 2)[0]
+            target = (site_packages / name).resolve()
+            if target in removed_set:
+                continue
+            if target in changed_set:
+                data = target.read_bytes()
+                line = f"{name},{record_hash(data)},{len(data)}"
+            lines.append(line)
+        record.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def _reset(info: tarfile.TarInfo, mtime: int) -> tarfile.TarInfo:
@@ -411,6 +450,12 @@ def build(out: Path, prebuilt: bool) -> Path:
             raise BuildError("licence or pin problems:\n  " + "\n  ".join(problems))
         rewritten = make_scripts_relocatable(stage / "python" / "bin")
         print(f"Made {len(rewritten)} console scripts relocatable", flush=True)
+        # pip records the lcsim wheel's temporary path; the package keeps no build path.
+        site_packages = stage / "python" / "lib" / "python3.13" / "site-packages"
+        direct_urls = sorted(site_packages.glob("lcsim-*.dist-info/direct_url.json"))
+        for path in direct_urls:
+            path.unlink()
+        refresh_records(site_packages, rewritten, direct_urls)
 
         share = stage / "python" / "share" / "lcsim"
         shutil.copytree(ui_dist, share / "ui")
@@ -466,19 +511,31 @@ def build(out: Path, prebuilt: bool) -> Path:
         (stage / "BUILD-INFO.json").write_text(json.dumps(info, indent=2) + "\n", "utf-8")
 
         set_times(stage, mtime)
+        # One process and a fixed hash seed, so the bytecode is the same in every build
+        # (in a pool, what a worker compiled before changed a file's bytes); -s and -P
+        # isolate it as -I would, which would also ignore the seed.
+        hash_seed = {k: v for k, v in os.environ.items() if not k.startswith("PYTHON")}
+        hash_seed["PYTHONHASHSEED"] = "0"
         _run(
             [
                 python,
-                "-I",
+                "-s",
+                "-P",
                 "-m",
                 "compileall",
+                "-f",
                 "-q",
-                "-j",
-                "0",
                 "--invalidation-mode",
                 "timestamp",
+                # Paths in the bytecode start at the package's folder, not the build's
+                # (Python sets the real path when it loads them).
+                "-s",
+                stage,
+                "-p",
+                name,
                 stage / "python" / "lib" / "python3.13",
-            ]
+            ],
+            env=hash_seed,
         )
         archive = out / f"{name}.tar.gz"
         write_archive(stage, archive, mtime)
