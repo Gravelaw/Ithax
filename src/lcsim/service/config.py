@@ -32,6 +32,7 @@ __all__ = [
     "default_data_dir",
     "default_templates_dir",
     "default_ui_dir",
+    "installed_share_dir",
     "new_token",
 ]
 
@@ -122,20 +123,42 @@ def default_data_dir(
     )
 
 
-def default_ui_dir() -> Path:
-    """The built interface the service serves by default: ``ui/dist`` beside the package's
-    source folder, which a source checkout has once the interface is built (``npm run
-    build`` in ``ui/``). An installed package has no such folder, so its ``/v1/ui/`` is 404
-    until packaging (M11) names the installed one (AKS-119, owner to confirm)."""
-    return Path(__file__).resolve().parents[3] / "ui" / "dist"
+#: The source checkout holding ``src/lcsim``: the folder three levels above this file.
+_CHECKOUT = Path(__file__).resolve().parents[3]
 
 
-def default_templates_dir() -> Path:
-    """The template packages the service serves by default: ``templates`` beside the
-    package's source folder, which a source checkout has. An installed package has no such
-    folder, so it serves no template until packaging (M11) names the installed one, as for
-    ``default_ui_dir`` (AKS-122, owner to confirm)."""
-    return Path(__file__).resolve().parents[3] / "templates"
+def installed_share_dir(prefix: str | None = None) -> Path:
+    """Where the Linux package puts the interface and the templates: ``share/lcsim`` under
+    the Python installation's prefix, ``sys.prefix`` by default (spec 3 "Packaging", M11,
+    AKS-127, owner to confirm)."""
+    return Path(sys.prefix if prefix is None else prefix) / "share" / APP_FOLDER
+
+
+def _first_folder(*candidates: Path) -> Path:
+    """The first of ``candidates`` that is a folder, else the first one."""
+    return next((candidate for candidate in candidates if candidate.is_dir()), candidates[0])
+
+
+def default_ui_dir(checkout: Path | None = None, prefix: str | None = None) -> Path:
+    """The built interface the service serves by default: ``ui/dist`` of the source
+    checkout, which a checkout has once the interface is built (``npm run build`` in
+    ``ui/``), or else ``share/lcsim/ui`` under the Python prefix, where the Linux package
+    puts it (``installed_share_dir``). When neither exists, the checkout's folder is named
+    and ``/v1/ui/`` is 404 (AKS-119, AKS-127, owner to confirm).
+
+    ``checkout`` and ``prefix`` default to this checkout and ``sys.prefix``."""
+    root = _CHECKOUT if checkout is None else checkout
+    return _first_folder(root / "ui" / "dist", installed_share_dir(prefix) / "ui")
+
+
+def default_templates_dir(checkout: Path | None = None, prefix: str | None = None) -> Path:
+    """The template packages the service serves by default: ``templates`` of the source
+    checkout, or else ``share/lcsim/templates`` under the Python prefix, where the Linux
+    package puts them; when neither exists, the checkout's folder is named and no template
+    is served (AKS-122, AKS-127, owner to confirm). The arguments are as for
+    ``default_ui_dir``."""
+    root = _CHECKOUT if checkout is None else checkout
+    return _first_folder(root / "templates", installed_share_dir(prefix) / "templates")
 
 
 @dataclass(frozen=True)

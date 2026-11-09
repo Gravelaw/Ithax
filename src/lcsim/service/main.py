@@ -137,12 +137,16 @@ def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
         "settings.json, 30 when unset)",
     )
     parser.add_argument(
-        "--ui-dir", type=Path, help="the built interface to serve at /v1/ui/ (default: ui/dist)"
+        "--ui-dir",
+        type=Path,
+        help="the built interface to serve at /v1/ui/ (default: the checkout's ui/dist, else "
+        "share/lcsim/ui under the Python prefix)",
     )
     parser.add_argument(
         "--templates-dir",
         type=Path,
-        help="the template packages to serve at /v1/templates (default: templates)",
+        help="the template packages to serve at /v1/templates (default: the checkout's "
+        "templates, else share/lcsim/templates under the Python prefix)",
     )
     arguments = parser.parse_args(argv)
     if arguments.idle_minutes is not None and not arguments.idle_minutes > 0:
