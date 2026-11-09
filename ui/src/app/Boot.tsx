@@ -49,7 +49,12 @@ export function Boot({ client, root }: { client: ApiClient; root: HTMLElement })
     );
   }
   return (
-    <SettingsProvider client={client} initial={loaded.data.settings} root={root}>
+    <SettingsProvider
+      client={client}
+      initial={loaded.data.settings}
+      initialIssues={loaded.data.issues}
+      root={root}
+    >
       <App client={client} />
     </SettingsProvider>
   );

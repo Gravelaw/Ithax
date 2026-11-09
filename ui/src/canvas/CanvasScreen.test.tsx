@@ -524,15 +524,70 @@ describe("validation and Run", () => {
     await waitFor(() => expect(validations()).toBe(2), { timeout: 2000 });
   });
 
-  it("runs once saved and checked with no errors, by the button or Ctrl+Enter", async () => {
-    const { go, toolbar, user } = renderCanvas();
+  it("starts a run once saved and checked with no errors, by the button or Ctrl+Enter", async () => {
+    const { fake, go, toolbar, user } = renderCanvas();
+    let next = 0;
+    fake.on(`POST /v1/projects/${PID}/runs`, () => ({
+      status: 202,
+      body: { run_id: `20261108T10000${next++}-AAAAAA` },
+    }));
     await drawn("till");
     await settled(toolbar);
     await user.click(within(toolbar).getByRole("button", { name: "Run" }));
-    expect(go).toHaveBeenCalledWith({ screen: "monitor", projectId: PID });
+    await waitFor(() =>
+      expect(go).toHaveBeenCalledWith({
+        screen: "monitor",
+        projectId: PID,
+        runId: "20261108T100000-AAAAAA",
+      }),
+    );
+    expect(fake.requested("POST", `/v1/projects/${PID}/runs`)[0]?.body).toEqual({
+      experiment_id: "base",
+    });
     fireEvent.keyDown(document.body, { key: "Enter", ctrlKey: true });
-    expect(go).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(go).toHaveBeenCalledTimes(2));
     expect(within(toolbar).getByRole("combobox", { name: "Experiment" })).toHaveValue("base");
+  });
+
+  it("takes nothing else while the start awaits its answer, and shows a refusal", async () => {
+    const { fake, go, toolbar, user } = renderCanvas();
+    fake.answer(
+      `POST /v1/projects/${PID}/runs`,
+      {
+        error: { code: "E122", message: "The model has errors." },
+        issues: [
+          {
+            code: "E122",
+            severity: "error",
+            component: "till",
+            path: "/components/1/params/service",
+            message: "Component 'till' is missing the required setting 'service'.",
+            hint: null,
+          },
+        ],
+      },
+      422,
+    );
+    await drawn("till");
+    await settled(toolbar);
+    const release = fake.holdWrites();
+    const run = within(toolbar).getByRole("button", { name: "Run" });
+    await user.click(run);
+    await waitFor(() => expect(fake.held).toBe(1));
+    expect(within(toolbar).getByText("Starting the run…")).toBeVisible();
+    expect(run).toHaveAttribute("aria-disabled", "true");
+    await user.click(run);
+    fireEvent.keyDown(document.body, { key: "Enter", ctrlKey: true });
+    await select(user, "till");
+    await user.type(screen.getByRole("textbox", { name: "Label (optional)" }), "A{Enter}");
+    expect(await screen.findByText(WAIT)).toBeVisible();
+    release();
+    expect(
+      await screen.findByText("Component 'till' is missing the required setting 'service'."),
+    ).toBeVisible();
+    expect(fake.requested("POST", `/v1/projects/${PID}/runs`)).toHaveLength(1);
+    expect(sentEdits(fake)).toHaveLength(0);
+    expect(go).not.toHaveBeenCalled();
   });
 
   it("opens the Experiment screen for an experiment's issue", async () => {
@@ -858,6 +913,7 @@ describe("why Run waits", () => {
     writers: {},
     eventsClosed: null,
     busy: false,
+    starting: false,
     renamed: {},
   };
   const error: Issue = {
@@ -882,6 +938,10 @@ describe("why Run waits", () => {
     });
     expect(runBlocked({ ...base, checking: true, saving: true })).toEqual({
       reason: "Saving…",
+      pointer: "busy",
+    });
+    expect(runBlocked({ ...base, busy: true, starting: true })).toEqual({
+      reason: "Starting the run…",
       pointer: "busy",
     });
     expect(runBlocked({ ...base, saving: true, failing: true })?.reason).toBe(

@@ -18,6 +18,7 @@ import type {
   CreateProject,
   DataFile,
   Edit,
+  Engine,
   ErrorBody,
   FitBody,
   ImportedFile,
@@ -27,10 +28,15 @@ import type {
   ModelWriteBody,
   Project,
   ProjectEvent,
+  Run,
+  RunEvent,
   SchemaBody,
   SettingsBody,
   SettingsChange,
+  StartedRun,
+  SummaryBody,
   SystemInfo,
+  TableRow,
   Template,
   ValidateBody,
 } from "./types";
@@ -41,6 +47,12 @@ export type ApiResult<T> =
   | { kind: "failed"; status: number; reason: "unreachable" | "not-json" };
 
 export type Method = "GET" | "POST" | "PUT" | "DELETE";
+
+/** A file the service sent (a table as CSV, the project zip), with its media type. */
+export interface Download {
+  blob: Blob;
+  type: string;
+}
 
 /** One request the client sent, for a request log (the M9 end-to-end test, AKS-121). */
 export interface SentRequest {
@@ -142,6 +154,56 @@ export class ApiClient {
     }
     if (response.ok) {
       return { kind: "ok", status: response.status, data: parsed as T };
+    }
+    if (isErrorBody(parsed)) {
+      return {
+        kind: "refused",
+        status: response.status,
+        error: parsed.error,
+        issues: parsed.issues,
+      };
+    }
+    return { kind: "failed", status: response.status, reason: "not-json" };
+  }
+
+  /**
+   * A `GET` of a documented `/v1` path that answers with a file rather than JSON (a CSV
+   * table, the project zip): `ok` with its bytes; a refusal is the service's JSON error
+   * body, as for `request`.
+   */
+  async download(path: string): Promise<ApiResult<Download>> {
+    if (!path.startsWith("/v1/")) {
+      throw new Error(`'${path}' is not a /v1 path of the service`);
+    }
+    this.onRequest?.({ method: "GET", path });
+    const headers = { Authorization: `Bearer ${this.token}`, "X-Client": "ui" };
+    let response: Response;
+    try {
+      response = await this.fetcher(this.origin + path, {
+        method: "GET",
+        headers,
+        cache: "no-store",
+      });
+    } catch {
+      return { kind: "failed", status: 0, reason: "unreachable" };
+    }
+    if (response.ok) {
+      try {
+        const blob = await response.blob();
+        return {
+          kind: "ok",
+          status: response.status,
+          data: { blob, type: response.headers.get("Content-Type") ?? "" },
+        };
+      } catch {
+        return { kind: "failed", status: response.status, reason: "unreachable" };
+      }
+    }
+    let parsed: unknown;
+    try {
+      parsed = await response.json();
+    } catch {
+      return { kind: "failed", status: response.status, reason: "not-json" };
     }
     if (isErrorBody(parsed)) {
       return {
@@ -278,5 +340,63 @@ export class ApiClient {
 
   projectEvents(pid: string, handlers: SocketHandlers<ProjectEvent>): EventSocket {
     return this.socket(`/v1/projects/${encodeURIComponent(pid)}/events`, handlers);
+  }
+
+  getEngines(): Promise<ApiResult<Engine[]>> {
+    return this.request("GET", "/v1/engines");
+  }
+
+  /**
+   * `POST .../runs`: a `process` model's run of `experimentId`; an `optimization` model's
+   * with `null`, which sends no `experiment_id` (spec 3).
+   */
+  startRun(pid: string, experimentId: string | null): Promise<ApiResult<StartedRun>> {
+    return this.request(
+      "POST",
+      `/v1/projects/${encodeURIComponent(pid)}/runs`,
+      experimentId === null ? {} : { experiment_id: experimentId },
+    );
+  }
+
+  /** `GET .../runs`: the project's runs in the order accepted. */
+  listRuns(pid: string): Promise<ApiResult<Run[]>> {
+    return this.request("GET", `/v1/projects/${encodeURIComponent(pid)}/runs`);
+  }
+
+  getRun(rid: string): Promise<ApiResult<Run>> {
+    return this.request("GET", `/v1/runs/${encodeURIComponent(rid)}`);
+  }
+
+  cancelRun(rid: string): Promise<ApiResult<Run>> {
+    return this.request("POST", `/v1/runs/${encodeURIComponent(rid)}/cancel`);
+  }
+
+  /** `GET /v1/runs/{rid}/events`: the state and the latest progress first, then each change. */
+  runEvents(rid: string, handlers: SocketHandlers<RunEvent>): EventSocket {
+    return this.socket(`/v1/runs/${encodeURIComponent(rid)}/events`, handlers);
+  }
+
+  getSummary(rid: string): Promise<ApiResult<SummaryBody>> {
+    return this.request("GET", `/v1/runs/${encodeURIComponent(rid)}/summary`);
+  }
+
+  /** `GET .../tables/{name}?format=json`: one object per row. */
+  getTable(rid: string, name: string): Promise<ApiResult<TableRow[]>> {
+    return this.request(
+      "GET",
+      `/v1/runs/${encodeURIComponent(rid)}/tables/${encodeURIComponent(name)}?format=json`,
+    );
+  }
+
+  /** `GET .../tables/{name}?format=csv`. */
+  tableCsv(rid: string, name: string): Promise<ApiResult<Download>> {
+    return this.download(
+      `/v1/runs/${encodeURIComponent(rid)}/tables/${encodeURIComponent(name)}?format=csv`,
+    );
+  }
+
+  /** `GET .../export`: the project folder as a zip (AKS-138). */
+  exportProject(pid: string): Promise<ApiResult<Download>> {
+    return this.download(`/v1/projects/${encodeURIComponent(pid)}/export`);
   }
 }

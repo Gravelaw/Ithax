@@ -53,13 +53,19 @@ AKS_119_ROUTES = {
     ("PUT", "/v1/settings"),
     ("GET", "/v1/ui/{path}"),
 }
+AKS_138_ROUTES = {("GET", "/v1/projects/{pid}/export")}
 
 
-def test_the_app_has_the_aks_110_to_aks_113_and_aks_119_routes_and_nothing_else(
+def test_the_app_has_the_aks_110_to_aks_113_aks_119_and_aks_138_routes_and_nothing_else(
     app: FastAPI,
 ) -> None:
     assert route_table(app) == (
-        AKS_110_ROUTES | AKS_111_ROUTES | AKS_112_ROUTES | AKS_113_ROUTES | AKS_119_ROUTES
+        AKS_110_ROUTES
+        | AKS_111_ROUTES
+        | AKS_112_ROUTES
+        | AKS_113_ROUTES
+        | AKS_119_ROUTES
+        | AKS_138_ROUTES
     )
 
 
@@ -76,6 +82,7 @@ def test_there_is_one_router_per_area() -> None:
         "/v1/projects",
         "/v1/projects",
         "/v1",
+        "/v1/projects",
         "/v1/projects",
         "/v1/ui",
     ]

@@ -29,6 +29,7 @@ import { createPortal } from "react-dom";
 import type { Edit, Issue, LinearConstraint, Model, Project, Variable } from "../api/types";
 import type { Route } from "../app/router";
 import { LOST_CONTACT, ServiceProblem } from "../components/ServiceProblem";
+import { useMounted } from "../components/useMounted";
 import { BusyContext, lock, RevisionContext, useBusy } from "./busy";
 import { pointer, shown } from "./model";
 import { own } from "./own";
@@ -786,10 +787,16 @@ export function PlanScreen({
   );
 
   const blocked = runBlocked(state);
+  // An optimization model's run takes no experiment (spec 3 `POST .../runs`).
+  const mounted = useMounted();
   const run = useCallback(() => {
     if (runBlocked(session.getState()) !== null) return;
-    onGo({ screen: "monitor", projectId: project.id });
-  }, [session, onGo, project.id]);
+    void session.startRun(null).then((result) => {
+      if (result?.kind === "ok" && mounted.current) {
+        onGo({ screen: "monitor", projectId: project.id, runId: result.data.run_id });
+      }
+    });
+  }, [session, onGo, project.id, mounted]);
   const undo = useCallback(() => {
     if (!locked) void session.undo();
   }, [session, locked]);

@@ -1,6 +1,7 @@
 /**
  * Which screen is shown, kept in the address's fragment (`#/canvas/<project id>`), so a
- * reload of the tab stays on it. The fragment `#token=...` belongs to the launcher and is
+ * reload of the tab stays on it. The Run monitor and Results may also name a run
+ * (`#/monitor/<project id>/<run id>`, AKS-138). The fragment `#token=...` belongs to the launcher and is
  * taken away before the router reads the address (`api/token.ts`).
  */
 import { useCallback, useEffect, useState } from "react";
@@ -16,29 +17,47 @@ export const PROJECT_SCREENS: readonly Screen[] = [
   "results",
 ];
 
+/** Screens that may name one run of their project. */
+export const RUN_SCREENS: readonly Screen[] = ["monitor", "results"];
+
 export interface Route {
   screen: Screen;
   projectId: string | null;
+  /** The run shown (Run monitor and Results); absent for the project's own choice. */
+  runId?: string;
 }
 
 export const HOME: Route = { screen: "home", projectId: null };
 
 const SCREENS: readonly Screen[] = ["home", ...PROJECT_SCREENS, "settings"];
 
+function decoded(part: string): string | null {
+  try {
+    return decodeURIComponent(part);
+  } catch {
+    return null;
+  }
+}
+
 export function parseRoute(hash: string): Route {
-  const [screen, id, ...rest] = hash.replace(/^#\/?/, "").split("/");
+  const [screen, id, run, ...rest] = hash.replace(/^#\/?/, "").split("/");
   if (rest.length > 0 || !SCREENS.includes(screen as Screen)) return HOME;
   const named = screen as Screen;
   if (PROJECT_SCREENS.includes(named)) {
-    return id ? { screen: named, projectId: decodeURIComponent(id) } : HOME;
+    const projectId = id ? decoded(id) : null;
+    if (projectId === null || projectId === "") return HOME;
+    if (run === undefined) return { screen: named, projectId };
+    const runId = RUN_SCREENS.includes(named) && run !== "" ? decoded(run) : null;
+    return runId === null || runId === "" ? HOME : { screen: named, projectId, runId };
   }
-  return id ? HOME : { screen: named, projectId: null };
+  return id || run !== undefined ? HOME : { screen: named, projectId: null };
 }
 
 export function routeHash(route: Route): string {
   if (route.screen === "home") return "#/";
   if (route.projectId === null) return `#/${route.screen}`;
-  return `#/${route.screen}/${encodeURIComponent(route.projectId)}`;
+  const project = `#/${route.screen}/${encodeURIComponent(route.projectId)}`;
+  return route.runId === undefined ? project : `${project}/${encodeURIComponent(route.runId)}`;
 }
 
 /** The current route and a function that goes to another, through the address. */

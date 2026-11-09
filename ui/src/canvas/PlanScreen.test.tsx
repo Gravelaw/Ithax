@@ -95,6 +95,21 @@ describe("the Table view of a plan", () => {
     );
   });
 
+  it("starts its run with no experiment, and opens the Run monitor at it", async () => {
+    const { fake, go, toolbar, user } = renderPlan(mix());
+    fake.answer(`POST /v1/projects/${PID}/runs`, { run_id: "20261108T100000-BBBBBB" }, 202);
+    await settled(toolbar);
+    await user.click(within(toolbar).getByRole("button", { name: "Run" }));
+    await waitFor(() =>
+      expect(go).toHaveBeenCalledWith({
+        screen: "monitor",
+        projectId: PID,
+        runId: "20261108T100000-BBBBBB",
+      }),
+    );
+    expect(fake.requested("POST", `/v1/projects/${PID}/runs`)[0]?.body).toEqual({});
+  });
+
   it("adds a decision and edits its name, kind, bound and goal coefficient", {
     timeout: 20_000,
   }, async () => {

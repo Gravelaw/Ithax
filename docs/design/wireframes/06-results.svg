@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="title desc">
   <title id="title">Wireframe 06: Results</title>
-  <desc id="desc">Results screen for a three-machine line run. Plain-language findings first, then key numbers with confidence intervals, a chart with its data table, the replications and timeseries tables, export to CSV, PDF and project zip, and the footer with model name, run id, fidelity label, replications and confidence, engine name and version, and the sentence: Simulation results are estimates and carry no warranty.</desc>
+  <desc id="desc">Results screen for a three-machine line run. A headline card that says why (the first finding), then the plain-language findings, key numbers with their likely range, charts per run kind each with a data table (bars with their likely ranges and the value over time for a process run; insets for a search run, with the best-so-far chart and the table of all trials, and for an optimization model, with the decisions, the goal and the fully used limits), the replications table, export to CSV, PDF and project zip, the Tell us what you built link, and the footer with model name, run id, fidelity label, replications and confidence, engine name and version, and the sentence: Simulation results are estimates and carry no warranty.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#547076"/>
@@ -30,22 +30,10 @@
   <text x="36" y="422" font-family="sans-serif" font-size="12" font-weight="600" fill="#34454C" text-anchor="middle">Results</text>
   <svg x="24" y="446" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#547076"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm109.94-52.79a8,8,0,0,0-3.89-5.4l-29.83-17-.12-33.62a8,8,0,0,0-2.83-6.08,111.91,111.91,0,0,0-36.72-20.67,8,8,0,0,0-6.46.59L128,41.85,97.88,25a8,8,0,0,0-6.47-.6A112.1,112.1,0,0,0,54.73,45.15a8,8,0,0,0-2.83,6.07l-.15,33.65-29.83,17a8,8,0,0,0-3.89,5.4,106.47,106.47,0,0,0,0,41.56,8,8,0,0,0,3.89,5.4l29.83,17,.12,33.62a8,8,0,0,0,2.83,6.08,111.91,111.91,0,0,0,36.72,20.67,8,8,0,0,0,6.46-.59L128,214.15,158.12,231a7.91,7.91,0,0,0,3.9,1,8.09,8.09,0,0,0,2.57-.42,112.1,112.1,0,0,0,36.68-20.73,8,8,0,0,0,2.83-6.07l.15-33.65,29.83-17a8,8,0,0,0,3.89-5.4A106.47,106.47,0,0,0,237.94,107.21Zm-15,34.91-28.57,16.25a8,8,0,0,0-3,3c-.58,1-1.19,2.06-1.81,3.06a7.94,7.94,0,0,0-1.22,4.21l-.15,32.25a95.89,95.89,0,0,1-25.37,14.3L134,199.13a8,8,0,0,0-3.91-1h-.19c-1.21,0-2.43,0-3.64,0a8.08,8.08,0,0,0-4.1,1l-28.84,16.1A96,96,0,0,1,67.88,201l-.11-32.2a8,8,0,0,0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.09,8.09,0,0,0-3-3.06l-28.6-16.29a90.49,90.49,0,0,1,0-28.26L61.67,97.63a8,8,0,0,0,3-3c.58-1,1.19-2.06,1.81-3.06a7.94,7.94,0,0,0,1.22-4.21l.15-32.25a95.89,95.89,0,0,1,25.37-14.3L122,56.87a8,8,0,0,0,4.1,1c1.21,0,2.43,0,3.64,0a8.08,8.08,0,0,0,4.1-1l28.84-16.1A96,96,0,0,1,188.12,55l.11,32.2a8,8,0,0,0,1.22,4.22c.62,1,1.23,2,1.8,3.06a8.09,8.09,0,0,0,3,3.06l28.6,16.29A90.49,90.49,0,0,1,222.9,142.12Z"/></g></svg>
   <text x="36" y="486" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="middle">Settings</text>
-  <!-- Top bar: project, save state, undo/redo, experiment, Run with its reason -->
+  <!-- Top bar: the project's name; these screens put no tools in it -->
   <rect x="72" y="0" width="1208" height="48" rx="0" fill="#FDFAF4" stroke="none" stroke-width="1"/>
   <line x1="72" y1="48" x2="1280" y2="48" stroke="#CABD9E" stroke-width="1"/>
   <text x="92" y="30" font-family="sans-serif" font-size="16" font-weight="600" fill="#34454C" text-anchor="start">Three-machine line</text>
-  <circle cx="262" cy="25" r="5" fill="#1A7444" stroke="none" stroke-width="1"/>
-  <text x="274" y="30" font-family="sans-serif" font-size="13" font-weight="400" fill="#1A7444" text-anchor="start">Saved</text>
-  <rect x="360" y="10" width="64" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <svg x="366" y="17" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#34454C"><path d="M232,144a64.07,64.07,0,0,1-64,64H80a8,8,0,0,1,0-16h88a48,48,0,0,0,0-96H51.31l34.35,34.34a8,8,0,0,1-11.32,11.32l-48-48a8,8,0,0,1,0-11.32l48-48A8,8,0,0,1,85.66,45.66L51.31,80H168A64.07,64.07,0,0,1,232,144Z"/></g></svg><text x="400" y="29" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">Undo</text>
-  <rect x="432" y="10" width="64" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <svg x="438" y="17" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#34454C"><path d="M170.34,130.34,204.69,96H88a48,48,0,0,0,0,96h88a8,8,0,0,1,0,16H88A64,64,0,0,1,88,80H204.69L170.34,45.66a8,8,0,0,1,11.32-11.32l48,48a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32-11.32Z"/></g></svg><text x="472" y="29" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">Redo</text>
-  <text x="796" y="30" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Experiment</text>
-  <rect x="866" y="10" width="120" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="876" y="29" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">base</text>
-  <text x="974" y="29" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">v</text>
-  <rect x="1000" y="8" width="80" height="32" rx="4" fill="#1C4286" stroke="none" stroke-width="1"/>
-  <svg x="1012" y="17" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#FDFAF4"><path d="M240,128a15.74,15.74,0,0,1-7.6,13.51L88.32,229.65a16,16,0,0,1-16.2.3A15.86,15.86,0,0,1,64,216.13V39.87a15.86,15.86,0,0,1,8.12-13.82,16,16,0,0,1,16.2.3L232.4,114.49A15.74,15.74,0,0,1,240,128Z"/></g></svg><text x="1048" y="29" font-family="sans-serif" font-size="14" font-weight="600" fill="#FDFAF4" text-anchor="middle">Run</text>
   <text x="104" y="88" font-family="sans-serif" font-size="24" font-weight="600" fill="#34454C" text-anchor="start">Results</text>
   <rect x="760" y="64" width="108" height="32" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
   <text x="814.0" y="85.0" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="middle">Export CSV</text>
@@ -53,59 +41,138 @@
   <text x="930.0" y="85.0" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="middle">Export PDF</text>
   <rect x="992" y="64" width="176" height="32" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
   <text x="1080.0" y="85.0" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="middle">Export project (zip)</text>
-  <text x="104" y="128" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Findings</text>
-  <!-- Findings first (spec 3 Screen 6, spec 4 finding rules); text from spec 4 -->
-  <rect x="104" y="140" width="1056" height="52" rx="8" fill="#FCEBD1" stroke="#915604" stroke-width="1"/>
-  <text x="120" y="162" font-family="sans-serif" font-size="13" font-weight="600" fill="#915604" text-anchor="start">Bottleneck</text>
-  <text x="120" y="182" font-family="sans-serif" font-size="14" font-weight="400" fill="#34454C" text-anchor="start">weld is the bottleneck: busy 90% of the time, with an average wait of 17.3 min.</text>
-  <rect x="104" y="200" width="1056" height="52" rx="8" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <text x="120" y="222" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Not enough runs</text>
-  <text x="120" y="242" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">The estimates for weld.wait.mean are still uncertain: weld.wait.mean is 17.3 min plus or minus 4.4 min. About {n_required} replications would be needed for a 10% interval.</text>
-  <text x="104" y="288" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Key numbers</text>
-  <rect x="104" y="300" width="512" height="32" rx="0" fill="#F7EEDC" stroke="none" stroke-width="1"/>
-  <text x="116" y="321" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Metric</text>
-  <text x="324" y="321" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Mean</text>
-  <text x="444" y="321" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">95% interval</text>
-  <rect x="104" y="332" width="512" height="32" rx="0" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
-  <text x="116" y="353" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">weld.utilization</text>
-  <text x="324" y="353" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">90%</text>
-  <text x="444" y="353" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">{half-width}</text>
-  <rect x="104" y="364" width="512" height="32" rx="0" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
-  <text x="116" y="385" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">weld.wait.mean</text>
-  <text x="324" y="385" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">17.3 min</text>
-  <text x="444" y="385" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">± 4.4 min</text>
-  <rect x="104" y="396" width="512" height="32" rx="0" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
-  <text x="116" y="417" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">exit.throughput</text>
-  <text x="324" y="417" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">{value}</text>
-  <text x="444" y="417" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">{half-width}</text>
-  <!-- Chart with its data table beside it -->
-  <rect x="640" y="288" width="520" height="240" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
-  <text x="656" y="316" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">Mean wait by station, with 95% intervals</text>
-  <line x1="700" y1="500" x2="1140" y2="500" stroke="#6D7E77" stroke-width="1"/>
-  <line x1="700" y1="340" x2="700" y2="500" stroke="#6D7E77" stroke-width="1"/>
-  <rect x="760" y="470" width="48" height="30" rx="0" fill="#1C4286" stroke="none" stroke-width="1"/>
-  <line x1="784" y1="450" x2="784" y2="490" stroke="#34454C" stroke-width="1.5"/>
-  <text x="784" y="518" font-family="monospace" font-size="12" font-weight="400" fill="#34454C" text-anchor="middle">station_a</text>
-  <rect x="890" y="380" width="48" height="120" rx="0" fill="#1C4286" stroke="none" stroke-width="1"/>
-  <line x1="914" y1="360" x2="914" y2="400" stroke="#34454C" stroke-width="1.5"/>
-  <text x="914" y="518" font-family="monospace" font-size="12" font-weight="400" fill="#34454C" text-anchor="middle">weld</text>
-  <rect x="1020" y="455" width="48" height="45" rx="0" fill="#1C4286" stroke="none" stroke-width="1"/>
-  <line x1="1044" y1="435" x2="1044" y2="475" stroke="#34454C" stroke-width="1.5"/>
-  <text x="1044" y="518" font-family="monospace" font-size="12" font-weight="400" fill="#34454C" text-anchor="middle">station_c</text>
-  <text x="656" y="540" font-family="sans-serif" font-size="12" font-weight="400" fill="#1C4286" text-anchor="start">Data table</text>
-  <text x="104" y="452" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Tables</text>
-  <rect x="104" y="464" width="120" height="32" rx="4" fill="#F7EEDC" stroke="#CABD9E" stroke-width="1"/>
-  <text x="164" y="485" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">replications</text>
-  <rect x="232" y="464" width="120" height="32" rx="4" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
-  <text x="292" y="485" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="middle">timeseries</text>
-  <rect x="104" y="504" width="512" height="120" rx="0" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
-  <text x="116" y="528" font-family="monospace" font-size="13" font-weight="400" fill="#547076" text-anchor="start">scenario   replication   metric   value   unit</text>
-  <text x="116" y="552" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">default    0             weld.wait.mean   ...   s</text>
-  <text x="104" y="650" font-family="sans-serif" font-size="13" font-weight="400" fill="#1C4286" text-anchor="start">Tell us what you built (opens your browser)</text>
-  <text x="104" y="690" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Example values: the weld figures are spec 2's prototype reference values; station names and {braced} values are placeholders.</text>
+  <!-- Headline card that says why (owner review): the first finding, in the rules' order; with no finding, the key number alone -->
+  <rect x="104" y="108" width="1056" height="48" rx="8" fill="#F7EEDC" stroke="#1C4286" stroke-width="1"/>
+  <text x="120" y="138" font-family="sans-serif" font-size="18" font-weight="700" fill="#34454C" text-anchor="start">weld is the bottleneck: busy 90% of the time, with an average wait of 15.7 min.</text>
+  <text x="104" y="180" font-family="sans-serif" font-size="16" font-weight="600" fill="#34454C" text-anchor="start">Findings</text>
+  <!-- Findings first (spec 3 Screen 6, spec 4 finding rules); the M8 values, seed 12345 -->
+  <rect x="104" y="188" width="1056" height="30" rx="6" fill="#FCEBD1" stroke="#915604" stroke-width="1"/>
+  <text x="116" y="208" font-family="sans-serif" font-size="12" font-weight="600" fill="#915604" text-anchor="start">Bottleneck</text>
+  <text x="196" y="208" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">weld is the bottleneck: busy 90% of the time, with an average wait of 15.7 min.</text>
+  <rect x="104" y="222" width="1056" height="30" rx="6" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="116" y="242" font-family="sans-serif" font-size="12" font-weight="600" fill="#34454C" text-anchor="start">Not enough runs</text>
+  <text x="224" y="242" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">The estimates for weld.wait.mean are still uncertain: weld.wait.mean is 15.7 min plus or minus 2.09 min. About 60 replications ...</text>
+  <text x="104" y="276" font-family="sans-serif" font-size="16" font-weight="600" fill="#34454C" text-anchor="start">Key numbers</text>
+  <rect x="104" y="284" width="512" height="26" rx="0" fill="#F7EEDC" stroke="none" stroke-width="1"/>
+  <text x="116" y="302" font-family="sans-serif" font-size="12" font-weight="600" fill="#34454C" text-anchor="start">Metric</text>
+  <text x="300" y="302" font-family="sans-serif" font-size="12" font-weight="600" fill="#34454C" text-anchor="start">Average</text>
+  <text x="400" y="302" font-family="sans-serif" font-size="12" font-weight="600" fill="#34454C" text-anchor="start">Likely range of the average</text>
+  <text x="580" y="302" font-family="sans-serif" font-size="12" font-weight="600" fill="#34454C" text-anchor="start">Runs</text>
+  <rect x="104" y="310" width="512" height="26" rx="0" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="116" y="328" font-family="monospace" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">weld.utilization</text>
+  <text x="300" y="328" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">90.1%</text>
+  <text x="400" y="328" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">± 1.1%</text>
+  <text x="580" y="328" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">30</text>
+  <rect x="104" y="336" width="512" height="26" rx="0" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="116" y="354" font-family="monospace" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">weld.wait.mean</text>
+  <text x="300" y="354" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">15.7 min</text>
+  <text x="400" y="354" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">± 2.09 min</text>
+  <text x="580" y="354" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">30</text>
+  <rect x="104" y="362" width="512" height="26" rx="0" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="116" y="380" font-family="monospace" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">exit.throughput</text>
+  <text x="300" y="380" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">30 per hour</text>
+  <text x="400" y="380" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">± 0.34 per hour</text>
+  <text x="580" y="380" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">30</text>
+  <rect x="104" y="388" width="512" height="26" rx="0" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="116" y="406" font-family="monospace" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">exit.cycle_time.mean</text>
+  <text x="300" y="406" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">24.6 min</text>
+  <text x="400" y="406" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">± 2.21 min</text>
+  <text x="580" y="406" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">30</text>
+  <text x="104" y="432" font-family="sans-serif" font-size="11" font-weight="400" fill="#547076" text-anchor="start">Display units are the interface's; summary.json and the tables stay in SI units.</text>
+  <!-- Charts per run kind: a process run gets bars with their likely ranges, and the value over time; each has "Show as table" -->
+  <rect x="640" y="264" width="520" height="190" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="656" y="286" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Busy share by station, with the likely range</text>
+  <line x1="700" y1="428" x2="1140" y2="428" stroke="#6D7E77" stroke-width="1"/>
+  <line x1="700" y1="300" x2="700" y2="428" stroke="#6D7E77" stroke-width="1"/>
+  <line x1="700" y1="322" x2="1140" y2="322" stroke="#915604" stroke-width="1" stroke-dasharray="6 4"/>
+  <text x="1138" y="316" font-family="sans-serif" font-size="11" font-weight="400" fill="#915604" text-anchor="end">85%</text>
+  <rect x="760" y="351" width="48" height="77" rx="0" fill="#1C4286" stroke="none" stroke-width="1"/>
+  <line x1="784" y1="345" x2="784" y2="357" stroke="#34454C" stroke-width="1.5"/>
+  <text x="784" y="444" font-family="monospace" font-size="11" font-weight="400" fill="#34454C" text-anchor="middle">cut</text>
+  <rect x="890" y="313" width="48" height="115" rx="0" fill="#1C4286" stroke="none" stroke-width="1"/>
+  <line x1="914" y1="307" x2="914" y2="319" stroke="#34454C" stroke-width="1.5"/>
+  <text x="914" y="444" font-family="monospace" font-size="11" font-weight="400" fill="#34454C" text-anchor="middle">weld</text>
+  <rect x="1020" y="364" width="48" height="64" rx="0" fill="#1C4286" stroke="none" stroke-width="1"/>
+  <line x1="1044" y1="358" x2="1044" y2="370" stroke="#34454C" stroke-width="1.5"/>
+  <text x="1044" y="444" font-family="monospace" font-size="11" font-weight="400" fill="#34454C" text-anchor="middle">paint</text>
+  <text x="1144" y="446" font-family="sans-serif" font-size="11" font-weight="400" fill="#1C4286" text-anchor="end">Show as table</text>
+  <rect x="640" y="462" width="520" height="110" rx="8" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="656" y="482" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Over time: weld.queue_length, average of the repeat runs</text>
+  <line x1="700" y1="556" x2="1140" y2="556" stroke="#6D7E77" stroke-width="1"/>
+  <line x1="700" y1="492" x2="700" y2="556" stroke="#6D7E77" stroke-width="1"/>
+  <polyline points="700,552 740,530 780,520 820,526 860,514 900,522 940,512 980,518 1020,510 1060,520 1100,514 1140,518" fill="none" stroke="#1C4286" stroke-width="2"/>
+  <rect x="700" y="492" width="88" height="64" rx="0" fill="#F7EEDC" stroke="none" stroke-width="1" opacity="0.6"/>
+  <text x="744" y="506" font-family="sans-serif" font-size="10" font-weight="400" fill="#547076" text-anchor="middle">settling-in</text>
+  <text x="1144" y="570" font-family="sans-serif" font-size="11" font-weight="400" fill="#1C4286" text-anchor="end">Show as table</text>
+  <text x="104" y="466" font-family="sans-serif" font-size="16" font-weight="600" fill="#34454C" text-anchor="start">Tables</text>
+  <rect x="104" y="474" width="120" height="26" rx="4" fill="#F7EEDC" stroke="#CABD9E" stroke-width="1"/>
+  <text x="164" y="492" font-family="monospace" font-size="12" font-weight="400" fill="#34454C" text-anchor="middle">replications</text>
+  <text x="236" y="492" font-family="sans-serif" font-size="11" font-weight="400" fill="#547076" text-anchor="start">Every repeat run's value of every metric; Export CSV for replications or timeseries</text>
+  <rect x="104" y="506" width="512" height="52" rx="0" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="116" y="524" font-family="monospace" font-size="12" font-weight="400" fill="#547076" text-anchor="start">scenario   replication   metric             value    unit</text>
+  <text x="116" y="544" font-family="monospace" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">default    0             weld.wait.mean     912.4    s</text>
+  <!-- Other run kinds (insets): a search run (best so far, all trials) and an optimization model (decisions, goal, fully used limits) -->
+  <rect x="104" y="588" width="520" height="128" rx="8" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="116" y="606" font-family="sans-serif" font-size="12" font-weight="600" fill="#34454C" text-anchor="start">A search run: best so far, then all trials</text>
+  <line x1="130" y1="690" x2="330" y2="690" stroke="#6D7E77" stroke-width="1"/>
+  <line x1="130" y1="620" x2="130" y2="690" stroke="#6D7E77" stroke-width="1"/>
+  <circle cx="140" cy="640" r="4" fill="#1C4286" stroke="#1C4286" stroke-width="1.5"/>
+  <circle cx="160" cy="662" r="4" fill="#1C4286" stroke="#1C4286" stroke-width="1.5"/>
+  <circle cx="180" cy="650" r="4" fill="#FDFAF4" stroke="#1C4286" stroke-width="1.5"/>
+  <circle cx="200" cy="676" r="4" fill="#1C4286" stroke="#1C4286" stroke-width="1.5"/>
+  <circle cx="220" cy="668" r="4" fill="#1C4286" stroke="#1C4286" stroke-width="1.5"/>
+  <circle cx="240" cy="684" r="4" fill="#1C4286" stroke="#1C4286" stroke-width="1.5"/>
+  <circle cx="260" cy="672" r="4" fill="#FDFAF4" stroke="#1C4286" stroke-width="1.5"/>
+  <circle cx="280" cy="686" r="4" fill="#1C4286" stroke="#1C4286" stroke-width="1.5"/>
+  <circle cx="300" cy="680" r="4" fill="#1C4286" stroke="#1C4286" stroke-width="1.5"/>
+  <circle cx="320" cy="688" r="4" fill="#1C4286" stroke="#1C4286" stroke-width="1.5"/>
+  <line x1="130" y1="688" x2="330" y2="688" stroke="#915604" stroke-width="1" stroke-dasharray="6 4"/>
+  <text x="330" y="704" font-family="sans-serif" font-size="10" font-weight="400" fill="#915604" text-anchor="end">best found</text>
+  <text x="136" y="712" font-family="sans-serif" font-size="10" font-weight="400" fill="#547076" text-anchor="start">Filled: meets every limit. Hollow: breaks one.</text>
+  <text x="350" y="628" font-family="sans-serif" font-size="11" font-weight="600" fill="#34454C" text-anchor="start">#</text>
+  <text x="372" y="628" font-family="sans-serif" font-size="11" font-weight="600" fill="#34454C" text-anchor="start">tills</text>
+  <text x="410" y="628" font-family="sans-serif" font-size="11" font-weight="600" fill="#34454C" text-anchor="start">Avg wait</text>
+  <text x="486" y="628" font-family="sans-serif" font-size="11" font-weight="600" fill="#34454C" text-anchor="start">Meets limits?</text>
+  <text x="570" y="628" font-family="sans-serif" font-size="11" font-weight="600" fill="#34454C" text-anchor="start">Checked</text>
+  <text x="350" y="646" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">0</text>
+  <text x="372" y="646" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">1</text>
+  <text x="410" y="646" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">4.50 min</text>
+  <text x="486" y="646" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">Yes</text>
+  <text x="570" y="646" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">Yes</text>
+  <rect x="344" y="651" width="272" height="18" rx="0" fill="#E3F0E3" stroke="none" stroke-width="1"/>
+  <text x="350" y="664" font-family="sans-serif" font-size="11" font-weight="700" fill="#34454C" text-anchor="start">1</text>
+  <text x="372" y="664" font-family="sans-serif" font-size="11" font-weight="700" fill="#34454C" text-anchor="start">2</text>
+  <text x="410" y="664" font-family="sans-serif" font-size="11" font-weight="700" fill="#34454C" text-anchor="start">0.25 min</text>
+  <text x="486" y="664" font-family="sans-serif" font-size="11" font-weight="700" fill="#34454C" text-anchor="start">Yes</text>
+  <text x="570" y="664" font-family="sans-serif" font-size="11" font-weight="700" fill="#34454C" text-anchor="start">Yes</text>
+  <text x="350" y="682" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">2</text>
+  <text x="372" y="682" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">3</text>
+  <text x="410" y="682" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">0.04 min</text>
+  <text x="486" y="682" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">No</text>
+  <text x="570" y="682" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">Yes</text>
+  <text x="350" y="700" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">3</text>
+  <text x="372" y="700" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">4</text>
+  <text x="410" y="700" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">0.01 min</text>
+  <text x="486" y="700" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">No</text>
+  <text x="570" y="700" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">No</text>
+  <rect x="640" y="588" width="520" height="128" rx="8" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="656" y="606" font-family="sans-serif" font-size="12" font-weight="600" fill="#34454C" text-anchor="start">An optimization model: the best plan</text>
+  <text x="656" y="628" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">Goal (maximize profit): 2,200</text>
+  <text x="656" y="652" font-family="monospace" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">chairs</text>
+  <rect x="716" y="640" width="150" height="14" rx="0" fill="#1C4286" stroke="none" stroke-width="1"/>
+  <text x="872" y="652" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">24</text>
+  <text x="656" y="674" font-family="monospace" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">tables</text>
+  <rect x="716" y="662" width="88" height="14" rx="0" fill="#1C4286" stroke="none" stroke-width="1"/>
+  <text x="810" y="674" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">14</text>
+  <text x="940" y="628" font-family="sans-serif" font-size="12" font-weight="600" fill="#34454C" text-anchor="start">Limits</text>
+  <text x="940" y="648" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">wood: fully used</text>
+  <text x="940" y="666" font-family="sans-serif" font-size="11" font-weight="400" fill="#34454C" text-anchor="start">labour: fully used</text>
+  <text x="940" y="684" font-family="sans-serif" font-size="10" font-weight="400" fill="#547076" text-anchor="start">Each chart has a table beside it.</text>
+  <text x="656" y="706" font-family="sans-serif" font-size="10" font-weight="400" fill="#547076" text-anchor="start">Values from spec 2's product mix; the trials are example data.</text>
+  <text x="1160" y="180" font-family="sans-serif" font-size="12" font-weight="400" fill="#1C4286" text-anchor="end">Tell us what you built (opens your browser)</text>
   <!-- Footer on every results page and exported PDF (spec 3 Screen 6) -->
   <rect x="72" y="728" width="1208" height="72" rx="0" fill="#F7EEDC" stroke="none" stroke-width="1"/>
   <line x1="72" y1="728" x2="1280" y2="728" stroke="#CABD9E" stroke-width="1"/>
-  <text x="104" y="752" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Model: Three-machine line  ·  Run: 20261106T101502-K3QX7A  ·  Fidelity: Standard: 30 replications of {length}, 95% confidence  ·  Replications: 30  ·  Confidence: 95%</text>
-  <text x="104" y="772" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Engine: {engine name} {engine version}  ·  Simulation results are estimates and carry no warranty.</text>
+  <text x="104" y="752" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Model: Three-machine line  ·  Run: 20261106T101502-K3QX7A  ·  Fidelity: Standard: 30 replications of 100 h, 95% confidence  ·  Replications: 30  ·  Confidence: 95%</text>
+  <text x="104" y="772" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Engine: simpy {engine version}  ·  Simulation results are estimates and carry no warranty.</text>
 </svg>

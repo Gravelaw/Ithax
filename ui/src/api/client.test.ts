@@ -205,3 +205,121 @@ describe("ApiClient data routes (AKS-120)", () => {
     expect(service.requests[2]?.body).toEqual({ column: "gap" });
   });
 });
+
+describe("the run, results and export routes (AKS-138)", () => {
+  it("starts a run with its experiment, or none for an optimization model", async () => {
+    const service = new FakeService().answer("POST /v1/projects/p%201/runs", { run_id: "r" }, 202);
+    const client = service.client();
+    expect(await client.startRun("p 1", "base")).toEqual({
+      kind: "ok",
+      status: 202,
+      data: { run_id: "r" },
+    });
+    await client.startRun("p 1", null);
+    expect(service.requests.map((request) => request.body)).toEqual([
+      { experiment_id: "base" },
+      {},
+    ]);
+  });
+
+  it("reads runs, cancels, follows events, and reads the summary, tables and engines", async () => {
+    const service = new FakeService()
+      .answer("GET /v1/projects/p/runs", [])
+      .answer("GET /v1/runs/r%2F1", { run_id: "r/1" })
+      .answer("POST /v1/runs/r/cancel", { state: "cancelled" })
+      .answer("GET /v1/runs/r/summary", { summary: {}, findings: [], issues: [] })
+      .answer("GET /v1/runs/r/tables/replications", [])
+      .answer("GET /v1/engines", []);
+    const sent: string[] = [];
+    const client = service.client((request) => sent.push(`${request.method} ${request.path}`));
+    await client.listRuns("p");
+    await client.getRun("r/1");
+    await client.cancelRun("r");
+    await client.getSummary("r");
+    await client.getTable("r", "replications");
+    await client.getEngines();
+    const events = vi.fn();
+    client.runEvents("r", { onEvent: events });
+    service.sockets[0]?.emit({ type: "state", state: "running" });
+    expect(events).toHaveBeenCalledWith({ type: "state", state: "running" });
+    expect(service.sockets[0]?.url).toBe("ws://127.0.0.1:8765/v1/runs/r/events");
+    expect(service.requests.at(-1)?.search).toBe("");
+    expect(service.requested("GET", "/v1/runs/r/tables/replications")[0]?.search).toBe(
+      "?format=json",
+    );
+    expect(sent).toEqual([
+      "GET /v1/projects/p/runs",
+      "GET /v1/runs/r%2F1",
+      "POST /v1/runs/r/cancel",
+      "GET /v1/runs/r/summary",
+      "GET /v1/runs/r/tables/replications?format=json",
+      "GET /v1/engines",
+      "GET /v1/runs/r/events",
+    ]);
+  });
+
+  it("downloads a CSV table and the project zip as files", async () => {
+    const files = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) =>
+      String(input).endsWith("/export")
+        ? new Response(new Uint8Array([80, 75]), {
+            status: 200,
+            headers: { "Content-Type": "application/zip" },
+          })
+        : new Response("a,b\r\n", {
+            status: 200,
+            headers: { "Content-Type": "text/csv; charset=utf-8" },
+          }),
+    );
+    const client = new ApiClient({ origin: ORIGIN, token: TOKEN, fetch: files });
+    const csv = await client.tableCsv("r", "timeseries");
+    expect(csv.kind === "ok" && (await csv.data.blob.text())).toBe("a,b\r\n");
+    expect(csv.kind === "ok" && csv.data.type).toBe("text/csv; charset=utf-8");
+    const zip = await client.exportProject("p");
+    expect(zip.kind === "ok" && zip.data.type).toBe("application/zip");
+    const [first, second] = files.mock.calls;
+    expect(String(first?.[0])).toBe(`${ORIGIN}/v1/runs/r/tables/timeseries?format=csv`);
+    expect(String(second?.[0])).toBe(`${ORIGIN}/v1/projects/p/export`);
+    const init = second?.[1] as RequestInit;
+    expect(init.headers).toEqual({ Authorization: `Bearer ${TOKEN}`, "X-Client": "ui" });
+    await expect(client.download("/elsewhere")).rejects.toThrow("not a /v1 path");
+  });
+
+  it("gives a download's refusal as data, and no usable answer as failed", async () => {
+    const refusal = new FakeService().answer(
+      "GET /v1/projects/p/export",
+      errorBody("E185", "There is no project 'p'."),
+      404,
+    );
+    expect(await refusal.client().exportProject("p")).toEqual({
+      kind: "refused",
+      status: 404,
+      error: { code: "E185", message: "There is no project 'p'." },
+      issues: [],
+    });
+    const gone = new FakeService().on("GET /v1/projects/p/export", () => "unreachable");
+    expect(await gone.client().exportProject("p")).toEqual({
+      kind: "failed",
+      status: 0,
+      reason: "unreachable",
+    });
+    const odd = (response: () => Response) =>
+      new ApiClient({
+        origin: ORIGIN,
+        token: TOKEN,
+        fetch: vi.fn(async () => response()),
+      }).exportProject("p");
+    expect(await odd(() => new Response("<html>", { status: 502 }))).toEqual({
+      kind: "failed",
+      status: 502,
+      reason: "not-json",
+    });
+    expect(await odd(() => new Response(JSON.stringify({ detail: 1 }), { status: 500 }))).toEqual({
+      kind: "failed",
+      status: 500,
+      reason: "not-json",
+    });
+    const broken = new Response("x", { status: 200 });
+    vi.spyOn(broken, "blob").mockRejectedValue(new TypeError("network"));
+    expect(await odd(() => broken)).toEqual({ kind: "failed", status: 200, reason: "unreachable" });
+  });
+});

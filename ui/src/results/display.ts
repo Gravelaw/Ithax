@@ -1,0 +1,95 @@
+/**
+ * How the interface shows a result's numbers (spec 1 "Results": results are stored in SI
+ * units and the interface chooses display units). The rules are spec 4's for a finding's
+ * text ("Finding rules", Display units; `src/lcsim/findings/display.py`), so a key number
+ * reads as the finding that names it:
+ *
+ * - a time in the largest Phase 1 unit it reaches (`s`, `min`, `h`, `d`), a half-width in
+ *   its mean's unit;
+ * - a rate (`1/s`) per hour;
+ * - a share metric (`utilization`, `availability`, `scheduled_fraction`) as a percentage;
+ * - three significant figures, never an exponent, a comma between thousands.
+ */
+
+/** Phase 1 time units, largest first, with their length in seconds (spec 1 "Quantities"). */
+export const TIME_UNITS: readonly (readonly [string, number])[] = [
+  ["d", 86_400],
+  ["h", 3_600],
+  ["min", 60],
+];
+
+const FRACTIONS = [".utilization", ".availability", ".scheduled_fraction"];
+
+/** Shown for a mean or half-width that `summary.json` gives as `null` (undefined). */
+export const UNDEFINED = "not defined";
+
+/** `value` to `digits` significant figures, without an exponent: 2200 is "2,200". */
+export function figures(value: number, digits = 3): string {
+  if (!Number.isFinite(value)) return String(value);
+  const rounded = Number(value.toPrecision(digits));
+  if (rounded === 0) return "0";
+  const places = Math.max(digits - 1 - Math.floor(Math.log10(Math.abs(rounded))), 0);
+  return rounded.toLocaleString("en-US", {
+    maximumFractionDigits: Math.min(places, 100),
+    useGrouping: true,
+  });
+}
+
+/** A fraction as a whole percentage, a half rounding up: 0.900985 is "90%". */
+export function percent(fraction: number): string {
+  return `${Math.floor(fraction * 100 + 0.5)}%`;
+}
+
+/** The largest Phase 1 time unit `seconds` reaches, and its length in seconds. */
+export function timeUnit(seconds: number): readonly [string, number] {
+  for (const unit of TIME_UNITS) {
+    if (Math.abs(seconds) >= unit[1]) return unit;
+  }
+  return ["s", 1];
+}
+
+/** Whether a metric is a share of time, shown as a percentage. */
+export function isShare(metric: string, unit: string): boolean {
+  return unit === "1" && FRACTIONS.some((ending) => metric.endsWith(ending));
+}
+
+/**
+ * A value in SI units as the interface shows it: a time in the largest unit `like` (by
+ * default the value itself) reaches, a rate per hour, anything else as a plain number.
+ */
+export function quantity(value: number, unit: string, like?: number): string {
+  if (unit === "s") {
+    const [symbol, size] = timeUnit(like ?? value);
+    return `${figures(value / size)} ${symbol}`;
+  }
+  if (unit === "1/s") return `${figures(value * 3600)} per hour`;
+  return figures(value);
+}
+
+/** A metric's value: a share as a percentage to three figures, else as `quantity`. */
+export function valueText(
+  metric: string,
+  value: number | null,
+  unit: string,
+  like?: number,
+): string {
+  if (value === null) return UNDEFINED;
+  if (isShare(metric, unit)) return `${figures(value * 100)}%`;
+  return quantity(value, unit, like);
+}
+
+/** A half-width as the likely range shows it, in its mean's unit: "± 2.09 min". */
+export function rangeText(
+  metric: string,
+  halfWidth: number | null,
+  unit: string,
+  mean: number | null,
+): string {
+  if (halfWidth === null) return UNDEFINED;
+  return `± ${valueText(metric, halfWidth, unit, mean ?? halfWidth)}`;
+}
+
+/** A confidence level as a percentage, without a trailing ".0": 0.975 is "97.5%". */
+export function confidenceText(confidence: number): string {
+  return `${Number((confidence * 100).toPrecision(12))}%`;
+}

@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import type { Settings } from "../api/types";
 import { LOST_CONTACT } from "../components/ServiceProblem";
 import { NOTICE_TEXT } from "../screens/FirstStartNotice";
-import { LATER } from "../screens/Placeholders";
 import { ModelService } from "../test/fakeModel";
 import { errorBody, SETTINGS, startedService } from "../test/fakes";
 import { Boot, CONNECTING, NO_TOKEN, NOT_ANSWERING, NoToken } from "./Boot";
@@ -127,9 +126,18 @@ describe("the frame", () => {
     // The Data screen (AKS-120) loads the model and the project's files.
     expect(await screen.findByRole("heading", { name: "Files" })).toBeVisible();
     expect(fake.requested("GET", "/v1/projects/p1/data")).toHaveLength(1);
+    fake.answer("GET /v1/projects/p1/runs", []);
     await userEvent.click(screen.getByRole("button", { name: "Run monitor" }));
     expect(screen.getByRole("heading", { name: "Run monitor" })).toBeVisible();
-    expect(screen.getByText(LATER)).toBeVisible();
+    expect(await screen.findByText(/No run of this project yet/)).toBeVisible();
+    fake.answer("GET /v1/system", {
+      cores: 4,
+      memory: null,
+      graphics: null,
+      tier: "low",
+      workers: 4,
+    });
+    fake.answer("GET /v1/engines", []);
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(screen.getByRole("heading", { name: "About" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Read the licence" })).toHaveAttribute(

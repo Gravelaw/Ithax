@@ -379,6 +379,7 @@ def test_the_runs_of_a_project_are_listed_in_the_order_accepted(client: TestClie
             "run_id",
             "project_id",
             "experiment_id",
+            "engine",
             "state",
             "fraction",
             "message",
@@ -388,6 +389,7 @@ def test_the_runs_of_a_project_are_listed_in_the_order_accepted(client: TestClie
             "error",
         }
         assert run["project_id"] == pid
+        assert run["engine"] == {"name": "gated", "version": "1.0.0"}
     assert runs[1]["state"] == "queued"
     assert runs[1]["fraction"] == 0
     assert runs[1]["message"] == ""

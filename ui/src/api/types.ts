@@ -312,3 +312,81 @@ export interface FitBody {
   /** The column's values counted in bins of equal width, in its unit (AKS-120). */
   histogram: { edges: number[]; counts: number[] };
 }
+
+/** A run's state (spec 1 "Job states"). */
+export type RunState = "queued" | "running" | "done" | "failed" | "cancelled";
+
+/** The run states that are final. */
+export const FINAL_STATES: readonly RunState[] = ["done", "failed", "cancelled"];
+
+/** A run as the run endpoints show it (spec 3; `engine` from AKS-138). */
+export interface Run {
+  run_id: string;
+  project_id: string | null;
+  experiment_id: string | null;
+  engine: { name: string; version: string | null } | null;
+  state: RunState;
+  fraction: number;
+  message: string;
+  created: string;
+  started: string | null;
+  ended: string | null;
+  error: Issue | null;
+}
+
+/** `POST /v1/projects/{pid}/runs`. */
+export interface StartedRun {
+  run_id: string;
+}
+
+/** An event of `GET /v1/runs/{rid}/events` (spec 3 "Progress events"). */
+export type RunEvent =
+  | { type: "state"; state: RunState }
+  | { type: "progress"; fraction: number; message: string }
+  | { type: "metrics"; scenario: string; values: Record<string, number> };
+
+/** A metric's estimate in `summary.json` (spec 1), in SI units. */
+export interface Estimate {
+  mean: number | null;
+  half_width: number | null;
+  unit: string;
+  n: number;
+}
+
+/** A finding of spec 4 "Finding rules". */
+export interface Finding {
+  rule: string;
+  severity: "info" | "warning";
+  component: string | null;
+  scenario: string | null;
+  text: string;
+  evidence: Record<string, unknown>;
+}
+
+/**
+ * `summary.json` (spec 1 "Run folder and results"; spec 2 for `search` and an optimization's
+ * solution). Read defensively: what the interface does not find, it does not show.
+ */
+export type Summary = Record<string, unknown>;
+
+/** `GET /v1/runs/{rid}/summary`. */
+export interface SummaryBody {
+  summary: Summary;
+  findings: Finding[];
+  issues: Issue[];
+}
+
+/** One row of `GET /v1/runs/{rid}/tables/{name}?format=json`. */
+export type TableRow = Record<string, unknown>;
+
+/** An installed adapter as `GET /v1/engines` lists it. */
+export interface Engine {
+  name: string;
+  version: string;
+  domains: string[];
+  component_types: string[];
+  hardware: string[];
+  parallel_modes: string[];
+  licence: string;
+  invocation: string;
+}
