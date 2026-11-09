@@ -305,7 +305,17 @@ class _Loader:
             )
         if loaded.model is None or loaded.issues:
             return None
-        document = read_json(raw)
+        try:
+            document = read_json(raw)
+        except ValueError:
+            # Loading accepts a lone surrogate the strict reader cannot write back as
+            # UTF-8; the package is refused, not the gallery (review of PR #50).
+            self.issue(
+                pointer(MODEL_FILE),
+                f"The template's {MODEL_FILE} is not JSON that can be read.",
+                f"Correct {MODEL_FILE}: UTF-8 JSON with no NaN, infinity or repeated key.",
+            )
+            return None
         assert isinstance(document, dict)  # the model loaded, so it is an object
         return loaded.model, document
 

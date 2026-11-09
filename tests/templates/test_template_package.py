@@ -144,6 +144,15 @@ def test_a_json_file_must_be_readable(tmp_path: Path, name: str) -> None:
     assert issues(folder) == [("E195", f"/{name}")]
 
 
+def test_a_model_the_strict_reader_refuses_is_a_package_issue(tmp_path: Path) -> None:
+    """A lone surrogate loads as a model but cannot be written back as UTF-8, so the
+    strict reader refuses it; that is an E195 issue, not an exception (review of PR #50)."""
+    folder = copy(tmp_path)
+    change(folder, "model.json", lambda model: model["meta"].update(description="\ud800"))
+    assert '"\\ud800"' in (folder / "model.json").read_text(encoding="utf-8")
+    assert issues(folder) == [("E195", "/model.json")]
+
+
 def test_the_model_s_own_issues_keep_their_codes_under_model_json(tmp_path: Path) -> None:
     folder = copy(tmp_path)
     change(folder, "model.json", lambda m: m["connections"].pop())
