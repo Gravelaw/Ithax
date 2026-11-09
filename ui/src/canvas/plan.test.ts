@@ -333,4 +333,19 @@ describe("an indexed plan (AKS-123)", () => {
       ),
     ).toHaveLength(1);
   });
+
+  it("labels a line with every part a decision adds to a card (review of PR #53)", () => {
+    const model = transport();
+    (model.variables as unknown[]).push({ id: "agency", type: "integer" });
+    (model.objective as { linear?: unknown }).linear = { agency: 150 };
+    (model.objective as { terms: unknown[] }).terms.push(
+      { variable: "agency", coefficient: 50 },
+      { variable: "ship", coefficient: 2 },
+    );
+    const goal = diagramLayout(model).lines.filter((line) => line.to === "goal");
+    expect(goal).toEqual([
+      { from: "agency", to: "goal", label: "150 + 50" },
+      { from: "ship", to: "goal", label: "cost + 2" },
+    ]);
+  });
 });

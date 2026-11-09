@@ -433,19 +433,25 @@ export function diagramLayout(model: Model): {
   const known = new Set(decisions.map((card) => card.id));
   const lines: Line[] = [];
   const link = (to: string, holder: unknown) => {
-    for (const [name, value] of Object.entries(linearOf(holder))) {
-      if (known.has(name)) lines.push({ from: name, to, label: shown(value) });
-    }
-    // A term draws a line as a coefficient does, labelled with its table or number.
+    // One line per decision and card, labelled with every part it adds there: its
+    // coefficient, then each term's table or number, joined with "+" (review of PR #53).
+    const parts = new Map<string, string[]>();
+    const add = (name: string, label: string) => {
+      if (!known.has(name)) return;
+      const found = parts.get(name);
+      if (found) found.push(label);
+      else parts.set(name, [label]);
+    };
+    for (const [name, value] of Object.entries(linearOf(holder))) add(name, shown(value));
     for (const term of termsOf(holder)) {
-      if (typeof term.variable !== "string" || !known.has(term.variable)) continue;
-      if (lines.some((line) => line.from === term.variable && line.to === to)) continue;
+      if (typeof term.variable !== "string") continue;
       const label =
         term.coefficient === undefined
           ? "1"
           : (tableOf(term.coefficient) ?? shown(term.coefficient));
-      lines.push({ from: term.variable, to, label });
+      add(term.variable, label);
     }
+    for (const [from, labels] of parts) lines.push({ from, to, label: labels.join(" + ") });
   };
   link("goal", model.objective);
   for (const { index, item } of constraintsOf(model)) link(`limit:${index}`, item);
