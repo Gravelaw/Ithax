@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="title desc">
+  <title id="title">Wireframe 09: Canvas of an optimization model (Table and Diagram views)</title>
+  <desc id="desc">The Canvas screen of a plan (an optimization model, spec 1 variables, objective and constraints), with the product mix of spec 2 entered. Top bar: project name, save state, undo, redo and Run; there is no experiment picker, since an optimization model has none. A switch chooses the Table view or the Diagram view of the same model. The Table view, on the left, has Decisions (name, kind, lower and upper bound, Remove), the Goal (maximize or minimize and one coefficient per decision, read back as a sentence) and Limits (name, one coefficient per decision, at most, at least or exactly, and the limit), each with an Add button; every field is one set_path or remove_path edit, and the service's issues show under the field their path names. The Diagram view, drawn on the right as it appears when chosen, shows each decision as a card on the left and the goal and each limit as a card on the right, with a line from a decision to each card that uses it, labelled with its coefficient. The problems list is under the views.</desc>
+  <rect x="0" y="0" width="1280" height="800" rx="0" fill="#FDFAF4" stroke="none" stroke-width="1"/>
+  <!-- Navigation rail: the seven screens of spec 3 -->
+  <rect x="0" y="0" width="72" height="800" rx="0" fill="#F7EEDC" stroke="none" stroke-width="1"/>
+  <line x1="72" y1="0" x2="72" y2="800" stroke="#CABD9E" stroke-width="1"/>
+  <svg x="24" y="62" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#547076"><path d="M219.31,108.68l-80-80a16,16,0,0,0-22.62,0l-80,80A15.87,15.87,0,0,0,32,120v96a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V160h32v56a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V120A15.87,15.87,0,0,0,219.31,108.68ZM208,208H160V152a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8v56H48V120l80-80,80,80Z"/></g></svg>
+  <text x="36" y="102" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="middle">Home</text>
+  <rect x="0" y="120" width="72" height="56" rx="0" fill="#FDFAF4" stroke="none" stroke-width="1"/>
+  <rect x="0" y="120" width="3" height="56" rx="0" fill="#1C4286" stroke="none" stroke-width="1"/>
+  <svg x="24" y="126" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#1C4286"><path d="M245.66,85.66l-32,32a8,8,0,0,1-11.32-11.32L220.69,88H208c-38.67,0-46.59,19-56.62,43.08C141.05,155.88,129.33,184,80,184H79a32,32,0,1,1,0-16h1c38.67,0,46.59-19,56.62-43.08C147,100.12,158.67,72,208,72h12.69L202.34,53.66a8,8,0,0,1,11.32-11.32l32,32A8,8,0,0,1,245.66,85.66Z"/></g></svg>
+  <text x="36" y="166" font-family="sans-serif" font-size="12" font-weight="600" fill="#34454C" text-anchor="middle">Canvas</text>
+  <svg x="24" y="190" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#547076"><path d="M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM40,112H80v32H40Zm56,0H216v32H96ZM216,64V96H40V64ZM40,160H80v32H40Zm176,32H96V160H216v32Z"/></g></svg>
+  <text x="36" y="230" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="middle">Data</text>
+  <svg x="24" y="254" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#547076"><path d="M221.69,199.77,160,96.92V40h8a8,8,0,0,0,0-16H88a8,8,0,0,0,0,16h8V96.92L34.31,199.77A16,16,0,0,0,48,224H208a16,16,0,0,0,13.72-24.23ZM110.86,103.25A7.93,7.93,0,0,0,112,99.14V40h32V99.14a7.93,7.93,0,0,0,1.14,4.11L183.36,167c-12,2.37-29.07,1.37-51.75-10.11-15.91-8.05-31.05-12.32-45.22-12.81ZM48,208l28.54-47.58c14.25-1.74,30.31,1.85,47.82,10.72,19,9.61,35,12.88,48,12.88a69.89,69.89,0,0,0,19.55-2.7L208,208Z"/></g></svg>
+  <text x="36" y="294" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="middle">Experiment</text>
+  <svg x="24" y="318" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#547076"><path d="M240,128a8,8,0,0,1-8,8H204.94l-37.78,75.58A8,8,0,0,1,160,216h-.4a8,8,0,0,1-7.08-5.14L95.35,60.76,63.28,131.31A8,8,0,0,1,56,136H24a8,8,0,0,1,0-16H50.85L88.72,36.69a8,8,0,0,1,14.76.46l57.51,151,31.85-63.71A8,8,0,0,1,200,120h32A8,8,0,0,1,240,128Z"/></g></svg>
+  <text x="36" y="358" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="middle">Run monitor</text>
+  <svg x="24" y="382" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#547076"><path d="M224,200h-8V40a8,8,0,0,0-8-8H152a8,8,0,0,0-8,8V80H96a8,8,0,0,0-8,8v40H48a8,8,0,0,0-8,8v64H32a8,8,0,0,0,0,16H224a8,8,0,0,0,0-16ZM160,48h40V200H160ZM104,96h40V200H104ZM56,144H88v56H56Z"/></g></svg>
+  <text x="36" y="422" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="middle">Results</text>
+  <svg x="24" y="446" width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><g fill="#547076"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm109.94-52.79a8,8,0,0,0-3.89-5.4l-29.83-17-.12-33.62a8,8,0,0,0-2.83-6.08,111.91,111.91,0,0,0-36.72-20.67,8,8,0,0,0-6.46.59L128,41.85,97.88,25a8,8,0,0,0-6.47-.6A112.1,112.1,0,0,0,54.73,45.15a8,8,0,0,0-2.83,6.07l-.15,33.65-29.83,17a8,8,0,0,0-3.89,5.4,106.47,106.47,0,0,0,0,41.56,8,8,0,0,0,3.89,5.4l29.83,17,.12,33.62a8,8,0,0,0,2.83,6.08,111.91,111.91,0,0,0,36.72,20.67,8,8,0,0,0,6.46-.59L128,214.15,158.12,231a7.91,7.91,0,0,0,3.9,1,8.09,8.09,0,0,0,2.57-.42,112.1,112.1,0,0,0,36.68-20.73,8,8,0,0,0,2.83-6.07l.15-33.65,29.83-17a8,8,0,0,0,3.89-5.4A106.47,106.47,0,0,0,237.94,107.21Zm-15,34.91-28.57,16.25a8,8,0,0,0-3,3c-.58,1-1.19,2.06-1.81,3.06a7.94,7.94,0,0,0-1.22,4.21l-.15,32.25a95.89,95.89,0,0,1-25.37,14.3L134,199.13a8,8,0,0,0-3.91-1h-.19c-1.21,0-2.43,0-3.64,0a8.08,8.08,0,0,0-4.1,1l-28.84,16.1A96,96,0,0,1,67.88,201l-.11-32.2a8,8,0,0,0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.09,8.09,0,0,0-3-3.06l-28.6-16.29a90.49,90.49,0,0,1,0-28.26L61.67,97.63a8,8,0,0,0,3-3c.58-1,1.19-2.06,1.81-3.06a7.94,7.94,0,0,0,1.22-4.21l.15-32.25a95.89,95.89,0,0,1,25.37-14.3L122,56.87a8,8,0,0,0,4.1,1c1.21,0,2.43,0,3.64,0a8.08,8.08,0,0,0,4.1-1l28.84-16.1A96,96,0,0,1,188.12,55l.11,32.2a8,8,0,0,0,1.22,4.22c.62,1,1.23,2,1.8,3.06a8.09,8.09,0,0,0,3,3.06l28.6,16.29A90.49,90.49,0,0,1,222.9,142.12Z"/></g></svg>
+  <text x="36" y="486" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="middle">Settings</text>
+
+  <rect x="72" y="0" width="1208" height="48" rx="0" fill="#FDFAF4" stroke="none" stroke-width="0"/>
+  <line x1="72" y1="48" x2="1280" y2="48" stroke="#CABD9E" stroke-width="1"/>
+  <text x="92" y="30" font-family="sans-serif" font-size="16" font-weight="600" fill="#34454C" text-anchor="start">Product mix</text>
+  <circle cx="222" cy="25" r="5" fill="#1A7444"/>
+  <text x="234" y="30" font-family="sans-serif" font-size="13" font-weight="400" fill="#1A7444" text-anchor="start">Saved</text>
+  <rect x="320" y="10" width="64" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="326" y="17" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#34454C"><path d="M232,144a64.07,64.07,0,0,1-64,64H80a8,8,0,0,1,0-16h88a48,48,0,0,0,0-96H51.31l34.35,34.34a8,8,0,0,1-11.32,11.32l-48-48a8,8,0,0,1,0-11.32l48-48A8,8,0,0,1,85.66,45.66L51.31,80H168A64.07,64.07,0,0,1,232,144Z"/></g></svg>
+  <text x="344" y="29" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Undo</text>
+  <rect x="392" y="10" width="64" height="28" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="398" y="17" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#34454C"><path d="M170.34,130.34,204.69,96H88a48,48,0,0,0,0,96h88a8,8,0,0,1,0,16H88A64,64,0,0,1,88,80H204.69L170.34,45.66a8,8,0,0,1,11.32-11.32l48,48a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32-11.32Z"/></g></svg>
+  <text x="416" y="29" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Redo</text>
+  <rect x="1150" y="8" width="80" height="32" rx="16" fill="#1C4286" stroke="none" stroke-width="0"/>
+  <svg x="1162" y="17" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#FDFAF4"><path d="M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.94,15.94,0,0,0,80,232a16.07,16.07,0,0,0,8.36-2.35L232.4,141.51a15.81,15.81,0,0,0,0-27ZM80,215.94V40l143.83,88Z"/></g></svg>
+  <text x="1182" y="29" font-family="sans-serif" font-size="14" font-weight="600" fill="#FDFAF4" text-anchor="start">Run</text>
+  <text x="96" y="80" font-family="sans-serif" font-size="18" font-weight="600" fill="#34454C" text-anchor="start">Plan: decisions, a goal and limits</text>
+  <rect x="470" y="60" width="200" height="32" rx="16" fill="#F7EEDC" stroke="#CABD9E" stroke-width="1"/>
+  <rect x="472" y="62" width="98" height="28" rx="14" fill="#FDFAF4" stroke="#1C4286" stroke-width="1.5"/>
+  <svg x="484" y="69" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#1C4286"><path d="M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM40,112H80v32H40Zm56,0H216v32H96ZM216,64V96H40V64ZM40,160H80v32H40Zm176,32H96V160H216v32Z"/></g></svg>
+  <text x="504" y="81" font-family="sans-serif" font-size="13" font-weight="600" fill="#1C4286" text-anchor="start">Table</text>
+  <svg x="584" y="69" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#547076"><path d="M200,152a31.84,31.84,0,0,0-19.53,6.68l-23.11-18A31.65,31.65,0,0,0,160,128c0-.74,0-1.48-.08-2.21l13.23-4.41A32,32,0,1,0,168,104c0,.74,0,1.48.08,2.21l-13.23,4.41A32,32,0,0,0,128,96a32.59,32.59,0,0,0-5.27.44L115.89,81A32,32,0,1,0,96,88a32.59,32.59,0,0,0,5.27-.44l6.84,15.4a31.92,31.92,0,0,0-8.57,39.64L73.83,165.44a32.06,32.06,0,1,0,10.63,12l25.71-22.84a31.91,31.91,0,0,0,37.36-1.24l23.11,18A31.65,31.65,0,0,0,168,184a32,32,0,1,0,32-32Zm0-64a16,16,0,1,1-16,16A16,16,0,0,1,200,88ZM80,56A16,16,0,1,1,96,72,16,16,0,0,1,80,56ZM56,208a16,16,0,1,1,16-16A16,16,0,0,1,56,208Zm56-80a16,16,0,1,1,16,16A16,16,0,0,1,112,128Zm88,72a16,16,0,1,1,16-16A16,16,0,0,1,200,200Z"/></g></svg>
+  <text x="604" y="81" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">Diagram</text>
+  <svg x="96" y="112" width="18" height="18" viewBox="0 0 256 256" aria-hidden="true"><g fill="#1C4286"><path d="M40,88H73a32,32,0,0,0,62,0h81a8,8,0,0,0,0-16H135a32,32,0,0,0-62,0H40a8,8,0,0,0,0,16Zm64-24A16,16,0,1,1,88,80,16,16,0,0,1,104,64ZM216,168H199a32,32,0,0,0-62,0H40a8,8,0,0,0,0,16h97a32,32,0,0,0,62,0h17a8,8,0,0,0,0-16Zm-48,24a16,16,0,1,1,16-16A16,16,0,0,1,168,192Z"/></g></svg>
+  <text x="120" y="126" font-family="sans-serif" font-size="15" font-weight="600" fill="#34454C" text-anchor="start">Decisions</text>
+  <text x="220" y="126" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">what you can choose</text>
+  <text x="96" y="142" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Name</text>
+  <text x="236" y="142" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Kind</text>
+  <text x="420" y="142" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Lower bound</text>
+  <text x="530" y="142" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Upper bound</text>
+  <rect x="96" y="152" width="128" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="106" y="172" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">chairs</text>
+  <rect x="236" y="152" width="172" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="246" y="172" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">Continuous (any amount)</text>
+  <text x="396" y="172" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">v</text>
+  <rect x="420" y="152" width="98" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="430" y="172" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">0</text>
+  <rect x="530" y="152" width="98" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="640" y="159" width="16" height="16" viewBox="0 0 256 256" aria-label="Remove chairs"><g fill="#547076"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></g></svg>
+  <rect x="96" y="190" width="128" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="106" y="210" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">tables</text>
+  <rect x="236" y="190" width="172" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="246" y="210" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">Continuous (any amount)</text>
+  <text x="396" y="210" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">v</text>
+  <rect x="420" y="190" width="98" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="430" y="210" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">0</text>
+  <rect x="530" y="190" width="98" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="640" y="197" width="16" height="16" viewBox="0 0 256 256" aria-label="Remove tables"><g fill="#547076"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></g></svg>
+  <rect x="96" y="232" width="120" height="26" rx="13" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="104" y="238" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#34454C"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></g></svg>
+  <text x="122" y="249" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">Add decision</text>
+  <svg x="96" y="282" width="18" height="18" viewBox="0 0 256 256" aria-hidden="true"><g fill="#1C4286"><path d="M221.87,83.16A104.1,104.1,0,1,1,195.67,49l22.67-22.68a8,8,0,0,1,11.32,11.32l-96,96a8,8,0,0,1-11.32-11.32l27.72-27.72a40,40,0,1,0,17.87,31.09,8,8,0,1,1,16-.9,56,56,0,1,1-22.38-41.65L184.3,60.39a87.88,87.88,0,1,0,23.13,29.67,8,8,0,0,1,14.44-6.9Z"/></g></svg>
+  <text x="120" y="296" font-family="sans-serif" font-size="15" font-weight="600" fill="#34454C" text-anchor="start">Goal</text>
+  <text x="170" y="296" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">what counts as best</text>
+  <rect x="96" y="308" width="120" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="106" y="328" font-family="sans-serif" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">Maximize</text>
+  <text x="204" y="328" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">v</text>
+  <text x="236" y="328" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">chairs</text>
+  <rect x="286" y="308" width="70" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="296" y="328" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">45</text>
+  <text x="372" y="328" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">tables</text>
+  <rect x="420" y="308" width="70" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="430" y="328" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">80</text>
+  <text x="96" y="356" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">Maximize 45 × chairs + 80 × tables</text>
+  <svg x="96" y="382" width="18" height="18" viewBox="0 0 256 256" aria-hidden="true"><g fill="#1C4286"><path d="M207.06,72.67A111.24,111.24,0,0,0,128,40h-.4C66.07,40.21,16,91,16,153.13V176a16,16,0,0,0,16,16H224a16,16,0,0,0,16-16V152A111.25,111.25,0,0,0,207.06,72.67ZM224,176H119.71l54.76-75.3a8,8,0,0,0-12.94-9.42L99.92,176H32V153.13c0-3.08.15-6.12.43-9.13H56a8,8,0,0,0,0-16H35.27c10.32-38.86,44-68.24,84.73-71.66V80a8,8,0,0,0,16,0V56.33A96.14,96.14,0,0,1,221,128H200a8,8,0,0,0,0,16h23.67c.21,2.65.33,5.31.33,8Z"/></g></svg>
+  <text x="120" y="396" font-family="sans-serif" font-size="15" font-weight="600" fill="#34454C" text-anchor="start">Limits</text>
+  <text x="176" y="396" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">what holds you back</text>
+  <text x="96" y="412" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Name</text>
+  <text x="236" y="412" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">chairs</text>
+  <text x="316" y="412" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">tables</text>
+  <text x="396" y="412" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Must be</text>
+  <text x="530" y="412" font-family="sans-serif" font-size="12" font-weight="600" fill="#547076" text-anchor="start">Limit</text>
+  <rect x="96" y="422" width="128" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="106" y="442" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">wood</text>
+  <rect x="236" y="422" width="70" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="246" y="442" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">5</text>
+  <rect x="316" y="422" width="70" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="326" y="442" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">20</text>
+  <rect x="396" y="422" width="122" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="406" y="442" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">at most (≤)</text>
+  <text x="506" y="442" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">v</text>
+  <rect x="530" y="422" width="98" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="540" y="442" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">400</text>
+  <svg x="640" y="429" width="16" height="16" viewBox="0 0 256 256" aria-label="Remove wood"><g fill="#547076"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></g></svg>
+  <rect x="96" y="460" width="128" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="106" y="480" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">labour</text>
+  <rect x="236" y="460" width="70" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="246" y="480" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">10</text>
+  <rect x="316" y="460" width="70" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="326" y="480" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">15</text>
+  <rect x="396" y="460" width="122" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="406" y="480" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">at most (≤)</text>
+  <text x="506" y="480" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">v</text>
+  <rect x="530" y="460" width="98" height="30" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <text x="540" y="480" font-family="monospace" font-size="13" font-weight="400" fill="#34454C" text-anchor="start">450</text>
+  <svg x="640" y="467" width="16" height="16" viewBox="0 0 256 256" aria-label="Remove labour"><g fill="#547076"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></g></svg>
+  <rect x="96" y="502" width="99" height="26" rx="13" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="104" y="508" width="14" height="14" viewBox="0 0 256 256" aria-hidden="true"><g fill="#34454C"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></g></svg>
+  <text x="122" y="519" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">Add limit</text>
+  <text x="200" y="519" font-family="sans-serif" font-size="11" font-weight="400" fill="#547076" text-anchor="start">A field changes the model when committed: one set_path, or remove_path when emptied</text>
+  <rect x="700" y="60" width="560" height="580" rx="8" fill="#F9F3E5" stroke="#CABD9E" stroke-width="1"/>
+  <svg x="716" y="74" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#1C4286"><path d="M200,152a31.84,31.84,0,0,0-19.53,6.68l-23.11-18A31.65,31.65,0,0,0,160,128c0-.74,0-1.48-.08-2.21l13.23-4.41A32,32,0,1,0,168,104c0,.74,0,1.48.08,2.21l-13.23,4.41A32,32,0,0,0,128,96a32.59,32.59,0,0,0-5.27.44L115.89,81A32,32,0,1,0,96,88a32.59,32.59,0,0,0,5.27-.44l6.84,15.4a31.92,31.92,0,0,0-8.57,39.64L73.83,165.44a32.06,32.06,0,1,0,10.63,12l25.71-22.84a31.91,31.91,0,0,0,37.36-1.24l23.11,18A31.65,31.65,0,0,0,168,184a32,32,0,1,0,32-32Zm0-64a16,16,0,1,1-16,16A16,16,0,0,1,200,88ZM80,56A16,16,0,1,1,96,72,16,16,0,0,1,80,56ZM56,208a16,16,0,1,1,16-16A16,16,0,0,1,56,208Zm56-80a16,16,0,1,1,16,16A16,16,0,0,1,112,128Zm88,72a16,16,0,1,1,16-16A16,16,0,0,1,200,200Z"/></g></svg>
+  <text x="738" y="88" font-family="sans-serif" font-size="13" font-weight="600" fill="#34454C" text-anchor="start">Diagram view (the same model, when chosen)</text>
+  <line x1="900" y1="178" x2="1040" y2="148" stroke="#547076" stroke-width="1.5"/>
+  <rect x="986.8" y="146.4" width="28" height="18" rx="9" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="1000.8" y="159.4" font-family="monospace" font-size="11" font-weight="600" fill="#34454C" text-anchor="middle">45</text>
+  <line x1="900" y1="178" x2="1040" y2="288" stroke="#547076" stroke-width="1.5"/>
+  <rect x="986.8" y="247.2" width="28" height="18" rx="9" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="1000.8" y="260.2" font-family="monospace" font-size="11" font-weight="600" fill="#34454C" text-anchor="middle">5</text>
+  <line x1="900" y1="178" x2="1040" y2="428" stroke="#547076" stroke-width="1.5"/>
+  <rect x="986.8" y="348.0" width="28" height="18" rx="9" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="1000.8" y="361.0" font-family="monospace" font-size="11" font-weight="600" fill="#34454C" text-anchor="middle">10</text>
+  <line x1="900" y1="318" x2="1040" y2="148" stroke="#547076" stroke-width="1.5"/>
+  <rect x="986.8" y="185.60000000000002" width="28" height="18" rx="9" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="1000.8" y="198.60000000000002" font-family="monospace" font-size="11" font-weight="600" fill="#34454C" text-anchor="middle">80</text>
+  <line x1="900" y1="318" x2="1040" y2="288" stroke="#547076" stroke-width="1.5"/>
+  <rect x="986.8" y="286.4" width="28" height="18" rx="9" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="1000.8" y="299.4" font-family="monospace" font-size="11" font-weight="600" fill="#34454C" text-anchor="middle">20</text>
+  <line x1="900" y1="318" x2="1040" y2="428" stroke="#547076" stroke-width="1.5"/>
+  <rect x="986.8" y="387.2" width="28" height="18" rx="9" fill="#FDFAF4" stroke="#CABD9E" stroke-width="1"/>
+  <text x="1000.8" y="400.2" font-family="monospace" font-size="11" font-weight="600" fill="#34454C" text-anchor="middle">15</text>
+  <rect x="720" y="150" width="180" height="56" rx="14" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="732" y="160" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#1C4286"><path d="M40,88H73a32,32,0,0,0,62,0h81a8,8,0,0,0,0-16H135a32,32,0,0,0-62,0H40a8,8,0,0,0,0,16Zm64-24A16,16,0,1,1,88,80,16,16,0,0,1,104,64ZM216,168H199a32,32,0,0,0-62,0H40a8,8,0,0,0,0,16h97a32,32,0,0,0,62,0h17a8,8,0,0,0,0-16Zm-48,24a16,16,0,1,1,16-16A16,16,0,0,1,168,192Z"/></g></svg>
+  <text x="756" y="174" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">chairs</text>
+  <text x="732" y="194" font-family="sans-serif" font-size="11" font-weight="400" fill="#547076" text-anchor="start">decision · continuous ≥ 0</text>
+  <rect x="720" y="290" width="180" height="56" rx="14" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="732" y="300" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#1C4286"><path d="M40,88H73a32,32,0,0,0,62,0h81a8,8,0,0,0,0-16H135a32,32,0,0,0-62,0H40a8,8,0,0,0,0,16Zm64-24A16,16,0,1,1,88,80,16,16,0,0,1,104,64ZM216,168H199a32,32,0,0,0-62,0H40a8,8,0,0,0,0,16h97a32,32,0,0,0,62,0h17a8,8,0,0,0,0-16Zm-48,24a16,16,0,1,1,16-16A16,16,0,0,1,168,192Z"/></g></svg>
+  <text x="756" y="314" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">tables</text>
+  <text x="732" y="334" font-family="sans-serif" font-size="11" font-weight="400" fill="#547076" text-anchor="start">decision · continuous ≥ 0</text>
+  <rect x="1040" y="120" width="200" height="56" rx="14" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="1052" y="130" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#1C4286"><path d="M221.87,83.16A104.1,104.1,0,1,1,195.67,49l22.67-22.68a8,8,0,0,1,11.32,11.32l-96,96a8,8,0,0,1-11.32-11.32l27.72-27.72a40,40,0,1,0,17.87,31.09,8,8,0,1,1,16-.9,56,56,0,1,1-22.38-41.65L184.3,60.39a87.88,87.88,0,1,0,23.13,29.67,8,8,0,0,1,14.44-6.9Z"/></g></svg>
+  <text x="1076" y="144" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">Goal: maximize</text>
+  <text x="1052" y="164" font-family="sans-serif" font-size="11" font-weight="400" fill="#547076" text-anchor="start">goal</text>
+  <rect x="1040" y="260" width="200" height="56" rx="14" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="1052" y="270" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#1C4286"><path d="M207.06,72.67A111.24,111.24,0,0,0,128,40h-.4C66.07,40.21,16,91,16,153.13V176a16,16,0,0,0,16,16H224a16,16,0,0,0,16-16V152A111.25,111.25,0,0,0,207.06,72.67ZM224,176H119.71l54.76-75.3a8,8,0,0,0-12.94-9.42L99.92,176H32V153.13c0-3.08.15-6.12.43-9.13H56a8,8,0,0,0,0-16H35.27c10.32-38.86,44-68.24,84.73-71.66V80a8,8,0,0,0,16,0V56.33A96.14,96.14,0,0,1,221,128H200a8,8,0,0,0,0,16h23.67c.21,2.65.33,5.31.33,8Z"/></g></svg>
+  <text x="1076" y="284" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">wood ≤ 400</text>
+  <text x="1052" y="304" font-family="sans-serif" font-size="11" font-weight="400" fill="#547076" text-anchor="start">limit</text>
+  <rect x="1040" y="400" width="200" height="56" rx="14" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
+  <svg x="1052" y="410" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#1C4286"><path d="M207.06,72.67A111.24,111.24,0,0,0,128,40h-.4C66.07,40.21,16,91,16,153.13V176a16,16,0,0,0,16,16H224a16,16,0,0,0,16-16V152A111.25,111.25,0,0,0,207.06,72.67ZM224,176H119.71l54.76-75.3a8,8,0,0,0-12.94-9.42L99.92,176H32V153.13c0-3.08.15-6.12.43-9.13H56a8,8,0,0,0,0-16H35.27c10.32-38.86,44-68.24,84.73-71.66V80a8,8,0,0,0,16,0V56.33A96.14,96.14,0,0,1,221,128H200a8,8,0,0,0,0,16h23.67c.21,2.65.33,5.31.33,8Z"/></g></svg>
+  <text x="1076" y="424" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">labour ≤ 450</text>
+  <text x="1052" y="444" font-family="sans-serif" font-size="11" font-weight="400" fill="#547076" text-anchor="start">limit</text>
+  <text x="716" y="500" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Decisions on the left; the goal and each limit on the right.</text>
+  <text x="716" y="518" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">A line joins a decision to each card that uses it, labelled</text>
+  <text x="716" y="536" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">with its coefficient. Cards are placed automatically; nothing</text>
+  <text x="716" y="554" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">about the layout is stored. Choosing a card opens its row in</text>
+  <text x="716" y="572" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">the Table view. Network-shaped plans wait for the indexed layout.</text>
+  <rect x="72" y="650" width="1208" height="150" rx="0" fill="#FDFAF4" stroke="none" stroke-width="0"/>
+  <line x1="72" y1="650" x2="1280" y2="650" stroke="#CABD9E" stroke-width="1"/>
+  <text x="96" y="678" font-family="sans-serif" font-size="15" font-weight="600" fill="#34454C" text-anchor="start">Problems</text>
+  <text x="176" y="678" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">No problems</text>
+  <text x="96" y="704" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">Issues from POST validate, shown as the service wrote them (code, message, path); choosing one opens the Table view at its field.</text>
+</svg>

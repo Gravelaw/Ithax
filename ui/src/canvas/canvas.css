@@ -836,3 +836,342 @@
   width: auto;
   flex: none;
 }
+
+/* The review of an outside change (AKS-137; design-system.md "Block states"). */
+
+.review-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-accent);
+  border-radius: 999px;
+  background: var(--color-surface-alt);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.mark-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mark-added {
+  border-color: var(--color-success);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.mark-changed,
+.mark-renamed {
+  border-color: var(--color-accent);
+  background: var(--color-surface-alt);
+  color: var(--color-accent);
+}
+
+.mark-buttons {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.block-review-mark {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* Accept and Reject on a block show on hover or focus; the side panel always lists them. */
+.block-review-mark .mark-buttons {
+  visibility: hidden;
+}
+
+.block:hover .block-review-mark .mark-buttons,
+.block:focus-within .block-review-mark .mark-buttons,
+.react-flow__node:focus .block-review-mark .mark-buttons,
+.react-flow__node:focus-visible .block-review-mark .mark-buttons {
+  visibility: visible;
+}
+
+.block-mark::after {
+  position: absolute;
+  inset: -6px;
+  border: 2px dashed var(--color-accent);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+}
+
+.block-mark-added::after {
+  border-color: var(--color-success);
+}
+
+.block-ghost {
+  border: 1.5px dashed var(--color-border-strong);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.react-flow__edge.review-added .react-flow__edge-path {
+  stroke: var(--color-success);
+  stroke-dasharray: 6 4;
+}
+
+.react-flow__edge.review-changed .react-flow__edge-path {
+  stroke: var(--color-accent);
+  stroke-dasharray: 6 4;
+}
+
+.react-flow__edge.review-removed .react-flow__edge-path {
+  stroke: var(--color-border-strong);
+  stroke-dasharray: 4 4;
+}
+
+.review-list .review-all {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.review-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.review-text {
+  text-align: start;
+}
+
+.changed-fields {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.old-value {
+  text-decoration: line-through;
+}
+
+/* The Canvas of an optimization model (AKS-137; wireframes/09-optimization.svg). */
+
+.plan-screen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
+}
+
+.plan-centre {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.plan-main {
+  overflow: auto;
+  padding: var(--space-4) var(--space-6);
+}
+
+.plan-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.view-switch {
+  display: inline-flex;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-alt);
+}
+
+.view-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.view-switch button[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-surface);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.plan-section {
+  margin-bottom: var(--space-6);
+}
+
+.plan-section.mark-changed,
+.plan-section.mark-added {
+  padding: var(--space-2);
+  border: 2px dashed var(--color-accent);
+  border-radius: var(--radius-card);
+}
+
+.plan-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.plan-heading svg {
+  color: var(--color-accent);
+}
+
+.plan-table {
+  border-collapse: collapse;
+  margin-bottom: var(--space-2);
+}
+
+.plan-table th {
+  padding: var(--space-1) var(--space-2) var(--space-1) 0;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  text-align: start;
+}
+
+.plan-table td {
+  padding: var(--space-1) var(--space-2) var(--space-1) 0;
+  vertical-align: top;
+}
+
+.plan-table input,
+.plan-goal input {
+  width: 7rem;
+  height: 2rem;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.plan-table select,
+.plan-goal select {
+  height: 2rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.plan-row.mark-added td:first-child {
+  border-left: 3px dashed var(--color-success);
+}
+
+.plan-row.mark-changed td:first-child {
+  border-left: 3px dashed var(--color-accent);
+}
+
+.plan-ghost td {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+
+.plan-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.plan-goal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.plan-coefficient {
+  display: flex;
+  flex-direction: column;
+}
+
+.plan-diagram {
+  position: relative;
+  max-width: 100%;
+}
+
+.plan-lines {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.plan-line {
+  stroke: var(--color-edge);
+  stroke-width: 1.5;
+}
+
+.plan-line-label {
+  fill: var(--color-surface);
+  stroke: var(--color-border);
+}
+
+.plan-line-text {
+  fill: var(--color-text);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.plan-card {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: start;
+  overflow: hidden;
+}
+
+.plan-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 600;
+}
+
+.plan-card-title svg {
+  color: var(--color-accent);
+}

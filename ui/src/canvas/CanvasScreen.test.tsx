@@ -809,15 +809,6 @@ describe("other screens and states", () => {
     expect(await screen.findByRole("textbox", { name: "Id" })).toHaveValue("till");
   });
 
-  it("shows a plan's model as a later view", async () => {
-    renderCanvas({
-      model: { format_version: "0.1", meta: { name: "Mix" }, domain: "optimization" },
-    });
-    expect(
-      await screen.findByText(/Table and Diagram views arrive in a later build/),
-    ).toBeVisible();
-  });
-
   it("says when the service refuses the model, or the project's events stop", async () => {
     const { fake, toolbar } = renderCanvas();
     await drawn("till");
@@ -862,6 +853,9 @@ describe("why Run waits", () => {
     undoLabel: null,
     redoLabel: null,
     reloads: 0,
+    baseline: null,
+    outside: null,
+    writers: {},
     eventsClosed: null,
     busy: false,
     renamed: {},
@@ -1114,5 +1108,211 @@ describe("while a write awaits its answer (review of PR #45)", () => {
     await settled(toolbar);
     expect(sentEdits(fake)).toEqual([[{ edit: "rename_component", id: "till", new_id: "a" }]]);
     expect(service.component("a")?.params.discipline).toBeUndefined();
+  });
+});
+
+describe("reviewing an outside change (AKS-137)", () => {
+  const panel = () => screen.getByRole("complementary", { name: "Block settings" });
+
+  async function outsideWrite(
+    fake: FakeService,
+    service: ModelService,
+    client: string | null = "script",
+  ) {
+    service.outsideWrite((model) => {
+      const till = model.components?.find((item) => item.id === "till");
+      if (till) till.params.capacity = 2;
+      model.components?.push({ id: "queue_1", type: "queue", params: {}, ui: { x: 0, y: 300 } });
+      model.components = model.components?.filter((item) => item.id !== "exit");
+      model.connections = model.connections?.filter((item) => item.to !== "exit.in");
+    });
+    act(() => fake.sockets[0]?.emit({ type: "model", revision: service.revision, client }));
+    await drawn("queue_1");
+  }
+
+  it("names the client, clears undo and marks what was added, changed and removed", async () => {
+    const { fake, service, toolbar, user } = renderCanvas();
+    await select(user, "till");
+    await user.type(screen.getByRole("textbox", { name: "Label (optional)" }), "A{Enter}");
+    await settled(toolbar);
+    await outsideWrite(fake, service);
+    expect(
+      screen.getByText(
+        "The model was changed by a script (script). The canvas has been reloaded; undo history was cleared.",
+      ),
+    ).toBeVisible();
+    expect(within(toolbar).getByRole("button", { name: "Undo" })).toBeDisabled();
+    expect(within(toolbar).getByRole("button", { name: "4 changes to review" })).toBeVisible();
+    expect(node("till").querySelector(".block")).toHaveClass("block-mark-changed");
+    expect(node("till")).toHaveTextContent("Changed");
+    expect(node("till")).toHaveAttribute(
+      "aria-label",
+      expect.stringContaining("changed by another client, to review"),
+    );
+    expect(node("queue_1").querySelector(".block")).toHaveClass("block-mark-added");
+    expect(node("ghost:exit")).toHaveTextContent("Removed");
+    expect(document.querySelector(".react-flow__edge.review-removed")).not.toBeNull();
+    // The list, with nothing selected: one row per change.
+    await user.click(within(toolbar).getByRole("button", { name: "4 changes to review" }));
+    const list = within(panel()).getByRole("region", { name: "4 changes to review" });
+    expect(
+      within(list)
+        .getAllByRole("listitem")
+        .map((item) => item.firstChild?.textContent),
+    ).toEqual([
+      "Changed: block till (capacity: tills → 2)",
+      "Added: block queue_1",
+      "Removed: block exit",
+      "Removed: connection till.out",
+    ]);
+    await waitFor(() => expect(document.getElementById("review-heading")).toHaveFocus());
+  });
+
+  it("rejects one change with a whole-model write and base_revision, an undo step", async () => {
+    const { fake, service, toolbar, user } = renderCanvas();
+    await settled(toolbar);
+    await outsideWrite(fake, service);
+    await settled(toolbar);
+    await user.click(
+      within(panel()).getByRole("button", { name: "Reject the change to block till" }),
+    );
+    await settled(toolbar);
+    expect(fake.requested("PUT", MODEL).at(-1)?.search).toBe("?base_revision=4");
+    expect(service.component("till")?.params.capacity).toEqual({ $param: "tills" });
+    expect(service.component("queue_1")).toBeDefined();
+    expect(node("till").querySelector(".block")).not.toHaveClass("block-mark");
+    expect(within(toolbar).getByRole("button", { name: "3 changes to review" })).toBeVisible();
+    expect(
+      within(toolbar).getByRole("button", { name: "Undo: reject the change to block till" }),
+    ).toBeEnabled();
+    // Reject puts a removed block back, with its connection when that is rejected too.
+    await user.click(
+      within(panel()).getByRole("button", { name: "Reject the change to block exit" }),
+    );
+    await settled(toolbar);
+    await user.click(
+      within(panel()).getByRole("button", { name: "Reject the change to connection till.out" }),
+    );
+    await settled(toolbar);
+    await drawn("exit");
+    expect(service.model.connections).toEqual(coffeeShop().connections);
+  });
+
+  it("accepts without writing, one change or all, and Reject all restores every change", async () => {
+    const { fake, service, toolbar, user } = renderCanvas();
+    await settled(toolbar);
+    await outsideWrite(fake, service);
+    await settled(toolbar);
+    const writes = fake.requests.filter((request) => request.method !== "GET").length;
+    await user.click(
+      within(panel()).getByRole("button", { name: "Accept the change to block queue_1" }),
+    );
+    expect(within(toolbar).getByRole("button", { name: "3 changes to review" })).toBeVisible();
+    expect(node("queue_1").querySelector(".block")).not.toHaveClass("block-mark");
+    await user.click(within(panel()).getByRole("button", { name: "Reject all" }));
+    await settled(toolbar);
+    expect(fake.requests.filter((request) => request.method !== "GET").length).toBeGreaterThan(
+      writes,
+    );
+    const back = coffeeShop();
+    back.components?.push({ id: "queue_1", type: "queue", params: {}, ui: { x: 0, y: 300 } });
+    expect(service.model).toEqual(back);
+    expect(within(toolbar).queryByRole("button", { name: /changes? to review/ })).toBeNull();
+
+    await outsideWrite(fake, service, "mcp");
+    expect(screen.getByText(/changed by an assistant \(mcp\)/)).toBeVisible();
+    await user.click(within(panel()).getByRole("button", { name: "Accept all" }));
+    expect(within(toolbar).queryByRole("button", { name: /changes? to review/ })).toBeNull();
+    expect(document.querySelector(".react-flow__node-ghost")).toBeNull();
+  });
+
+  it("shows a changed block's fields, old beside new, when it is selected", async () => {
+    const { fake, service, toolbar, user } = renderCanvas();
+    await settled(toolbar);
+    await outsideWrite(fake, service);
+    await select(user, "till");
+    const review = within(panel()).getByRole("region", { name: /by another client/ });
+    expect(review).toHaveTextContent("capacity: tills → 2");
+    await user.click(
+      within(review).getByRole("button", { name: "Accept the change to block till" }),
+    );
+    expect(within(panel()).queryByRole("region", { name: /by another client/ })).toBeNull();
+  });
+
+  it("refuses Accept and Reject while a write awaits its answer, and says so", async () => {
+    const { fake, service, toolbar, user } = renderCanvas();
+    await settled(toolbar);
+    await outsideWrite(fake, service);
+    await settled(toolbar);
+    const release = fake.holdWrites();
+    await user.click(
+      within(panel()).getByRole("button", { name: "Reject the change to block till" }),
+    );
+    const accept = within(panel()).getByRole("button", {
+      name: "Accept the change to block queue_1",
+    });
+    await waitFor(() => expect(accept).toHaveAttribute("aria-disabled", "true"));
+    await user.click(accept);
+    expect(screen.getByText(WAIT)).toBeVisible();
+    expect(within(toolbar).getByRole("button", { name: "4 changes to review" })).toBeVisible();
+    release();
+    await settled(toolbar);
+    expect(fake.requested("PUT", MODEL)).toHaveLength(1);
+    expect(within(toolbar).getByRole("button", { name: "3 changes to review" })).toBeVisible();
+  });
+
+  it("says a change was not saved when it raced another client's (409 E181)", async () => {
+    const { fake, service, toolbar, user } = renderCanvas();
+    await select(user, "till");
+    await settled(toolbar);
+    service.outsideWrite((model) => {
+      model.meta = { name: "Cafe" };
+    });
+    await user.type(screen.getByRole("textbox", { name: "Label (optional)" }), "A{Enter}");
+    expect(
+      await screen.findByText(
+        "Your last change was not saved because the model had just been changed by another program. Please make it again.",
+      ),
+    ).toBeVisible();
+    act(() => fake.sockets[0]?.emit({ type: "model", revision: service.revision, client: "ui" }));
+    expect(screen.getByText(/had just been changed in another window \(ui\)/)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText(/had just been changed/)).toBeNull();
+    expect(within(toolbar).getByRole("button", { name: "1 change to review" })).toBeVisible();
+  });
+
+  it("marks, rejects and accepts parameters named like Object.prototype's members (review of PR #46)", async () => {
+    const model = coffeeShop();
+    model.components?.push({ id: "odd", type: "constructor", params: {}, ui: { x: 0, y: 300 } });
+    const { fake, service, toolbar, user } = renderCanvas({ model });
+    await settled(toolbar);
+    expect(node("odd")).toHaveAttribute("aria-label", "odd, constructor");
+    service.outsideWrite((written) => {
+      written.parameters = JSON.parse(
+        `{"tills": {"value": 1, "type": "integer", "min": 1, "max": 5},
+          "constructor": {"value": 1, "type": "integer"}, "__proto__": {"value": 2, "type": "integer"},
+          "toString": {"value": 3, "type": "integer"}, "hasOwnProperty": {"value": 4, "type": "integer"}}`,
+      );
+    });
+    act(() => fake.sockets[0]?.emit({ type: "model", revision: service.revision, client: "mcp" }));
+    const list = await within(panel()).findByRole("region", { name: "4 changes to review" });
+    expect(within(list).getByText("Added: parameter __proto__")).toBeVisible();
+    await user.click(
+      within(list).getByRole("button", { name: "Reject the change to parameter constructor" }),
+    );
+    await settled(toolbar);
+    expect(Object.hasOwn(service.model.parameters ?? {}, "constructor")).toBe(false);
+    expect(Object.hasOwn(service.model.parameters ?? {}, "__proto__")).toBe(true);
+    await user.click(
+      within(panel()).getByRole("button", { name: "Reject the change to parameter __proto__" }),
+    );
+    await settled(toolbar);
+    expect(Object.keys(service.model.parameters ?? {})).toEqual([
+      "tills",
+      "toString",
+      "hasOwnProperty",
+    ]);
+    await user.click(within(panel()).getByRole("button", { name: "Accept all" }));
+    expect(within(toolbar).queryByRole("button", { name: /changes? to review/ })).toBeNull();
   });
 });

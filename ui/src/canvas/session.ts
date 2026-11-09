@@ -20,12 +20,19 @@
  * - **Validation** runs half a second after the last write; a result for an older write
  *   is dropped.
  * - **Other clients.** A `model` event whose revision is newer than the canvas's own, once
- *   its write has answered, reloads the model and clears undo and redo (the review of an
- *   outside change is AKS-137). A 409 with E181 does the same.
+ *   its write has answered, reloads the model and clears undo and redo; a 409 with E181
+ *   does the same. The model shown before the first outside change not yet reviewed is
+ *   kept as the baseline, with the user's own writes folded in; the marks are always the
+ *   comparison of the baseline with the model shown (`review.ts`, AKS-137). Accept puts
+ *   the item as shown into the baseline and writes nothing; Reject writes the model shown
+ *   with the item as in the baseline, Reject all writes the baseline, each a whole model
+ *   like undo and one undo step. All are changes like any other: refused while busy.
  */
 import type { ApiClient, ApiResult, EventSocket } from "../api/client";
 import type { Edit, Issue, Model, ModelWriteBody, ProjectEvent } from "../api/types";
 import { movesIn, type Point } from "./model";
+import { record } from "./own";
+import { absorb, adopt, type Change, changeSubject, changesBetween, restore } from "./review";
 
 export const RETRY_MS = 2000;
 export const VALIDATE_MS = 500;
@@ -49,6 +56,17 @@ export type Write =
 /** Builds the write from the model shown; `null` sends nothing. */
 export type Plan = (model: Model) => Write | null;
 
+/** The last outside change: the revisions it spans, and whether a write of ours was refused. */
+export interface Outside {
+  /** The revision shown before the reload, and the one read. */
+  from: number;
+  to: number;
+  /** The canvas's own write was refused with 409 E181. */
+  conflict: boolean;
+  /** Counts outside changes, so a notice dismissed for one shows again for the next. */
+  seq: number;
+}
+
 export interface SessionState {
   status: "loading" | "ready" | "unavailable";
   /** Why the model could not be loaded, as the service said it. */
@@ -71,6 +89,16 @@ export interface SessionState {
   redoLabel: string | null;
   /** How many times another client's change reloaded the model. */
   reloads: number;
+  /**
+   * The model before the first outside change not yet reviewed, with the user's own writes
+   * since folded in; `null` when nothing is to be reviewed. The marks compare it with
+   * `model`.
+   */
+  baseline: Model | null;
+  /** The last outside change, for its notice; `null` until one happens. */
+  outside: Outside | null;
+  /** The client of each `model` event the notice may need, by revision. */
+  writers: Readonly<Record<number, string | null>>;
   /** The events socket closed with this reason (lost contact). */
   eventsClosed: string | null;
   /**
@@ -101,9 +129,38 @@ export const INITIAL_STATE: SessionState = {
   undoLabel: null,
   redoLabel: null,
   reloads: 0,
+  baseline: null,
+  outside: null,
+  writers: {},
   eventsClosed: null,
   renamed: {},
 };
+
+/** The clients named in the notice of the last outside change, in revision order. */
+export function clientsOf(state: SessionState): string[] {
+  const outside = state.outside;
+  if (outside === null) return [];
+  const found: string[] = [];
+  for (const [revision, client] of Object.entries(state.writers)) {
+    const at = Number(revision);
+    if (at > outside.from && at <= outside.to && client !== null && !found.includes(client)) {
+      found.push(client);
+    }
+  }
+  return found;
+}
+
+/** The baseline, or `null` once nothing differs from `model`. */
+function settle(baseline: Model, model: Model): Model | null {
+  return changesBetween(baseline, model).length === 0 ? null : baseline;
+}
+
+/** The review marks of a state: its baseline compared with the model shown. */
+export function marksOf(state: Pick<SessionState, "baseline" | "model">): Change[] {
+  return state.baseline === null || state.model === null
+    ? []
+    : changesBetween(state.baseline, state.model);
+}
 
 /** `merge` is a move that joins the previous move's undo step. */
 type History = "do" | "merge" | "undo" | "redo";
@@ -286,12 +343,18 @@ export class CanvasSession {
     const done = { saving: false, busy: false, failing: false };
     if (result.kind === "ok") {
       this.record(history, write.label, before, result.data.model, moved);
-      const renamed: Record<string, string> = {};
+      const renamed = record<string>();
       if (write.kind === "edits") {
         for (const edit of write.edits) {
           if (edit.edit === "rename_component") renamed[edit.id] = edit.new_id;
         }
       }
+      // The user's own change is never marked: it goes into the baseline too.
+      const baseline = this.state.baseline;
+      const kept =
+        baseline === null
+          ? null
+          : settle(absorb(baseline, before, result.data.model), result.data.model);
       // The model and the end of the wait in one change, so the screen never draws the
       // new model while still refusing changes, nor the reverse.
       this.set({
@@ -300,10 +363,12 @@ export class CanvasSession {
         renamed,
         model: result.data.model,
         revision: result.data.revision,
+        baseline: kept,
+        writers: this.keptWriters(result.data.revision),
       });
     } else if (result.kind === "refused" && result.error.code === "E181") {
       this.set({ failing: false, refusal: result });
-      await this.reload();
+      await this.reload(true);
       this.set(done);
     } else {
       this.set({ ...done, refusal: result });
@@ -353,6 +418,9 @@ export class CanvasSession {
   private onEvent(event: ProjectEvent): void {
     if (event.type !== "model" || this.stopped) return;
     this.announced = Math.max(this.announced, event.revision);
+    if (event.revision > this.state.revision || this.inOutside(event.revision)) {
+      this.set({ writers: { ...this.state.writers, [event.revision]: event.client } });
+    }
     if (!this.state.busy) this.afterBusy();
   }
 
@@ -367,8 +435,22 @@ export class CanvasSession {
     }
   }
 
+  private inOutside(revision: number): boolean {
+    const outside = this.state.outside;
+    return outside !== null && revision > outside.from && revision <= outside.to;
+  }
+
+  /** The writers still needed: the last outside change's, and any newer than `revision`. */
+  private keptWriters(revision: number): Record<number, string | null> {
+    const kept: Record<number, string | null> = {};
+    for (const [at, client] of Object.entries(this.state.writers)) {
+      if (Number(at) > revision || this.inOutside(Number(at))) kept[Number(at)] = client;
+    }
+    return kept;
+  }
+
   /** Reads the model again and clears undo and redo (another client changed it). */
-  private async reload(): Promise<void> {
+  private async reload(conflict = false): Promise<void> {
     const before = this.announced;
     let loaded = await this.client.getModel(this.pid);
     while (loaded.kind === "failed" && !this.stopped) {
@@ -387,17 +469,84 @@ export class CanvasSession {
         this.announced > before
           ? Math.max(this.announced, loaded.data.revision)
           : loaded.data.revision;
+      const shown = this.state.model;
+      const from = this.state.revision;
+      const fresh = shown === null ? [] : changesBetween(shown, loaded.data.model);
+      // The baseline stays the model before the first outside change not yet reviewed.
+      const base = this.state.baseline ?? shown;
+      const baseline = base === null ? null : settle(base, loaded.data.model);
+      const moved = loaded.data.revision !== from || fresh.length > 0;
+      const outside: Outside | null = moved
+        ? { from, to: loaded.data.revision, conflict, seq: (this.state.outside?.seq ?? 0) + 1 }
+        : this.state.outside;
+      const writers: Record<number, string | null> = {};
+      for (const [at, client] of Object.entries(this.state.writers)) {
+        if (Number(at) > from) writers[Number(at)] = client;
+      }
       this.set({
         failing: false,
         renamed: {},
         model: loaded.data.model,
         revision: loaded.data.revision,
+        baseline,
+        outside,
+        writers,
       });
     } else {
       this.announced = this.state.revision;
       this.set({ failing: false, refusal: loaded });
     }
     this.scheduleValidate();
+  }
+
+  /** The review marks: the baseline compared with the model shown. */
+  marks(): Change[] {
+    return marksOf(this.state);
+  }
+
+  /** Takes one marked item as shown into the baseline; writes nothing. */
+  accept(key: string): boolean {
+    if (!this.canWrite()) return false;
+    const { baseline, model } = this.state;
+    const item = this.marks().find((mark) => mark.key === key);
+    if (baseline === null || model === null || item === undefined) return true;
+    this.set({ baseline: settle(adopt(baseline, item), model) });
+    return true;
+  }
+
+  /** Takes the model shown as the baseline: no marks remain. */
+  acceptAll(): boolean {
+    if (!this.canWrite()) return false;
+    this.set({ baseline: null });
+    return true;
+  }
+
+  /** Writes the model shown with one marked item as in the baseline: one undo step. */
+  reject(key: string): Promise<ApiResult<ModelWriteBody> | null> {
+    const domain = this.state.model?.domain;
+    return this.write((model) => {
+      const baseline = this.state.baseline;
+      const item =
+        baseline === null
+          ? undefined
+          : changesBetween(baseline, model).find((mark) => mark.key === key);
+      if (item === undefined) return null;
+      return {
+        kind: "model",
+        label: `reject the change to ${changeSubject(item, domain)}`,
+        model: restore(model, item),
+      };
+    });
+  }
+
+  /** Writes the baseline: every marked item as it was, in one write and one undo step. */
+  rejectAll(): Promise<ApiResult<ModelWriteBody> | null> {
+    return this.write(() => {
+      const baseline = this.state.baseline;
+      return baseline === null
+        ? null
+        : { kind: "model", label: "reject every change", model: baseline };
+    });
   }
 
   private invalidateValidation(): void {

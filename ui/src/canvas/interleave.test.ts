@@ -5,7 +5,9 @@
  * the model shown, are played against a slow service whose answers come after a number of
  * further actions the seed chooses. An action asked while a write awaits its answer must
  * be refused (and the session says it is busy); the saved model must equal the accepted
- * actions played again one after another.
+ * actions played again one after another. Each script starts after another client's
+ * write, so the review's Accept and Reject (AKS-137) are among the actions, under the
+ * same rule.
  */
 import { describe, expect, it } from "vitest";
 import type { Component, Edit, Model } from "../api/types";
@@ -36,7 +38,9 @@ type Action =
   | { kind: "delete"; block: string }
   | { kind: "add" }
   | { kind: "undo" }
-  | { kind: "redo" };
+  | { kind: "redo" }
+  | { kind: "accept"; pick: number }
+  | { kind: "reject"; pick: number };
 
 const BLOCKS = ["b1", "b2", "b3", "b4"];
 
@@ -60,8 +64,10 @@ function script(seed: number, length: number): Action[] {
       const block = pick(live);
       alive.delete(block);
       actions.push({ kind: "delete", block });
-    } else if (roll < 0.9) actions.push({ kind: "undo" });
-    else actions.push({ kind: "redo" });
+    } else if (roll < 0.86) actions.push({ kind: "undo" });
+    else if (roll < 0.9) actions.push({ kind: "redo" });
+    else if (roll < 0.94) actions.push({ kind: "accept", pick: Math.floor(next() * 4) });
+    else actions.push({ kind: "reject", pick: Math.floor(next() * 4) });
   }
   return actions;
 }
@@ -89,6 +95,13 @@ function drawnId(session: CanvasSession, key: string): string | null {
 function perform(session: CanvasSession, action: Action): Promise<unknown> {
   const send = (label: string, edits: Parameters<typeof editsWrite>[1]) =>
     session.write(editsWrite(label, edits));
+  if (action.kind === "accept" || action.kind === "reject") {
+    const marks = session.marks();
+    const mark = marks[action.pick % Math.max(marks.length, 1)];
+    if (mark === undefined) return Promise.resolve(session.canWrite() ? "none" : null);
+    if (action.kind === "reject") return session.reject(mark.key);
+    return Promise.resolve(session.accept(mark.key) ? "accepted" : null);
+  }
   if (action.kind === "undo") return session.undo();
   if (action.kind === "redo") return session.redo();
   if (action.kind === "add") {
@@ -144,6 +157,18 @@ async function open(): Promise<{
   const session = new CanvasSession(fake.client(), PID, { undoLimit: 100, now: () => 0 });
   session.start();
   while (session.getState().status !== "ready") await new Promise((r) => setTimeout(r, 1));
+  // Another client's write: a changed block, a new one, a removed one and a renamed one.
+  service.outsideWrite((model) => {
+    const [first, second, third] = model.components ?? [];
+    if (first) first.params.capacity = 3;
+    if (third) third.id = "outside_renamed";
+    model.components = (model.components ?? []).filter((item) => item !== second);
+    model.components.push({ id: "outside_1", type: "queue", params: {}, ui: { x: 0, y: 400 } });
+    model.meta = { name: "Changed outside" };
+  });
+  fake.sockets[0]?.emit({ type: "model", revision: service.revision, client: "script" });
+  while (session.marks().length === 0) await new Promise((r) => setTimeout(r, 1));
+  await idle(session);
   return { fake, service, session };
 }
 
@@ -151,7 +176,7 @@ async function open(): Promise<{
 async function slow(
   actions: Action[],
   seed: number,
-): Promise<{ accepted: Action[]; model: Model }> {
+): Promise<{ accepted: Action[]; model: Model; marks: unknown[] }> {
   const { fake, service, session } = await open();
   const next = random(seed * 7919);
   const release = fake.holdWrites();
@@ -174,25 +199,27 @@ async function slow(
   }
   release();
   await idle(session);
+  const marks = session.marks().map((item) => item.key);
   session.stop();
-  return { accepted, model: service.model };
+  return { accepted, model: service.model, marks };
 }
 
-async function oneByOne(actions: Action[]): Promise<Model> {
+async function oneByOne(actions: Action[]): Promise<{ model: Model; marks: unknown[] }> {
   const { service, session } = await open();
   for (const action of actions) await perform(session, action);
   await idle(session);
+  const marks = session.marks().map((item) => item.key);
   session.stop();
-  return service.model;
+  return { model: service.model, marks };
 }
 
 describe("against a slow service, actions asked while a write awaits its answer are refused", () => {
   for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) {
     it(`seed ${seed}: the model equals the accepted actions made one at a time`, async () => {
-      const { accepted, model } = await slow(script(seed, 30), seed);
+      const { accepted, model, marks } = await slow(script(seed, 30), seed);
       expect(accepted.length).toBeGreaterThan(0);
       expect(accepted.length).toBeLessThan(30);
-      expect(model).toEqual(await oneByOne(accepted));
+      expect({ model, marks }).toEqual(await oneByOne(accepted));
     });
   }
 
@@ -203,7 +230,19 @@ describe("against a slow service, actions asked while a write awaits its answer 
       ),
     );
     expect([...kinds].sort()).toEqual(
-      ["add", "connect", "delete", "label", "nudge", "redo", "rename", "setting", "undo"].sort(),
+      [
+        "accept",
+        "add",
+        "connect",
+        "delete",
+        "label",
+        "nudge",
+        "redo",
+        "reject",
+        "rename",
+        "setting",
+        "undo",
+      ].sort(),
     );
   });
 });

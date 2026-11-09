@@ -7,6 +7,7 @@
  * `tests/test_ui_fixtures.py` keeps equal to the service's own.
  */
 import type { Component, Edit, Issue, Model, Parameter } from "../api/types";
+import { hasOwn, own, setOwn } from "../canvas/own";
 import componentTypes from "./component-types.json";
 import { errorBody, type FakeService } from "./fakes";
 
@@ -123,7 +124,7 @@ function apply(model: Model, edit: Edit): string | null {
       const parts = tokens(edit.path);
       let here: Record<string, unknown> | unknown[] = component.params;
       for (const part of parts.slice(0, -1)) {
-        const next: unknown = Array.isArray(here) ? here[Number(part)] : here[part];
+        const next: unknown = Array.isArray(here) ? here[Number(part)] : own(here, part);
         if (typeof next !== "object" || next === null) return `No '${part}' in '${edit.path}'.`;
         here = next as Record<string, unknown>;
       }
@@ -131,7 +132,7 @@ function apply(model: Model, edit: Edit): string | null {
       if (Array.isArray(here)) {
         if (last === "-" || Number(last) === here.length) here.push(edit.value);
         else here[Number(last)] = edit.value;
-      } else here[last] = edit.value;
+      } else setOwn(here, last, edit.value);
       return null;
     }
     case "connect": {
@@ -150,21 +151,21 @@ function apply(model: Model, edit: Edit): string | null {
       model.parameters ??= {};
       const parameters = model.parameters;
       const { edit: _kind, id, ...fields } = edit;
-      if (!parameters[id] && (fields.value === undefined || fields.type === undefined)) {
+      if (!hasOwn(parameters, id) && (fields.value === undefined || fields.type === undefined)) {
         return `A new parameter '${id}' needs 'value' and 'type'.`;
       }
-      parameters[id] = {
-        ...(parameters[id] ?? { value: null, type: "number" }),
+      setOwn(parameters, id, {
+        ...(own<Parameter>(parameters, id) ?? { value: null, type: "number" }),
         ...fields,
-      } as Parameter;
+      });
       return null;
     }
     case "remove_parameter": {
-      if (!model.parameters?.[edit.id]) return `There is no parameter '${edit.id}'.`;
+      if (!hasOwn(model.parameters, edit.id)) return `There is no parameter '${edit.id}'.`;
       if (JSON.stringify(model.components).includes(`{"$param":"${edit.id}"}`)) {
         return `Parameter '${edit.id}' is still used.`;
       }
-      delete model.parameters[edit.id];
+      if (model.parameters) delete model.parameters[edit.id];
       return null;
     }
     case "set_ui": {
@@ -180,7 +181,44 @@ function apply(model: Model, edit: Edit): string | null {
       else component.label = edit.label;
       return null;
     }
+    case "set_path":
+    case "remove_path":
+      return applyPath(model, edit);
   }
+}
+
+/** `set_path` and `remove_path` on the keys spec 3 lets them reach. */
+function applyPath(
+  model: Model,
+  edit: { edit: "set_path"; path: string; value: unknown } | { edit: "remove_path"; path: string },
+): string | null {
+  const parts = tokens(edit.path);
+  const head = parts[0] ?? "";
+  const reached =
+    ["meta", "run", "objectives", "constraints"].includes(head) ||
+    (["variables", "objective"].includes(head) && model.domain === "optimization");
+  if (!reached) return `The path '${edit.path}' is not one set_path and remove_path may change.`;
+  let here: unknown = model;
+  for (const part of parts.slice(0, -1)) {
+    here = Array.isArray(here) ? here[Number(part)] : own(here, part);
+    if (typeof here !== "object" || here === null) return `No '${part}' in '${edit.path}'.`;
+  }
+  const last = parts.at(-1) ?? "";
+  if (Array.isArray(here)) {
+    const index = last === "-" ? here.length : Number(last);
+    if (edit.edit === "remove_path") {
+      if (index >= here.length) return `Nothing at '${edit.path}'.`;
+      here.splice(index, 1);
+    } else if (index === here.length) here.push(edit.value);
+    else here[index] = edit.value;
+    return null;
+  }
+  const record = here as Record<string, unknown>;
+  if (edit.edit === "remove_path") {
+    if (!hasOwn(record, last)) return `Nothing at '${edit.path}'.`;
+    delete record[last];
+  } else setOwn(record, last, edit.value);
+  return null;
 }
 
 export interface ModelServiceOptions {

@@ -354,6 +354,10 @@ for (const scheme of ["light", "dark"] as const) {
     await settled(page);
     await expect(page.locator(".problem-row").first()).toBeVisible();
     expect((await new AxeBuilder({ page }).withTags(WCAG).analyze()).violations).toEqual([]);
+    // The model written above is another client's: its marks and notice were checked with
+    // the rest; accepting them and dismissing the notice gives the canvas its full height.
+    await page.getByRole("button", { name: "Accept all" }).click();
+    await page.locator(".notice-outside").getByRole("button", { name: "Dismiss" }).click();
     await block(page, "till").click();
     await expect(page.getByRole("textbox", { name: "Id" })).toHaveValue("till");
     expect((await new AxeBuilder({ page }).withTags(WCAG).analyze()).violations).toEqual([]);
@@ -363,3 +367,59 @@ for (const scheme of ["light", "dark"] as const) {
     expect((await new AxeBuilder({ page }).withTags(WCAG).analyze()).violations).toEqual([]);
   });
 }
+
+test("a script's write is named, marked, and rejected or accepted (AKS-137)", async ({
+  page,
+  service,
+  sent,
+}) => {
+  const pid = await openCanvas(page, service, "Shop");
+  await drop(page, "server", 300, 160, "server_1");
+  await expect(page.getByRole("button", { name: "Undo: add server_1" })).toBeEnabled();
+
+  // A script (no X-Client header) changes the model while the canvas is open.
+  const current = await service.api("GET", `/v1/projects/${pid}/model`);
+  await service.api("POST", `/v1/projects/${pid}/model/edits`, {
+    edits: [
+      { edit: "set_setting", id: "server_1", path: "/capacity", value: 3 },
+      { edit: "add_component", id: "queue_1", type: "queue", params: {}, ui: { x: 40, y: 320 } },
+    ],
+    base_revision: (current.body as { revision: number }).revision,
+  });
+  await expect(
+    page.getByText(
+      "The model was changed by a script (script). The canvas has been reloaded; undo history was cleared.",
+    ),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "2 changes to review" })).toBeVisible();
+  await expect(block(page, "server_1")).toContainText("Changed");
+  await expect(block(page, "queue_1")).toContainText("Added");
+  await settled(page);
+  expect((await new AxeBuilder({ page }).withTags(WCAG).analyze()).violations).toEqual([]);
+
+  // Reject: a whole-model write with base_revision, and an undo step.
+  await page.getByRole("button", { name: "2 changes to review" }).click();
+  const panel = page.locator(".side-panel");
+  await panel.getByRole("button", { name: "Reject the change to block server_1" }).click();
+  await settled(page);
+  expect(
+    sent.some(
+      (request) => request.method === "PUT" && request.path === `/v1/projects/${pid}/model`,
+    ),
+  ).toBe(true);
+  const after = await model(service, pid);
+  expect(after.components.find((item) => item.id === "server_1")?.params).toEqual({});
+  expect(after.components.some((item) => item.id === "queue_1")).toBe(true);
+  await expect(
+    page.getByRole("button", { name: "Undo: reject the change to block server_1" }),
+  ).toBeEnabled();
+  await expect(page.getByRole("button", { name: "1 change to review" })).toBeVisible();
+
+  // Accept clears the mark and writes nothing.
+  const writes = sent.filter((request) => request.method !== "GET").length;
+  await panel.getByRole("button", { name: "Accept the change to block queue_1" }).click();
+  await expect(page.getByRole("button", { name: /changes? to review/ })).toHaveCount(0);
+  await expect(block(page, "queue_1")).not.toContainText("Added");
+  expect(sent.filter((request) => request.method !== "GET").length).toBe(writes);
+});

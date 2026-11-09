@@ -10,6 +10,7 @@ import type { ComponentType } from "../api/types";
 import { iconOf } from "./BlockNode";
 import { lock, useBusy } from "./busy";
 import { categoryOf, GROUPS } from "./model";
+import { own } from "./own";
 
 export const BLOCK_MIME = "application/x-lcsim-block";
 
@@ -31,7 +32,9 @@ export function Palette({
   const busy = useBusy();
   const [filter, setFilter] = useState("");
   const wanted = filter.trim().toLowerCase();
-  const known = Object.keys(types).filter((type) => types[type]?.domain === "process");
+  const known = Object.keys(types).filter(
+    (type) => own<{ domain: string }>(types, type)?.domain === "process",
+  );
   const groups = [
     ...GROUPS.map((group) => ({
       ...group,
@@ -96,7 +99,7 @@ export function Palette({
                     draggable={!readOnly && !busy}
                     {...lock(readOnly, busy)}
                     aria-pressed={placing === type}
-                    title={types[type]?.description}
+                    title={own<{ description: string }>(types, type)?.description}
                     onDragStart={(event) => start(event, type)}
                     onClick={() => onPlace(placing === type ? null : type)}
                     onKeyDown={(event) => {

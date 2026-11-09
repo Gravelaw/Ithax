@@ -3,7 +3,9 @@
  * one block shows its issues, id, label, position, settings and connections; one connection
  * its ends and Disconnect; several items their count and Delete; nothing, the model's
  * parameters and a table of every block, which is the text alternative to the drawing
- * (`docs/design/accessibility.md` "Screen readers").
+ * (`docs/design/accessibility.md` "Screen readers"). After an outside change the list of
+ * changes to review comes first with nothing selected, and a marked block shows its change
+ * above its settings (AKS-137).
  */
 import { TrashIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
@@ -21,8 +23,11 @@ import {
   readNumber,
   splitEnd,
 } from "./model";
+import { own } from "./own";
 import { Parameters } from "./Parameters";
 import type { EditPlan } from "./plans";
+import { BlockReview, ReviewList } from "./ReviewParts";
+import type { Change } from "./review";
 import { CommitInput, type FieldActions, type FieldContext, SettingField } from "./SettingFields";
 
 export interface PanelActions extends FieldActions {
@@ -71,7 +76,7 @@ export function useComponentType(client: ApiClient, type: string): ApiResult<Com
 function inputPorts(model: Model, types: Record<string, ComponentType>): string[] {
   const ends: string[] = [];
   for (const component of components(model)) {
-    for (const port of portsOf(component, types[component.type]).inputs) {
+    for (const port of portsOf(component, own(types, component.type)).inputs) {
       ends.push(`${component.id}.${port}`);
     }
   }
@@ -106,7 +111,7 @@ function BlockPanel({
     if (setting !== null) byField.set(setting, [...(byField.get(setting) ?? []), issue]);
   }
   const ctx: FieldContext = { model, component, issues: byField, readOnly, actions };
-  const ports = portsOf(component, types[component.type]);
+  const ports = portsOf(component, own(types, component.type));
   const targets = inputPorts(model, types);
   const drawnAt = positionOf(
     component,
@@ -352,7 +357,7 @@ function BlocksTable({
                 <td>{component.type}</td>
                 <td className="mono">
                   {goes.join(", ") ||
-                    (portsOf(component, types[component.type]).outputs.length ? "—" : "")}
+                    (portsOf(component, own(types, component.type)).outputs.length ? "—" : "")}
                 </td>
                 <td>{count}</td>
                 <td>
@@ -382,6 +387,8 @@ export function SidePanel({
   issues,
   readOnly,
   actions,
+  marks = [],
+  onShowChange,
 }: {
   client: ApiClient;
   model: Model;
@@ -390,6 +397,9 @@ export function SidePanel({
   issues: Issue[];
   readOnly: boolean;
   actions: PanelActions;
+  /** The review marks shown: listed with nothing selected, and on a marked block. */
+  marks?: readonly Change[];
+  onShowChange?: (item: Change) => void;
 }) {
   const busy = useBusy();
   const count = selection.blocks.length + selection.connections.length;
@@ -397,6 +407,14 @@ export function SidePanel({
   if (count === 0) {
     body = (
       <>
+        <ReviewList
+          marks={marks}
+          model={model}
+          {...(onShowChange ? { onShow: onShowChange } : {})}
+          shows={(item) =>
+            item.ref.kind === "list" && item.ref.key === "components" && item.after !== undefined
+          }
+        />
         <Parameters
           model={model}
           issues={issues.filter((issue) => issue.path.startsWith("/parameters"))}
@@ -425,17 +443,24 @@ export function SidePanel({
     );
   } else if (selection.blocks.length === 1) {
     const component = components(model).find((item) => item.id === selection.blocks[0]);
+    const mark = marks.find(
+      (item) =>
+        item.ref.kind === "list" && item.ref.key === "components" && item.ref.id === component?.id,
+    );
     body = component ? (
-      <BlockPanel
-        key={component.id}
-        client={client}
-        model={model}
-        component={component}
-        types={types}
-        issues={issues.filter((issue) => issueComponent(issue, model) === component.id)}
-        readOnly={readOnly}
-        actions={actions}
-      />
+      <>
+        {mark ? <BlockReview item={mark} model={model} /> : null}
+        <BlockPanel
+          key={component.id}
+          client={client}
+          model={model}
+          component={component}
+          types={types}
+          issues={issues.filter((issue) => issueComponent(issue, model) === component.id)}
+          readOnly={readOnly}
+          actions={actions}
+        />
+      </>
     ) : null;
   } else {
     const connection = connections(model)[selection.connections[0] ?? -1];

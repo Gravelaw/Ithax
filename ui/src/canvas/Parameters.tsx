@@ -9,6 +9,7 @@ import { useId, useState } from "react";
 import type { Issue, Model, Parameter } from "../api/types";
 import { lock, useBusy } from "./busy";
 import { readNumber, shown, withoutParameterField } from "./model";
+import { own } from "./own";
 import { CommitInput, type FieldActions, FieldIssues } from "./SettingFields";
 
 const TYPES = ["integer", "number", "quantity"] as const;
@@ -38,7 +39,7 @@ function ParameterRow({
       // Cleared if the parameter holds it.
       if (field !== "value") {
         actions.replace(`clear ${field} of parameter ${id}`, (model) =>
-          model.parameters?.[id]?.[field] === undefined
+          own<Record<string, unknown>>(model.parameters, id)?.[field] === undefined
             ? null
             : withoutParameterField(model, id, field),
         );
@@ -47,7 +48,11 @@ function ParameterRow({
     }
     // Read by the parameter's type.
     actions.edit(`set ${field} of parameter ${id}`, (model) => [
-      { edit: "set_parameter", id, [field]: typed(model.parameters?.[id]?.type, text) },
+      {
+        edit: "set_parameter",
+        id,
+        [field]: typed(own<{ type?: unknown }>(model.parameters, id)?.type, text),
+      },
     ]);
   };
   return (

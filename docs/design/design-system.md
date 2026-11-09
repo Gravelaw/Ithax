@@ -174,6 +174,8 @@ Phosphor Icons (`@phosphor-icons/react`, MIT), bundled with the app (`docs/resea
 | Work blocks | `server`, `queue`, `batch`, `unbatch`, `store` | `UserGear`, `Rows`, `BoxArrowDown`, `BoxArrowUp`, `Warehouse` |
 | Resource blocks | `resource_pool`, `schedule`, `failure` | `UsersThree`, `CalendarDots`, `Wrench` |
 | States | Saved, error, warning, finding headline | `CheckCircle`, `WarningCircle`, warning triangle badge, `Trophy` |
+| Review of an outside change (AKS-137) | "N changes to review" and the Changed and Removed chips, Added chip, Accept, Reject | `ListChecks`, `Plus`, `Check`, `ArrowCounterClockwise` |
+| Optimization views (AKS-137) | Table view, Diagram view, Decisions, Goal, Limits, Add, Remove | `Table`, `Graph`, `SlidersHorizontal`, `Target`, `Gauge`, `Plus`, `Trash` |
 
 `failure` uses a wrench, not a warning triangle, because the triangle marks warnings. `Rows` for `queue` is to be checked by eye at M9; if it does not read as a queue, a custom icon on Phosphor's 256-unit grid replaces it.
 

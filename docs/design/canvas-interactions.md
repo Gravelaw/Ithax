@@ -28,7 +28,7 @@ Every product detail traces to a spec. Where the specs were silent, the simplest
 - **Optimization models.** A model with `"domain": "optimization"` has no components (spec 1). It is not tied to the three Phase 1 optimization templates: any domain's plan, mix, rota or allocation uses it. Its Canvas screen has two views of the same model, with a switch at the top **(owner review choice 4; spec 3 "Screens" item 2 updated)**:
   - **Table view:** a table of decisions (name, unit, type, lower, upper), the goal (sense and one coefficient per decision, read as a sentence: "Maximise weekly profit"), and a table of limits (name, one coefficient per decision, operator, right-hand side). Like a spreadsheet solver; quick to type into.
   - **Diagram view:** each decision is a card ("Tablets, batches per week") and each limit is a card ("Granulator hours ≤ 120"); a line joins a decision to each limit it uses, labelled with the coefficient ("2 h per batch"). After solving, decision cards show their values and each limit card fills to show how much of it is used; a limit that is fully used is marked "Tight: this is what holds you back". Cards are placed automatically, left to right; their positions are not stored in the model.
-  - **Domain words.** Decisions and limits have a plain name, a unit and an optional icon (a pill, a plane, a truck, a steel coil), so the model reads in the user's terms.
+  - **Domain words.** Decisions and limits have a plain name, a unit and an optional icon (a pill, a plane, a truck, a steel coil), so the model reads in the user's terms. As built (AKS-137): spec 1's variables and constraints hold only `id`, `type`, bounds, coefficients, `op` and `rhs`, and an unknown key is E100, so the name is the id and the unit and icon wait for a place in the model file (logged in `docs/DECISIONS.md`). The Diagram view is read-only: choosing a card opens its row in the Table view.
   - Each change in either view is a `set_path` edit on `/variables`, `/objective` or `/constraints`. Undo, redo, saving, validation and Run work as on the graph. Network-shaped plans (for example routes from 5 depots to 40 stores) need the indexed layout that the build guide schedules for M5; the diagram view draws them as a map of sources and destinations once the format holds them. Spec 3 listed `set_path` for `meta`, `run`, `objectives`, `constraints` and `search` only, so an optimization model's `variables` and `objective` could not be edited at all; `variables` and `objective` were added to `set_path` and `remove_path` (2026-11-06, logged in `docs/DECISIONS.md`).
 
 ## Adding a block
@@ -79,11 +79,11 @@ Every product detail traces to a spec. Where the specs were silent, the simplest
 
 | Action | Pointer | Keyboard | Edit sent |
 | --- | --- | --- | --- |
-| Move blocks | Drag a selected block; all selected blocks move together | Arrow keys move the selection by 8 px; Shift+arrow by 40 px | One `set_ui` per moved block, in one batch, when the drag ends, or 500 ms after the last arrow key |
+| Move blocks | Drag a selected block; all selected blocks move together | Arrow keys move the selection by 8 px; Shift+arrow by 40 px | One `set_ui` per moved block, in one batch, when the drag ends; for the keys, one such batch at each press, sent at once (a press while a write awaits its answer is ignored) |
 | Move without dragging | Context menu "Move to…", then one click on the canvas; or type x and y in the side panel's "Position" fields | The "Position" fields | `set_ui` |
 | Snap | Blocks snap to an 8 px grid | Same | |
 
-- **One step per move.** A drag, or a run of arrow presses without a 500 ms pause, is one batch and one undo step **(design choice)**.
+- **One step per move.** A drag is one batch and one undo step; a run of arrow presses on the same blocks without a 500 ms pause is one write per press joining one undo step **(design choice; AKS-136, review of PR #45)**.
 
 ## Deleting
 
@@ -176,6 +176,7 @@ Like a "show diff" view in version control: the canvas shows what another client
 - **The change is already saved.** The service applied the other client's edit before the canvas saw it. Until reviewed, the model with the change is the model: Run uses it, and the top bar shows "N changes to review" beside Run.
 - **Ending a review.** Marks clear when every change is accepted or rejected, when the user chooses "Accept all", or when the project is closed. A further outside change starts a new comparison against the model then shown, keeping unreviewed marks from before.
 - **Conflicts.** If a Reject's write fails with 409 E181 because yet another change arrived, the canvas reloads, recomputes the marks against its baseline, and says so in the notice.
+- **As built (AKS-137, review of PR #46; spec 3 "Canvas behaviour", External edits).** The canvas keeps one baseline, the model before the first outside change not yet reviewed, with the user's own writes taken into it; the marks are always the baseline compared with the model shown, so a later outside change composes with the earlier ones, and an item the other client puts back loses its mark. A rename is shown as a removal and an addition, not as one "Renamed" change as the Baseline bullet above proposed: keeping renames as one change across several outside writes needed composing them, which went wrong (the review of PR #46). Accept takes the item into the baseline and writes nothing; Accept all makes the model shown the baseline; Reject and Reject all (which writes the baseline) are whole-model writes and undo steps, and like every other change they wait while a write awaits its answer. A removed connection is drawn as a dashed ghost line when both its blocks are drawn.
 
 ## Trying a change
 

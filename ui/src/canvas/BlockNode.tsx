@@ -3,6 +3,8 @@
  * states", "Port styles"). Its shape says its category (capsule, rounded box, tag), an icon
  * disc and a title say what it is, badges count its issues (a round badge for errors, a
  * triangle for warnings), and its ports are the type's (a branch's routes on the right).
+ * After an outside change a block carries its review mark (Added, Changed) with
+ * Accept and Reject on hover or focus; a removed block is drawn as a ghost (`GhostNode`).
  */
 import {
   ArrowsSplitIcon,
@@ -24,6 +26,9 @@ import { Handle, type Node, type NodeProps, Position, useUpdateNodeInternals } f
 import { memo, useEffect } from "react";
 import type { Component } from "../api/types";
 import { type Category, shown, typeLine } from "./model";
+import { own } from "./own";
+import { MarkButtons, MarkChip } from "./ReviewParts";
+import { type Change, type ChangeKind, changeKind } from "./review";
 
 export const ICONS: Record<string, Icon> = {
   source: SignInIcon,
@@ -41,7 +46,7 @@ export const ICONS: Record<string, Icon> = {
 };
 
 export function iconOf(type: string): Icon {
-  return ICONS[type] ?? CubeIcon;
+  return own<Icon>(ICONS, type) ?? CubeIcon;
 }
 
 export interface BlockData extends Record<string, unknown> {
@@ -55,9 +60,26 @@ export interface BlockData extends Record<string, unknown> {
   warnings: number;
   /** The messages of its issues, for the badge's title. */
   messages: string;
+  /** Its review mark after an outside change, if any. */
+  review?: Change;
 }
 
 export type BlockNodeType = Node<BlockData, "block">;
+
+/** A removed block, drawn where it was until its change is reviewed. */
+export interface GhostData extends Record<string, unknown> {
+  component: Component;
+  category: Category;
+  review: Change;
+}
+
+export type GhostNodeType = Node<GhostData, "ghost">;
+
+const MARK_WORDS: Readonly<Record<ChangeKind, string>> = {
+  added: "added",
+  changed: "changed",
+  removed: "removed",
+};
 
 /** "till, server, capacity 1, 1 error" (`docs/design/accessibility.md` "Screen readers"). */
 export function blockName(data: BlockData): string {
@@ -65,6 +87,9 @@ export function blockName(data: BlockData): string {
   if (data.component.label) parts.splice(1, 0, data.component.id);
   if (data.errors) parts.push(`${data.errors} error${data.errors === 1 ? "" : "s"}`);
   if (data.warnings) parts.push(`${data.warnings} warning${data.warnings === 1 ? "" : "s"}`);
+  if (data.review) {
+    parts.push(`${MARK_WORDS[changeKind(data.review)]} by another client, to review`);
+  }
   return parts.join(", ").replace(" · ", ", ");
 }
 
@@ -120,11 +145,12 @@ function BlockNodeView({ id, data, selected, isConnectable }: NodeProps<BlockNod
   }, [id, portKey, updateInternals]);
   const Glyph = iconOf(component.type);
   const routes = component.type === "branch";
+  const mark = data.review ? changeKind(data.review) : null;
   return (
     <div
       className={`block block-${category}${data.errors > 0 ? " block-error" : ""}${
         selected ? " block-selected" : ""
-      }`}
+      }${mark ? ` block-mark block-mark-${mark}` : ""}`}
       style={
         routes && data.outputs.length > 2
           ? { minHeight: `${4 + (data.outputs.length - 2) * 1.25}rem` }
@@ -138,7 +164,7 @@ function BlockNodeView({ id, data, selected, isConnectable }: NodeProps<BlockNod
           type="target"
           position={Position.Left}
           isConnectable={isConnectable}
-          className={`port${(data.connected[port]?.length ?? 0) > 0 ? " port-connected" : ""}`}
+          className={`port${(own<string[]>(data.connected, port)?.length ?? 0) > 0 ? " port-connected" : ""}`}
           style={{ top: portTop(index, data.inputs.length) }}
           title={`Input port ${port} of ${component.id}`}
         />
@@ -155,6 +181,12 @@ function BlockNodeView({ id, data, selected, isConnectable }: NodeProps<BlockNod
       </span>
       <ResourceMark component={component} />
       <Badge data={data} />
+      {data.review && mark ? (
+        <span className="block-review-mark">
+          <MarkChip kind={mark} />
+          <MarkButtons item={data.review} subject={`block ${component.id}`} />
+        </span>
+      ) : null}
       {data.outputs.map((port, index) => (
         <Handle
           key={`out-${port}`}
@@ -162,10 +194,12 @@ function BlockNodeView({ id, data, selected, isConnectable }: NodeProps<BlockNod
           type="source"
           position={Position.Right}
           isConnectable={isConnectable}
-          className={`port${(data.connected[port]?.length ?? 0) > 0 ? " port-connected" : ""}`}
+          className={`port${(own<string[]>(data.connected, port)?.length ?? 0) > 0 ? " port-connected" : ""}`}
           style={{ top: portTop(index, data.outputs.length) }}
           title={`Output port ${port} of ${component.id}${
-            data.connected[port]?.length ? `, connected to ${data.connected[port]?.join(", ")}` : ""
+            own<string[]>(data.connected, port)?.length
+              ? `, connected to ${own<string[]>(data.connected, port)?.join(", ")}`
+              : ""
           }`}
         >
           {routes ? <span className="port-label mono">{port}</span> : null}
@@ -191,3 +225,40 @@ function BlockNodeView({ id, data, selected, isConnectable }: NodeProps<BlockNod
 }
 
 export const BlockNode = memo(BlockNodeView);
+
+function GhostNodeView({ data }: NodeProps<GhostNodeType>) {
+  const { component } = data;
+  const Glyph = iconOf(component.type);
+  return (
+    <div className={`block block-${data.category} block-ghost`}>
+      <Handle
+        id="ghost-in"
+        type="target"
+        position={Position.Left}
+        className="ref-handle"
+        isConnectable={false}
+      />
+      <span className="block-disc" aria-hidden="true">
+        <Glyph size={20} weight="duotone" />
+      </span>
+      <span className="block-text">
+        <span className="block-title">{component.label ?? component.id}</span>
+        <span className="block-type small">{typeLine(component)}</span>
+        <span className="visually-hidden">, removed by another client, to review</span>
+      </span>
+      <span className="block-review-mark">
+        <MarkChip kind="removed" />
+        <MarkButtons item={data.review} subject={`block ${component.id}`} />
+      </span>
+      <Handle
+        id="ghost-out"
+        type="source"
+        position={Position.Right}
+        className="ref-handle"
+        isConnectable={false}
+      />
+    </div>
+  );
+}
+
+export const GhostNode = memo(GhostNodeView);
