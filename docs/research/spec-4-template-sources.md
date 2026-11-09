@@ -111,5 +111,5 @@ The three AKS-122 templates were run at their files' seed 12345 (SimPy adapter, 
 replications) on 2026-11-09, and every `theory` and `benchmark` value above lay within 3
 standard errors of the estimate (`tests/templates/test_templates.py`), the template run
 and the exercise run alike: for example the coffee shop's wait 267.6 s (−0.50 standard
-errors from 270 s) and arrivals 5,683 (−1.25 from 5,700), the line's weld utilization
+errors from 270 s) and arrivals 5,683 (−1.22 from 5,700), the line's weld utilization
 0.901 (+0.19), and the breakdowns' availability 0.8986 (−0.73 from 0.9).
