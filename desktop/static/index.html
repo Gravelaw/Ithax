@@ -1,0 +1,52 @@
+<!doctype html>
+<!--
+  The desktop shell's own page (AKS-142): shown while the shell finds or starts the engine
+  service, and, if none answers, the reason. The shell then opens the interface the service
+  serves at /v1/ui/. No script, no remote resource; the colours are the design tokens'
+  canvas, text and text-muted (docs/design/tokens.json).
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>lcsim</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --canvas: #f9f3e5;
+        --text: #34454c;
+        --text-muted: #547076;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --canvas: #1b2023;
+          --text: #d8d1ad;
+          --text-muted: #a4adaf;
+        }
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: var(--canvas);
+        color: var(--text);
+        font: 16px/1.5 system-ui, sans-serif;
+      }
+      main {
+        max-width: 36rem;
+        padding: 0 16px;
+      }
+      #detail {
+        color: var(--text-muted);
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1 id="status" role="status">Starting the engine service…</h1>
+      <p id="detail"></p>
+    </main>
+  </body>
+</html>

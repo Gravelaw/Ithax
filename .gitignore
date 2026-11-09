@@ -13,3 +13,6 @@ ui/node_modules/
 ui/dist/
 ui/test-results/
 ui/playwright-report/
+desktop/node_modules/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
