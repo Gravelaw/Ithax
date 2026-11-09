@@ -12,11 +12,16 @@ export const TOKEN = "test-token";
 export interface Recorded {
   method: string;
   path: string;
+  /** The query, such as `?base_revision=3`, or `""`. */
+  search: string;
   headers: Record<string, string>;
   body: unknown;
 }
 
-export type Handler = (body: unknown) => { status: number; body: unknown } | "unreachable";
+export type Handler = (
+  body: unknown,
+  url: URL,
+) => { status: number; body: unknown } | "unreachable";
 
 export function errorBody(code: string, message: string, issues: unknown[] = []) {
   return { error: { code, message }, issues };
@@ -45,6 +50,29 @@ export class FakeService {
   readonly requests: Recorded[] = [];
   readonly sockets: FakeSocket[] = [];
   private readonly handlers = new Map<string, Handler>();
+  /** While holding, each write (`POST` or `PUT`, except validation) waits its turn. */
+  private holding = false;
+  private readonly waiting: (() => void)[] = [];
+
+  /** Holds every write until the returned function is called. */
+  holdWrites(): () => void {
+    this.holding = true;
+    return () => {
+      this.holding = false;
+      for (const go of this.waiting.splice(0)) go();
+    };
+  }
+
+  /** How many writes are waiting to be let through. */
+  get held(): number {
+    return this.waiting.length;
+  }
+
+  /** Lets the first held write through; resolves once one was waiting. */
+  async releaseOne(): Promise<void> {
+    while (this.waiting.length === 0) await new Promise((resolve) => setTimeout(resolve, 5));
+    this.waiting.shift()?.();
+  }
 
   on(route: string, handler: Handler): this {
     this.handlers.set(route, handler);
@@ -61,10 +89,16 @@ export class FakeService {
     const method = init?.method ?? "GET";
     const headers = Object.fromEntries(new Headers(init?.headers).entries());
     const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined;
-    this.requests.push({ method, path: url.pathname, headers, body });
+    this.requests.push({ method, path: url.pathname, search: url.search, headers, body });
+    // A slow service: writes wait here until the test opens the gate.
+    if (this.holding && (method === "POST" || method === "PUT")) {
+      if (!url.pathname.endsWith("/validate")) {
+        await new Promise<void>((resolve) => this.waiting.push(resolve));
+      }
+    }
     const handler = this.handlers.get(`${method} ${url.pathname}`);
     const answer = handler
-      ? handler(body)
+      ? handler(body, url)
       : { status: 404, body: errorBody("E185", `The service has no '${url.pathname}'.`) };
     if (answer === "unreachable") throw new TypeError("Failed to fetch");
     return new Response(JSON.stringify(answer.body), {

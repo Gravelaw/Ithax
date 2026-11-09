@@ -6,10 +6,11 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Project, SettingsBody } from "../api/types";
+import { CanvasScreen } from "../canvas/CanvasScreen";
 import { ServiceProblem } from "../components/ServiceProblem";
 import { FirstStartNotice } from "../screens/FirstStartNotice";
 import { Home } from "../screens/Home";
-import { CanvasPlaceholder, ScreenPlaceholder, SettingsPlaceholder } from "../screens/Placeholders";
+import { ScreenPlaceholder, SettingsPlaceholder } from "../screens/Placeholders";
 import { useSettings } from "../settings/SettingsContext";
 import { NAV_ITEMS, NavRail } from "./NavRail";
 import { cycleRegion } from "./regions";
@@ -25,6 +26,8 @@ export function App({ client }: { client: ApiClient }) {
   const [noticeOpen, setNoticeOpen] = useState(!settings.interface.first_start_seen);
   const [saveProblem, setSaveProblem] = useState<ApiResult<SettingsBody> | null>(null);
   const [project, setProject] = useState<Project | null>(null);
+  // The top bar's slot where a screen puts its own tools (the Canvas: save state, undo, Run).
+  const [tools, setTools] = useState<HTMLDivElement | null>(null);
 
   // A route that names a project (after a reload) finds it in the project list.
   useEffect(() => {
@@ -75,14 +78,19 @@ export function App({ client }: { client: ApiClient }) {
       <NavRail route={route} projectId={project?.id ?? null} onGo={go} />
       <header className="topbar" data-region="top" tabIndex={-1}>
         <p className="topbar-title">{title}</p>
+        <div className="topbar-tools" ref={setTools} />
         <div className="topbar-notices">
           <ServiceProblem result={saveProblem} />
         </div>
       </header>
-      <main className="main" data-region="main" tabIndex={-1}>
+      <main
+        className={route.screen === "canvas" ? "main main-canvas" : "main"}
+        data-region="main"
+        tabIndex={-1}
+      >
         {route.screen === "home" ? <Home client={client} onOpen={open} /> : null}
         {route.screen === "canvas" ? (
-          <CanvasPlaceholder client={client} project={shownProject} />
+          <CanvasScreen client={client} project={shownProject} toolbar={tools} onGo={go} />
         ) : null}
         {route.screen === "settings" ? <SettingsPlaceholder /> : null}
         {route.screen !== "home" && route.screen !== "canvas" && route.screen !== "settings" ? (

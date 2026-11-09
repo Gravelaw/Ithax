@@ -34,6 +34,20 @@ describe("F6 regions", () => {
     expect(document.activeElement?.id).toBe("top");
   });
 
+  it("goes on from a region inside another, as the Canvas screen's are inside the main area", () => {
+    document.body.innerHTML = `
+      <header data-region="top" tabindex="-1" id="top"></header>
+      <main data-region="main" tabindex="-1" id="main">
+        <aside data-region="palette" tabindex="-1" id="palette"><button id="in-palette">x</button></aside>
+        <div data-region="side" tabindex="-1" id="side"></div>
+      </main>`;
+    document.getElementById("in-palette")?.focus();
+    cycleRegion(document, false);
+    expect(document.activeElement?.id).toBe("side");
+    cycleRegion(document, true);
+    expect(document.activeElement?.id).toBe("palette");
+  });
+
   it("skips regions behind a dialog and does nothing without regions", () => {
     layout();
     document.getElementById("top")?.setAttribute("inert", "");

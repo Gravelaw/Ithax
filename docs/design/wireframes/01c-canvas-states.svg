@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="title desc">
   <title id="title">Wireframe 01c: Canvas block and port states</title>
-  <desc id="desc">Reference sheet of block styles on the canvas: default, selected, keyboard focus, error and warning badges, Learn highlight, a branch with three route ports, port-less resource blocks with dashed reference lines, and the connecting state where valid input ports show a ring.</desc>
+  <desc id="desc">Reference sheet of block styles on the canvas: default, selected, keyboard focus, error and warning badges, Learn highlight, a branch with three route ports, port-less resource blocks, each drawn differently (a count badge on a pool, an on and off strip on a schedule, a striped edge on a failure), with reference lines that differ by pattern, icon and word (long dashes and staffs, dots and sets hours, dash-dot and breaks down), and the connecting state where valid input ports show a ring.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#547076"/>
@@ -12,19 +12,18 @@
   </defs>
   <rect x="0" y="0" width="1280" height="800" rx="0" fill="#F9F3E5" stroke="none" stroke-width="1"/>
   <rect x="0" y="0" width="1280" height="800" rx="0" fill="url(#dots)" stroke="none" stroke-width="1"/>
-  <text x="40" y="48" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Block and port states (light theme; dark theme uses the same shapes)</text>
+  <text x="40" y="48" font-family="sans-serif" font-size="20" font-weight="600" fill="#34454C" text-anchor="start">Block and port states (light theme; dark theme uses the same shapes). Flow: capsule; work: rounded box; resource: tag</text>
   <!-- Block arrivals (source · every 2 min) state=default -->
-  <rect x="40" y="100" width="176" height="72" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <rect x="40" y="100" width="4" height="72" rx="0" fill="#00978D" stroke="none" stroke-width="1"/>
+  <rect x="40" y="100" width="176" height="72" rx="36" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5"/>
+  <circle cx="59" cy="117" r="13" fill="#00978D" fill-opacity="0.18" stroke="none"/>
   <svg x="51" y="109" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#00978D"><path d="M200,40V216H40a16,16,0,0,1-16-16V56A16,16,0,0,1,40,40Z" opacity="0.2"/><path d="M141.66,133.66l-40,40a8,8,0,0,1-11.32-11.32L116.69,136H24a8,8,0,0,1,0-16h92.69L90.34,93.66a8,8,0,0,1,11.32-11.32l40,40A8,8,0,0,1,141.66,133.66ZM200,32H136a8,8,0,0,0,0,16h56V208H136a8,8,0,0,0,0,16h64a8,8,0,0,0,8-8V40A8,8,0,0,0,200,32Z"/></g></svg>
   <text x="72" y="122" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">arrivals</text>
   <text x="52" y="146" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">source · every 2 min</text>
   <circle cx="216" cy="136.0" r="6" fill="#547076" stroke="#547076" stroke-width="2"/>
   <text x="40" y="196" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">Default</text>
   <!-- Block till (server · capacity 1) state=selected -->
-  <rect x="280" y="100" width="176" height="72" rx="4" fill="#FDFAF4" stroke="#1C4286" stroke-width="2"/>
-  <rect x="280" y="100" width="4" height="72" rx="0" fill="#4F4086" stroke="none" stroke-width="1"/>
-  <rect x="284" y="101" width="171" height="26" rx="0" fill="#F7EEDC" stroke="none" stroke-width="1"/>
+  <rect x="280" y="100" width="176" height="72" rx="14" fill="#FDFAF4" stroke="#1C4286" stroke-width="2"/>
+  <circle cx="299" cy="117" r="13" fill="#4F4086" fill-opacity="0.18" stroke="none"/>
   <svg x="291" y="109" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#4F4086"><path d="M168,100a60,60,0,1,1-60-60A60,60,0,0,1,168,100Z" opacity="0.2"/><path d="M144,157.68a68,68,0,1,0-71.9,0c-20.65,6.76-39.23,19.39-54.17,37.17a8,8,0,1,0,12.24,10.3C50.25,181.19,77.91,168,108,168s57.75,13.19,77.87,37.15a8,8,0,0,0,12.26-10.3C183.18,177.07,164.6,164.44,144,157.68ZM56,100a52,52,0,1,1,52,52A52.06,52.06,0,0,1,56,100Zm196.25,43.07-4.66-2.69a23.6,23.6,0,0,0,0-8.76l4.66-2.69a8,8,0,1,0-8-13.86l-4.67,2.7a23.92,23.92,0,0,0-7.58-4.39V108a8,8,0,0,0-16,0v5.38a23.92,23.92,0,0,0-7.58,4.39l-4.67-2.7a8,8,0,1,0-8,13.86l4.66,2.69a23.6,23.6,0,0,0,0,8.76l-4.66,2.69a8,8,0,0,0,8,13.86l4.67-2.7a23.92,23.92,0,0,0,7.58,4.39V164a8,8,0,0,0,16,0v-5.38a23.92,23.92,0,0,0,7.58-4.39l4.67,2.7a7.92,7.92,0,0,0,4,1.07,8,8,0,0,0,4-14.93ZM224,144a8,8,0,1,1,8-8A8,8,0,0,1,224,144Z"/></g></svg>
   <text x="312" y="122" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">till</text>
   <text x="292" y="146" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">server · capacity 1</text>
@@ -32,18 +31,17 @@
   <circle cx="456" cy="136.0" r="6" fill="#547076" stroke="#547076" stroke-width="2"/>
   <text x="280" y="196" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">Selected</text>
   <!-- Block exit (sink) state=focus -->
-  <rect x="516" y="96" width="184" height="80" rx="6" fill="none" stroke="#1C4286" stroke-width="2"/>
-  <rect x="520" y="100" width="176" height="72" rx="4" fill="#FDFAF4" stroke="#1C4286" stroke-width="2"/>
-  <rect x="520" y="100" width="4" height="72" rx="0" fill="#00978D" stroke="none" stroke-width="1"/>
-  <rect x="524" y="101" width="171" height="26" rx="0" fill="#F7EEDC" stroke="none" stroke-width="1"/>
+  <rect x="516" y="96" width="184" height="80" rx="40" fill="none" stroke="#1C4286" stroke-width="2"/>
+  <rect x="520" y="100" width="176" height="72" rx="36" fill="#FDFAF4" stroke="#1C4286" stroke-width="2"/>
+  <circle cx="539" cy="117" r="13" fill="#00978D" fill-opacity="0.18" stroke="none"/>
   <svg x="531" y="109" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#00978D"><path d="M224,56V200a16,16,0,0,1-16,16H48V40H208A16,16,0,0,1,224,56Z" opacity="0.2"/><path d="M120,216a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V40a8,8,0,0,1,8-8h64a8,8,0,0,1,0,16H56V208h56A8,8,0,0,1,120,216Zm109.66-93.66-40-40a8,8,0,0,0-11.32,11.32L204.69,120H112a8,8,0,0,0,0,16h92.69l-26.35,26.34a8,8,0,0,0,11.32,11.32l40-40A8,8,0,0,0,229.66,122.34Z"/></g></svg>
   <text x="552" y="122" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">exit</text>
   <text x="532" y="146" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">sink</text>
   <circle cx="520" cy="136.0" r="6" fill="#547076" stroke="#547076" stroke-width="2"/>
   <text x="520" y="196" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">Keyboard focus (with selection)</text>
   <!-- Block server_2 (server · capacity 1) state=default -->
-  <rect x="760" y="100" width="176" height="72" rx="4" fill="#FDFAF4" stroke="#82241F" stroke-width="2"/>
-  <rect x="760" y="100" width="4" height="72" rx="0" fill="#4F4086" stroke="none" stroke-width="1"/>
+  <rect x="760" y="100" width="176" height="72" rx="14" fill="#FDFAF4" stroke="#82241F" stroke-width="2"/>
+  <circle cx="779" cy="117" r="13" fill="#4F4086" fill-opacity="0.18" stroke="none"/>
   <svg x="771" y="109" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#4F4086"><path d="M168,100a60,60,0,1,1-60-60A60,60,0,0,1,168,100Z" opacity="0.2"/><path d="M144,157.68a68,68,0,1,0-71.9,0c-20.65,6.76-39.23,19.39-54.17,37.17a8,8,0,1,0,12.24,10.3C50.25,181.19,77.91,168,108,168s57.75,13.19,77.87,37.15a8,8,0,0,0,12.26-10.3C183.18,177.07,164.6,164.44,144,157.68ZM56,100a52,52,0,1,1,52,52A52.06,52.06,0,0,1,56,100Zm196.25,43.07-4.66-2.69a23.6,23.6,0,0,0,0-8.76l4.66-2.69a8,8,0,1,0-8-13.86l-4.67,2.7a23.92,23.92,0,0,0-7.58-4.39V108a8,8,0,0,0-16,0v5.38a23.92,23.92,0,0,0-7.58,4.39l-4.67-2.7a8,8,0,1,0-8,13.86l4.66,2.69a23.6,23.6,0,0,0,0,8.76l-4.66,2.69a8,8,0,0,0,8,13.86l4.67-2.7a23.92,23.92,0,0,0,7.58,4.39V164a8,8,0,0,0,16,0v-5.38a23.92,23.92,0,0,0,7.58-4.39l4.67,2.7a7.92,7.92,0,0,0,4,1.07,8,8,0,0,0,4-14.93ZM224,144a8,8,0,1,1,8-8A8,8,0,0,1,224,144Z"/></g></svg>
   <text x="792" y="122" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">server_2</text>
   <text x="772" y="146" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">server · capacity 1</text>
@@ -54,8 +52,8 @@
   <text x="910" y="121" font-family="sans-serif" font-size="12" font-weight="600" fill="#82241F" text-anchor="end">2</text>
   <text x="760" y="196" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">Errors: round badge, red outline</text>
   <!-- Block weld (server · capacity 1) state=default -->
-  <rect x="1000" y="100" width="176" height="72" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <rect x="1000" y="100" width="4" height="72" rx="0" fill="#4F4086" stroke="none" stroke-width="1"/>
+  <rect x="1000" y="100" width="176" height="72" rx="14" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5"/>
+  <circle cx="1019" cy="117" r="13" fill="#4F4086" fill-opacity="0.18" stroke="none"/>
   <svg x="1011" y="109" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#4F4086"><path d="M168,100a60,60,0,1,1-60-60A60,60,0,0,1,168,100Z" opacity="0.2"/><path d="M144,157.68a68,68,0,1,0-71.9,0c-20.65,6.76-39.23,19.39-54.17,37.17a8,8,0,1,0,12.24,10.3C50.25,181.19,77.91,168,108,168s57.75,13.19,77.87,37.15a8,8,0,0,0,12.26-10.3C183.18,177.07,164.6,164.44,144,157.68ZM56,100a52,52,0,1,1,52,52A52.06,52.06,0,0,1,56,100Zm196.25,43.07-4.66-2.69a23.6,23.6,0,0,0,0-8.76l4.66-2.69a8,8,0,1,0-8-13.86l-4.67,2.7a23.92,23.92,0,0,0-7.58-4.39V108a8,8,0,0,0-16,0v5.38a23.92,23.92,0,0,0-7.58,4.39l-4.67-2.7a8,8,0,1,0-8,13.86l4.66,2.69a23.6,23.6,0,0,0,0,8.76l-4.66,2.69a8,8,0,0,0,8,13.86l4.67-2.7a23.92,23.92,0,0,0,7.58,4.39V164a8,8,0,0,0,16,0v-5.38a23.92,23.92,0,0,0,7.58-4.39l4.67,2.7a7.92,7.92,0,0,0,4,1.07,8,8,0,0,0,4-14.93ZM224,144a8,8,0,1,1,8-8A8,8,0,0,1,224,144Z"/></g></svg>
   <text x="1032" y="122" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">weld</text>
   <text x="1012" y="146" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">server · capacity 1</text>
@@ -66,9 +64,9 @@
   <text x="1150" y="121" font-family="sans-serif" font-size="12" font-weight="600" fill="#915604" text-anchor="end">1</text>
   <text x="1000" y="196" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">Warning only: triangle badge</text>
   <!-- Block till (server · capacity 1) state=learn -->
-  <rect x="34" y="284" width="188" height="84" rx="8" fill="none" stroke="#8F5891" stroke-width="3"/>
-  <rect x="40" y="290" width="176" height="72" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <rect x="40" y="290" width="4" height="72" rx="0" fill="#4F4086" stroke="none" stroke-width="1"/>
+  <rect x="34" y="284" width="188" height="84" rx="20" fill="none" stroke="#8F5891" stroke-width="3"/>
+  <rect x="40" y="290" width="176" height="72" rx="14" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5"/>
+  <circle cx="59" cy="307" r="13" fill="#4F4086" fill-opacity="0.18" stroke="none"/>
   <svg x="51" y="299" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#4F4086"><path d="M168,100a60,60,0,1,1-60-60A60,60,0,0,1,168,100Z" opacity="0.2"/><path d="M144,157.68a68,68,0,1,0-71.9,0c-20.65,6.76-39.23,19.39-54.17,37.17a8,8,0,1,0,12.24,10.3C50.25,181.19,77.91,168,108,168s57.75,13.19,77.87,37.15a8,8,0,0,0,12.26-10.3C183.18,177.07,164.6,164.44,144,157.68ZM56,100a52,52,0,1,1,52,52A52.06,52.06,0,0,1,56,100Zm196.25,43.07-4.66-2.69a23.6,23.6,0,0,0,0-8.76l4.66-2.69a8,8,0,1,0-8-13.86l-4.67,2.7a23.92,23.92,0,0,0-7.58-4.39V108a8,8,0,0,0-16,0v5.38a23.92,23.92,0,0,0-7.58,4.39l-4.67-2.7a8,8,0,1,0-8,13.86l4.66,2.69a23.6,23.6,0,0,0,0,8.76l-4.66,2.69a8,8,0,0,0,8,13.86l4.67-2.7a23.92,23.92,0,0,0,7.58,4.39V164a8,8,0,0,0,16,0v-5.38a23.92,23.92,0,0,0,7.58-4.39l4.67,2.7a7.92,7.92,0,0,0,4,1.07,8,8,0,0,0,4-14.93ZM224,144a8,8,0,1,1,8-8A8,8,0,0,1,224,144Z"/></g></svg>
   <text x="72" y="312" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">till</text>
   <text x="52" y="336" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">server · capacity 1</text>
@@ -78,8 +76,8 @@
   <text x="88" y="272" font-family="sans-serif" font-size="12" font-weight="600" fill="#FDFAF4" text-anchor="middle">Step 2 of 5</text>
   <text x="40" y="386" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">Learn highlight: ring and step tag</text>
   <!-- Block route (branch · probability) state=default -->
-  <rect x="280" y="250" width="176" height="92" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <rect x="280" y="250" width="4" height="92" rx="0" fill="#00978D" stroke="none" stroke-width="1"/>
+  <rect x="280" y="250" width="176" height="92" rx="46" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5"/>
+  <circle cx="299" cy="267" r="13" fill="#00978D" fill-opacity="0.18" stroke="none"/>
   <svg x="291" y="259" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#00978D"><path d="M192,136v80H64V136l64-64Z" opacity="0.2"/><path d="M229.66,189.66l-32,32a8,8,0,0,1-11.32,0l-32-32a8,8,0,0,1,11.32-11.32L184,196.69V139.31l-56-56-56,56v57.38l18.34-18.35a8,8,0,0,1,11.32,11.32l-32,32a8,8,0,0,1-11.32,0l-32-32a8,8,0,0,1,11.32-11.32L56,196.69V136a8,8,0,0,1,2.34-5.66L120,68.69V24a8,8,0,0,1,16,0V68.69l61.66,61.65A8,8,0,0,1,200,136v60.69l18.34-18.35a8,8,0,0,1,11.32,11.32Z"/></g></svg>
   <text x="312" y="272" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">route</text>
   <text x="292" y="296" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">branch · probability</text>
@@ -91,60 +89,73 @@
   <circle cx="456" cy="310" r="6" fill="#FDFAF4" stroke="#547076" stroke-width="2"/>
   <text x="446" y="314" font-family="monospace" font-size="12" font-weight="400" fill="#547076" text-anchor="end">to_c</text>
   <text x="280" y="362" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">Branch: one output port per route</text>
-  <!-- Port-less blocks and dashed reference lines (pool, target) -->
+  <!-- Port-less blocks and reference lines by pattern, icon and word (pool, target) -->
   <!-- Block pick (server · capacity 2) state=default -->
-  <rect x="600" y="260" width="176" height="72" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <rect x="600" y="260" width="4" height="72" rx="0" fill="#4F4086" stroke="none" stroke-width="1"/>
+  <rect x="600" y="260" width="176" height="72" rx="14" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5"/>
+  <circle cx="619" cy="277" r="13" fill="#4F4086" fill-opacity="0.18" stroke="none"/>
   <svg x="611" y="269" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#4F4086"><path d="M168,100a60,60,0,1,1-60-60A60,60,0,0,1,168,100Z" opacity="0.2"/><path d="M144,157.68a68,68,0,1,0-71.9,0c-20.65,6.76-39.23,19.39-54.17,37.17a8,8,0,1,0,12.24,10.3C50.25,181.19,77.91,168,108,168s57.75,13.19,77.87,37.15a8,8,0,0,0,12.26-10.3C183.18,177.07,164.6,164.44,144,157.68ZM56,100a52,52,0,1,1,52,52A52.06,52.06,0,0,1,56,100Zm196.25,43.07-4.66-2.69a23.6,23.6,0,0,0,0-8.76l4.66-2.69a8,8,0,1,0-8-13.86l-4.67,2.7a23.92,23.92,0,0,0-7.58-4.39V108a8,8,0,0,0-16,0v5.38a23.92,23.92,0,0,0-7.58,4.39l-4.67-2.7a8,8,0,1,0-8,13.86l4.66,2.69a23.6,23.6,0,0,0,0,8.76l-4.66,2.69a8,8,0,0,0,8,13.86l4.67-2.7a23.92,23.92,0,0,0,7.58,4.39V164a8,8,0,0,0,16,0v-5.38a23.92,23.92,0,0,0,7.58-4.39l4.67,2.7a7.92,7.92,0,0,0,4,1.07,8,8,0,0,0,4-14.93ZM224,144a8,8,0,1,1,8-8A8,8,0,0,1,224,144Z"/></g></svg>
   <text x="632" y="282" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">pick</text>
   <text x="612" y="306" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">server · capacity 2</text>
   <circle cx="600" cy="296.0" r="6" fill="#547076" stroke="#547076" stroke-width="2"/>
   <circle cx="776" cy="296.0" r="6" fill="#547076" stroke="#547076" stroke-width="2"/>
   <!-- Block staff (resource_pool · capacity 3) state=default -->
-  <rect x="600" y="400" width="176" height="56" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1" stroke-dasharray="6 4"/>
-  <rect x="600" y="400" width="4" height="56" rx="0" fill="#BB7125" stroke="none" stroke-width="1"/>
+  <path d="M 604.0 400.0 H 760.0 Q 776.0 400.0 776.0 416.0 V 440.0 Q 776.0 456.0 760.0 456.0 H 604.0 Q 600.0 456.0 600.0 452.0 V 404.0 Q 600.0 400.0 604.0 400.0 Z" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <circle cx="619" cy="417" r="13" fill="#BB7125" fill-opacity="0.18" stroke="none"/>
   <svg x="611" y="409" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#BB7125"><path d="M168,144a40,40,0,1,1-40-40A40,40,0,0,1,168,144ZM64,56A32,32,0,1,0,96,88,32,32,0,0,0,64,56Zm128,0a32,32,0,1,0,32,32A32,32,0,0,0,192,56Z" opacity="0.2"/><path d="M244.8,150.4a8,8,0,0,1-11.2-1.6A51.6,51.6,0,0,0,192,128a8,8,0,0,1,0-16,24,24,0,1,0-23.24-30,8,8,0,1,1-15.5-4A40,40,0,1,1,219,117.51a67.94,67.94,0,0,1,27.43,21.68A8,8,0,0,1,244.8,150.4ZM190.92,212a8,8,0,1,1-13.85,8,57,57,0,0,0-98.15,0,8,8,0,1,1-13.84-8,72.06,72.06,0,0,1,33.74-29.92,48,48,0,1,1,58.36,0A72.06,72.06,0,0,1,190.92,212ZM128,176a32,32,0,1,0-32-32A32,32,0,0,0,128,176ZM72,120a8,8,0,0,0-8-8A24,24,0,1,1,87.24,82a8,8,0,1,0,15.5-4A40,40,0,1,0,37,117.51,67.94,67.94,0,0,0,9.6,139.19a8,8,0,1,0,12.8,9.61A51.6,51.6,0,0,1,64,128,8,8,0,0,0,72,120Z"/></g></svg>
   <text x="632" y="422" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">staff</text>
   <text x="612" y="446" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">resource_pool · capacity 3</text>
   <!-- Block shifts (schedule · target staff) state=default -->
-  <rect x="880" y="400" width="176" height="56" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1" stroke-dasharray="6 4"/>
-  <rect x="880" y="400" width="4" height="56" rx="0" fill="#BB7125" stroke="none" stroke-width="1"/>
+  <path d="M 884.0 400.0 H 1040.0 Q 1056.0 400.0 1056.0 416.0 V 440.0 Q 1056.0 456.0 1040.0 456.0 H 884.0 Q 880.0 456.0 880.0 452.0 V 404.0 Q 880.0 400.0 884.0 400.0 Z" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <circle cx="899" cy="417" r="13" fill="#BB7125" fill-opacity="0.18" stroke="none"/>
   <svg x="891" y="409" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#BB7125"><path d="M216,48V88H40V48a8,8,0,0,1,8-8H208A8,8,0,0,1,216,48Z" opacity="0.2"/><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Zm-68-76a12,12,0,1,1-12-12A12,12,0,0,1,140,132Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,132ZM96,172a12,12,0,1,1-12-12A12,12,0,0,1,96,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,140,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,172Z"/></g></svg>
   <text x="912" y="422" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">shifts</text>
   <text x="892" y="446" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">schedule · target staff</text>
   <!-- Block breakdown (failure · target pick) state=default -->
-  <rect x="880" y="260" width="176" height="56" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1" stroke-dasharray="6 4"/>
-  <rect x="880" y="260" width="4" height="56" rx="0" fill="#BB7125" stroke="none" stroke-width="1"/>
+  <path d="M 884.0 260.0 H 1040.0 Q 1056.0 260.0 1056.0 276.0 V 300.0 Q 1056.0 316.0 1040.0 316.0 H 884.0 Q 880.0 316.0 880.0 312.0 V 264.0 Q 880.0 260.0 884.0 260.0 Z" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <circle cx="899" cy="277" r="13" fill="#BB7125" fill-opacity="0.18" stroke="none"/>
   <svg x="891" y="269" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#BB7125"><path d="M224,96a64,64,0,0,1-94.94,56L73,217A24,24,0,0,1,39,183L104,126.94a64,64,0,0,1,80-90.29L144,80l5.66,26.34L176,112l43.35-40A63.8,63.8,0,0,1,224,96Z" opacity="0.2"/><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,187,29.24,72,72,0,0,0,88,96,72.34,72.34,0,0,0,94,124.94L33.79,177c-.15.12-.29.26-.43.39a32,32,0,0,0,45.26,45.26c.13-.13.27-.28.39-.42L131.06,162A72,72,0,0,0,232,96,71.56,71.56,0,0,0,226.76,69ZM160,152a56.14,56.14,0,0,1-27.07-7,8,8,0,0,0-9.92,1.77L67.11,211.51a16,16,0,0,1-22.62-22.62L109.18,133a8,8,0,0,0,1.77-9.93,56,56,0,0,1,58.36-82.31l-31.2,33.81a8,8,0,0,0-1.94,7.1L141.83,108a8,8,0,0,0,6.14,6.14l26.35,5.66a8,8,0,0,0,7.1-1.94l33.81-31.2A56.06,56.06,0,0,1,160,152Z"/></g></svg>
   <text x="912" y="282" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">breakdown</text>
   <text x="892" y="306" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">failure · target pick</text>
-  <line x1="688" y1="332" x2="688" y2="400" stroke="#547076" stroke-width="1.5" stroke-dasharray="5 4"/>
-  <text x="694" y="372" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">pool</text>
-  <line x1="880" y1="428" x2="776" y2="428" stroke="#547076" stroke-width="1.5" stroke-dasharray="5 4"/>
-  <text x="812" y="422" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">target</text>
-  <line x1="880" y1="288" x2="776" y2="288" stroke="#547076" stroke-width="1.5" stroke-dasharray="5 4"/>
-  <text x="812" y="282" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">target</text>
-  <text x="600" y="486" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">Resource blocks: dashed outline, no ports; reference lines are</text>
-  <text x="600" y="504" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">set in the side panel and cannot be selected on the canvas</text>
+  <line x1="688" y1="400" x2="688" y2="338" stroke="#BB7125" stroke-width="1.5" stroke-dasharray="10 5"/>
+  <circle cx="688" cy="335" r="3.5" fill="#BB7125"/>
+  <rect x="696" y="356" width="63" height="20" rx="10" fill="#FDFAF4" stroke="#BB7125" stroke-width="1"/>
+  <svg x="702" y="360" width="12" height="12" viewBox="0 0 256 256" aria-hidden="true"><g fill="#BB7125"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Z"/></g></svg>
+  <text x="718" y="370" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">staffs</text>
+  <line x1="880" y1="428" x2="782" y2="428" stroke="#BB7125" stroke-width="1.5" stroke-dasharray="1.5 4" stroke-linecap="round"/>
+  <circle cx="779" cy="428" r="3.5" fill="#BB7125"/>
+  <rect x="790" y="434" width="89" height="20" rx="10" fill="#FDFAF4" stroke="#BB7125" stroke-width="1"/>
+  <svg x="796" y="438" width="12" height="12" viewBox="0 0 256 256" aria-hidden="true"><g fill="#BB7125"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V48H72v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24Z"/></g></svg>
+  <text x="812" y="448" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">sets hours</text>
+  <line x1="880" y1="288" x2="782" y2="288" stroke="#BB7125" stroke-width="1.5" stroke-dasharray="8 4 2 4"/>
+  <circle cx="779" cy="288" r="3.5" fill="#BB7125"/>
+  <rect x="782" y="262" width="96" height="20" rx="10" fill="#FDFAF4" stroke="#BB7125" stroke-width="1"/>
+  <svg x="788" y="266" width="12" height="12" viewBox="0 0 256 256" aria-hidden="true"><g fill="#BB7125"><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,187,29.24,72,72,0,0,0,88,96,72.34,72.34,0,0,0,94,124.94L33.79,177c-.15.12-.29.26-.43.39a32,32,0,0,0,45.26,45.26c.13-.13.27-.28.39-.42L131.06,162A72,72,0,0,0,232,96,71.56,71.56,0,0,0,226.76,69Z"/></g></svg>
+  <text x="804" y="276" font-family="sans-serif" font-size="12" font-weight="400" fill="#34454C" text-anchor="start">breaks down</text>
+  <rect x="720" y="404" width="48" height="18" rx="9" fill="#BB7125" fill-opacity="0.18" stroke="none"/>
+  <text x="744" y="417" font-family="sans-serif" font-size="12" font-weight="600" fill="#34454C" text-anchor="middle">3 staff</text>
+  <rect x="1000" y="410" width="10" height="8" fill="#BB7125"/><rect x="1012" y="410" width="10" height="8" fill="#BB7125"/><rect x="1024" y="410" width="10" height="8" fill="none" stroke="#BB7125"/><rect x="1036" y="410" width="10" height="8" fill="#BB7125"/>
+  <path d="M 1046 262 L 1054 270 M 1046 274 L 1054 282 M 1046 286 L 1054 294 M 1046 298 L 1054 306" stroke="#BB7125" stroke-width="2"/>
+  <text x="600" y="486" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">Resource blocks: tag shape, dashed outline, no ports. Lines differ by</text>
+  <text x="600" y="504" font-family="sans-serif" font-size="13" font-weight="400" fill="#547076" text-anchor="start">pattern, icon and word; set in the side panel, never selected on the canvas</text>
   <!-- Connecting state: dragging from an output port; valid input ports get a ring -->
   <!-- Block arrivals (source · every 2 min) state=default -->
-  <rect x="40" y="580" width="176" height="72" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <rect x="40" y="580" width="4" height="72" rx="0" fill="#00978D" stroke="none" stroke-width="1"/>
+  <rect x="40" y="580" width="176" height="72" rx="36" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5"/>
+  <circle cx="59" cy="597" r="13" fill="#00978D" fill-opacity="0.18" stroke="none"/>
   <svg x="51" y="589" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#00978D"><path d="M200,40V216H40a16,16,0,0,1-16-16V56A16,16,0,0,1,40,40Z" opacity="0.2"/><path d="M141.66,133.66l-40,40a8,8,0,0,1-11.32-11.32L116.69,136H24a8,8,0,0,1,0-16h92.69L90.34,93.66a8,8,0,0,1,11.32-11.32l40,40A8,8,0,0,1,141.66,133.66ZM200,32H136a8,8,0,0,0,0,16h56V208H136a8,8,0,0,0,0,16h64a8,8,0,0,0,8-8V40A8,8,0,0,0,200,32Z"/></g></svg>
   <text x="72" y="602" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">arrivals</text>
   <text x="52" y="626" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">source · every 2 min</text>
   <circle cx="216" cy="616.0" r="6" fill="#547076" stroke="#547076" stroke-width="2"/>
   <!-- Block queue_1 (queue · capacity 10) state=default -->
-  <rect x="360" y="560" width="176" height="72" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <rect x="360" y="560" width="4" height="72" rx="0" fill="#4F4086" stroke="none" stroke-width="1"/>
+  <rect x="360" y="560" width="176" height="72" rx="14" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5"/>
+  <circle cx="379" cy="577" r="13" fill="#4F4086" fill-opacity="0.18" stroke="none"/>
   <svg x="371" y="569" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#4F4086"><path d="M216,152v40a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V152a8,8,0,0,1,8-8H208A8,8,0,0,1,216,152Zm-8-96H48a8,8,0,0,0-8,8v40a8,8,0,0,0,8,8H208a8,8,0,0,0,8-8V64A8,8,0,0,0,208,56Z" opacity="0.2"/><path d="M208,136H48a16,16,0,0,0-16,16v40a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V152A16,16,0,0,0,208,136Zm0,56H48V152H208v40Zm0-144H48A16,16,0,0,0,32,64v40a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V64A16,16,0,0,0,208,48Zm0,56H48V64H208v40Z"/></g></svg>
   <text x="392" y="582" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">queue_1</text>
   <text x="372" y="606" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">queue · capacity 10</text>
   <circle cx="360" cy="596.0" r="6" fill="#547076" stroke="#547076" stroke-width="2"/>
   <circle cx="536" cy="596.0" r="6" fill="#547076" stroke="#547076" stroke-width="2"/>
   <!-- Block till (server · capacity 1) state=default -->
-  <rect x="360" y="680" width="176" height="72" rx="4" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1"/>
-  <rect x="360" y="680" width="4" height="72" rx="0" fill="#4F4086" stroke="none" stroke-width="1"/>
+  <rect x="360" y="680" width="176" height="72" rx="14" fill="#FDFAF4" stroke="#6D7E77" stroke-width="1.5"/>
+  <circle cx="379" cy="697" r="13" fill="#4F4086" fill-opacity="0.18" stroke="none"/>
   <svg x="371" y="689" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><g fill="#4F4086"><path d="M168,100a60,60,0,1,1-60-60A60,60,0,0,1,168,100Z" opacity="0.2"/><path d="M144,157.68a68,68,0,1,0-71.9,0c-20.65,6.76-39.23,19.39-54.17,37.17a8,8,0,1,0,12.24,10.3C50.25,181.19,77.91,168,108,168s57.75,13.19,77.87,37.15a8,8,0,0,0,12.26-10.3C183.18,177.07,164.6,164.44,144,157.68ZM56,100a52,52,0,1,1,52,52A52.06,52.06,0,0,1,56,100Zm196.25,43.07-4.66-2.69a23.6,23.6,0,0,0,0-8.76l4.66-2.69a8,8,0,1,0-8-13.86l-4.67,2.7a23.92,23.92,0,0,0-7.58-4.39V108a8,8,0,0,0-16,0v5.38a23.92,23.92,0,0,0-7.58,4.39l-4.67-2.7a8,8,0,1,0-8,13.86l4.66,2.69a23.6,23.6,0,0,0,0,8.76l-4.66,2.69a8,8,0,0,0,8,13.86l4.67-2.7a23.92,23.92,0,0,0,7.58,4.39V164a8,8,0,0,0,16,0v-5.38a23.92,23.92,0,0,0,7.58-4.39l4.67,2.7a7.92,7.92,0,0,0,4,1.07,8,8,0,0,0,4-14.93ZM224,144a8,8,0,1,1,8-8A8,8,0,0,1,224,144Z"/></g></svg>
   <text x="392" y="702" font-family="sans-serif" font-size="14" font-weight="600" fill="#34454C" text-anchor="start">till</text>
   <text x="372" y="726" font-family="sans-serif" font-size="12" font-weight="400" fill="#547076" text-anchor="start">server · capacity 1</text>
