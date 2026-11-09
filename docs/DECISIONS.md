@@ -1971,3 +1971,92 @@ All 130 installed packages are permissive or MPL-2.0: 95 MIT, 10 ISC, 10 Apache-
 - **Alternatives considered:** leaving the known-gaps rows as the owner's verbatim text (AKS-121's brief asks for the three rows M9 closes to be updated, as AKS-135 did for its row); bumping spec 0, 2 or 5 to 7 (M9 did not change them).
 - **Spec sections updated:** spec 1, 3 and 4 version lines and "Changes in this version" (1.2, 0.6, 0.6); the overview's version sentence; the known-gaps rows in the guide and `CLAUDE.md`.
 - **Dependencies added:** during M9, the npm packages of AKS-119 and AKS-120 and the development packages of AKS-138, each with its licence in its entry; no Python package. AKS-121 added none.
+
+## 2026-11-09 · Owner decisions on the spec-review questions (A1, B1 to B7, B9)
+
+The owner answered these on 2026-11-09 in the orchestrating Claude Code session, from the consolidated list `Ithax-owner-decisions-2026-11-09.md` (Parts A and B). Each answer is quoted, then the reading taken. The other items of that list (B7 items 2, 4 and 5; B8; Parts C, D and E) stay open for the Phase 1 review (AKS-130).
+
+### A1 (AKS-81): remote run target in Phase 2, cluster run target in Phase 4
+
+- **Owner:** "Phase 2 - We can make SSH run a part of Phase 2. Compute Cluster needs to be pushed further into Phase 4."
+- **Decision:**
+  - The remote (SSH) run target is built in Phase 2.
+  - The cluster (Slurm) run target is built in a new Phase 4, after Phase 3.
+  - The spec 1 run-target contract stays as written, so neither needs a redesign. Until they are built, asking for either target is refused with E172, as today.
+  - M11 becomes packaging only (AKS-127). AKS-126 leaves the M11 milestone.
+- **Reason:** the council's recommendation (they serve the third user group, and no Phase 1 engine needs them), with the cluster target placed later by the owner.
+- **Spec sections updated:** none yet. The M11 session applies this first, in a `specs:` commit:
+  - spec 1 "Run targets" and its acceptance rows;
+  - the guide's M11 row and the known-gaps row "Remote and cluster run targets are untested", in `CLAUDE.md` and `docs/specs/build-guide.md` alike;
+  - spec 0's phases, where a Phase 4 is named.
+
+### B1 (AKS-74): the example models written fresh at M1 are accepted
+
+- **Owner:** "Let's go with the fresh build."
+- **Decision:**
+  - `examples/three_machine_line.json` and `examples/warehouse.json`, written fresh at M1 to the spec 2 targets, are the examples.
+  - The originals and `proto.py` are not needed.
+- **Spec sections updated:** none. The guide's known-gaps row is closed by this entry.
+
+### B2 (AKS-75): the repository is the source of truth for the specs
+
+- **Owner:** "Repo should be source of truth. We can have draft doc where all edits can be posted and post my approval we can push it to the truth repo. Once Phase 1 is done, we will need to do this cleanup as during the course of implementation, a lot of changes were highlighted."
+- **Decision:**
+  - The spec files in `docs/specs/` are authoritative.
+  - After Phase 1, the Phase 1 review (AKS-130) collects the changes made during the build into a draft document for the owner. Only what the owner approves is written back to the repository specs.
+  - Until then, sessions keep working as they do now: the spec changes before the code, with dated change lines (guide rule 6).
+- **Spec sections updated:** none yet. The Phase 1 review sets out the draft-and-approve step.
+
+### B3 (AKS-76): the block behaviour defaults are kept for now
+
+- **Owner:** "We'll keep as of now. However, when we do the agentic walkthrough, the behaviour effectiveness can be tested again and reworked then if needed."
+- **Decision:**
+  - The eight block behaviours of spec 2, built at M4, are confirmed for Phase 1.
+  - They are tested again in an agentic walkthrough (an assistant building and running models through the MCP server and the interface), and reworked if that shows a need.
+  - The walkthrough's timing is set at the Phase 1 review.
+- **Spec sections updated:** none yet. Spec 2's "proposed" wording for the block defaults changes at the Phase 1 review.
+
+### B4 (AKS-77): Linux first
+
+- **Owner:** "Right now, let's focus on Linux. If I am not wrong claude code is running on linux environment."
+- **Decision:**
+  - Phase 1 is packaged and tested on Linux only. The build and test containers are Linux.
+  - The code stays platform-neutral, as built (native Windows was the proposed default). No Windows-specific work is added now, and none is removed.
+  - The Windows installer, and spec 3's "Fresh install to first result under ten minutes on Windows" row, are deferred. The Phase 1 review sets their phase.
+- **Spec sections updated:** none yet. The M11 session marks the Windows packaging and the Windows acceptance row as deferred, in spec 3 and the guide's M11 row.
+
+### B5 (AKS-78): the idle timeout becomes a setting, 30 minutes by default
+
+- **Owner:** "Service idling can be made as field in the setting option. Default can be 30 mins. User can change the number in the setting."
+- **Decision:**
+  - The service still exits when idle, as defined at M6. The time it waits becomes a setting in `settings.json`, shown on the Settings screen, with a default of 30 minutes.
+  - Built at M11, with its bounds chosen under rule 5. It is a small change next to the run settings of M6 and M9.
+- **Spec sections updated:** none yet. Spec 3 "Service rules", Lifetime, changes first at M11.
+
+### B6 (AKS-79): the owner-only fallback is accepted
+
+- **Owner:** "Yes"
+- **Decision:** when an owner-only check cannot be done with someone outside the project, the owner does a scripted think-aloud walkthrough, the gap is logged here, and the check moves to the next milestone. This applies to every owner-only check, as already done for the M9 design walkthrough on 2026-11-06.
+
+### B7 (AKS-80): sketch fidelity in Phase 2, template expansion in Phase 3
+
+- **Owner:** "1. Phase-2" and "3. Template expansion in Phase 3."
+- **Decision:**
+  - Item 1: a `sketch` preview fidelity for process runs is Phase 2. It is not in Phase 1.
+  - Item 3: an eleventh template (forklift/AGV transport), and template expansion in general, is Phase 3. Phase 1 keeps its ten templates.
+  - Items 2, 4 and 5 are not answered yet and stay open. Item 2 is weighted-sum objectives naming parameters; item 4 is the success-measure methods and risk rows; item 5 is the hardware-table date. Until answered, the defaults stand: no; accept as proposals; leave as noted.
+- **Spec sections updated:** none yet.
+
+### B9 (AKS-84): specs 5 to 7 are detailed after Phase 1, with extensive research first
+
+- **Owner:** "Specs from 5 to 7 require a detailed expansion. We decided to do once the previous things are completed. Specs 5 to Spec 7 will require extensive research, understanding of current product landscape as well as understanding how 3D models for simulations of process, force, thermal and other aspects need to be married with optimisation and modelling."
+- **Decision:**
+  - Specs 5, 6 and 7 stay structure only during Phase 1. That includes the sections on people, machine elements and reliability that question 6 asked about.
+  - They are detailed only after Phase 1 and its review (AKS-130) are done, in their own detailing work.
+  - That work starts with extensive research, before any Phase 2 or Phase 3 code (guide known-gaps row "Specs 5, 6 and 7 are structure only"). The research covers:
+    - the current product landscape;
+    - how 3D models for process, force, thermal and other physics simulations are combined with optimization and modelling.
+  - Whether people, machine elements and reliability stay in scope, and in which phase, is settled during that detailing, not now.
+- **Reason:** the owner's call. These domains need research and an understanding of the landscape before any input format or behaviour is written, which agrees with the guide's rule not to invent formats for engines nobody has installed or tested.
+- **Spec sections updated:** none.
+
