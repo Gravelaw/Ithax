@@ -311,7 +311,10 @@ GET_SCHEMA = ToolSpec(
         "type's settings, ports, metrics and behaviour (GET "
         "/v1/schema/components/{component_type}). Ask for one type at a time: the whole "
         "schema is long. Each setting gives its kind, whether it is required and any "
-        "default; list_engines names the installed types. Behaviour defaults, from the "
+        "default; any number or time setting, a distribution's fields included, may "
+        'instead be a parameter, {"$param": "<id>"} (set_parameter), which scenarios and an '
+        "experiment's search change. list_engines names the installed types. Behaviour "
+        "defaults, from the "
         "engine's block reference: a server's queue is unlimited, first in first out, "
         "unless queue_capacity or discipline says otherwise; a source whose next block "
         "cannot take an item discards it (counted in <source>.discarded), arrivals are "
@@ -568,7 +571,8 @@ EDIT_MODEL = ToolSpec(
         "rename_component {id, new_id}; set_setting {id, path, value}, path a JSON Pointer "
         "into the component's params such as /service/mean; connect {from, to} and "
         "disconnect {from}, naming ports such as 'arrivals.out' and 'till.in'; "
-        "set_parameter {id, value?, type?, min?, max?} and remove_parameter {id}; "
+        "set_parameter {id, value?, type?, min?, max?} and remove_parameter {id}, a "
+        'setting using a parameter as {"$param": "<id>"}; '
         "set_experiment {id, and any experiment fields such as length, warmup, "
         "replications, seed, search}, where length includes the warmup (results cover "
         "length minus warmup: 200 h measured after a 10 h warm-up is length 210 h and "

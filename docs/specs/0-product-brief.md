@@ -2,7 +2,7 @@
 
 Nov 5, 2026 · @Akshay
 
-> Version 0.2 (first numbered version) · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.3 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 ## Purpose
 
@@ -134,6 +134,13 @@ These Phase 1 measures are proposals for you to adjust; none has been agreed.
 | Assistant access | An assistant connected through MCP builds and runs each Phase 1 template from a text description | Transcripts under `docs/research/mcp/` | M10 |
 | Real use | Five people outside the project build a model of their own problem | A GitHub issue template and a "Tell us what you built" link on the Results screen that only opens the browser | Within three months of first release |
 
+Recorded at M10 (2026-11-09, AKS-125; the owner confirms each, AKS-82):
+
+- **Time to a first template run:** the tester script is in `docs/research/usability.md`. No outside tester has timed it; that is the owner's (the owner-only fallback applies). Until the M11 installer exists, the timing starts at the app's first start on a machine the owner has prepared (installing from source took about 9 minutes in the agent container).
+- **Benchmark accuracy:** `pytest -m benchmark` passes every Phase 1 benchmark (19: the 17 cases of `benchmarks/` and the two machine-count tests), and `bash scripts/check.sh` and the benchmarks run in CI on every pull request.
+- **Low-tier performance:** the ten templates and their exercises run to completion on 4 cores within an 8 GiB memory cap, 20 runs in 37.2 s, the slowest 8.1 s (`docs/research/performance.md`); measured in the agent container, not yet on the owner's low-tier machine.
+- **Assistant access:** Claude Code with Claude Opus 5.5, connected through MCP to a service serving no templates, built and ran each of the ten templates' problems from a text description, and every answer agreed with the template's theory or benchmark value (`docs/research/mcp/`). "How many machines?" passed on a second attempt, after two tool descriptions named the parameter reference, and as five scenarios rather than a search.
+
 ## Risks and open items
 
 Ten risks could sink the project; each has a response built into the plan. The last six were added by the review of 2026-11-05 and are proposals.
@@ -166,3 +173,7 @@ The background for this brief is in the research brief, "Low-Code Simulation, Mo
 2026-11-05, version 0.2, spec review council:
 
 - C27 (PHY-7, PHY-11, PRD-4, PRD-5, PRD-9, PRD-16, PRD-2, PRD-6, PRD-13, PRD-15, PHY-1): version line; people in scope; annex order kept in spec 6 only; what Phase 1 does not do; principles 4 and 6 extended; WSL point resolved as a proposed default; AGPL consequences for users; AGPL only/or-later checkbox; success measures with method and milestone; engine count and six added risks; open items on unresearched domains and the OpenRadioss successor.
+
+2026-11-09, version 0.3, M10 closed (AKS-125):
+
+- 2026-11-09, M10 closed (AKS-125): "Success measures" records what M10 measured for the first four measures (the tester script with the timing left to the owner; the benchmarks; the ten templates on 4 cores within 8 GiB; the assistant trials of the ten templates). The targets stay proposals. Version 0.3.

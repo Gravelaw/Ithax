@@ -22,7 +22,9 @@ import pytest
 from scipy.stats import poisson
 
 from lcsim.engines.registry import select_adapter
+from lcsim.findings import find
 from lcsim.model.loading import load_document
+from lcsim.model.model import Model
 from lcsim.runs.manager import run_experiment
 from lcsim.templates import TemplatePackage, judge, load_package, package_folders
 from lcsim.templates.expected import RUNS, Run, summary_estimates
@@ -50,7 +52,10 @@ def load(tid: str) -> TemplatePackage:
     return result.package
 
 
-def run_summary(document: Mapping[str, Any], experiment: str | None, workdir: Path) -> Any:
+def run_summary(
+    document: Mapping[str, Any], experiment: str | None, workdir: Path
+) -> tuple[Any, Model]:
+    """The summary of a run of ``document``'s experiment, and the model that ran."""
     loaded = load_document(document)
     assert loaded.errors == ()
     assert loaded.model is not None
@@ -58,7 +63,46 @@ def run_summary(document: Mapping[str, Any], experiment: str | None, workdir: Pa
     assert selection.adapter is not None
     outcome = run_experiment(selection.adapter, loaded.model, experiment, workdir, workers=WORKERS)
     assert outcome.state == "done"
-    return outcome.summary
+    return outcome.summary, loaded.model
+
+
+#: The findings each template's runs give at spec 4's default thresholds, as (rule,
+#: component), from the M10 threshold re-check (spec 4 "Finding rules", AKS-125).
+FINDINGS: dict[tuple[str, Run], list[tuple[str, str | None]]] = {
+    ("coffee_shop", "template"): [],
+    ("coffee_shop", "exercise"): [],
+    ("three_machine_line", "template"): [("bottleneck", "weld")],
+    ("three_machine_line", "exercise"): [("bottleneck", "weld"), ("not_enough_runs", None)],
+    ("machine_breakdowns", "template"): [],
+    ("machine_breakdowns", "exercise"): [],
+    ("clinic_patient_flow", "template"): [("idle_capacity", "treatment_rooms")],
+    ("clinic_patient_flow", "exercise"): [("idle_capacity", "treatment_rooms")],
+    ("warehouse_pick_pack", "template"): [],
+    ("warehouse_pick_pack", "exercise"): [],
+    ("inventory_reorder_point", "template"): [("not_enough_runs", None)],
+    ("inventory_reorder_point", "exercise"): [],
+    ("transport_plan", "template"): [("optimization_result", None)],
+    ("transport_plan", "exercise"): [("optimization_result", None)],
+    ("product_mix", "template"): [("optimization_result", None)],
+    ("product_mix", "exercise"): [("optimization_result", None)],
+    ("staff_rota", "template"): [("optimization_result", None)],
+    ("staff_rota", "exercise"): [("optimization_result", None)],
+    ("how_many_machines", "template"): [("optimization_result", None)],
+    ("how_many_machines", "exercise"): [("optimization_result", None), ("idle_capacity", "till")],
+}
+
+#: The two wordings the re-check changed, as the templates give them (AKS-125).
+FINDING_TEXTS: dict[tuple[str, Run], str] = {
+    ("three_machine_line", "template"): "weld is the bottleneck: busy 90% of the time.",
+    ("transport_plan", "template"): "Best found: ship[north,city] = 180, ship[north,harbour] = 20, "
+    "ship[north,market] = 70, ship[centre,harbour] = 200, ship[south,park] = 150, "
+    "ship[south,market] = 100, and 6 others at 0. The objective is 2,690, with supply[centre], "
+    "supply[south], demand[city], demand[harbour], demand[park] and demand[market] tight.",
+    ("staff_rota", "template"): "Best found: staff[wed_sun] = 3, staff[thu_mon] = 1, "
+    "staff[fri_tue] = 3, staff[sat_wed] = 1, staff[sun_thu] = 1, and 2 others at 0. The "
+    "objective is 9, with cover[mon], cover[tue], cover[wed], cover[thu], cover[fri] and "
+    "cover[sat] tight.",
+}
 
 
 def test_spec_4s_ten_templates_exist() -> None:
@@ -74,10 +118,16 @@ def test_the_template_reproduces_its_expected_values(tid: str, run: Run, tmp_pat
     package = load(tid)
     rows = package.rows(run)
     assert rows, f"{tid} has no expected.json row for its {run}"
-    summary = run_summary(package.document(run), package.experiment, tmp_path)
+    summary, model = run_summary(package.document(run), package.experiment, tmp_path)
     estimates = summary_estimates(summary)
     judged = [judge(row, estimates) for row in rows]
     assert all(item.passed for item in judged), "\n".join(item.message() for item in judged)
+    found = find(summary, model)
+    assert [(item.rule, item.component) for item in found] == FINDINGS[(tid, run)], [
+        item.text for item in found
+    ]
+    if (tid, run) in FINDING_TEXTS:
+        assert found[0].text == FINDING_TEXTS[(tid, run)]
 
 
 @pytest.mark.parametrize("tid", IDS)

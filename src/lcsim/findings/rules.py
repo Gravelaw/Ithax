@@ -177,6 +177,16 @@ def _scheduled(model: Model) -> set[str]:
     }
 
 
+def _without_a_queue(model: Model) -> set[str]:
+    """Servers with ``queue_capacity`` 0: their items wait in the block before them, so their
+    own wait says nothing (spec 4 "Finding rules", AKS-125)."""
+    return {
+        component.id
+        for component in model.components
+        if component.type == "server" and component.settings.get("queue_capacity") == 0
+    }
+
+
 def _available_time(model: Model) -> set[str]:
     """Servers whose available capacity varies: scheduled, or the target of a ``failure``."""
     return _scheduled(model) | (_targets(model, "failure") & set(_servers(model)))
@@ -262,7 +272,7 @@ def _bottleneck(
     wait = _mean(metrics, f"{server}.wait.mean")
     busy = f"{percent(utilization)} {_of_the_time(server, _available_time(model))}"
     text = f"{server} is the bottleneck: busy {busy}"
-    if wait is None:
+    if wait is None or server in _without_a_queue(model):
         text += "."
     else:
         text += f", with an average wait of {quantity(wait, 's')}."
@@ -384,6 +394,18 @@ def _settings_text(values: Mapping[str, float], model: Model) -> str:
     return ", ".join(_setting_text(name, value, model) for name, value in values.items())
 
 
+def _values_text(values: Mapping[str, float], model: Model) -> str:
+    """A mathematical optimization's values: those not 0 (a -0 is 0), then how many are 0
+    (spec 4 "Finding rules", AKS-125)."""
+    zeros = sum(1 for value in values.values() if value == 0)
+    if values and zeros == len(values):
+        return "every variable at 0"
+    text = _settings_text({name: value for name, value in values.items() if value != 0}, model)
+    if zeros:
+        text += f", and {zeros} other{'s' if zeros > 1 else ''} at 0"
+    return text
+
+
 def _search_sense(summary: Mapping[str, Any], model: Model) -> str:
     """The sense of the objective the run's search optimized: the experiment the summary
     names, its ``search.objective`` id, then that objective (as ``search_summary`` finds the
@@ -474,7 +496,7 @@ def _program_result(summary: Mapping[str, Any], model: Model) -> list[Finding]:
         item.id for item in model.program.constraints if constraints.get(item.id, {}).get("tight")
     ]
     objective = figures(summary["objective"], 4)
-    text = f"Best found: {_settings_text(ordered, model)}. The objective is {objective}"
+    text = f"Best found: {_values_text(ordered, model)}. The objective is {objective}"
     if tight:
         text += f", with {_listed(tight)} tight."
     elif constraints:

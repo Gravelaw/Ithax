@@ -1,6 +1,6 @@
 # Spec 1: Model Format and Engine Contract
 
-> Version 1.2 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 1.3 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 A model is one JSON file that passes a published schema. Every engine is a plugin that implements the same five functions. The interface, the engines and any AI assistant all work through these two contracts.
 
@@ -561,7 +561,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 
 - 2026-11-08, settings endpoint (AKS-119): "Validation issues" says `GET /v1/settings` also lists W220 issues (spec 3 "Endpoints"). A `PUT /v1/settings` value that cannot be used is refused as E184 at its place in the request, since the request is malformed; W220 stays the code for a value read from the file. Owner to confirm.
 
-Since version 1.2, during the M10 build:
+2026-11-09, version 1.3, M10 closed (AKS-125); the lines below were added after version 1.2, during the M10 build:
 
 - 2026-11-09, template packages (AKS-122): "Validation issues" adds E195, a template package that cannot be used (spec 4 "Template package"), raised by the template loader, with a `path` into the package; the sentence on who raises the codes that validation fixtures do not test names it. "Top-level keys" says `meta.template` is the id of the template a project was created from, set by `POST /v1/projects`. Owner to confirm.
 - 2026-11-09, indexed optimization layout (AKS-123), for the transport plan template: "Model file", "Top-level keys" and the new paragraph "Indexed optimization" add `sets`, `tables`, a variable's `over`, a constraint's `for` and `terms` in a constraint or the objective (with `linear` then optional) and the `{"$table": ...}` reference; "Versioning" makes this reader 0.2, a minor and additive change with no migration, a 0.2 key in a 0.1 file E100, and a new project 0.2; "Identifiers" covers set and table ids and set members; "Validation issues" adds E176, E177 and E178, extends E175 to terms and E100 to the 0.2 keys and to a constraint or objective with neither `linear` nor `terms`; "Validation" lists E174 to E178 among the meaning-pass codes; the acceptance row for migrations names the 0.2 evidence. Owner to confirm.

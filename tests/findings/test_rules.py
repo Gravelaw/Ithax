@@ -204,6 +204,32 @@ def test_a_bottleneck_without_a_measured_wait_says_only_how_busy_it_is() -> None
     }
 
 
+def without_a_queue(server: str) -> Any:
+    def change(document: dict[str, Any]) -> None:
+        component = next(item for item in document["components"] if item["id"] == server)
+        component["params"]["queue_capacity"] = 0
+
+    return change
+
+
+def test_a_bottleneck_without_a_queue_of_its_own_says_only_how_busy_it_is() -> None:
+    """Spec 4 (AKS-125): a server with ``queue_capacity`` 0 has no queue of its own, its
+    items wait in the block before it, so the text gives no wait (the three-machine-line
+    template said "with an average wait of 0 s"); the evidence still holds its wait."""
+    summary, model = read_run("bottleneck_fires", without_a_queue("weld"))
+    found = [item for item in find(summary, model) if item.rule == "bottleneck"]
+    assert found[0].text == "weld is the bottleneck: busy 90% of the time."
+    metrics = summary["scenarios"]["default"]["metrics"]
+    assert found[0].evidence == {
+        "weld.utilization": metrics["weld.utilization"]["mean"],
+        "weld.wait.mean": metrics["weld.wait.mean"]["mean"],
+    }
+    summary, model = read_run("bottleneck_fires", without_a_queue("cut"))
+    assert texts(find(summary, model), "bottleneck")[0].endswith(
+        "with an average wait of 15.7 min."
+    )
+
+
 def test_a_server_without_a_utilization_is_not_judged() -> None:
     summary, model = read_run("bottleneck_fires")
     summary["scenarios"]["default"]["metrics"]["weld.utilization"]["mean"] = None
@@ -686,6 +712,29 @@ def test_optimization_result_of_a_mathematical_optimization() -> None:
             "tight": ["wood", "labour"],
         },
     }
+
+
+def test_a_mathematical_optimization_lists_only_the_variables_not_at_0() -> None:
+    """Spec 4 (AKS-125): "Best found" names the variables that are not 0, then how many are
+    (a -0 from the solver is 0); the evidence keeps every value."""
+    run = read_run("optimization_result_program")
+    run[0]["variables"]["tables"] = -0.0
+    found = program_finding(run[0], run)
+    assert found.text.startswith("Best found: chairs = 24, and 1 other at 0. The objective is")
+    assert found.evidence["variables"] == {"chairs": run[0]["variables"]["chairs"], "tables": -0.0}
+    run[0]["variables"]["chairs"] = 0.0
+    assert program_finding(run[0], run).text.startswith(
+        "Best found: every variable at 0. The objective is"
+    )
+
+    def a_third_variable(document: dict[str, Any]) -> None:
+        document["variables"].append({"id": "stools", "type": "continuous", "lower": 0})
+
+    run = read_run("optimization_result_program", a_third_variable)
+    run[0]["variables"].update({"chairs": 0.0, "stools": 0.0})
+    assert program_finding(run[0], run).text.startswith(
+        "Best found: tables = 14, and 2 others at 0. The objective is"
+    )
 
 
 def test_a_mathematical_optimization_with_no_tight_constraint() -> None:
