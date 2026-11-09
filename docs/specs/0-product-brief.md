@@ -34,12 +34,13 @@ Every domain is in scope: process, systems, people, and the full range of physic
 | Phase | Delivers | Specs |
 | --- | --- | --- |
 | 1 | Process simulation and optimization in a working desktop app, with templates and AI access | 0 to 4 |
-| 2 | Agent-based and system dynamics models, physical system models, multibody dynamics, people and workforce models, optimization across engines | 5 |
+| 2 | Agent-based and system dynamics models, physical system models, multibody dynamics, people and workforce models, optimization across engines; the remote (SSH) run target | 5; 1 and 3 for the remote target |
 | 3 | Physics platform: geometry, meshing, 3D results, material data, then one solver family at a time | 6, 7 and the annexes |
+| 4 | The cluster (Slurm) run target | 1 and 3 |
 
 The annex order is spec 6's letter order, A to I; spec 6 is the single place it is kept.
 
-**What Phase 1 does not do.** Phase 1 covers machines and people as resources, materials as stock, and movement as transport time. Physical movement, material behaviour and physics arrive in Phases 2 and 3.
+**What Phase 1 does not do.** Phase 1 covers machines and people as resources, materials as stock, and movement as transport time. Physical movement, material behaviour and physics arrive in Phases 2 and 3. Phase 1 runs on the user's own machine only: the remote target arrives in Phase 2 and the cluster target in Phase 4 (owner decision A1, 2026-11-09).
 
 One correction to the plan as stated. The governing equations are indeed published, but the equations are the small part. Turning them into solvers that are stable, accurate and fast is where the decades of effort in existing engines went. The product wraps those engines and does not re-derive them.
 
@@ -49,19 +50,19 @@ Six rules bind every later spec. A spec that breaks one needs a stated reason.
 
 1. **Wrap engines; do not write solvers.** The product's own code is interface, translation and orchestration.
 2. **The model file is the product's core.** The interface, the engines and any AI assistant all read and write the same documented format.
-3. **One model, three run targets.** The same file runs on a laptop, a workstation or a cluster.
+3. **One model, three run targets.** The same file runs on a laptop, a workstation or a cluster (the remote target from Phase 2, the cluster target from Phase 4).
 4. **Say what level of answer the user is getting.** A coarse laptop result is labelled as coarse, never presented as final. Every exported result carries the same label, so it survives leaving the app.
 5. **No engine ships without benchmarks.** Each adapter passes a set of problems with known answers before users see it.
 6. **Works offline.** Core modelling and solving need no internet connection after installation; the installer itself may be downloaded.
 
 ## Platform and hardware
 
-The product is built on Linux first, developed under WSL on Windows. A Windows version follows as a native interface that talks to the engine service through an API.
+The product is built on Linux first, developed under WSL on Windows. Phase 1 is packaged and tested on Linux only (owner decision B4, 2026-11-09). A Windows version follows, deferred until the Phase 1 review sets its phase; the code stays platform-neutral meanwhile.
 
 | Layer | Phase 1 choice |
 | --- | --- |
 | Engine service | Linux, run under WSL during development |
-| Desktop interface | Linux first; Windows interface connects to the engine service by API |
+| Desktop interface | Linux; a Windows version is deferred (B4) |
 | Browser or hosted version | Not planned |
 | Graphics hardware | Optional. Everything runs on the processor alone; Nvidia or Intel graphics speed up viewing and some solvers when present |
 
@@ -72,13 +73,13 @@ Hardware tiers:
 | Low | 4 processor cores, 8 GB memory, integrated graphics | Proposed; tested by limiting WSL on the development machine |
 | Mid | 8 processor cores, 16 GB memory, integrated or entry-level graphics | Proposed; tested the same way |
 | High | The development machine: Intel Core Ultra 9 285H, 16 cores, 32 GB memory, Nvidia RTX 5080 laptop graphics plus Intel Arc 140T, two NVMe drives | Recorded 6 November 2026 |
-| Cluster | Workstation or university cluster | Reached through remote run targets |
+| Cluster | Workstation or university cluster | Reached through the remote (Phase 2) and cluster (Phase 4) run targets |
 
 The development machine is a high-tier system, not a low or mid one. It can stand in for the lower tiers because WSL lets the cores and memory given to Linux be capped. It also covers both graphics cases, since it has Nvidia and Intel graphics. Real low-end hardware should still be tried before any release.
 
 Two points to settle in spec 3:
 
-- **WSL on user machines.** Resolved as a proposed default in spec 3: Phase 1 runs natively on Windows; WSL only for Phase 3 engines without Windows builds. Owner to confirm.
+- **WSL on user machines.** Resolved as a proposed default in spec 3: the Windows version runs natively; WSL only for Phase 3 engines without Windows builds. Deferred with the Windows version (owner decision B4, 2026-11-09). Owner to confirm.
 - **Compatibility testing.** The test matrix should cover machines with Nvidia graphics, Intel graphics and no dedicated graphics.
 
 ## AI access
@@ -155,7 +156,7 @@ Ten risks could sink the project; each has a response built into the plan. The l
 | An engine upgrade changes results | Benchmarks and recorded seeds are rerun on every upgrade; engine versions are written to every manifest; a changed answer is a DECISIONS entry (proposed) |
 | Template problems are not free to redistribute | Templates use textbook-style problems written for this project or sources whose licence permits reuse, recorded per template (proposed) |
 | Users act on a coarse or wrong result | Fidelity label and the estimate caveat on every results page and export; findings state their evidence (proposed) |
-| An unsigned Windows package is blocked or distrusted | Budget for code signing before the first Windows release; until then, document the warning and the checksum (proposed) |
+| An unsigned package is blocked or distrusted | Budget for code signing before the first Windows release; until then, and for the Phase 1 Linux package, document the warning and the checksum (proposed) |
 | The MCP acceptance test needs an assistant the project does not control | A scripted MCP client in CI; the real-assistant transcript is an owner check, not a build gate (proposed) |
 
 Open items:
@@ -177,3 +178,7 @@ The background for this brief is in the research brief, "Low-Code Simulation, Mo
 2026-11-09, version 0.3, M10 closed (AKS-125):
 
 - 2026-11-09, M10 closed (AKS-125): "Success measures" records what M10 measured for the first four measures (the tester script with the timing left to the owner; the benchmarks; the ten templates on 4 cores within 8 GiB; the assistant trials of the ten templates). The targets stay proposals. Version 0.3.
+
+Since version 0.3, during the M11 build:
+
+- 2026-11-09, owner decisions A1 and B4 (AKS-81, AKS-77; part of AKS-127): "Scope and build order" puts the remote (SSH) run target in Phase 2 and adds a Phase 4 for the cluster (Slurm) run target, and "What Phase 1 does not do", principle 3 and the Cluster tier say so; "Platform and hardware" says Phase 1 is packaged and tested on Linux only, the Windows version and its WSL point deferred until the Phase 1 review, the code staying platform-neutral; the unsigned-package risk covers the Phase 1 Linux package too.
