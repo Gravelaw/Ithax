@@ -222,6 +222,73 @@ def test_a_simulation_template_sets_a_non_zero_warmup(tmp_path: Path) -> None:
     assert issues(folder) == [("E195", "/model.json/experiments/0/warmup")]
 
 
+def test_the_template_s_experiment_runs_only_the_default_scenario(tmp_path: Path) -> None:
+    """Expected values are read from the scenario ``default``, so an experiment that lists
+    its own scenarios cannot be judged (review of PR #50)."""
+    folder = copy(tmp_path)
+    change(
+        folder,
+        "model.json",
+        lambda m: m["experiments"][0].update(scenarios=[{"id": "baseline", "set": {}}]),
+    )
+    assert issues(folder) == [("E195", "/model.json/experiments/0/scenarios")]
+
+
+def _add_to_the_exercise(folder: Path, *edits: Document) -> None:
+    change(folder, "template.json", lambda t: t["exercise"]["edits"].extend(edits))
+
+
+def test_the_exercise_keeps_the_template_s_experiment(tmp_path: Path) -> None:
+    """The exercise runs the same experiment, so its edits may not remove it
+    (review of PR #50)."""
+    folder = copy(tmp_path)
+    _add_to_the_exercise(
+        folder,
+        {
+            "edit": "set_experiment",
+            "id": "other",
+            "length": "200 h",
+            "warmup": "10 h",
+            "replications": 30,
+            "seed": 1,
+        },
+        {"edit": "remove_experiment", "id": "base"},
+    )
+    assert issues(folder) == [("E195", "/template.json/exercise/edits")]
+
+
+_BASE_WITHOUT_SEED = {
+    "edit": "set_experiment",
+    "id": "base",
+    "length": "200 h",
+    "warmup": "10 h",
+    "replications": 30,
+}
+
+
+@pytest.mark.parametrize(
+    ("edits", "what"),
+    [
+        ([{"edit": "set_scenario", "experiment_id": "base", "id": "b", "set": {}}], "scenarios"),
+        ([{"edit": "set_experiment", "id": "base", "warmup": "0 s"}], "warm-up"),
+        ([{"edit": "remove_experiment", "id": "base"}, _BASE_WITHOUT_SEED], "seed"),
+    ],
+)
+def test_the_exercise_s_experiment_is_checked_as_the_template_s_is(
+    tmp_path: Path, edits: list[Document], what: str
+) -> None:
+    """The model after the exercise's edits passes the same experiment checks as the
+    template's (review of PR #50)."""
+    folder = copy(tmp_path)
+    _add_to_the_exercise(folder, *edits)
+    result = load_package(folder, benchmark_cases=CASES)
+    assert result.package is None
+    assert [(i.code, i.path) for i in result.issues][:1] == [
+        ("E195", "/template.json/exercise/edits")
+    ], result.issues
+    assert what in result.issues[0].message
+
+
 def test_the_exercise_s_edits_must_apply(tmp_path: Path) -> None:
     folder = copy(tmp_path)
     change(
