@@ -77,8 +77,11 @@ examples/               coffee_shop.json, three_machine_line.json, warehouse.jso
 benchmarks/             <case>/model.json and expected.json; run by tests/benchmarks/test_benchmarks.py
 tests/                  mirrors src/
 tests/perf/             performance checks (marker perf)
+tests/packaging/        the Linux package's install checks (marker package)
 ui/                     the interface
 desktop/                the desktop shell (Tauri 2): src-tauri/ and its own page
+packaging/linux/        the Linux package: pinned wheels, licence list, commands, install scripts
+scripts/                check.sh and the package build, package_linux.py
 ```
 
 ## Conventions
@@ -132,7 +135,7 @@ If the real adapter and the prototype's reference values disagree on a result, t
 - **Session summary.** `docs/sessions/<yyyy-mm-dd>-M<n>.md` with the headings Built, Checks passing, Decisions logged, Awaiting owner, Left. The session's last act updates "Current state" in `CLAUDE.md`.
 - **Engine gaps.** A DECISIONS entry "Engine gap: <engine> lacks <feature>" with the workaround and the spec section concerned.
 - **DECISIONS entry template.** A date and milestone heading, then Decision, Reason, Alternatives considered, Spec sections updated, Dependencies added (name, version, licence, how checked).
-- **Test subsets.** `pytest tests/model`, `pytest -m benchmark`, `pytest -m perf`. The full gate is `bash scripts/check.sh`.
+- **Test subsets.** `pytest tests/model`, `pytest -m benchmark`, `pytest -m perf`; `pytest -m package` after `python scripts/package_linux.py` (M11). The full gate is `bash scripts/check.sh`.
 
 ## Performance measurement protocol
 
