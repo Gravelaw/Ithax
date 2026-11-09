@@ -62,6 +62,8 @@ export interface BlockData extends Record<string, unknown> {
   messages: string;
   /** Its review mark after an outside change, if any. */
   review?: Change;
+  /** The lesson's tag ("Step 2 of 4") while a Learn step highlights it (AKS-124). */
+  learn?: string;
 }
 
 export type BlockNodeType = Node<BlockData, "block">;
@@ -90,6 +92,7 @@ export function blockName(data: BlockData): string {
   if (data.review) {
     parts.push(`${MARK_WORDS[changeKind(data.review)]} by another client, to review`);
   }
+  if (data.learn) parts.push(`highlighted by the lesson, ${data.learn}`);
   return parts.join(", ").replace(" · ", ", ");
 }
 
@@ -150,7 +153,7 @@ function BlockNodeView({ id, data, selected, isConnectable }: NodeProps<BlockNod
     <div
       className={`block block-${category}${data.errors > 0 ? " block-error" : ""}${
         selected ? " block-selected" : ""
-      }${mark ? ` block-mark block-mark-${mark}` : ""}`}
+      }${mark ? ` block-mark block-mark-${mark}` : ""}${data.learn ? " block-learn" : ""}`}
       style={
         routes && data.outputs.length > 2
           ? { minHeight: `${4 + (data.outputs.length - 2) * 1.25}rem` }
@@ -181,6 +184,11 @@ function BlockNodeView({ id, data, selected, isConnectable }: NodeProps<BlockNod
       </span>
       <ResourceMark component={component} />
       <Badge data={data} />
+      {data.learn ? (
+        <span className="block-learn-tag small" aria-hidden="true">
+          {data.learn}
+        </span>
+      ) : null}
       {data.review && mark ? (
         <span className="block-review-mark">
           <MarkChip kind={mark} />

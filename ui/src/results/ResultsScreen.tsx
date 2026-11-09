@@ -22,6 +22,8 @@ import { own } from "../canvas/own";
 import { Chart, useSeriesColours } from "../charts/Chart";
 import { IssueList, ServiceProblem } from "../components/ServiceProblem";
 import { usePendingRequest } from "../components/usePendingRequest";
+import { useLessonFor } from "../learn/LearnContext";
+import { LessonResult } from "../learn/LessonResult";
 import {
   barGroups,
   barsOption,
@@ -220,7 +222,7 @@ function RunResults({
       </p>
     );
   }
-  return <Shown client={client} project={project} rid={rid} loaded={loaded} />;
+  return <Shown client={client} project={project} rid={rid} loaded={loaded} onGo={onGo} />;
 }
 
 function Shown({
@@ -228,12 +230,16 @@ function Shown({
   project,
   rid,
   loaded,
+  onGo,
 }: {
   client: ApiClient;
   project: Project;
   rid: string;
   loaded: Loaded;
+  onGo: (route: Route) => void;
 }) {
+  // The run of a lesson's exercise shows the prediction and the explanation first (AKS-124).
+  const { learning, exit } = useLessonFor(project.id);
   const { run, body } = loaded;
   const { summary, findings, issues } = body;
   const kind = kindOf(summary);
@@ -330,6 +336,9 @@ function Shown({
         {notice !== null ? <p className="notice">{notice}</p> : null}
       </div>
       <ServiceProblem result={exportProblem} />
+      {learning !== null && learning.runId === rid ? (
+        <LessonResult learning={learning} onGo={onGo} onExit={exit} />
+      ) : null}
       <p className="headline-card">{headline(findings)}</p>
 
       <h2 className="heading" id="findings-heading">

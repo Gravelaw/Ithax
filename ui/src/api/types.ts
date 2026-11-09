@@ -51,14 +51,26 @@ export interface CreateProject {
   path?: string;
 }
 
-/** A template's `template.json` (spec 4 "Template package"); none before M10. */
+/** A template's `template.json` (spec 4 "Template package"; AKS-122). */
 export interface Template {
   id: string;
   title: string;
   summary?: string;
   audience?: string;
   minutes?: number;
+  concepts?: string[];
+  /** The experiment the lesson runs; `null` for an `optimization` model. */
+  experiment?: string | null;
+  /** The exercise's change, as spec 3 model edits. */
+  exercise?: { edits: Edit[] };
   [key: string]: unknown;
+}
+
+/** `GET /v1/templates/{tid}`: `template.json`, `lesson.md`'s text and `expected.json`. */
+export interface TemplateBody {
+  template: Template;
+  lesson: string;
+  expected: unknown[];
 }
 
 export type Theme = "system" | "light" | "dark";

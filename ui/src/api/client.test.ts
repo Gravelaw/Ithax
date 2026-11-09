@@ -81,6 +81,7 @@ describe("ApiClient requests", () => {
     ["createProject", [{ name: "a" }], "POST", "/v1/projects"],
     ["openProject", ["/home/a"], "POST", "/v1/projects/open"],
     ["listTemplates", [], "GET", "/v1/templates"],
+    ["getTemplate", ["coffee shop"], "GET", "/v1/templates/coffee%20shop"],
     ["getModel", ["abc"], "GET", "/v1/projects/abc/model"],
   ] as const)("%s calls %s %s", async (method, args, verb, path) => {
     const service = new FakeService();

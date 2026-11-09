@@ -561,3 +561,47 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+/* Template cards that start a lesson, and the Build form (AKS-124). */
+.gallery .card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.gallery .card p {
+  margin: 0;
+}
+
+.gallery .card .secondary {
+  margin-top: auto;
+  align-self: flex-start;
+}
+
+.gallery {
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+}
+
+.build-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 44rem;
+}
+
+.build-form .choice input[type="radio"] {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.build-form .choice input:disabled + span {
+  color: var(--color-text-muted);
+}
+
+.build-second {
+  margin-left: var(--space-6);
+}
+
+.build-buttons {
+  margin-top: var(--space-3);
+}

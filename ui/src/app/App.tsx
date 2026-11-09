@@ -10,8 +10,10 @@ import { CanvasScreen } from "../canvas/CanvasScreen";
 import { ServiceProblem } from "../components/ServiceProblem";
 import { DataScreen } from "../data/DataScreen";
 import { ExperimentScreen } from "../experiment/ExperimentScreen";
+import { newLearning, useLearning } from "../learn/LearnContext";
 import { RunMonitor } from "../monitor/RunMonitor";
 import { ResultsScreen } from "../results/ResultsScreen";
+import { BuildForm } from "../screens/BuildForm";
 import { FirstStartNotice } from "../screens/FirstStartNotice";
 import { Home } from "../screens/Home";
 import { useSettings } from "../settings/SettingsContext";
@@ -21,12 +23,14 @@ import { cycleRegion } from "./regions";
 import { HOME, type Route, useRoute } from "./router";
 
 function screenTitle(route: Route): string {
+  if (route.screen === "build") return "Build a model";
   return NAV_ITEMS.find((item) => item.screen === route.screen)?.label ?? "Home";
 }
 
 export function App({ client }: { client: ApiClient }) {
   const [route, go] = useRoute();
   const { settings, save } = useSettings();
+  const { start: startLesson, exit: exitLesson } = useLearning();
   const [noticeOpen, setNoticeOpen] = useState(!settings.interface.first_start_seen);
   const [saveProblem, setSaveProblem] = useState<ApiResult<SettingsBody> | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -65,6 +69,12 @@ export function App({ client }: { client: ApiClient }) {
     go({ screen: "canvas", projectId: opened.id });
   };
 
+  /** A project the Build form made: the Data screen with data, else the Canvas (spec 4). */
+  const built = (made: Project, data: boolean) => {
+    setProject(made);
+    go({ screen: data ? "data" : "canvas", projectId: made.id });
+  };
+
   const continueFromNotice = async () => {
     setNoticeOpen(false);
     const result = await save({ interface: { ...settings.interface, first_start_seen: true } });
@@ -73,7 +83,7 @@ export function App({ client }: { client: ApiClient }) {
 
   const shownProject = route.projectId !== null && project?.id === route.projectId ? project : null;
   const title =
-    route.screen === "home" || route.screen === "settings"
+    route.screen === "home" || route.screen === "build" || route.screen === "settings"
       ? screenTitle(route)
       : (shownProject?.name ?? screenTitle(route));
 
@@ -92,7 +102,31 @@ export function App({ client }: { client: ApiClient }) {
         data-region="main"
         tabIndex={-1}
       >
-        {route.screen === "home" ? <Home client={client} onOpen={open} /> : null}
+        {route.screen === "home" ? (
+          <Home
+            client={client}
+            onOpen={(opened) => {
+              // An ordinary open shows the model without a lesson (spec 4).
+              exitLesson();
+              open(opened);
+            }}
+            onBuild={() => go({ screen: "build", projectId: null })}
+            onLesson={(made, template, lesson) => {
+              startLesson(newLearning(made.id, template, lesson));
+              open(made);
+            }}
+          />
+        ) : null}
+        {route.screen === "build" ? (
+          <BuildForm
+            client={client}
+            onCreated={(made, data) => {
+              exitLesson();
+              built(made, data);
+            }}
+            onBack={() => go(HOME)}
+          />
+        ) : null}
         {route.screen === "canvas" ? (
           <CanvasScreen client={client} project={shownProject} toolbar={tools} onGo={go} />
         ) : null}

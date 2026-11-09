@@ -38,6 +38,7 @@ import type {
   SystemInfo,
   TableRow,
   Template,
+  TemplateBody,
   ValidateBody,
 } from "./types";
 
@@ -264,6 +265,11 @@ export class ApiClient {
 
   listTemplates(): Promise<ApiResult<Template[]>> {
     return this.request("GET", "/v1/templates");
+  }
+
+  /** `GET /v1/templates/{tid}`: one template, its lesson's text and its expected values. */
+  getTemplate(tid: string): Promise<ApiResult<TemplateBody>> {
+    return this.request("GET", `/v1/templates/${encodeURIComponent(tid)}`);
   }
 
   getModel(pid: string): Promise<ApiResult<ModelBody>> {

@@ -30,6 +30,8 @@ import type { Edit, Issue, LinearConstraint, Model, Project, Variable } from "..
 import type { Route } from "../app/router";
 import { LOST_CONTACT, ServiceProblem } from "../components/ServiceProblem";
 import { useMounted } from "../components/useMounted";
+import { useLessonFor } from "../learn/LearnContext";
+import { StepCard } from "../learn/StepCard";
 import { BusyContext, lock, RevisionContext, useBusy } from "./busy";
 import { pointer, shown } from "./model";
 import { own } from "./own";
@@ -85,6 +87,18 @@ interface PlanContext {
   readOnly: boolean;
   marks: readonly Change[];
   edit(label: string, change: Build): void;
+  /** What a Learn step highlights: a decision's or a limit's id, or `objective` (AKS-124). */
+  learn: string | null;
+}
+
+/** The declared id a lesson step names: an expanded name `ship[north,city]` names `ship`. */
+function declared(name: string): string {
+  const at = name.indexOf("[");
+  return at < 0 ? name : name.slice(0, at);
+}
+
+function learnClass(ctx: PlanContext, id: string): string {
+  return ctx.learn !== null && declared(ctx.learn) === id ? " learn-target" : "";
 }
 
 const KINDS: readonly [string, string][] = [
@@ -330,7 +344,7 @@ function DecisionRow({ ctx, row }: { ctx: PlanContext; row: Row<Variable> }) {
   const kind = mark ? changeKind(mark) : null;
   return (
     <>
-      <tr className={`plan-row${kind ? ` mark-${kind}` : ""}`}>
+      <tr className={`plan-row${kind ? ` mark-${kind}` : ""}${learnClass(ctx, id)}`}>
         <td>
           <Cell
             ctx={ctx}
@@ -403,7 +417,7 @@ function Goal({ ctx }: { ctx: PlanContext }) {
   ];
   return (
     <section
-      className={`plan-section${mark ? ` mark-${changeKind(mark)}` : ""}`}
+      className={`plan-section${mark ? ` mark-${changeKind(mark)}` : ""}${learnClass(ctx, "objective")}`}
       aria-labelledby="goal-heading"
     >
       <h3 className="heading plan-heading" id="goal-heading">
@@ -538,7 +552,7 @@ function LimitRow({
   const kind = mark ? changeKind(mark) : null;
   return (
     <>
-      <tr className={`plan-row${kind ? ` mark-${kind}` : ""}`}>
+      <tr className={`plan-row${kind ? ` mark-${kind}` : ""}${learnClass(ctx, id)}`}>
         <td>
           <Cell
             ctx={ctx}
@@ -737,6 +751,22 @@ export function PlanScreen({
     () => marksOf({ baseline: state.baseline, model }),
     [state.baseline, model],
   );
+  // A Learn lesson on this project: the step card, and the row its step highlights.
+  const { learning } = useLessonFor(project.id);
+  const learnTarget = learning
+    ? (learning.lesson.steps[learning.step] ?? learning.lesson.exercise).component
+    : null;
+  const stepKey = learning ? `${learning.step}:${learnTarget}` : null;
+
+  // Each Learn step shows the Table view and scrolls its row into view.
+  useEffect(() => {
+    if (stepKey === null) return;
+    setView("table");
+    const frame = requestAnimationFrame(() =>
+      document.querySelector(".learn-target")?.scrollIntoView?.({ block: "nearest" }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [stepKey]);
 
   useEffect(() => {
     if (notice === null) return;
@@ -918,7 +948,22 @@ export function PlanScreen({
   );
 
   const indexed = isIndexed(model);
-  const ctx: PlanContext = { model, indexed, issues: state.issues, readOnly, marks, edit };
+  const ctx: PlanContext = {
+    model,
+    indexed,
+    issues: state.issues,
+    readOnly,
+    marks,
+    edit,
+    learn: learnTarget,
+  };
+  const present =
+    learnTarget === null ||
+    (declared(learnTarget) === "objective"
+      ? model.objective !== undefined
+      : [...variablesOf(model), ...constraintsOf(model)].some(
+          (row) => row.item.id === declared(learnTarget),
+        ));
   const views: ReactNode =
     view === "table" ? (
       <div className="plan-table-view">
@@ -934,7 +979,7 @@ export function PlanScreen({
     <BusyContext.Provider value={busy}>
       <RevisionContext.Provider value={state.revision}>
         <ReviewContext.Provider value={review}>
-          <div className="plan-screen" aria-busy={busy}>
+          <div className={`plan-screen${learning ? " plan-learning" : ""}`} aria-busy={busy}>
             {toolbar ? createPortal(tools, toolbar) : tools}
             <h1 className="visually-hidden">Canvas</h1>
             <div className="plan-centre">
@@ -1036,6 +1081,19 @@ export function PlanScreen({
                 onChoose={(issue) => open(issue.path)}
               />
             </div>
+            {learning ? (
+              <div className="side-column">
+                <StepCard
+                  learning={learning}
+                  model={model}
+                  state={state}
+                  session={session}
+                  present={present}
+                  what="part of the plan"
+                  onGo={onGo}
+                />
+              </div>
+            ) : null}
           </div>
         </ReviewContext.Provider>
       </RevisionContext.Provider>

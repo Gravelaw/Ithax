@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { SettingsBody } from "../api/types";
 import { ServiceProblem } from "../components/ServiceProblem";
+import { LearnProvider } from "../learn/LearnContext";
 import { applyPreferences } from "../settings/preferences";
 import { SettingsProvider } from "../settings/SettingsContext";
 import { App } from "./App";
@@ -55,7 +56,9 @@ export function Boot({ client, root }: { client: ApiClient; root: HTMLElement })
       initialIssues={loaded.data.issues}
       root={root}
     >
-      <App client={client} />
+      <LearnProvider>
+        <App client={client} />
+      </LearnProvider>
     </SettingsProvider>
   );
 }
