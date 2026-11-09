@@ -1,0 +1,17 @@
+{
+  "id": "warehouse_pick_pack",
+  "title": "Warehouse pick and pack",
+  "summary": "Orders are picked five to a cart by pickers who work in shifts, then packed one by one. See what batching costs, and what a thin night shift does to the wait.",
+  "audience": "Business",
+  "concepts": ["batching", "shifts", "schedules", "backlog", "utilization"],
+  "minutes": 20,
+  "experiment": "base",
+  "origin": "Written for this project: a pick-and-pack warehouse with carts of five orders and day and night shifts, a new model rather than an extension of examples/warehouse.json; answers from the batch wait (n - 1)/(2 lambda), the shift table and flow conservation (docs/research/spec-4-template-sources.md).",
+  "licence": "AGPL-3.0-only",
+  "exercise": {
+    "edits": [
+      {"edit": "set_setting", "id": "shifts", "path": "/shifts/0/capacity", "value": 2},
+      {"edit": "set_setting", "id": "shifts", "path": "/shifts/2/capacity", "value": 2}
+    ]
+  }
+}

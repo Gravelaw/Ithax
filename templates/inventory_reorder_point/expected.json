@@ -1,0 +1,22 @@
+[
+  {"metric": "stock.stock.mean", "value": 25.58818148315364, "method": "three_se", "source": "theory",
+   "reference": "Mean stock on hand (1/Q) sum over y of E[(y - D)+] = 25.588, by the (R, Q) policy with Poisson unit demand and a constant lead time L: the stock position is uniform on R + 1, ..., R + Q, and the net stock is the position less the lead-time demand D ~ Poisson(lambda L = 20) (Zipkin, Foundations of Inventory Management (2000), section 6.2; Axsater, Inventory Control (2015), section 5.3), R = 20, Q = 50"},
+  {"metric": "stock.stockouts", "value": 135.02968243596953, "method": "three_se", "source": "theory",
+   "reference": "Customers finding no stock (PASTA): lambda T (1/Q) sum over y of P(D >= y) = 4 a day x 950 days x 0.035534 = 135.03, by the (R, Q) policy with Poisson unit demand and a constant lead time L: the stock position is uniform on R + 1, ..., R + Q, and the net stock is the position less the lead-time demand D ~ Poisson(lambda L = 20) (Zipkin, Foundations of Inventory Management (2000), section 6.2; Axsater, Inventory Control (2015), section 5.3), R = 20, Q = 50"},
+  {"metric": "stock.orders", "value": 9.259259259259258e-07, "method": "three_se", "source": "theory",
+   "reference": "Every customer withdraws one unit, and an order follows every 50 withdrawals: demand rate / Q = (4 per 86,400 s)/50"},
+  {"metric": "sold.throughput", "value": 4.6296296296296294e-05, "method": "three_se", "source": "theory",
+   "reference": "Flow conservation: every customer is served in the end, so the sink passes the demand rate, 4 per 86,400 s"},
+  {"metric": "customers.created", "value": 3800.0, "method": "three_se", "source": "theory",
+   "reference": "Poisson arrivals at 4 a day over the measured period, length 1,000 d minus warmup 50 d = 950 d: 3,800"},
+  {"metric": "model.wip.mean", "value": 0.08818148315364027, "method": "three_se", "source": "theory",
+   "reference": "Mean customers waiting E[(D - y)+] averaged over the position = E[on hand] - E[net stock] = 25.588 - (R + (Q + 1)/2 - 20) = 0.088181, by the (R, Q) policy with Poisson unit demand and a constant lead time L: the stock position is uniform on R + 1, ..., R + Q, and the net stock is the position less the lead-time demand D ~ Poisson(lambda L = 20) (Zipkin, Foundations of Inventory Management (2000), section 6.2; Axsater, Inventory Control (2015), section 5.3), R = 20, Q = 50"},
+  {"metric": "sold.cycle_time.mean", "value": 1904.7200361186299, "method": "three_se", "source": "theory",
+   "reference": "Little's law on the waiting customers: 0.088181 / (4 per 86,400 s) = 1,904.7 s; a customer with stock waits 0 s"},
+  {"metric": "stock.stock.mean", "value": 35.5008300131725, "method": "three_se", "source": "theory", "run": "exercise",
+   "reference": "Mean stock on hand = 35.501, by the (R, Q) policy with Poisson unit demand and a constant lead time L: the stock position is uniform on R + 1, ..., R + Q, and the net stock is the position less the lead-time demand D ~ Poisson(lambda L = 20) (Zipkin, Foundations of Inventory Management (2000), section 6.2; Axsater, Inventory Control (2015), section 5.3), R = 30, Q = 50"},
+  {"metric": "stock.orders", "value": 9.259259259259258e-07, "method": "three_se", "source": "theory", "run": "exercise",
+   "reference": "Demand rate / Q, whatever the reorder point"},
+  {"metric": "stock.stockouts", "value": 1.2, "method": "three_se", "source": "recorded", "run": "exercise",
+   "reference": "Seed 12345, simpy adapter 0.0.0 with SimPy 4.1.2, 2026-11-09: 1.2 stock-outs in 950 days, down from 132.87 with R = 20; the theory, 2.4414, lies 3.65 standard errors away at this seed, since stock-outs are now rare and bunched, and 400 replications at seed 777 gave 2.505 plus or minus 0.296 (+0.42 standard errors)"}
+]

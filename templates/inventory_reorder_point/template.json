@@ -1,0 +1,14 @@
+{
+  "id": "inventory_reorder_point",
+  "title": "Inventory reorder point",
+  "summary": "A shop reorders a spare part when its stock falls to a reorder point. See how often customers find the shelf empty, and what safety stock buys.",
+  "audience": "Business",
+  "concepts": ["stock rules", "reorder point", "lead time", "stock-outs", "safety stock"],
+  "minutes": 15,
+  "experiment": "base",
+  "origin": "Written for this project: one store with a reorder point, an order quantity and a fixed lead time; answers from the (R, Q) policy with Poisson demand and flow conservation (docs/research/spec-4-template-sources.md).",
+  "licence": "AGPL-3.0-only",
+  "exercise": {
+    "edits": [{"edit": "set_setting", "id": "stock", "path": "/reorder_point", "value": 30}]
+  }
+}

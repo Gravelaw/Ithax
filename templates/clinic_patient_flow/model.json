@@ -1,0 +1,35 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Clinic patient flow",
+    "description": "Patients arrive every 5 min on average (exponential). Reception sends 3 in 5 to a check-up in one of 3 exam rooms and 2 in 5 to a dressing in one of 3 treatment rooms. Either visit takes 8 min on average (exponential) and needs one of the 2 nurses, a resource pool shared by both kinds of room. Each kind of room has at least as many places as there are nurses and both visits take the same time, so the nurses never idle while a patient waits and the clinic is an M/M/2 queue on its nurses: nurse utilization 0.8, mean wait 2,560/3 s (14.2 min), time in the clinic 4,000/3 s (22.2 min), 40/9 patients inside on average (Erlang C, Little's law). The run is 200 h long including 10 h of warm-up, so 190 h are measured."
+  },
+  "domain": "process",
+  "components": [
+    {"id": "patients", "type": "source",
+     "params": {"interarrival": {"dist": "exponential", "mean": "5 min"}}},
+    {"id": "reception", "type": "branch",
+     "params": {"routes": ["checkup", "dressing"], "rule": "probability",
+                "weights": {"checkup": 3, "dressing": 2}}},
+    {"id": "exam_rooms", "type": "server",
+     "params": {"capacity": 3, "pool": "nurses",
+                "service": {"dist": "exponential", "mean": "8 min"}}},
+    {"id": "treatment_rooms", "type": "server",
+     "params": {"capacity": 3, "pool": "nurses",
+                "service": {"dist": "exponential", "mean": "8 min"}}},
+    {"id": "nurses", "type": "resource_pool", "params": {"capacity": 2}},
+    {"id": "home", "type": "sink", "params": {}}
+  ],
+  "connections": [
+    {"from": "patients.out", "to": "reception.in"},
+    {"from": "reception.checkup", "to": "exam_rooms.in"},
+    {"from": "reception.dressing", "to": "treatment_rooms.in"},
+    {"from": "exam_rooms.out", "to": "home.in"},
+    {"from": "treatment_rooms.out", "to": "home.in"}
+  ],
+  "experiments": [
+    {"id": "base", "length": "200 h", "warmup": "10 h",
+     "replications": 30, "seed": 12345}
+  ],
+  "run": {"target": "local", "fidelity": "standard"}
+}
