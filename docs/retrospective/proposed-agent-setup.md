@@ -68,7 +68,7 @@ In both parallel runs one test failed: `tests/service/test_routes.py::test_every
 **Changes:**
 - Add `pytest-xdist` to the dev extra (diff under P9).
 - Change the pytest line of `scripts/check.sh` (diff under P2).
-- Fix the route test by sharing state between workers through files, the pattern pytest-xdist documents for session-scoped work: each worker appends the routes it reached to a file under `tmp_path_factory.getbasetemp().parent`, and the assertion reads all the files. The other way is to mark the test and its request tests `@pytest.mark.xdist_group("routes")` and run with `--dist loadgroup`. The shared file keeps the load balanced, so it is the better choice *(judgement)*.
+- Fix the route test by moving its check out of a test and into the controller's `pytest_sessionfinish`. Today `tests/service/conftest.py` only moves the test to the end of collection, which under xdist does not wait for the other workers. In the fix, each worker already writes its record in its own `pytest_sessionfinish` (the `route_recorder.write_record` hook exists), and the controller, which is the process without `config.workerinput`, runs after every worker has finished. It reads all the worker records, asserts that every endpoint row was reached, and sets a failing exit status if not. The other way is to mark the test and its request tests `@pytest.mark.xdist_group("routes")` and run with `--dist loadgroup`, which keeps them on one worker. The controller check keeps the load balanced, so it is the better choice *(judgement)*. Codex found the first draft of this fix incomplete on PR #60.
 - pytest-cov combines coverage from xdist workers by itself, so nothing else changes.
 
 ### P9. Tooling baseline
@@ -195,7 +195,7 @@ Exact diff to `pyproject.toml`:
 +"src/lcsim/files.py" = ["TID251"]
 ```
 
-**A conventions test** for the rules ruff cannot express. Proposed new file `tests/test_conventions.py`:
+**A conventions test** for the rules ruff cannot express. Proposed new file `tests/test_conventions.py`. It matches only the numeric pattern, so genuine boolean checks such as `service/settings_store.py:94` and `model/loading.py:394` (the `_show` renderer) are not flagged:
 
 ```python
 """House rules that ruff cannot express (docs/retrospective/proposed-agent-setup.md, P5)."""
@@ -207,17 +207,36 @@ SRC = Path(__file__).resolve().parent.parent / "src" / "lcsim"
 HELPERS = {SRC / "strict_json.py"}
 
 
-def _bool_checks(tree: ast.AST) -> list[int]:
-    """Lines that call isinstance(..., bool): the hand-written 'whole number' test."""
-    return [
-        node.lineno
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
+def _isinstance_of(node: ast.AST, name: str) -> bool:
+    """Whether ``node`` is ``isinstance(x, name)`` or ``isinstance(x, (..., name, ...))``."""
+    if not (
+        isinstance(node, ast.Call)
         and isinstance(node.func, ast.Name)
         and node.func.id == "isinstance"
         and len(node.args) == 2
-        and isinstance(node.args[1], ast.Name)
-        and node.args[1].id == "bool"
+    ):
+        return False
+    types = node.args[1]
+    options = types.elts if isinstance(types, ast.Tuple) else [types]
+    return any(isinstance(option, ast.Name) and option.id == name for option in options)
+
+
+def _whole_number_checks(tree: ast.AST) -> list[int]:
+    """Lines of ``isinstance(x, int) and not isinstance(x, bool)``: the hand-written
+    'JSON number, not a bool' test. A plain ``isinstance(x, bool)``, which validates or
+    renders a real boolean, is not matched."""
+    return [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.BoolOp)
+        and isinstance(node.op, ast.And)
+        and any(_isinstance_of(value, "int") for value in node.values)
+        and any(
+            isinstance(value, ast.UnaryOp)
+            and isinstance(value.op, ast.Not)
+            and _isinstance_of(value.operand, "bool")
+            for value in node.values
+        )
     ]
 
 
@@ -226,13 +245,15 @@ def test_whole_number_checks_go_through_strict_json() -> None:
         f"{path.relative_to(SRC)}:{line}"
         for path in sorted(SRC.rglob("*.py"))
         if path not in HELPERS
-        for line in _bool_checks(ast.parse(path.read_text(encoding="utf-8")))
+        for line in _whole_number_checks(ast.parse(path.read_text(encoding="utf-8")))
     ]
     assert not offenders, (
-        "Use lcsim.strict_json.is_whole or whole_in instead of isinstance(..., bool): "
-        + ", ".join(offenders)
+        "Use lcsim.strict_json.is_whole or whole_in instead of "
+        "isinstance(..., int) and not isinstance(..., bool): " + ", ".join(offenders)
     )
 ```
+
+**Tried on 2026-11-09** against `f36a6f5`, from outside the repository. It flags 4 sites: `mcp/tools.py:82`, `model/schema.py:212`, `model/streams.py:67` and `service/discovery.py:81`. Hand-written variants of other shapes, such as an early `if isinstance(value, bool): return` before an integer check, are not matched. So the test is a backstop for the common shape, and the step 1 migration still has to find the rest by review.
 
 **Risk.** Low. Each rule fails with a message that names the fix. The migration in step 1 must come first, or the lint gate fails on existing code.
 
