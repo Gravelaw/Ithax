@@ -1,0 +1,17 @@
+[
+  {
+    "metric": "objective",
+    "value": 9.0,
+    "method": "sig_figs_4",
+    "source": "theory",
+    "reference": "Each pattern works 5 of the 7 days, so adding the seven cover limits gives 5 x (people hired) >= 6 + 5 + 5 + 5 + 7 + 8 + 8 = 44 person-days, so at least 8.8 people (the linear programme's dual with a price of 1/5 on every day; Hillier and Lieberman, Introduction to Operations Research, chapter 6); whole people make it at least 9, and the rota wed_sun 3, thu_mon 1, fri_tue 3, sat_wed 1, sun_thu 1 (9 people) meets every day (Sunday has one to spare), so 9 is the optimum"
+  },
+  {
+    "metric": "objective",
+    "value": 8.8,
+    "method": "sig_figs_4",
+    "source": "theory",
+    "run": "exercise",
+    "reference": "Each pattern works 5 of the 7 days, so adding the seven cover limits gives 5 x (people hired) >= 6 + 5 + 5 + 5 + 7 + 8 + 8 = 44 person-days, so at least 8.8 people (the linear programme's dual with a price of 1/5 on every day; Hillier and Lieberman, Introduction to Operations Research, chapter 6); with fractions allowed the rota mon_fri 0.4, tue_sat 0.4, wed_sun 2.4, thu_mon 1.4, fri_tue 2.4, sat_wed 1.4, sun_thu 0.4 (8.8 people) meets every day exactly, so 8.8 is the optimum"
+  }
+]

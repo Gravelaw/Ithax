@@ -1,0 +1,26 @@
+{
+  "id": "how_many_machines",
+  "title": "How many machines?",
+  "summary": "A coffee shop can open one to five tills. Let a search try each number with repeated runs and pick the one that cuts the wait most while keeping every till busy enough.",
+  "audience": "Both",
+  "concepts": [
+    "simulation-based optimization",
+    "search",
+    "objective and constraint",
+    "confirmation runs",
+    "Erlang C"
+  ],
+  "minutes": 20,
+  "experiment": "base",
+  "origin": "Written for this project: the coffee shop (spec 1's example) with tills searched, as spec 2's machine-count benchmark (benchmarks/machine_count), with answers from Erlang C (docs/research/spec-4-template-sources.md).",
+  "licence": "AGPL-3.0-only",
+  "exercise": {
+    "edits": [
+      {
+        "edit": "set_path",
+        "path": "/constraints/0/value",
+        "value": 0.2
+      }
+    ]
+  }
+}

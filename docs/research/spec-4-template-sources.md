@@ -49,16 +49,16 @@ own content, so its licence is the product's, `AGPL-3.0-only`.
 | Clinic patient flow (`clinic_patient_flow`) | Written for the project: patients every 5 min, a branch sending 3 in 5 to 3 exam rooms and 2 in 5 to 3 treatment rooms, every 8 min visit needing one of 2 nurses (a `resource_pool`) | Nurse utilization λE(S)/c = 0.8 (benchmark `resource_pool`); M/M/2 on the nurses: cycle time 4,000/3 s, WIP 40/9 (Erlang C, Little); room utilizations 0.32 and 0.2133 (branch split, benchmark `branch`'s rule); throughput 1/300 per s; 2,280 arrivals. Exercise, 3 nurses: M/M/3, utilization 8/15, cycle time 573.87 s, WIP 1.9129. Per-room waits: `recorded` | AKS-139 |
 | Warehouse pick and pack (`warehouse_pick_pack`) | Written for the project, fresh rather than extending `examples/warehouse.json` (see below): orders every minute onto carts of 5, pickers on day and night shifts, a 3 min transfer, unloading and packing | Cart wait (n − 1)/(2λ) = 120 s (benchmark `batch_unbatch`); scheduled fraction 7/9 from the shift table; throughput 1/60 per s and packer utilization 0.5 by flow conservation over whole days; 11,520 arrivals. Exercise, 2 pickers overnight: scheduled fraction 8/9. Pickers' utilization and waits: `recorded` | AKS-139 |
 | Inventory reorder point (`inventory_reorder_point`) | Written for the project: a shop selling a spare part, 4 a day at random, reordering 50 at a reorder point of 20 with a 5-day lead time | The (R, Q) policy with Poisson demand (Zipkin 6.2; Axsäter 5.3): stock mean 25.588, stock-outs 135.03 in 950 days, waiting customers 0.088181, cycle time 1,904.7 s; orders λ/Q; throughput λ; 3,800 arrivals. Exercise, reorder point 30: stock mean 35.501 (theory); stock-outs `recorded` (theory 2.4414, too rare for 30 replications) | AKS-139 |
-| Product mix (`product_mix`) | Spec 2's product mix (chairs and tables), written for the project by the review council; the idea of a two-product LP is Hillier and Lieberman's prototype, but no number or wording of theirs is used | Optimum 24 chairs, 14 tables, profit 2,200, by vertex enumeration (benchmark `product_mix`) | AKS-140 |
+| Product mix (`product_mix`) | Spec 2's product mix (chairs and tables), written for the project by the review council; the idea of a two-product LP is Hillier and Lieberman's prototype, but no number or wording of theirs is used | Optimum 24 chairs, 14 tables, profit 2,200, by vertex enumeration (benchmark `product_mix`). Exercise, the table's profit 100: the same plan, 2,480, by dual prices 2.6 and 3.2 | AKS-140 |
 | Transport plan (`transport_plan`) | Written for the project with the indexed layout: three depots (supply 300, 200, 250 crates) to four customers (demand 180, 220, 150, 170), a cost per crate on each route; PuLP's MIT-licensed beer distribution problem was the fallback and is not used | Optimum 2,690, proved by an LP duality certificate (below; benchmark `transport`, spec 2), not by enumeration: enumerating basic solutions would mean solving linear systems, which guide rule 7 forbids in product or test code. Exercise, centre's supply 210: 2,660 by the same certificate | AKS-123 |
-| Staff rota (`staff_rota`) | To be written for the project: staff on five-consecutive-day patterns covering daily needs (the classic pattern of Winston's post office problem; the idea only, not its numbers) | Optimum verified by enumeration (small enough to list every pattern count) | AKS-140 |
-| How many machines? (`how_many_machines`) | The coffee shop with `tills` searched, as `benchmarks/machine_count` (spec 2) | Erlang C: best `tills` 2, wait 162/11 s at utilization 0.375 (benchmark `machine_count`) | AKS-140 |
+| Staff rota (`staff_rota`) | Written for the project with the indexed layout: a shop open seven days needing 6, 5, 5, 5, 7, 8 and 8 staff from Monday, seven patterns of five days in a row then two off, whole people per pattern (the classic pattern of Winston's post office problem; the idea only, not its numbers) | Optimum 9 by a counting bound and a rota that meets it (below), not by enumeration as first proposed: the bound is shorter to check and proves the exercise's 8.8 as well. Exercise, fractions allowed: 8.8 | AKS-140 |
+| How many machines? (`how_many_machines`) | The coffee shop with `tills` searched, as `benchmarks/machine_count` (spec 2) | Erlang C: best `tills` 2, wait 162/11 s at utilization 0.375 (benchmark `machine_count`). Exercise, the utilization limit 0.2: best 3, wait 30/17 s at 0.25 | AKS-140 |
 
 The ids above are proposed for the later tickets, which may refine the problems; the
 licence rule does not change: written for the project, `AGPL-3.0-only`, or a source whose
 licence permits reuse, recorded in `template.json`.
 
-**The answers of the templates**, recomputed (AKS-122 for the first three, AKS-139 for the next three, AKS-123 for the transport plan):
+**The answers of the templates**, recomputed (AKS-122 for the first three, AKS-139 for the next three, AKS-123 for the transport plan, AKS-140 for the last three):
 
 - Coffee shop: λ = 1/120 per s, E(S) = 90 s, ρ = 0.75. E(W) = (ρ/μ)/(1 − ρ) = 270 s;
   E(Lq) = ρ²/(1 − ρ) = 2.25; E(T) = 360 s; Little: L = λE(T) = 3.0. The experiment's
@@ -137,6 +137,38 @@ licence permits reuse, recorded in `template.json`.
   (ed.), *Activity Analysis of Production and Allocation* (1951); the duality theorem as in
   F. S. Hillier and G. J. Lieberman, *Introduction to Operations Research*, chapter 6. Only
   the theorems are used; the numbers and the story are the project's.
+- Product mix: maximize 45c + 80t subject to 5c + 20t ≤ 400 (wood), 10c + 15t ≤ 450
+  (labour), c, t ≥ 0. The corners of the feasible region are (0, 0), (0, 20), (45, 0) and
+  (24, 14), with profits 0, 1,600, 2,025 and 2,200 (spec 2's benchmark; the best of a
+  linear programme lies at a corner). The exercise raises the table's profit to 100:
+  (24, 14) stays optimal while the goal (45, p) is a non-negative combination of the two
+  limits' rows, y₁(5, 20) + y₂(10, 15), that is y₁ = (10p − 675)/125 ≥ 0 and
+  y₂ = (900 − 5p)/125 ≥ 0, so for p from 67.5 to 180. At p = 100, y = (2.6, 3.2), and the
+  dual value 400 × 2.6 + 450 × 3.2 = 2,480 equals 45 × 24 + 100 × 14, so the plan is
+  optimal (weak duality); both prices are positive, so every optimum uses up both limits
+  (complementary slackness), whose two equations have the one solution (24, 14): unique.
+- Staff rota: patterns p (start day s, working days s to s + 4, modulo 7), x_p ≥ 0 whole,
+  minimize Σ x_p subject to Σ_{p works d} x_p ≥ n_d for each day d, with n = (6, 5, 5, 5,
+  7, 8, 8) from Monday. Each pattern works exactly 5 days, so adding the seven limits gives
+  5 Σ x_p ≥ Σ n_d = 44, so Σ x_p ≥ 8.8 (the dual solution y_d = 1/5 for every day:
+  Σ_{d in p} y_d = 1 for every pattern, value 44/5). Whole people give Σ x_p ≥ 9. The rota
+  wed_sun 3, thu_mon 1, fri_tue 3, sat_wed 1, sun_thu 1 covers Monday to Sunday with 6, 5,
+  5, 5, 7, 8 and 9 people, every need met (Sunday one over), so 9 is optimal. Allowing
+  fractions (the exercise), the rota mon_fri 0.4, tue_sat 0.4, wed_sun 2.4, thu_mon 1.4,
+  fri_tue 2.4, sat_wed 1.4, sun_thu 0.4 covers every day exactly, 8.8 people, equal to the
+  bound, so 8.8 is optimal. Neither optimum need be unique in its values, so only the
+  objective is an expected value. The needs were chosen so that the linear programme's
+  optimum is the counting bound itself (they are the coverage of the fractional rota
+  above) and the integer optimum is that bound rounded up; for other needs the
+  five-in-seven linear programme can need more than Σ n_d/5 (with needs 4, 5, 5, 6, 7, 9
+  and 8 HiGHS gives 9⅓, and 10 whole people), which a lesson for business users would have
+  to explain without a short proof. This is a calculator check (sums over the model's own
+  tables, `tests/templates/test_templates.py`); nothing is solved (guide rule 7).
+- How many machines?: the machine-count benchmark's model and search (spec 2): λ = 1/120
+  per s, E(S) = 90 s, utilization 0.75/c and the Erlang C wait 270 s, 162/11 s, 30/17 s,
+  0.21217 s and 0.023271 s for c = 1 to 5. With the limit utilization ≥ 0.35 only 1 and 2
+  tills are allowed and 2 waits less: best 2. With 0.2 (the exercise) 1 to 3 are allowed
+  (4 tills give 0.1875): best 3, Π_W = 3/68, E(W) = Π_W/(3/90 − 1/120 per s) = 30/17 s.
 
 ## Sources
 
@@ -174,7 +206,10 @@ licence permits reuse, recorded in `template.json`.
   AKS-139, AKS-123 and AKS-140; AKS-139 kept its three ids and wrote the problems above
   (owner to confirm), AKS-123 kept `transport_plan` and wrote its problem with an optimum
   proved by LP duality rather than "published" elsewhere, since the problem is the
-  project's own (owner to confirm), and the other three remain proposals for AKS-140.
+  project's own (owner to confirm), and AKS-140 kept the last three ids and wrote their
+  problems (product mix and how many machines as spec 2's benchmarks with a name and a
+  description; the staff rota with its optimum proved by a counting bound rather than by
+  enumeration, owner to confirm).
 
 ## Tested
 
@@ -207,3 +242,13 @@ route at exactly 0. `tests/benchmarks/test_transport_certificate.py` checks the 
 feasibility, the dual feasibility, the equal objective values and the positive reduced
 costs from `benchmarks/transport`'s own files, in integers; `tests/templates/test_templates.py`
 judges the template's and the exercise's rows.
+
+AKS-140 wrote the product mix, the staff rota and "How many machines?" on 2026-11-09 and
+ran each, and its exercise, through the template test. HiGHS 1.15.1 gives the product mix
+2,200 at 24.000000000000004 chairs and 13.999999999999998 tables, and 2,480 at the same
+plan in the exercise; the staff rota 9 (at the rota of 9 above) and 8.799999999999999 in
+the exercise (at the fractional rota above). "How many machines?" at seed 12345 (30
+replications, 10 a candidate at the search stage, the exhaustive path) finds 2 tills, wait
+14.572 s (−0.67 standard errors from 162/11 s) at utilization 0.37431 (−0.61 from 0.375),
+and in the exercise 3 tills, wait 1.7227 s (−0.66 from 30/17 s) at 0.24955 (−0.60 from
+0.25).

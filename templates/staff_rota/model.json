@@ -1,0 +1,153 @@
+{
+  "format_version": "0.2",
+  "meta": {
+    "name": "Staff rota",
+    "description": "A shop open seven days a week needs 6 staff on Monday, 5 from Tuesday to Thursday, 7 on Friday and 8 on Saturday and Sunday. Each person works five days in a row and then has two days off, on one of seven patterns (mon_fri works Monday to Friday, tue_sat Tuesday to Saturday, and so on). The decision staff is the number of people on each pattern, a whole number; the limit cover repeats for each day. Minimizing the people hired gives 9: the week needs 44 person-days, each person gives 5, so at least 8.8 people, and whole people make that 9, which a rota meets."
+  },
+  "domain": "optimization",
+  "sets": {
+    "patterns": [
+      "mon_fri",
+      "tue_sat",
+      "wed_sun",
+      "thu_mon",
+      "fri_tue",
+      "sat_wed",
+      "sun_thu"
+    ],
+    "days": [
+      "mon",
+      "tue",
+      "wed",
+      "thu",
+      "fri",
+      "sat",
+      "sun"
+    ]
+  },
+  "tables": {
+    "works": {
+      "over": [
+        "patterns",
+        "days"
+      ],
+      "values": {
+        "mon_fri": {
+          "mon": 1,
+          "tue": 1,
+          "wed": 1,
+          "thu": 1,
+          "fri": 1,
+          "sat": 0,
+          "sun": 0
+        },
+        "tue_sat": {
+          "mon": 0,
+          "tue": 1,
+          "wed": 1,
+          "thu": 1,
+          "fri": 1,
+          "sat": 1,
+          "sun": 0
+        },
+        "wed_sun": {
+          "mon": 0,
+          "tue": 0,
+          "wed": 1,
+          "thu": 1,
+          "fri": 1,
+          "sat": 1,
+          "sun": 1
+        },
+        "thu_mon": {
+          "mon": 1,
+          "tue": 0,
+          "wed": 0,
+          "thu": 1,
+          "fri": 1,
+          "sat": 1,
+          "sun": 1
+        },
+        "fri_tue": {
+          "mon": 1,
+          "tue": 1,
+          "wed": 0,
+          "thu": 0,
+          "fri": 1,
+          "sat": 1,
+          "sun": 1
+        },
+        "sat_wed": {
+          "mon": 1,
+          "tue": 1,
+          "wed": 1,
+          "thu": 0,
+          "fri": 0,
+          "sat": 1,
+          "sun": 1
+        },
+        "sun_thu": {
+          "mon": 1,
+          "tue": 1,
+          "wed": 1,
+          "thu": 1,
+          "fri": 0,
+          "sat": 0,
+          "sun": 1
+        }
+      }
+    },
+    "need": {
+      "over": [
+        "days"
+      ],
+      "values": {
+        "mon": 6,
+        "tue": 5,
+        "wed": 5,
+        "thu": 5,
+        "fri": 7,
+        "sat": 8,
+        "sun": 8
+      }
+    }
+  },
+  "variables": [
+    {
+      "id": "staff",
+      "type": "integer",
+      "lower": 0,
+      "over": [
+        "patterns"
+      ]
+    }
+  ],
+  "objective": {
+    "sense": "minimize",
+    "terms": [
+      {
+        "variable": "staff"
+      }
+    ]
+  },
+  "constraints": [
+    {
+      "id": "cover",
+      "for": [
+        "days"
+      ],
+      "terms": [
+        {
+          "variable": "staff",
+          "coefficient": {
+            "$table": "works"
+          }
+        }
+      ],
+      "op": ">=",
+      "rhs": {
+        "$table": "need"
+      }
+    }
+  ]
+}

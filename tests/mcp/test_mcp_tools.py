@@ -211,12 +211,15 @@ def test_list_templates_returns_the_installed_templates(
         assert {
             "clinic_patient_flow",
             "coffee_shop",
+            "how_many_machines",
             "inventory_reorder_point",
             "machine_breakdowns",
+            "product_mix",
+            "staff_rota",
             "three_machine_line",
             "transport_plan",
             "warehouse_pick_pack",
-        } <= {item["id"] for item in listed}
+        } == {item["id"] for item in listed}
         assert all({"id", "title", "summary"} <= set(item) for item in listed)
 
     run(check, client)
