@@ -749,7 +749,11 @@ describe("the properties panel", () => {
     expect(within(toolbar).getByRole("button", { name: /^Undo: clear server_1/ })).toBeEnabled();
   });
 
-  it("edits a branch's routes and weights, a pool reference and a schedule's shifts", async () => {
+  // Many user events through three property panels: near the default 5 s on a loaded
+  // machine, so it timed out on CI (PR #50) and locally while the Python gate ran.
+  it("edits a branch's routes and weights, a pool reference and a schedule's shifts", {
+    timeout: 20_000,
+  }, async () => {
     const model = coffeeShop();
     model.components?.push(
       { id: "split", type: "branch", params: { rule: "probability" }, ui: { x: 0, y: 200 } },
