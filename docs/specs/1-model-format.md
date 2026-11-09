@@ -1,6 +1,6 @@
 # Spec 1: Model Format and Engine Contract
 
-> Version 1.1 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 1.2 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 A model is one JSON file that passes a published schema. Every engine is a plugin that implements the same five functions. The interface, the engines and any AI assistant all work through these two contracts.
 
@@ -538,6 +538,6 @@ Complete these and record the findings, with sources, in a short note in the rep
 
 - 2026-11-08, findings in the run summary and user-adjustable thresholds (AKS-135), found while building `src/lcsim/service/finding_settings.py`: "Validation issues" adds W220, a finding threshold in `settings.json` that cannot be used (spec 3 "Service rules"), whose default is then used; the sentence on run and service codes says a service code's `path` points into the request or, for W220, into `settings.json`. A warning, not an error, since nothing is refused but the value: the summary is still answered (owner to confirm).
 
-Since version 1.1, during the M9 build:
+2026-11-08, version 1.2, M9 closed (AKS-121); the lines below were added after version 1.1, during the M9 build:
 
 - 2026-11-08, settings endpoint (AKS-119): "Validation issues" says `GET /v1/settings` also lists W220 issues (spec 3 "Endpoints"). A `PUT /v1/settings` value that cannot be used is refused as E184 at its place in the request, since the request is malformed; W220 stays the code for a value read from the file. Owner to confirm.

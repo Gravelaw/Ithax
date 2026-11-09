@@ -1,6 +1,6 @@
 # Spec 4: Content, Learning and AI Access
 
-> Version 0.5 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.6 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 This spec covers what makes the tool usable by non-experts: ready-made templates, lessons, findings in plain language, and an MCP server so any assistant can build and run models.
 
@@ -205,7 +205,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 | Every template reproduces its expected values, with at least one `theory` or `benchmark` source | M10 | agent |  |
 | A first-time user completes one Learn walkthrough without outside help (one outside tester; fallback as in spec 3) | M10 | owner |  |
 | Each finding rule fires on its `_fires` fixture and is silent on its `_silent` fixture | M8 | agent | `tests/findings`; end to end through the service, `tests/service/test_summary_findings.py` (AKS-135) |
-| A Build-mode user without data reaches a completed run changing only parameters | M9/M10 | agent via the end-to-end test |  |
+| A Build-mode user without data reaches a completed run changing only parameters | M9/M10 | agent via the end-to-end test | Asserted at M10 close, when the Build-mode form exists. At M9, `ui/e2e/pointer-only.spec.ts` reaches a completed run of the coffee shop by pointer, without data, from a new project (spec 3 acceptance, AKS-121) |
 | The scripted MCP case passes | M7 | agent | `tests/mcp/test_coffee_shop_scripted.py` |
 | A real-assistant transcript meets the acceptance case | M7 | owner, or agent if an MCP-capable assistant is available | `docs/research/spec-4-mcp-trial-<date>.md`; met by the agent in `docs/research/spec-4-mcp-trial-2026-11-08.md` |
 | No MCP tool reads or writes outside the project folder | M7 | agent | `tests/mcp/test_mcp_confinement.py` |
@@ -231,6 +231,7 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-08, finding rules and their fixtures (AKS-117), from the research note `docs/research/spec-4-findings-wording.md` and while building `src/lcsim/findings/` and `tests/findings/`: "Finding rules" replaces the coffee shop's half-width of 4.8% with the measured 3.7% (seed 12345, its own 200 h experiment; M7's 210 h run gave 3.4%) and the prototype's three-machine-line check (0.90, half-width 26%) with the M8 measurement (weld 0.901, wait half-width 13.3%, so `bottleneck` and `not_enough_runs` fire, and neither fires for the coffee shop); says the fixtures are finished runs made by `tests/findings/make_fixtures.py`; updates the example finding to the three-machine line's; and adds "How the rules read this table" (input and order, severity, thresholds, ties, "of the time it was available", `unstable` per W201 server with `scenario` null, `idle_capacity` among servers without a schedule on them or their pool, the key metrics, floors, widest metric and largest n_required, the pair form, the optimization wordings, display units; after the review of PR #42, a search's sense is that of the objective its `search` names). "Findings in plain language" says idle capacity is a server's, as the detailed table does. The warning line says the thresholds were checked on two models; the "Detailed specification" opening line says the finding rules are built. All owner to confirm.
 - 2026-11-08, findings in the run summary and `get_results`, user-adjustable thresholds (AKS-135), while wiring `lcsim.findings` into the service and the MCP server: "Finding rules" says where the thresholds come from (`finding_thresholds` in `settings.json`, spec 3, read at each summary, W220 for a value that cannot be used) and that M8 repeated the two-model check end to end through the service with the same values; the Thresholds reading says the service refuses an out-of-range value as W220 before the rules see it; "MCP tools" gives `get_results` the output `{summary, findings, issues, tables}`, and its description's worked example is now the three-machine line with its two findings; the acceptance table's M8 row names the end-to-end test; the warning line and the "Detailed specification" opening line say the findings reach the summary and `get_results`. All owner to confirm.
 
-Since version 0.5, during the M9 build:
+2026-11-08, version 0.6, M9 closed (AKS-121); the lines below were added after version 0.5, during the M9 build:
 
 - 2026-11-08, the run's engine (AKS-138): `get_run_status`'s output names `engine`, the manifest's `{name, version}`, which spec 3 added to a run as the run endpoints show it for the Results footer; the tool's description and example say so. Owner to confirm.
+- 2026-11-08, M9 closed (AKS-121): the acceptance table's M9/M10 row says it is asserted at M10 close, since the Build-mode form arrives at M10, and names the M9 pointer-only end-to-end test, which reaches a completed run without data. Version 0.6.
