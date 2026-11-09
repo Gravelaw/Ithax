@@ -1,0 +1,42 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Product mix"
+  },
+  "domain": "optimization",
+  "variables": [
+    {
+      "id": "chairs",
+      "type": "continuous",
+      "lower": 0
+    },
+    {
+      "id": "tables",
+      "type": "continuous",
+      "lower": 0
+    }
+  ],
+  "objective": {
+    "sense": "maximize",
+    "linear": {
+      "chairs": 45,
+      "tables": 80
+    }
+  },
+  "constraints": [
+    {
+      "id": "wood",
+      "op": "<=",
+      "rhs": 400
+    },
+    {
+      "id": "labour",
+      "linear": {
+        "chairs": 10,
+        "tables": 15
+      },
+      "op": "<=",
+      "rhs": 450
+    }
+  ]
+}

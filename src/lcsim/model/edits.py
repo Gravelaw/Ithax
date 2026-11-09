@@ -107,7 +107,7 @@ _NEW_EXPERIMENT = {"length": "8 h", "warmup": "0 s", "replications": 30}
 # The top-level keys `set_path` and `remove_path` reach, and those they reach only in an
 # `optimization` model; `/experiments/<n>/search` is reached too.
 _REACHED = ("meta", "run", "objectives", "constraints")
-_REACHED_OPTIMIZATION = ("variables", "objective")
+_REACHED_OPTIMIZATION = ("variables", "objective", "sets", "tables")
 
 _INDEX = re.compile(r"0|[1-9][0-9]*")
 _ESCAPE = re.compile(r"~(?![01])")
@@ -495,9 +495,9 @@ def _reach(model: Model, path: str) -> list[str]:
     assert segments is not None  # check_edits checked the pointer
     if not _reached(model, segments):
         extra = (
-            ", and in an optimization model /variables and /objective"
+            ", and in an optimization model /variables, /objective, /sets and /tables"
             if model.get("domain") != "optimization"
-            else ", /variables and /objective"
+            else ", /variables, /objective, /sets and /tables"
         )
         raise _Rejected(
             f"The path '{path}' is not one set_path and remove_path may change.",

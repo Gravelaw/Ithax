@@ -274,3 +274,48 @@ def test_collect_returns_no_tables_and_no_warnings(tmp_path: Path) -> None:
     solved(PRODUCT_MIX, tmp_path)
     results = HighsAdapter().collect(tmp_path)
     assert results.tables == {} and results.warnings == []
+
+
+# --- an indexed model (AKS-123) ----------------------------------------------------------------
+
+TRANSPORT_FILE = Path(__file__).resolve().parents[3] / "benchmarks" / "transport" / "model.json"
+
+
+def transport() -> dict[str, Any]:
+    loaded: dict[str, Any] = json.loads(TRANSPORT_FILE.read_text(encoding="utf-8"))
+    return loaded
+
+
+def test_translate_writes_an_indexed_model_expanded_into_the_flat_layout(tmp_path: Path) -> None:
+    """Spec 2 "Indexed problems": the adapter sees the flat layout, so its input file holds
+    the twelve routes and the seven limits by their expanded names; no sets or tables."""
+    write_input(load(transport()), tmp_path)
+    document = json.loads((tmp_path / INPUT_FILE).read_text(encoding="utf-8"))
+    assert set(document) == {"variables", "objective", "constraints"}
+    assert [item["id"] for item in document["variables"]][:2] == [
+        "ship[north,city]",
+        "ship[north,harbour]",
+    ]
+    assert len(document["variables"]) == 12
+    assert document["constraints"][0] == {
+        "id": "supply[north]",
+        "linear": {
+            "ship[north,city]": 1.0,
+            "ship[north,harbour]": 1.0,
+            "ship[north,park]": 1.0,
+            "ship[north,market]": 1.0,
+        },
+        "op": "<=",
+        "rhs": 300.0,
+    }
+    assert read_input(tmp_path) == load(transport()).program
+
+
+def test_an_indexed_model_solves_to_the_benchmark_plan_by_expanded_names(tmp_path: Path) -> None:
+    solution = solved(transport(), tmp_path)
+    assert solution["status"] == "optimal"
+    assert solution["objective"] == pytest.approx(2690)
+    assert solution["variables"]["ship[north,city]"] == pytest.approx(180)
+    assert solution["variables"]["ship[centre,harbour]"] == pytest.approx(200)
+    assert solution["constraints"]["supply[north]"] == {"tight": False, "slack": pytest.approx(30)}
+    assert solution["constraints"]["supply[centre]"]["tight"]

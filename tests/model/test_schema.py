@@ -52,10 +52,12 @@ TOP_LEVEL_KEYS = [
     "constraints",
     "variables",
     "objective",
+    "sets",
+    "tables",
     "run",
 ]
 PROCESS_ONLY = ["components", "connections", "experiments", "objectives"]
-OPTIMIZATION_ONLY = ["variables", "objective"]
+OPTIMIZATION_ONLY = ["variables", "objective", "sets", "tables"]
 
 
 def coffee() -> dict[str, Any]:
@@ -119,9 +121,12 @@ def test_model_schema_returns_a_fresh_copy() -> None:
     assert list(model_schema()["properties"]) == TOP_LEVEL_KEYS
 
 
-def test_format_version_is_the_spec_1_example_version() -> None:
-    assert FORMAT_VERSION == "0.1"
-    assert COFFEE_SHOP["format_version"] == FORMAT_VERSION
+def test_the_reader_is_0_2_and_opens_the_spec_1_example_of_0_1() -> None:
+    """Spec 1 "Versioning": the reader is 0.2 since AKS-123 (a minor, additive change), so
+    the 0.1 example still opens."""
+    assert FORMAT_VERSION == "0.2"
+    assert COFFEE_SHOP["format_version"] == "0.1"
+    assert schema_pass(COFFEE_SHOP) == []
 
 
 # --- files that pass ---------------------------------------------------------------------
@@ -552,7 +557,7 @@ def test_unknown_top_level_key_hint_lists_the_keys_of_the_model_domain() -> None
     issue = only(schema_pass(document))
     assert issue.hint == (
         "Remove 'notes' or correct its spelling. The keys allowed here are: format_version, "
-        "meta, domain, parameters, constraints, variables, objective, run."
+        "meta, domain, parameters, constraints, variables, objective, sets, tables, run."
     )
 
 
@@ -743,11 +748,11 @@ def test_unknown_major_version(version: str) -> None:
         None,
     )
     assert issue.message == (
-        f"'format_version' is '{version}', but this program reads format versions 0.0 to 0.1."
+        f"'format_version' is '{version}', but this program reads format versions 0.0 to 0.2."
     )
 
 
-@pytest.mark.parametrize("version", ["0.2", "0.10", "0.99"])
+@pytest.mark.parametrize("version", ["0.3", "0.10", "0.99"])
 def test_minor_version_above_the_reader(version: str) -> None:
     document = coffee()
     document["format_version"] = version
@@ -773,7 +778,7 @@ def test_version_not_of_the_form_major_minor(version: str) -> None:
     issue = only(schema_pass(document))
     assert (issue.code, issue.path) == ("E101", "/format_version")
     assert issue.message == (
-        f"'format_version' is '{version}', which is not of the form MAJOR.MINOR, such as '0.1'."
+        f"'format_version' is '{version}', which is not of the form MAJOR.MINOR, such as '0.2'."
     )
 
 

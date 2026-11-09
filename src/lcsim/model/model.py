@@ -27,6 +27,10 @@ __all__ = [
     "Distribution",
     "Endpoint",
     "Experiment",
+    "IndexedConstraint",
+    "IndexedObjective",
+    "IndexedProgram",
+    "IndexedVariable",
     "JsonValue",
     "LinearConstraint",
     "LinearObjective",
@@ -44,6 +48,9 @@ __all__ = [
     "Scenario",
     "Search",
     "SettingValue",
+    "Table",
+    "TableRef",
+    "Term",
     "Variable",
 ]
 
@@ -255,6 +262,80 @@ class LinearProgram:
 
 
 @dataclass(frozen=True)
+class TableRef:
+    """A ``{"$table": "id"}`` reference to the table ``table`` (spec 1 "Indexed
+    optimization", format 0.2)."""
+
+    table: str
+
+
+@dataclass(frozen=True)
+class Table:
+    """A table of an indexed ``optimization`` model: one plain number per combination of
+    members of the sets ``over``, keyed by the members in the order of ``over`` (the empty
+    tuple for a table over no sets)."""
+
+    over: tuple[str, ...]
+    values: Mapping[tuple[str, ...], int | float]
+
+
+@dataclass(frozen=True)
+class Term:
+    """A term of an indexed objective or constraint: ``variable`` times ``coefficient``,
+    summed over the variable's sets that the constraint's ``for`` does not name."""
+
+    variable: str
+    coefficient: int | float | TableRef
+
+
+@dataclass(frozen=True)
+class IndexedVariable:
+    """A variable as the file declares it: one variable per combination of members of the
+    sets ``over`` (one variable, keeping its id, when ``over`` is empty)."""
+
+    id: str
+    type: Literal["continuous", "integer", "binary"]
+    lower: int | float | None
+    upper: int | float | None
+    over: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class IndexedObjective:
+    """The objective as the file declares it: ``linear`` coefficients and ``terms``."""
+
+    sense: Sense
+    linear: Mapping[str, int | float]
+    terms: tuple[Term, ...]
+
+
+@dataclass(frozen=True)
+class IndexedConstraint:
+    """A constraint as the file declares it: one per combination of members of the sets
+    ``over`` (the file's ``for``), each the sum of ``linear`` and ``terms`` ``op`` ``rhs``."""
+
+    id: str
+    over: tuple[str, ...]
+    linear: Mapping[str, int | float]
+    terms: tuple[Term, ...]
+    op: Literal["<=", ">=", "=="]
+    rhs: int | float | TableRef
+
+
+@dataclass(frozen=True)
+class IndexedProgram:
+    """The ``optimization`` domain's content as the file declares it, before expansion
+    (spec 2 "Indexed problems"). A model without sets has empty ``sets`` and ``tables``
+    and declarations equal to its flat program's."""
+
+    sets: Mapping[str, tuple[str, ...]]
+    tables: Mapping[str, Table]
+    variables: tuple[IndexedVariable, ...]
+    objective: IndexedObjective
+    constraints: tuple[IndexedConstraint, ...]
+
+
+@dataclass(frozen=True)
 class RunSettings:
     """The ``run`` object, defaults ``local`` and ``standard`` filled.
 
@@ -282,8 +363,11 @@ class Model:
     """A loaded model file.
 
     A ``process`` model has ``components``, ``connections``, ``experiments`` and optional
-    ``objectives`` and ``constraints``, and ``program`` is ``None``. An ``optimization``
-    model has ``program`` and empty process fields.
+    ``objectives`` and ``constraints``, and ``program`` and ``declared`` are ``None``. An
+    ``optimization`` model has ``declared``, its program as the file writes it (sets,
+    tables, indexed variables and constraints), ``program``, the same written out in the
+    flat layout that the adapter solves (spec 2 "Indexed problems"), and empty process
+    fields.
     """
 
     format_version: str
@@ -297,6 +381,7 @@ class Model:
     constraints: tuple[MetricConstraint, ...]
     program: LinearProgram | None
     run: RunSettings
+    declared: IndexedProgram | None = None
 
     def component(self, component_id: str) -> Component | None:
         """The component with id ``component_id``, or ``None``."""

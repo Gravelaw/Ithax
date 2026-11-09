@@ -10,7 +10,9 @@
  * Experiment screen sets its `base` experiment; Run starts it, the Run monitor follows it
  * and Results shows it. Then:
  *
- * - the saved model (`GET .../model`) equals `examples/coffee_shop.json` except `ui`;
+ * - the saved model (`GET .../model`) equals `examples/coffee_shop.json` except `ui` and
+ *   `format_version` (a new project is written at the reader's 0.2 since AKS-123; the
+ *   example is 0.1);
  * - `till.wait.mean` from the run's summary is within 3 standard errors of 270 s at the
  *   example's seed, 12345, with 30 repeat runs of 200 h (spec 2's pass rule; the standard
  *   error is the half-width divided by the t quantile the summary used);
@@ -225,9 +227,12 @@ test("the coffee shop is built, run and viewed by pointer, through documented ro
   await expect(page.getByRole("textbox", { name: "Repeat runs" })).toHaveValue("30");
   await enter(page, "Seed", "12345");
 
-  // The saved model is the example's, except `ui`.
+  // The saved model is the example's, except `ui` and `format_version`: a new project is
+  // written at the reader's version, 0.2 since AKS-123, and the example is 0.1.
   const stored = (await service.api("GET", `/v1/projects/${pid}/model`)).body as { model: Model };
-  expect(withoutUi(stored.model)).toEqual(withoutUi(example));
+  expect(stored.model.format_version).toBe("0.2");
+  expect(example.format_version).toBe("0.1");
+  expect(withoutUi({ ...stored.model, format_version: "0.1" })).toEqual(withoutUi(example));
 
   // Run from the Canvas, follow it on the Run monitor, then Results.
   await rail(page, "Canvas").click();

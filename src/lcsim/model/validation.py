@@ -83,6 +83,7 @@ from lcsim.model.model import (
     Distribution,
     Endpoint,
     Experiment,
+    IndexedProgram,
     Model,
     ParameterValue,
     ParamRef,
@@ -284,24 +285,64 @@ def identifier_issues(model: Model) -> list[Issue]:
         ),
         "each objective needs its own id",
     )
+    declared = model.declared
     constraints = (
-        [item.id for item in model.program.constraints]
-        if model.program is not None
+        [item.id for item in declared.constraints]
+        if declared is not None
         else [item.id for item in model.constraints]
     )
     issues += _identifier_list(
         _numbered(constraints, ("constraints",), "constraint", "constraint"),
         "each constraint needs its own id",
     )
-    if model.program is not None:
+    if declared is not None:
+        # Declared ids, not the expanded names (`ship[north,city]`), which are no
+        # identifiers (spec 2 "Indexed problems").
         issues += _identifier_list(
             _numbered(
-                [item.id for item in model.program.variables],
+                [item.id for item in declared.variables],
                 ("variables",),
                 "variable",
                 "variable",
             ),
             "each variable needs its own id",
+        )
+        issues += _index_identifier_issues(declared)
+    return issues
+
+
+def _index_identifier_issues(declared: IndexedProgram) -> list[Issue]:
+    """E111 for a set or table id or a set member that is not an identifier, and E110 for a
+    member repeated in one set (spec 1 "Identifiers"; AKS-123). Set and table ids are
+    object keys, so a repeat is already E100."""
+    issues = _identifier_list(
+        [
+            _Entry(name, ("sets", name), None, "The id of a set", f"set {name}")
+            for name in declared.sets
+        ],
+        "each set needs its own id",
+    )
+    issues += _identifier_list(
+        [
+            _Entry(name, ("tables", name), None, "The id of a table", f"table {name}")
+            for name in declared.tables
+        ],
+        "each table needs its own id",
+    )
+    for name, members in declared.sets.items():
+        issues += _identifier_list(
+            [
+                _Entry(
+                    member,
+                    ("sets", name, position),
+                    None,
+                    f"Member {position + 1} of the set {_quote(name)}",
+                    f"member {position + 1}",
+                )
+                for position, member in enumerate(members)
+            ],
+            f"each member of the set {_quote(name)} must differ",
+            hint="Remove the repeated member, or rename it.",
         )
     return issues
 
@@ -2162,16 +2203,19 @@ def program_issues(model: Model) -> list[Issue]:
     order: the objective's first, then each constraint's. A ``process`` model has none.
     """
     program = model.program
-    if program is None:
+    declared = model.declared
+    if program is None or declared is None:
         return []
+    # A `linear` key names a variable of the flat program: an expanded name for an indexed
+    # variable (spec 2 "Indexed problems"); paths point into the declared constraints.
     ids = [variable.id for variable in program.variables]
     known = set(ids)
     owners: list[tuple[tuple[Segment, ...], str, Mapping[str, int | float]]] = [
-        (("objective",), "the objective", program.objective.linear)
+        (("objective",), "the objective", declared.objective.linear)
     ]
     owners += [
         (("constraints", index), f"constraint {_quote(constraint.id)}", constraint.linear)
-        for index, constraint in enumerate(program.constraints)
+        for index, constraint in enumerate(declared.constraints)
     ]
     issues: list[Issue] = []
     for at, owner, linear in owners:

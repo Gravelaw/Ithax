@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "lcsim model file, format version 0.1",
-  "description": "Spec 1 'Validation': checks only the top-level keys, the JSON type of each top-level value, and that every component, connection, parameter and experiment entry is an object with its required keys of the right JSON type. Unknown keys are an error except inside a component's 'ui' object. Identifiers are plain strings; quantities, plain numbers and enumerated values (such as 'type', 'sense', 'op', 'target' and 'fidelity') take any JSON value here, so that the meaning pass reports them with their specific codes. Component settings ('params') are a plain object.",
+  "title": "lcsim model file, format version 0.2",
+  "description": "Spec 1 'Validation': checks only the top-level keys, the JSON type of each top-level value, and that every component, connection, parameter and experiment entry is an object with its required keys of the right JSON type. Unknown keys are an error except inside a component's 'ui' object. Identifiers are plain strings; quantities, plain numbers and enumerated values (such as 'type', 'sense', 'op', 'target' and 'fidelity') take any JSON value here, so that the meaning pass reports them with their specific codes. Component settings ('params') are a plain object. Format 0.2 adds the indexed optimization keys 'sets', 'tables', a variable's 'over', a constraint's 'for' and 'terms' in a constraint or the objective; an optimization constraint or objective needs 'linear' or 'terms' (checked beside this schema, as are the 0.2 keys in a file of an older minor).",
   "type": "object",
   "required": ["format_version", "meta", "domain"],
   "additionalProperties": false,
@@ -20,6 +20,11 @@
     "constraints": {"type": "array"},
     "variables": {"type": "array", "items": {"$ref": "#/$defs/variable"}},
     "objective": {"$ref": "#/$defs/linear_objective"},
+    "sets": {
+      "type": "object",
+      "additionalProperties": {"type": "array", "items": {"type": "string"}}
+    },
+    "tables": {"type": "object", "additionalProperties": {"$ref": "#/$defs/table"}},
     "run": {"$ref": "#/$defs/run"}
   },
   "allOf": [
@@ -30,7 +35,9 @@
         "properties": {
           "constraints": {"items": {"$ref": "#/$defs/metric_constraint"}},
           "variables": {"not": {}},
-          "objective": {"not": {}}
+          "objective": {"not": {}},
+          "sets": {"not": {}},
+          "tables": {"not": {}}
         }
       }
     },
@@ -158,27 +165,51 @@
         "id": {"type": "string"},
         "type": {},
         "lower": {},
-        "upper": {}
+        "upper": {},
+        "over": {"$ref": "#/$defs/set_ids"}
       }
     },
     "linear_objective": {
       "type": "object",
-      "required": ["sense", "linear"],
+      "required": ["sense"],
       "additionalProperties": false,
       "properties": {
         "sense": {},
-        "linear": {"type": "object"}
+        "linear": {"type": "object"},
+        "terms": {"$ref": "#/$defs/terms"}
       }
     },
     "linear_constraint": {
       "type": "object",
-      "required": ["id", "linear", "op", "rhs"],
+      "required": ["id", "op", "rhs"],
       "additionalProperties": false,
       "properties": {
         "id": {"type": "string"},
+        "for": {"$ref": "#/$defs/set_ids"},
         "linear": {"type": "object"},
+        "terms": {"$ref": "#/$defs/terms"},
         "op": {},
         "rhs": {}
+      }
+    },
+    "set_ids": {"type": "array", "items": {"type": "string"}},
+    "terms": {"type": "array", "items": {"$ref": "#/$defs/term"}},
+    "term": {
+      "type": "object",
+      "required": ["variable"],
+      "additionalProperties": false,
+      "properties": {
+        "variable": {"type": "string"},
+        "coefficient": {}
+      }
+    },
+    "table": {
+      "type": "object",
+      "required": ["over", "values"],
+      "additionalProperties": false,
+      "properties": {
+        "over": {"$ref": "#/$defs/set_ids"},
+        "values": {}
       }
     },
     "run": {

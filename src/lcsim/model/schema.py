@@ -15,7 +15,9 @@ to the meaning pass, so that it reports its specific codes.
   "Versioning"; the version rules and migrations are ``lcsim.model.migration``). A file of
   another version may follow another schema, so nothing else is reported for it.
 - E100 for each schema problem: a wrong JSON type, a missing required key, an unknown key,
-  or a key that belongs to the other domain.
+  or a key that belongs to the other domain. Two rules sit beside the schema (AKS-123): an
+  ``optimization`` constraint or objective needs ``linear`` or ``terms``, and a key that
+  format 0.2 added (the indexed optimization keys) is an error in a file of an older minor.
 
 Messages are written here, in plain language, and name the key and the component; the
 validator's own messages are never shown (research note ``spec-1-schema-and-units.md``).
@@ -35,7 +37,7 @@ from typing import Any
 from jsonschema import Draft202012Validator, ValidationError
 
 from lcsim.model.issues import Issue, pointer
-from lcsim.model.migration import FORMAT_VERSION, version_issue
+from lcsim.model.migration import FORMAT_VERSION, parse_version, version_issue
 
 __all__ = ["FORMAT_VERSION", "model_schema", "schema_pass"]
 
@@ -111,7 +113,92 @@ def schema_pass(document: object) -> list[Issue]:
         if error.validator != "not" and any(at[: len(key)] == key for key in misplaced):
             continue
         issues.update(dict.fromkeys(_issues_from_error(error, document)))
+    if isinstance(document, dict):
+        taken = {issue.path for issue in issues}
+        for issue in [*_linear_or_terms(document), *_newer_keys(document)]:
+            at = issue.path.split("/")[1:]
+            if issue.path in taken or any(
+                at[: len(key)] == list(map(str, key)) for key in misplaced
+            ):
+                continue
+            issues[issue] = None
     return sorted(issues, key=lambda issue: _sort_key(issue.path))
+
+
+# --- rules beside the schema (AKS-123) --------------------------------------------------------
+
+# The minor version that added the indexed optimization keys (spec 1 "Versioning").
+_INDEXED_MINOR = "2"
+
+
+def _holders(document: Mapping[str, Any]) -> list[tuple[list[Segment], Mapping[str, Any]]]:
+    """The objective and each constraint of an ``optimization`` model that are objects."""
+    if document.get("domain") != "optimization":
+        return []
+    found: list[tuple[list[Segment], Mapping[str, Any]]] = []
+    objective = document.get("objective")
+    if isinstance(objective, dict):
+        found.append((["objective"], objective))
+    constraints = document.get("constraints")
+    if isinstance(constraints, list):
+        found += [
+            (["constraints", index], item)
+            for index, item in enumerate(constraints)
+            if isinstance(item, dict)
+        ]
+    return found
+
+
+def _linear_or_terms(document: Mapping[str, Any]) -> list[Issue]:
+    """E100 for an ``optimization`` constraint or objective with neither ``linear`` nor
+    ``terms`` (spec 1 "Top-level keys"): ``linear`` is reported missing, as before 0.2."""
+    issues: list[Issue] = []
+    for at, holder in _holders(document):
+        if "linear" in holder or "terms" in holder:
+            continue
+        where = _describe(at, document, capital=True)
+        place = _describe(at, document, capital=False)
+        issues.append(
+            _issue(
+                [*at, "linear"],
+                document,
+                f"{where} is missing the required key 'linear'.",
+                f"Add 'linear' (or, in format 0.2, 'terms') to {place}.",
+            )
+        )
+    return issues
+
+
+def _newer_keys(document: Mapping[str, Any]) -> list[Issue]:
+    """E100 for each key of format 0.2 in a file whose minor is older (spec 1
+    "Versioning"): a reader of that minor would not know it."""
+    version = document.get("format_version")
+    parsed = parse_version(version) if isinstance(version, str) else None
+    if parsed is None or parsed[0] != "0" or (len(parsed[1]), parsed[1]) >= (1, _INDEXED_MINOR):
+        return []
+    places: list[list[Segment]] = [[key] for key in ("sets", "tables") if key in document]
+    for at, holder in _holders(document):
+        places += [[*at, key] for key in ("for", "terms") if key in holder]
+    variables = document.get("variables")
+    if document.get("domain") == "optimization" and isinstance(variables, list):
+        places += [
+            ["variables", index, "over"]
+            for index, item in enumerate(variables)
+            if isinstance(item, dict) and "over" in item
+        ]
+    issues: list[Issue] = []
+    for at in places:
+        key = str(at[-1])
+        issues.append(
+            _issue(
+                at,
+                document,
+                f"The key '{key}' arrived in format version 0.{_INDEXED_MINOR}, but this file is "
+                f"format version {version}, which has no '{key}'.",
+                f"Set 'format_version' to \"0.{_INDEXED_MINOR}\", or remove '{key}'.",
+            )
+        )
+    return issues
 
 
 # Integers longer than this many bits (about 4,200 decimal digits) are replaced before
