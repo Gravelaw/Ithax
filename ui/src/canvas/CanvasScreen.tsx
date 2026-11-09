@@ -60,6 +60,8 @@ import type { ComponentType, Edit, Issue, Model, Project, SchemaBody } from "../
 import type { Route } from "../app/router";
 import { LOST_CONTACT, ServiceProblem } from "../components/ServiceProblem";
 import { useMounted } from "../components/useMounted";
+import { useLessonFor } from "../learn/LearnContext";
+import { StepCard } from "../learn/StepCard";
 import { useSettings } from "../settings/SettingsContext";
 import {
   type BlockData,
@@ -240,6 +242,7 @@ function buildNodes(
   locked: boolean,
   renamed: Readonly<Record<string, string>>,
   marks: ReturnType<typeof blockMarks>,
+  learn: { id: string; tag: string } | null,
 ): CanvasNode[] {
   // A renamed block keeps its selection and size under its new id.
   const before = new Map(previous.map((node) => [own<string>(renamed, node.id) ?? node.id, node]));
@@ -270,6 +273,7 @@ function buildNodes(
     };
     const mark = marks.live.get(component.id);
     if (mark) data.review = mark;
+    if (learn?.id === component.id) data.learn = learn.tag;
     const old = before.get(component.id);
     const node: BlockNodeType = {
       id: component.id,
@@ -493,18 +497,31 @@ function ProcessCanvas({
   const marked = useMemo(() => blockMarks(marks), [marks]);
   const [dismissed, setDismissed] = useState(0);
   const [openReview, setOpenReview] = useState(0);
+  // A Learn lesson on this project: the step card, and the block its step highlights.
+  const { learning } = useLessonFor(project.id);
+  const lessonStep = learning
+    ? (learning.lesson.steps[learning.step] ?? learning.lesson.exercise)
+    : null;
+  const learnTarget = lessonStep?.component ?? null;
+  const learnTag = learning
+    ? `Step ${learning.step + 1} of ${learning.lesson.steps.length + 1}`
+    : "";
+  const learn = useMemo(
+    () => (learnTarget === null ? null : { id: learnTarget, tag: learnTag }),
+    [learnTarget, learnTag],
+  );
 
   // The drawing follows the model, the issues, the review marks and the selection.
   useEffect(() => {
     const want = wanted.current;
     setNodes((previous) =>
-      buildNodes(model, types, state.issues, previous, want, locked, state.renamed, marked),
+      buildNodes(model, types, state.issues, previous, want, locked, state.renamed, marked, learn),
     );
     setEdges((previous) => buildEdges(model, types, previous, want !== null, marked));
     if (want?.every((id) => components(model).some((item) => item.id === id))) {
       wanted.current = null;
     }
-  }, [model, types, state.issues, locked, state.renamed, marked]);
+  }, [model, types, state.issues, locked, state.renamed, marked, learn]);
 
   // "N changes to review" opens the list in the side panel and moves the focus to it.
   useEffect(() => {
@@ -912,6 +929,26 @@ function ProcessCanvas({
     }
   };
 
+  // Each Learn step selects its block and centres the view on it, once it is drawn.
+  const centred = useRef<string | null>(null);
+  const stepKey = learning ? `${learning.step}:${learnTarget}` : null;
+  const targetNode = nodes.find((node) => node.id === learnTarget);
+  const targetReady = targetNode?.measured !== undefined;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: centreOn reads the latest nodes
+  useEffect(() => {
+    if (stepKey === null) {
+      centred.current = null;
+      return;
+    }
+    if (learnTarget === null || !targetReady || centred.current === stepKey) return;
+    // After the opening fit, which is queued for the same frame.
+    const frame = requestAnimationFrame(() => {
+      centred.current = stepKey;
+      centreOn(learnTarget);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [stepKey, learnTarget, targetReady]);
+
   const chooseProblem = (issue: Issue, component: string | null) => {
     if (component !== null && components(model).some((item) => item.id === component)) {
       centreOn(component);
@@ -1056,6 +1093,19 @@ function ProcessCanvas({
   );
 
   const refusal = state.refusal !== shownLocally.current ? state.refusal : null;
+  const panel = (
+    <SidePanel
+      client={client}
+      model={model}
+      selection={selection}
+      types={types}
+      issues={state.issues}
+      readOnly={readOnly}
+      actions={actions}
+      marks={marks}
+      onShowChange={showChange}
+    />
+  );
 
   return (
     <BusyContext.Provider value={busy}>
@@ -1150,17 +1200,22 @@ function ProcessCanvas({
                 onChoose={chooseProblem}
               />
             </div>
-            <SidePanel
-              client={client}
-              model={model}
-              selection={selection}
-              types={types}
-              issues={state.issues}
-              readOnly={readOnly}
-              actions={actions}
-              marks={marks}
-              onShowChange={showChange}
-            />
+            {learning ? (
+              <div className="side-column">
+                <StepCard
+                  learning={learning}
+                  model={model}
+                  state={state}
+                  session={session}
+                  present={components(model).some((item) => item.id === learnTarget)}
+                  what="block"
+                  onGo={onGo}
+                />
+                {panel}
+              </div>
+            ) : (
+              panel
+            )}
             {deleting !== null ? (
               <DeleteDialog
                 plan={deleting}
