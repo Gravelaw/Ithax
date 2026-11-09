@@ -200,10 +200,18 @@ def test_each_tool_calls_the_endpoint_spec_4_names(name: str, folders: tuple[Pat
 # --- the read tools against the real service ---------------------------------------------------
 
 
-def test_list_templates_returns_the_empty_library(client: ServiceClient) -> None:
+def test_list_templates_returns_the_installed_templates(
+    client: ServiceClient, http: httpx2.Client
+) -> None:
     async def check(mcp_client: Client) -> None:
         result = await mcp_client.call_tool("list_templates", {})
-        assert not result.is_error and payload(result) == []
+        assert not result.is_error
+        listed = payload(result)
+        assert listed == http.get("/v1/templates").json()
+        assert {"coffee_shop", "three_machine_line", "machine_breakdowns"} <= {
+            item["id"] for item in listed
+        }
+        assert all({"id", "title", "summary"} <= set(item) for item in listed)
 
     run(check, client)
 

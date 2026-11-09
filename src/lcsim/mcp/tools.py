@@ -287,12 +287,20 @@ LIST_TEMPLATES = ToolSpec(
     name="list_templates",
     summary=(
         "List the ready-made templates a new project can start from (GET /v1/templates). "
-        "Returns an array of template.json objects, each with at least id, title and "
-        "summary. An empty array is a normal answer: no templates are installed yet."
+        "Returns an array of every installed template's template.json, in id order, each "
+        "with id, title, summary, audience, concepts, minutes, experiment (the experiment "
+        "its lesson runs; null for an optimization model), origin, licence and exercise. "
+        "Start a project from one with create_model and its id as template_id. An empty "
+        "array means no template is installed."
     ),
     inputs=(),
     example_arguments={},
-    example_result="[]",
+    example_result=(
+        '[{"id": "coffee_shop", "title": "Coffee shop queue", "summary": "Customers arrive '
+        'at random at a coffee shop with one till. ...", "audience": "Students", "concepts": '
+        '["arrivals", "service", "waiting", ...], "minutes": 15, "experiment": "base", ...}, '
+        '{"id": "machine_breakdowns", ...}, {"id": "three_machine_line", ...}]'
+    ),
     calls=_get("/v1/templates"),
 )
 
@@ -467,7 +475,10 @@ CREATE_MODEL = ToolSpec(
     summary=(
         "Start a new project and its model (POST /v1/projects), from nothing or from a "
         "template (template_id, an id list_templates gives). Returns the new project as "
-        "list_projects lists it; its id is the project_id the other tools take. Without a "
+        "list_projects lists it; its id is the project_id the other tools take. With a "
+        "template the model is a copy of the template's, named after the project, with its "
+        "components, parameters and experiments; leave domain out, since the template sets "
+        "it (a different domain is refused, E184). Without a "
         "template the model is empty: no components and one experiment, base (length 8 h, "
         "warmup 0 s, 30 replications); an experiment's length includes the warmup, so "
         "results are measured over length minus warmup. domain is 'process' (the default, "

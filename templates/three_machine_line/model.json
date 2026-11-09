@@ -1,0 +1,39 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Three-machine line",
+    "description": "Parts are cut, wait in a buffer of 10 places, are welded, moved on a 2 min transfer, then painted (examples/three_machine_line.json with the buffer added). Parts arrive 30 per hour (exponential, mean 2 min); cut 1.2 min, weld 1.8 min and paint 1 min, exponential. The weld station takes parts only from the buffer, which blocks cut when it is full. Every station passes 30 per hour, so utilization = arrival rate x mean service time: weld 0.90, paint 0.50; cut's includes the time it is blocked. The run is 100 h long including 20 h of warm-up, so 80 h are measured."
+  },
+  "domain": "process",
+  "components": [
+    {"id": "arrivals", "type": "source",
+     "params": {"interarrival": {"dist": "exponential", "mean": "2 min"}}},
+    {"id": "cut", "type": "server",
+     "params": {"capacity": 1,
+                "service": {"dist": "exponential", "mean": "1.2 min"}}},
+    {"id": "buffer", "type": "queue",
+     "params": {"capacity": 10}},
+    {"id": "weld", "type": "server",
+     "params": {"capacity": 1, "queue_capacity": 0,
+                "service": {"dist": "exponential", "mean": "1.8 min"}}},
+    {"id": "transfer", "type": "delay",
+     "params": {"time": {"dist": "constant", "value": "2 min"}}},
+    {"id": "paint", "type": "server",
+     "params": {"capacity": 1,
+                "service": {"dist": "exponential", "mean": "1 min"}}},
+    {"id": "exit", "type": "sink", "params": {}}
+  ],
+  "connections": [
+    {"from": "arrivals.out", "to": "cut.in"},
+    {"from": "cut.out", "to": "buffer.in"},
+    {"from": "buffer.out", "to": "weld.in"},
+    {"from": "weld.out", "to": "transfer.in"},
+    {"from": "transfer.out", "to": "paint.in"},
+    {"from": "paint.out", "to": "exit.in"}
+  ],
+  "experiments": [
+    {"id": "base", "length": "100 h", "warmup": "20 h",
+     "replications": 30, "seed": 12345}
+  ],
+  "run": {"target": "local", "fidelity": "standard"}
+}

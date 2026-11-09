@@ -320,7 +320,9 @@ def test_a_service_json_whose_service_is_gone_starts_a_new_one(
     write_service_file(folders[0], ServiceInfo(closed_port(), "x" * 43, 1, "2026-11-08T00:00:00Z"))
     client = ServiceClient(*folders)
     try:
-        assert client.request("GET", "/v1/templates") == Answer(200, [])
+        answer = client.request("GET", "/v1/templates")
+        assert answer.status == 200 and isinstance(answer.body, list)
+        assert "coffee_shop" in [item["id"] for item in answer.body]
         info = read_service_file(folders[0])
         assert client.started is not None and info is not None and info.pid == client.started.pid
     finally:

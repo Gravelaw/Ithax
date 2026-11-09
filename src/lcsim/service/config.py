@@ -29,6 +29,7 @@ __all__ = [
     "ServiceConfig",
     "default_config_dir",
     "default_data_dir",
+    "default_templates_dir",
     "default_ui_dir",
     "new_token",
 ]
@@ -127,6 +128,14 @@ def default_ui_dir() -> Path:
     return Path(__file__).resolve().parents[3] / "ui" / "dist"
 
 
+def default_templates_dir() -> Path:
+    """The template packages the service serves by default: ``templates`` beside the
+    package's source folder, which a source checkout has. An installed package has no such
+    folder, so it serves no template until packaging (M11) names the installed one, as for
+    ``default_ui_dir`` (AKS-122, owner to confirm)."""
+    return Path(__file__).resolve().parents[3] / "templates"
+
+
 @dataclass(frozen=True)
 class ServiceConfig:
     """What one service instance needs; ``config_dir`` and ``data_dir`` are made
@@ -134,6 +143,8 @@ class ServiceConfig:
 
     ``port`` is the port the service listens on, for the ``Host`` check; ``token`` the
     bearer token. ``ui_dir`` is the built interface served at ``/v1/ui/`` (``None``: none).
+    ``templates_dir`` holds the template packages served at ``/v1/templates`` (``None``:
+    none; AKS-122).
     ``allowed_origins`` are WebSocket ``Origin`` values let through besides the
     interface's own, ``http://127.0.0.1:<port>`` and ``http://localhost:<port>`` (AKS-119;
     the desktop shell's is added at M11). ``idle_timeout_s`` is the lifetime's
@@ -147,6 +158,7 @@ class ServiceConfig:
     port: int
     token: str
     ui_dir: Path | None = None
+    templates_dir: Path | None = None
     allowed_origins: frozenset[str] = frozenset()
     idle_timeout_s: float = DEFAULT_IDLE_TIMEOUT_S
     idle_check_s: float = 10.0
@@ -163,6 +175,8 @@ class ServiceConfig:
         object.__setattr__(self, "data_dir", canonical(self.data_dir))
         if self.ui_dir is not None:
             object.__setattr__(self, "ui_dir", canonical(self.ui_dir))
+        if self.templates_dir is not None:
+            object.__setattr__(self, "templates_dir", canonical(self.templates_dir))
         if not 0 < self.port < 65536:
             raise ValueError(f"port {self.port!r} is not from 1 to 65535")
         if not self.token:

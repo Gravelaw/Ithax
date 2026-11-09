@@ -1,0 +1,14 @@
+{
+  "id": "three_machine_line",
+  "title": "Three-machine production line",
+  "summary": "Parts are cut, welded and painted. Find the bottleneck, and see what the buffer in front of it does for the station before it.",
+  "audience": "Both",
+  "concepts": ["bottlenecks", "buffers", "blocking", "utilization"],
+  "minutes": 20,
+  "experiment": "base",
+  "origin": "Written for this project: the three-machine line example (examples/three_machine_line.json, written at M1) with a buffer of 10 places in front of the weld station; answers from flow conservation and utilization = arrival rate x mean service time (docs/research/spec-4-template-sources.md).",
+  "licence": "AGPL-3.0-only",
+  "exercise": {
+    "edits": [{"edit": "set_setting", "id": "buffer", "path": "/capacity", "value": 3}]
+  }
+}

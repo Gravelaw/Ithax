@@ -1,0 +1,20 @@
+[
+  {"metric": "machine.availability", "value": 0.9, "method": "three_se", "source": "benchmark",
+   "reference": "benchmarks/failure: availability of an alternating renewal process MTTF/(MTTF + MTTR), here 5,400 s / (5,400 s + 600 s) = 0.9 (spec 2 failure case; Wikipedia, \"Availability\")"},
+  {"metric": "machine.utilization", "value": 0.5555555555555556, "method": "three_se", "source": "theory",
+   "reference": "Utilization over available time (spec 2): work arrives at lambda E(S) = 120 s / 240 s = 0.5 of calendar time and is done only while available (preempt-resume keeps a suspended job's work), so 0.5 / 0.9 = 5/9"},
+  {"metric": "exit.throughput", "value": 0.004166666666666667, "method": "three_se", "source": "theory",
+   "reference": "Flow conservation: a stable server with an unlimited queue loses no job, so it passes the arrival rate, 1/240 per s"},
+  {"metric": "arrivals.created", "value": 2850.0, "method": "three_se", "source": "theory",
+   "reference": "Poisson arrivals at 1/240 per s over the measured period, length 200 h minus warmup 10 h = 190 h = 684,000 s: 2,850"},
+  {"metric": "machine.wait.mean", "value": 308.8, "method": "three_se", "source": "recorded",
+   "reference": "Seed 12345, simpy adapter 0.0.0 with SimPy 4.1.2, 2026-11-09: 308.78 s (120 s with no breakdowns, M/M/1 at rho = 0.5)"},
+  {"metric": "exit.cycle_time.mean", "value": 442.8, "method": "three_se", "source": "recorded",
+   "reference": "Seed 12345, simpy adapter 0.0.0 with SimPy 4.1.2, 2026-11-09: 442.76 s"},
+  {"metric": "machine.availability", "value": 0.9473684210526315, "method": "three_se", "source": "theory", "run": "exercise",
+   "reference": "MTTF/(MTTF + MTTR) = 5,400 s / (5,400 s + 300 s) = 18/19"},
+  {"metric": "machine.utilization", "value": 0.5277777777777778, "method": "three_se", "source": "theory", "run": "exercise",
+   "reference": "Utilization over available time 0.5 / (18/19) = 19/36"},
+  {"metric": "machine.wait.mean", "value": 176.3, "method": "three_se", "source": "recorded", "run": "exercise",
+   "reference": "Seed 12345, simpy adapter 0.0.0 with SimPy 4.1.2, 2026-11-09: 176.29 s, down from 308.78 s with 10 min repairs"}
+]

@@ -1,7 +1,7 @@
 /**
  * Home (spec 3 "Screens" 1; `docs/design/flows.md` "Shared start" step 4;
  * `docs/design/wireframes/02-home.svg` and `02c-new-project.svg`): the Learn and Build
- * entries, the template gallery (`GET /v1/templates`, empty until M10), recent projects
+ * entries, the template gallery (`GET /v1/templates`, served since AKS-122), recent projects
  * (`GET /v1/projects`), "New empty project" and "Open a project folder".
  *
  * Readings (AKS-119, `docs/DECISIONS.md`): recent projects are listed newest registered

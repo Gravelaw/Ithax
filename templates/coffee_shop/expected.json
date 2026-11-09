@@ -1,0 +1,22 @@
+[
+  {"metric": "till.wait.mean", "value": 270.0, "method": "three_se", "source": "theory",
+   "reference": "M/M/1 mean wait E(W) = (rho/mu)/(1 - rho), rho = 0.75, 1/mu = 90 s: 270 s; Adan and Resing, Queueing Systems (2015), section 4.3"},
+  {"metric": "till.queue_length.mean", "value": 2.25, "method": "three_se", "source": "theory",
+   "reference": "M/M/1 mean queue length E(Lq) = rho^2/(1 - rho) = 2.25; Adan and Resing, Queueing Systems (2015), section 4.3"},
+  {"metric": "till.utilization", "value": 0.75, "method": "three_se", "source": "theory",
+   "reference": "Utilization rho = lambda E(S) = 90 s / 120 s = 0.75"},
+  {"metric": "exit.cycle_time.mean", "value": 360.0, "method": "three_se", "source": "theory",
+   "reference": "M/M/1 mean time in system E(T) = (1/mu)/(1 - rho) = 90 s / 0.25 = 360 s; Adan and Resing, Queueing Systems (2015), section 4.3"},
+  {"metric": "exit.throughput", "value": 0.008333333333333333, "method": "three_se", "source": "benchmark",
+   "reference": "benchmarks/mm1: the same arrivals and service (spec 2 M/M/1 case); a stable queue with no loss passes its arrival rate, 1/120 per s"},
+  {"metric": "model.wip.mean", "value": 3.0, "method": "three_se", "source": "theory",
+   "reference": "Little's law L = lambda E(T) = (1/120 per s) x 360 s = 3.0; Adan and Resing, Queueing Systems (2015), section 3.4"},
+  {"metric": "arrivals.created", "value": 5700.0, "method": "three_se", "source": "theory",
+   "reference": "Poisson arrivals at 1/120 per s over the measured period, length 200 h minus warmup 10 h = 190 h = 684,000 s: 5,700"},
+  {"metric": "till.wait.mean", "value": 14.727272727272727, "method": "three_se", "source": "theory", "run": "exercise",
+   "reference": "M/M/2 (Erlang C), c = 2, rho = 0.375: Pi_W = 0.20455, E(W) = Pi_W/(c mu - lambda) = 162/11 s; Adan and Resing, Queueing Systems (2015), sections 5.1 and 5.2; benchmarks/machine_count, tills = 2"},
+  {"metric": "till.utilization", "value": 0.375, "method": "three_se", "source": "theory", "run": "exercise",
+   "reference": "Utilization lambda E(S)/c = 0.75/2 = 0.375"},
+  {"metric": "till.queue_length.mean", "value": 0.12272727272727273, "method": "three_se", "source": "theory", "run": "exercise",
+   "reference": "Little's law for the queue E(Lq) = lambda E(W) = (162/11 s)/(120 s) = 27/220"}
+]

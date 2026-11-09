@@ -1,0 +1,14 @@
+{
+  "id": "machine_breakdowns",
+  "title": "Machine breakdowns",
+  "summary": "A machine fails at random and is repaired. Measure its availability, and what the downtime costs in waiting.",
+  "audience": "Both",
+  "concepts": ["failure and repair", "availability", "downtime", "waiting"],
+  "minutes": 15,
+  "experiment": "base",
+  "origin": "Written for this project: one machine with random failures and repairs; answers from availability MTTF/(MTTF + MTTR) and utilization over available time (docs/research/spec-4-template-sources.md).",
+  "licence": "AGPL-3.0-only",
+  "exercise": {
+    "edits": [{"edit": "set_setting", "id": "breakdown", "path": "/time_to_repair/mean", "value": "5 min"}]
+  }
+}

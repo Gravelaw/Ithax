@@ -56,6 +56,7 @@ testpaths = ["tests"]
 markers = [
     "benchmark: benchmark with a known answer",
     "benchmark_coverage: 20-seed coverage run, by hand",
+    "template: runs a template package against its expected.json",
     "perf: performance measurement",
     "remote: needs an SSH host",
     "cluster: needs a Slurm queue",

@@ -3,11 +3,14 @@
 The project folder and the registry are ``lcsim.service.projects_store``; this module is
 the HTTP side. ``POST /v1/projects`` takes ``{name, template?, domain?, path?}``: without
 ``template`` the project holds the default model of ``domain`` (``process`` by default);
-a ``template`` is 404 with E185 until the templates arrive (M10).
+with one it holds the template's model, named after the project, with ``meta.template``
+the template's id (AKS-122): an unknown template is 404 with E185, and a ``domain`` that
+differs from the template model's is 400 with E184 at ``/domain``.
 """
 
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -15,10 +18,11 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from lcsim.model.issues import Issue
-from lcsim.service.errors import NOT_FOUND, ServiceError, malformed
+from lcsim.service.errors import malformed
 from lcsim.service.paths import canonical, fully_qualified
 from lcsim.service.projects_store import Domain
 from lcsim.service.state import ServiceState, service_state
+from lcsim.service.templates import find_template
 
 __all__ = ["CreateProject", "OpenProject", "router"]
 
@@ -46,7 +50,7 @@ class CreateProject(BaseModel):
 
     name: str = Field(min_length=1)
     template: str | None = None
-    domain: Domain = "process"
+    domain: Domain | None = None
     path: str | None = None
 
     _writable = field_validator("name", "template", "path")(lambda value: _unicode(value))
@@ -86,17 +90,51 @@ def list_projects(state: State) -> list[dict[str, Any]]:
     return state.projects.entries()
 
 
+def _template_model(state: ServiceState, body: CreateProject) -> dict[str, Any]:
+    """The model of a project made from ``body.template``: the template's model with
+    ``meta.name`` the project's name and ``meta.template`` the template's id."""
+    assert body.template is not None
+    package = find_template(state, body.template)
+    model = copy.deepcopy(dict(package.model))
+    if body.domain is not None and body.domain != model["domain"]:
+        raise malformed(
+            [
+                Issue(
+                    code="E184",
+                    component=None,
+                    path="/domain",
+                    message=f"The request field 'domain' is '{body.domain}', but the template "
+                    f"'{package.id}' is a '{model['domain']}' model.",
+                    hint="Leave 'domain' out when starting from a template, or give the "
+                    "template's own.",
+                )
+            ]
+        )
+    model["meta"] = {**model["meta"], "name": body.name, "template": package.id}
+    return model
+
+
 @router.post("")
 def create_project(body: CreateProject, state: State) -> dict[str, Any]:
-    """Create a project and register it."""
-    folder = None if body.path is None else _absolute(body.path)
-    if body.template is not None:
-        raise ServiceError(
-            404,
-            NOT_FOUND,
-            f"There is no template '{body.template}'; the templates arrive with M10.",
+    """Create a project, from nothing or from a template, and register it."""
+    if body.domain is None and "domain" in body.model_fields_set:
+        # Optional only so that a template's model can set it; null is not a domain.
+        raise malformed(
+            [
+                Issue(
+                    code="E184",
+                    component=None,
+                    path="/domain",
+                    message="The request field 'domain' is null, which is not a domain.",
+                    hint="Give 'process' or 'optimization', or leave 'domain' out.",
+                )
+            ]
         )
-    return state.projects.create(body.name, body.domain, folder)
+    folder = None if body.path is None else _absolute(body.path)
+    if body.template is None:
+        return state.projects.create(body.name, body.domain or "process", folder)
+    model = _template_model(state, body)
+    return state.projects.create(body.name, model["domain"], folder, model)
 
 
 @router.post("/open")

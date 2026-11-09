@@ -1,0 +1,14 @@
+{
+  "id": "coffee_shop",
+  "title": "Coffee shop queue",
+  "summary": "Customers arrive at random at a coffee shop with one till. See how long they wait, and why a till that is busy only 75% of the time still keeps them in line.",
+  "audience": "Students",
+  "concepts": ["arrivals", "service", "waiting", "utilization", "Little's law"],
+  "minutes": 15,
+  "experiment": "base",
+  "origin": "Written for this project: spec 1's example model (examples/coffee_shop.json), with answers from the M/M/1 queue, Little's law and Erlang C (docs/research/spec-4-template-sources.md).",
+  "licence": "AGPL-3.0-only",
+  "exercise": {
+    "edits": [{"edit": "set_parameter", "id": "tills", "value": 2}]
+  }
+}
