@@ -111,14 +111,14 @@ Each item below is evidence for the owner, not a decision. The codes are those o
   - Because commercial tools lack such guarantees, this could be a reason to do it sooner (Phase 1a rather than Phase 2). That is the owner's call.
 - **B1 (weighted-sum objectives naming parameters).** Amaran et al. list several outputs at once as an open problem. A weighted sum is the crudest treatment. The evidence favours keeping the default (no) and planning proper multi-objective results for Phase 2: a trade-off front, or constraints on the secondary outputs.
 - **B6 ("How many machines?" built with five scenarios).** For a small discrete set, both sources treat evaluating every alternative and ranking them as the right approach. The evidence supports accepting it (option a). For larger integer searches, COMPASS or R-SPLINE are the dedicated algorithms. The present Optuna TPE sampler has no simulation-specific guarantee.
-- **D10 (arrivals that vary over time).** The Citi Bike case is entirely a morning rush, with demand that varies by time and station. A model built on averages ("half-full stations") is shown to give the wrong allocation. This supports building time-varying arrivals, probably in Phase 2.
+- **D10 (arrivals that vary over time).** Neither source gives direct evidence. The Citi Bike case uses time-homogeneous Poisson demand over the morning rush (slide 43), and "half-full stations" is a starting allocation, not an average-demand model, so its gains do not isolate time variation. D10 rests on the owner's own use cases, not on these sources.
 - **D11 (missing stock policies).** (s, S) and order-up-to inventory are standard applications of simulation optimization. This supports adding those policies in Phase 2.
 
 ### How the findings bear on specs 5 to 7 and Phase 2 to Phase 4
 
 - **F9 and F11, spec 5 "Combining engines", "Design studies", "Surrogate models".**
   - The four combination paradigms of Amaran et al. give a ready framework for "Combining engines" and for optimization across engines.
-  - SAA (Jian and Henderson) joins the process simulation to the HiGHS solver: sampled scenarios with CRN become one deterministic program. Example: staffing over 1,000 simulated days.
+  - SAA (Jian and Henderson) is a candidate way to join the process simulation to the HiGHS solver, but only with an extra step. Fixing the random streams makes each evaluation deterministic, yet the sample-average function still has no known algebraic form (Amaran et al., section 3.4). HiGHS needs a linear program (`src/lcsim/engines/optimize/solver.py::solve` takes a `LinearProgram`). So the bridge also needs an algebraic reformulation of the sampled scenarios, as in the call-centre staffing example over 1,000 simulated days, or a surrogate fitted to the simulation output.
   - Metamodels and response surfaces are a core family in both sources, which supports keeping "Surrogate models" and "Design studies".
 - **Fidelity ladder and B7.1 (sketch fidelity, Phase 2).** "Model madness" and the Citi Bike succession support:
   - treating the sketch fidelity as the first step of a succession of models, not only as a preview;
