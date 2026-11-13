@@ -2312,3 +2312,11 @@ The owner answered these on 2026-11-09 in the orchestrating Claude Code session,
 - **Alternatives considered:** keeping M11 open until the outside walkthroughs are done (B6 lets an owner-only check move on, and Phase 1 ends here, so the Phase 1 review takes them); bumping every spec (only changed specs move, rule 6).
 - **Spec sections updated:** spec 0, 1 and 3 version lines and "Changes in this version" (0.4, 1.4, 0.8); spec 0 "Success measures"; spec 3 warning line, "Detailed specification" opening and acceptance table; the overview's version sentence.
 - **Dependencies added:** none at the close (AKS-142's and AKS-127's entries list theirs).
+
+## 2026-11-13 · HiGHS capped below 1.16
+
+- **Decision:** `pyproject.toml` declares `highspy>=1.15.1,<1.16`, the version the Linux package ships (`packaging/linux/requirements.lock`, 1.15.1).
+- **Reason:** highspy 1.16.0 (2026-11-11) returns a different optimal rota for the staff rota template, whose problem has several optima of objective 9, so `tests/templates/test_templates.py` failed in CI on PR #63 while the shipped package was unaffected. Development and CI now match the shipped build.
+- **Alternatives considered:** loosening the test to the objective only (hides that users on a newer HiGHS see a different rota than the tested one); a unique optimum for the template (a model and lesson change, tracked as its own issue together with a deliberate HiGHS upgrade).
+- **Spec sections updated:** none.
+- **Dependencies added:** none; highspy's range narrowed (MIT, unchanged).
