@@ -2362,13 +2362,32 @@ The owner answered the list `Ithax-owner-decisions-final-2026-11-11.md` on 2026-
 
 ### Part E: technical readings
 
-- **E1.** Accepted as built, with their suggested phases, as the current behaviour of format 0.x (not frozen), except the items of Reviewer A's table (`docs/fable-review/A/1-decisions-feedback.md`, Part E), which take the action given there: M4-17, M4-34, M4-39, M4-40, M2-1 with M1-9, M2-5 with M4-14, M2-7, M3-2, M5-1 with M5-10, M5-12, M5-15, M5-23, M6-34, M1-7 and M11-51. Items marked "drop?" are dropped where Reviewer A agrees (M4-23, M4-38, M9-5, M9-37, M9-38, M11-26, M11-40).
+- **E1.** Accepted as built, with their suggested phases, as the current behaviour of format 0.x (not frozen), except the items below (item codes are `M<milestone>-<item>` in that milestone's session summary, "Awaiting owner"), which take the action given:
+
+| Item | Action |
+| --- | --- |
+| M4-17 | Store position subtracts waiting items (D12); Phase 1a, with a benchmark |
+| M4-34 | Warning for a failure on a server of capacity above 1 now; one failure process per unit in Phase 2 (D13) |
+| M4-39, M4-40 | W201 includes a pool's capacity, and is not skipped under a schedule or failure; Phase 1a |
+| M2-1, M1-9 | A `normal` with more than about 1% of samples below zero is a warning; `constant`, `uniform` or `triangular` bounds below zero are an error; Phase 1a |
+| M2-5, M4-14 | A run-time guard ends a run with an issue after about 10⁶ events at one instant (zero-time loops); Phase 1a |
+| M2-7 | Run the line and warehouse examples for 300 replications; gate them on theory if within 2 standard errors, else find the bug; Phase 1a |
+| M3-2 | Keep the warm-up check for 0.x; a Phase 2 research item compares it with MSER-5 on the templates |
+| M5-1, M5-10 | Phase 2: a `feasible` status with the gap, and `time_limit` and `mip_gap` settings, instead of E190 for a solve stopped with a good solution |
+| M5-12 | Round integer and binary values and treat values within a tolerance of zero as zero, in results and findings; Phase 1a |
+| M5-15 | Serve duals; the first Phase 2 optimization item |
+| M5-23 | Label a `number` or `quantity` search result "best of N tried, not proven" now; a noise-aware method in Phase 2 |
+| M6-34 | Atomic save (D3); Phase 1a |
+| M1-7 | Accept a rate quantity for throughput constraints (for example `"30 1/h"`), additively; Phase 1a |
+| M11-51 | A real version number in the package before any outside tester; Phase 1a |
+
+Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38, M11-26 and M11-40. M7-24 is kept (C6).
 
 ### Part F: Phases 2 to 4
 
 - **F1. Phase 1a scope.** Everything not explicitly assigned to Phase 2, 3 or 4 is Phase 1a, unless it depends on a later feature, in which case it goes to the phase after that dependency. Order: correctness, then data safety, then usability; v0.1.0 after the first two.
 - **F2. Agent coding setup.** Adopt all of the retrospective (PR #60, AKS-143).
-- **F3. Specs 5 to 7.** One research session per spec; a small engine case is run before its section is written; an agent council (simulation, optimization, computational mechanics and software engineering) deliberates and expands each spec, starting from the reviewer's draft (`docs/fable-review/A/2-phase2-4-spec-expansion.md`). No owner approval before work starts; the owner reviews the specs and council reports during development. New items go to Phase 3, Phase 3a or Phase 4.
+- **F3. Specs 5 to 7.** One research session per spec; a small engine case is run before its section is written; an agent council (simulation, optimization, computational mechanics and software engineering) deliberates and expands each spec, starting from an outside reviewer's draft expansion of specs 5 to 7 (held by the owner, outside the repository); each council report is saved under `docs/research/`. No owner approval before work starts; the owner reviews the specs and council reports during development. New items go to Phase 3, Phase 3a or Phase 4.
 - **F4. Engine licences.** Accepted counter: engines run as separate processes exchanging files (the spec 1 rule), which makes GPL-2.0-only engines such as CalculiX usable and costs nothing, since the wrappers work that way anyway. Engine code is never copied or linked into Ithax. Further legal review is deferred; the licences page (B4) cites each engine and its authors. code_aster (GPL-3.0) is proposed as a second structural engine for cross-checking (F18).
 - **F5. Windows.** Phase 2.
 - **F6. Hardware targets.** Features first; low- and mid-tier optimization in Phase 3a. GPU speed comes from engines that support it or from upstream work, not from solver code written here.
