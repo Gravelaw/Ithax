@@ -134,7 +134,7 @@ Each item below is evidence for the owner, not a decision. The codes are those o
 - **Stopping and replications.** Jian and Henderson suggest starting with few replications and increasing them as a search settles. That fits the existing `not_enough_runs` finding and its `n_required`.
 - **Remote and cluster targets (F12 in Phase 2, F19 in Phase 4).** Parallel R&S at very large scale (about 10⁶ systems) and parallel replications are concrete uses of the SSH and Slurm targets.
 - **Benchmarks for search methods (spec 2 and spec 5).** SimOpt (simopt.org) is the one public test bed of simulation optimization problems. Data profiles and macro-replications are the accepted ways to compare methods; a SimOpt problem's licence must be checked before its use. Seeded streams (spec 1) already answer the reproducibility problem that Amaran et al. raise.
-- **Learn mode and templates (B7.3, template expansion in Phase 3).** The newsvendor "flaw of averages" (about 40% of profit lost, in the tutorial's example) is a ready lesson. A finding that warns when a model is run without randomness is a possible Phase 2 rule.
+- **Learn mode and templates (B7.3, template expansion in Phase 3).** The newsvendor "flaw of averages" is a ready lesson: replacing demand by its mean overstates the expected profit, by about 40% in the tutorial's example. That 40% is an overestimate of profit, not the profit lost by the decision, which is smaller. A finding that warns when a model is run without randomness is a possible Phase 2 rule.
 - **Positioning.** Commercial simulators mostly ship optimizers with no statistical guarantee (Amaran et al., Table 4). Offering R&S guarantees, CRN, a fresh-stream confirmation and plain-language evidence would set Ithax apart.
 
 ### What the sources do not cover
@@ -162,4 +162,4 @@ None. Both sources are evidence for the owner's open decisions and for the resea
 
 ## Tested
 
-Nothing was run. The figures quoted (567 to 443 and 1,096 to 493 unhappy users; about 40% of profit; about 500 and about 10⁶ systems; about 20 SimOpt problems) are the sources' own, not measured here.
+Nothing was run. The figures quoted (567 to 443 and 1,096 to 493 unhappy users; the profit overstated by about 40%; about 500 and about 10⁶ systems; about 20 SimOpt problems) are the sources' own, not measured here.
