@@ -2320,3 +2320,15 @@ The owner answered these on 2026-11-09 in the orchestrating Claude Code session,
 - **Alternatives considered:** loosening the test to the objective only (hides that users on a newer HiGHS see a different rota than the tested one); a unique optimum for the template (a model and lesson change, tracked as its own issue together with a deliberate HiGHS upgrade).
 - **Spec sections updated:** none.
 - **Dependencies added:** none; highspy's range narrowed (MIT, unchanged).
+
+## 2026-11-13 · M12 · GitHub replaces Linear; PR and issue templates; Phase 1a milestones (#100)
+
+- **Decision:**
+  - GitHub issues are the project tracker; Linear is retired as read-only history (owner, 2026-11-13). `.github/pull_request_template.md` holds the concise PR body (`Closes #<n>`, Why, What, Checks, Needs owner). `.github/ISSUE_TEMPLATE/` holds bug, feature, research and chore templates, each with "Why and what", "Done when" and "Source", and each pre-labelled `type:<kind>`; the phase label is set by hand. Blank issues stay allowed.
+  - `.github/workflows/pr-title.yml` now requires `^(M[0-9]+|specs|docs): [^ ]` in place of `^AKS-…`.
+  - The guide (both copies): rule 2 allows two or three milestones per session (F8); rule 5 gains the owner's threshold for "Awaiting owner" (F8, D18); "Conventions" gains `docs:` commits and the Tracking and Pull requests rows; "Session procedure" gains Issues and "Editing this guide" (D18); the milestone table gains M12 to M16.
+  - M12 and M13 hold the issues the orchestrating session named. The split of the remaining Phase 1a issues is this session's: M14 data safety, MCP and limits (#71, #82, #98, the rest of #83); M15 usability (#87, #89 to #97); M16 release (#88, #101, #102, #103).
+- **Reason:** owner decisions of 2026-11-13 (C10, D18, F1, F7, F8) and the orchestrating session's Phase 1a brief; Linear's free plan caps active issues at 250 (#100).
+- **Alternatives considered:** keeping a Linear key in PR titles (the tracker is retired); putting #88 (AppImage) in M14 (it is packaging, so it ships with the release).
+- **Spec sections updated:** build guide "Session rules" 2 and 5, "Conventions", "Milestones", "Session procedure" (and `CLAUDE.md` to match).
+- **Dependencies added:** none.
