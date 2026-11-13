@@ -198,3 +198,15 @@ def test_the_coffee_shop_fires_neither_and_its_findings_read_the_run_s_model(
     ]
     assert refused["issues"][0]["severity"] == "warning"
     assert rules(refused) == [("not_enough_runs", None)]
+
+    # The idle timeout's W220 is listed by GET /v1/settings only, never by the summary
+    # (spec 3 "Lifetime"; AKS-141).
+    path = config.config_dir / SETTINGS_FILE
+    settings = json.loads(path.read_text(encoding="utf-8"))
+    path.write_text(json.dumps({**settings, "idle_timeout_minutes": 0}), encoding="utf-8")
+    assert summary(client, rid)["issues"] == refused["issues"]
+    listed = client.get("/v1/settings").json()["issues"]
+    assert [item["path"] for item in listed] == [
+        "/finding_thresholds/bottleneck_utilization",
+        "/idle_timeout_minutes",
+    ]

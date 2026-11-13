@@ -9,7 +9,8 @@
  * typed otherwise, so the service says what is wrong (E184); an emptied field sends `null`,
  * its default. `finding_thresholds` and `interface` are sent whole: the values shown with
  * the one change. Every field shows the saved value again after each answer, so no draft
- * outlives a write, accepted or refused.
+ * outlives a write, accepted or refused. The idle timeout (spec 3 "Lifetime", AKS-141) is
+ * a field in minutes under Service, read by the service at its next start.
  */
 import { useEffect, useId, useRef, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
@@ -41,6 +42,8 @@ export const AT_NEXT_START =
   "Takes effect at the next start of the engine service. An empty field restores the default.";
 export const AT_NEXT_RESULTS = "Takes effect at the next results you open.";
 export const AT_ONCE = "Takes effect at once.";
+/** The idle timeout's field (spec 3 "Lifetime"; AKS-141). */
+export const IDLE_LABEL = "Stop when idle for, in minutes";
 
 const TIERS: readonly { value: TierName; label: string }[] = [
   { value: "low", label: "Low (4 cores, 8 GB)" },
@@ -400,6 +403,18 @@ export function SettingsScreen({ client }: { client: ApiClient }) {
 
         <h2 className="heading">Service</h2>
         <p>Remote access: not available in this version (only this computer can connect).</p>
+        <div className="settings-fields">
+          <NumberField
+            key={`idle-timeout ${answers}`}
+            label={IDLE_LABEL}
+            term="idle_timeout_minutes"
+            saved={settings.idle_timeout_minutes}
+            plain={(value) => `= ${quantity(value * 60, "s")} (1 to 10,080)`}
+            busy={busy}
+            onCommit={(value) => write({ idle_timeout_minutes: value } as SettingsChange)}
+          />
+        </div>
+        <p className="takes-effect">{AT_NEXT_START}</p>
 
         <h2 className="heading" id="about-heading">
           About

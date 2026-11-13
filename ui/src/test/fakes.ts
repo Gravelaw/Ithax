@@ -36,6 +36,7 @@ export const SETTINGS: Settings = {
   max_concurrent_runs: 1,
   run_time_limit_s: 600,
   run_memory_limit_bytes: 8 * 1024 ** 3,
+  idle_timeout_minutes: 30,
   finding_thresholds: {
     bottleneck_utilization: 0.85,
     idle_utilization: 0.3,

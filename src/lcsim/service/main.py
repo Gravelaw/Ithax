@@ -7,9 +7,11 @@ names; once that answers it prints the port and exits with status 0 (one service
 user). It waits up to ``STARTUP_WAIT_S`` for a service that is still starting, and exits
 with status 1 if none answers by then. A start that takes the lock binds
 ``127.0.0.1`` on a port the operating system chooses, draws a token, writes
-``service.json`` (mode 0600) and serves with uvicorn until stopped or idle for
-``--idle-minutes`` (default 30, spec 3 "Lifetime", proposed); on exit it removes the file
-if the file still names this service.
+``service.json`` (mode 0600) and serves with uvicorn until stopped or idle; on exit it
+removes the file if the file still names this service. The idle time is ``--idle-minutes``
+when given, and otherwise ``idle_timeout_minutes`` in ``settings.json``, read once at the
+start (default 30; a value that cannot be used is logged as W220 and the default used;
+spec 3 "Lifetime", owner decision B5, AKS-141).
 
 A signal that stops the service (``SIGTERM``, ``SIGINT``) is caught by uvicorn, which shuts
 down gracefully and then raises the signal again; raised there, it ended the process before
@@ -42,7 +44,6 @@ import uvicorn
 from lcsim.runs.lock import RunLock, take_lock
 from lcsim.service.app import create_app
 from lcsim.service.config import (
-    DEFAULT_IDLE_TIMEOUT_S,
     ServiceConfig,
     default_config_dir,
     default_data_dir,
@@ -57,6 +58,7 @@ from lcsim.service.discovery import (
     remove_service_file,
     write_service_file,
 )
+from lcsim.service.idle_settings import read_idle_settings
 from lcsim.service.paths import canonical
 from lcsim.service.projects_store import utc_now
 
@@ -131,19 +133,23 @@ def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--idle-minutes",
         type=float,
-        default=DEFAULT_IDLE_TIMEOUT_S / 60,
-        help="exit after this many idle minutes (default 30)",
+        help="exit after this many idle minutes (default: idle_timeout_minutes in "
+        "settings.json, 30 when unset)",
     )
     parser.add_argument(
-        "--ui-dir", type=Path, help="the built interface to serve at /v1/ui/ (default: ui/dist)"
+        "--ui-dir",
+        type=Path,
+        help="the built interface to serve at /v1/ui/ (default: the checkout's ui/dist, else "
+        "share/lcsim/ui under the Python prefix)",
     )
     parser.add_argument(
         "--templates-dir",
         type=Path,
-        help="the template packages to serve at /v1/templates (default: templates)",
+        help="the template packages to serve at /v1/templates (default: the checkout's "
+        "templates, else share/lcsim/templates under the Python prefix)",
     )
     arguments = parser.parse_args(argv)
-    if not arguments.idle_minutes > 0:
+    if arguments.idle_minutes is not None and not arguments.idle_minutes > 0:
         parser.error("--idle-minutes must be above 0")
     return arguments
 
@@ -193,9 +199,12 @@ def main(
     if isinstance(owned, int):
         return owned
     try:
-        caught = _serve(
-            config_dir, data_dir, ui_dir, templates_dir, arguments.idle_minutes * 60, out
-        )
+        # Read once the lock is taken: a second start serves nothing and needs no idle time.
+        if arguments.idle_minutes is not None:
+            idle_timeout_s = arguments.idle_minutes * 60
+        else:
+            idle_timeout_s = read_idle_settings(config_dir).timeout_s
+        caught = _serve(config_dir, data_dir, ui_dir, templates_dir, idle_timeout_s, out)
     finally:
         owned.release()
     raise_again(caught)

@@ -6,8 +6,10 @@ real process, as the interface and the MCP server will start it.
 """
 
 import contextlib
+import dataclasses
 import io
 import json
+import logging
 import os
 import shutil
 import signal
@@ -22,8 +24,9 @@ import httpx2
 import pytest
 import uvicorn
 
-from lcsim.service.config import default_ui_dir
+from lcsim.service.config import ServiceConfig, default_ui_dir
 from lcsim.service.discovery import SERVICE_FILE, ServiceInfo, read_service_file
+from lcsim.service.hardware import SETTINGS_FILE
 from lcsim.service.main import LOCAL_ADDRESS, SignalServer, bind_local, main, raise_again
 
 
@@ -330,3 +333,94 @@ def test_main_serves_the_templates_folder_it_is_given(folders: list[str], tmp_pa
     assert [item["id"] for item in response.json()] == ["coffee_shop"]
     started.thread.join(30)
     assert started.status == [0]
+
+
+# --- the idle timeout as a setting (spec 3 "Lifetime"; owner decision B5, AKS-141) ----------
+
+
+class FastClock:
+    """``time.monotonic`` running ``factor`` times as fast, from now."""
+
+    def __init__(self, factor: float) -> None:
+        self.factor = factor
+        self.start = time.monotonic()
+
+    def __call__(self) -> float:
+        return self.start + (time.monotonic() - self.start) * self.factor
+
+
+def made_configs(monkeypatch: pytest.MonkeyPatch, factor: float) -> list[ServiceConfig]:
+    """Record each ``ServiceConfig`` that ``main`` makes, and serve it with a clock
+    ``factor`` times as fast and a check every 10 ms, so that minutes of idle time pass in
+    well under a second while ``main``, the app and its lifetime run as they do in a real
+    start."""
+    import lcsim.service.main as entry
+
+    made: list[ServiceConfig] = []
+
+    def fast(**options: object) -> ServiceConfig:
+        config = ServiceConfig(**options)  # type: ignore[arg-type]
+        made.append(config)
+        return dataclasses.replace(config, clock=FastClock(factor), idle_check_s=0.01)
+
+    monkeypatch.setattr(entry, "ServiceConfig", fast)
+    return made
+
+
+def write_settings(tmp_path: Path, settings: dict[str, object]) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(exist_ok=True)
+    (config_dir / SETTINGS_FILE).write_text(json.dumps(settings), encoding="utf-8")
+
+
+def test_main_exits_after_the_idle_time_in_the_settings(
+    folders: list[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_settings(tmp_path, {"idle_timeout_minutes": 1})
+    made = made_configs(monkeypatch, factor=120.0)  # 1 idle minute in 0.5 s
+    began = time.monotonic()
+    started = Started(folders)
+    started.thread.join(30)
+    assert started.status == [0], started.output.getvalue()
+    [config] = made
+    assert config.idle_timeout_s == 60
+    assert config.idle_check_s == 10
+    assert time.monotonic() - began >= 0.4  # not before its minute had passed
+    assert not (tmp_path / "config" / SERVICE_FILE).exists()
+
+
+def test_without_the_setting_main_idles_for_30_minutes(
+    folders: list[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    made = made_configs(monkeypatch, factor=3600.0)  # 30 idle minutes in 0.5 s
+    started = Started(folders)
+    started.thread.join(30)
+    assert started.status == [0], started.output.getvalue()
+    assert [config.idle_timeout_s for config in made] == [30 * 60]
+
+
+def test_an_idle_time_that_cannot_be_used_is_logged_as_w220_and_30_minutes_used(
+    folders: list[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    write_settings(tmp_path, {"idle_timeout_minutes": 10_081})
+    made = made_configs(monkeypatch, factor=3600.0)
+    with caplog.at_level(logging.WARNING):
+        started = Started(folders)
+        started.thread.join(30)
+    assert started.status == [0], started.output.getvalue()
+    assert [config.idle_timeout_s for config in made] == [30 * 60]
+    assert "W220 at '/idle_timeout_minutes'" in caplog.text
+
+
+def test_idle_minutes_given_wins_over_the_setting(
+    folders: list[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_settings(tmp_path, {"idle_timeout_minutes": 10_080})
+    made = made_configs(monkeypatch, factor=1.0)
+    started = Started([*folders, "--idle-minutes", "0.005"])
+    started.thread.join(30)
+    assert started.status == [0], started.output.getvalue()
+    assert [config.idle_timeout_s for config in made] == [pytest.approx(0.3)]

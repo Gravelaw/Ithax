@@ -1,20 +1,23 @@
 """The user's settings in ``settings.json``, read and written whole (spec 3 "Endpoints",
 ``GET /v1/settings`` and ``PUT /v1/settings``; AKS-119, owner to confirm).
 
-``settings.json`` in the configuration folder holds six keys the service knows:
+``settings.json`` in the configuration folder holds seven keys the service knows:
 
 - ``tier``: ``low``, ``mid`` or ``high`` (spec 3 "Hardware tiers"), read at start;
 - ``max_concurrent_runs``, ``run_time_limit_s``, ``run_memory_limit_bytes``: the run
   settings (spec 3 "Run queue", ``lcsim.service.run_settings``), read at start;
+- ``idle_timeout_minutes``: the idle timeout (spec 3 "Lifetime",
+  ``lcsim.service.idle_settings``), read at start unless ``--idle-minutes`` was given;
 - ``finding_thresholds``: the five thresholds of spec 4's finding rules (spec 3 "Finding
   thresholds", ``lcsim.service.finding_settings``), read at each summary;
 - ``interface``: the interface's seven preferences, which the service stores and does not
   use (``INTERFACE_DEFAULTS``).
 
 ``SettingsStore.read`` gives each as the service takes it now, with its default where the
-key is absent or holds a value that cannot be used, and the W220 issues of the thresholds.
+key is absent or holds a value that cannot be used, and the W220 issues of the thresholds and
+of the idle timeout.
 ``SettingsStore.write`` takes a request body: a JSON object (read by the strict reader) of
-any of the six keys, each replacing the stored key whole, ``null`` removing it; every value
+any of the seven keys, each replacing the stored key whole, ``null`` removing it; every value
 is checked by the rule the service reads it with, every problem is an E184 issue at its JSON
 Pointer in the body, and nothing is written when there is one. Writes are made one at a
 time, through a temporary file and a rename; other keys of the file are kept, and a file
@@ -40,6 +43,12 @@ from lcsim.service.finding_settings import (
     read_finding_settings,
 )
 from lcsim.service.hardware import SETTINGS_FILE, TIERS, Hardware, TierName, tier_for
+from lcsim.service.idle_settings import (
+    IDLE_TIMEOUT,
+    IDLE_WORDS,
+    MAX_IDLE_MINUTES,
+    read_idle_settings,
+)
 from lcsim.service.projects_store import write_json
 from lcsim.service.run_settings import MAX_CONCURRENT_RUNS, MAX_TIME_LIMIT_S, read_run_settings
 from lcsim.strict_json import MAX_WHOLE, read_json, read_json_file, real_in, whole_in
@@ -67,6 +76,7 @@ SETTINGS_KEYS = (
     "max_concurrent_runs",
     "run_time_limit_s",
     "run_memory_limit_bytes",
+    IDLE_TIMEOUT,
     FINDING_THRESHOLDS,
     INTERFACE,
 )
@@ -159,6 +169,7 @@ _PLAIN: dict[str, tuple[Callable[[object], bool], str]] = {
         _whole(1, MAX_WHOLE),
         "a whole number of bytes from 1 to 2**63 - 1",
     ),
+    IDLE_TIMEOUT: (_whole(1, MAX_IDLE_MINUTES), IDLE_WORDS),
 }
 
 
@@ -286,15 +297,18 @@ class SettingsStore:
         tier = stored.get("tier")
         run = read_run_settings(self._config_dir)
         findings = read_finding_settings(self._config_dir)
+        idle = read_idle_settings(self._config_dir)
         settings = {
             "tier": tier if _tier(tier) else tier_for(self._hardware),
             "max_concurrent_runs": run.max_concurrent_runs,
             "run_time_limit_s": run.limits.time_s,
             "run_memory_limit_bytes": run.limits.memory_bytes,
+            IDLE_TIMEOUT: idle.minutes,
             FINDING_THRESHOLDS: dataclasses.asdict(findings.thresholds),
             INTERFACE: _preferences(stored.get(INTERFACE)),
         }
-        return {"settings": settings, "issues": [issue.as_dict() for issue in findings.issues]}
+        issues = (*findings.issues, *idle.issues)
+        return {"settings": settings, "issues": [issue.as_dict() for issue in issues]}
 
     def write(self, raw: bytes) -> dict[str, Any]:
         """Write the settings of a ``PUT /v1/settings`` body and return the new

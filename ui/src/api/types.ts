@@ -102,6 +102,8 @@ export interface Settings {
   max_concurrent_runs: number;
   run_time_limit_s: number;
   run_memory_limit_bytes: number | null;
+  /** Spec 3 "Lifetime": a whole number from 1 to 10,080, default 30 (AKS-141). */
+  idle_timeout_minutes: number;
   finding_thresholds: FindingThresholds;
   interface: InterfacePreferences;
 }

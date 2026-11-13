@@ -13,7 +13,7 @@ dynamic = ["version"]
 dependencies = [
     "defusedxml>=0.7.1",
     "fastapi>=0.162.1",
-    "highspy>=1.15.1",
+    "highspy>=1.15.1,<1.16",
     "jsonschema>=4.26.0",
     "mcp>=2.3.0",
     "numpy>=2.4.6",
@@ -60,10 +60,12 @@ markers = [
     "perf: performance measurement",
     "remote: needs an SSH host",
     "cluster: needs a Slurm queue",
+    "desktop: drives the built desktop shell through tauri-driver",
+    "package: installs the built Linux package in a clean container (after scripts/package_linux.py)",
 ]
 # No coverage flags here, so that the subset commands (pytest tests/model,
 # pytest -m benchmark, pytest -m perf) run without failing the coverage threshold.
-addopts = "-ra --strict-markers -m 'not benchmark_coverage and not perf and not remote and not cluster'"
+addopts = "-ra --strict-markers -m 'not benchmark_coverage and not perf and not remote and not cluster and not desktop and not package'"
 
 [tool.ruff]
 target-version = "py311"
@@ -86,7 +88,7 @@ known-third-party = ["mcp"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["src", "tests"]
+files = ["src", "tests", "scripts/package_linux.py"]
 
 # pyarrow 26.0.1 ships no type information (no py.typed, no stubs); pyarrow-stubs follows
 # pyarrow 20. Its tables are typed as Any (docs/DECISIONS.md, AKS-97).

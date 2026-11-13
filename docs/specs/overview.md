@@ -4,7 +4,7 @@ Nov 6, 2026 · @Akshay
 
 ## What is here
 
-Seven build specs, one per tab, plus a build guide for coding sessions. Each spec carries its own version and status line under its title; spec 0 is at 0.3, spec 1 at 1.3, spec 2 at 0.9, spec 3 at 0.7 and spec 4 at 0.7 after M10 closed on 2026-11-09; specs 5 to 7 are at 0.2 after the review of 2026-11-05. The repository copy is the source of truth (owner to confirm); sessions never write to the Claude Docs. Specs 1 to 4 have a binding "Detailed specification" section each. Each ends with acceptance tests that an AI coding tool can be held to. Spec 0, the product brief, is a separate doc.
+Seven build specs, one per tab, plus a build guide for coding sessions. Each spec carries its own version and status line under its title; spec 0 is at 0.4, spec 1 at 1.4 and spec 3 at 0.8 after M11 closed on 2026-11-09, and spec 2 at 0.9 and spec 4 at 0.7 after M10 closed the same day; specs 5 to 7 are at 0.2 after the review of 2026-11-05. The repository copy is the source of truth (owner to confirm); sessions never write to the Claude Docs. Specs 1 to 4 have a binding "Detailed specification" section each. Each ends with acceptance tests that an AI coding tool can be held to. Spec 0, the product brief, is a separate doc.
 
 | Spec | Covers | Phase | Build after |
 | --- | --- | --- | --- |
@@ -37,7 +37,7 @@ You asked for all specs at once, so I made these calls. Each is easy to change n
 | Optimization through Pyomo and HiGHS; Optuna for simulation-based search | Spec 2 | OR-Tools; SciPy |
 | Engine service in Python with FastAPI | Spec 3 | Any local service framework |
 | Interface in React with React Flow, packaged with Tauri | Spec 3 | Electron; a Qt desktop interface in Python |
-| Phase 1 runs natively on Windows (proposed default after review); WSL deferred to Phase 3 | Spec 3 | Service under WSL |
+| Phase 1 runs natively on Windows (proposed default after review); WSL deferred to Phase 3. The owner chose Linux first on 2026-11-09 (B4): the Windows version is deferred, its phase set at the Phase 1 review | Spec 3 | Service under WSL |
 | Ten Phase 1 templates, listed by name | Spec 4 | Your own priority list |
 | Findings written by fixed rules, not by a language model | Spec 4 | Assistant-written findings |
 | OpenMDAO as the design study layer | Spec 5 | Dakota |
