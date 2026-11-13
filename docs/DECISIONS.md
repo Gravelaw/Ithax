@@ -2312,3 +2312,66 @@ The owner answered these on 2026-11-09 in the orchestrating Claude Code session,
 - **Alternatives considered:** keeping M11 open until the outside walkthroughs are done (B6 lets an owner-only check move on, and Phase 1 ends here, so the Phase 1 review takes them); bumping every spec (only changed specs move, rule 6).
 - **Spec sections updated:** spec 0, 1 and 3 version lines and "Changes in this version" (0.4, 1.4, 0.8); spec 0 "Success measures"; spec 3 warning line, "Detailed specification" opening and acceptance table; the overview's version sentence.
 - **Dependencies added:** none at the close (AKS-142's and AKS-127's entries list theirs).
+
+## 2026-11-13 · Owner decisions on the Phase 1 decision list (Parts B to F)
+
+The owner answered the list `Ithax-owner-decisions-final-2026-11-11.md` on 2026-11-12 and 2026-11-13, in the orchestrating session. The codes below are that list's (its B1 to B6 are not the B1 to B7 of 2026-11-09). Where the owner accepted the orchestrator's counter or recommendation ("Accept your counters", 2026-11-13), the decision states the accepted form. Spec sections are not edited here: the Phase 1 review (AKS-130) drafts them, as decided on 2026-11-09 (B2).
+
+### Part B: product
+
+- **B1. Objective types.** Single objective: linear, quadratic, nonlinear, mixed-integer (linear and nonlinear), and black-box simulation objectives through metaheuristics or surrogate models. Several objectives: weighted sum, ε-constraint, and Pareto-based evolutionary search, with a trade-off-front results view. More multi-objective methods in Phase 4. Phase 2. Linear, mixed-integer linear and convex quadratic run on HiGHS today; nonlinear and mixed-integer nonlinear need an engine trial first (for example Ipopt or SCIP through Pyomo). On simulations, Pareto search (NSGA-II, already in Optuna) is preferred, because each ε-constraint point is a full study.
+- **B2. Success measures.** Six criteria, each with a numeric target set at the Phase 1 review: (1) functionality and flow of the application; (2) correctness of simulation and optimization results against open datasets and published benchmarks (OR-Library, MIPLIB, Netlib, textbook queueing cases, Kaggle data under reusable licences); (3) cognitive load on the user, judged in agent walkthroughs; (4) MCP parity: what a user does in the interface can be done through MCP; (5) speed and responsiveness of the application; (6) speed and parallelism of simulation and optimization runs.
+- **B3. Hardware table.** Settled after the Phase 3 engine work.
+- **B4 and C7. Licence.** AGPL-3.0 stays as stamped (AGPL-3.0-only). The choice of "or later" is revisited before outside contributions open (C9). A Help section, "Open source licences", lists every package and engine used, with its licence and authors, generated from the package's licence list so it cannot drift.
+- **B5. Packages.** An AppImage for Linux (Phase 1a) and a Windows installer (Phase 2, with F5); a code-signing decision before the Windows release.
+- **B6. Scenario count.** No cap in the model format. Before a run the interface shows the run count (scenarios × replications) and an estimated time, runs in parallel up to the core count, and past a threshold suggests a `search`. A research note compares how AnyLogic, Simio, FlexSim and open frameworks handle large experiments. "How many machines?" stays built with scenarios.
+
+### Part C: checks and governance
+
+- **C1, C2. Outside walkthroughs.** Done by agents in assigned roles (for example a student, a business analyst), as a gate in every phase, plus one or two people at v0.1.0 (accepted counter: agents share the builder's blind spots on cognitive load).
+- **C3. Three testers' time to a first template run.** After the physics engine, the force models, the simulation using them and optimization on surrogates are built (Phase 3).
+- **C4. Performance.** A dedicated performance phase, **Phase 3a**, between Phase 3 and Phase 4. Every phase keeps cheap performance budgets and regression checks. Improvements to open-source libraries go upstream first; the guide's rule against writing numerical solvers stands.
+- **C5. Pointer-only.** Mouse-first for now. The keyboard support already built (spec 3 accessibility) is kept; new keyboard work is deferred.
+- **C6. MCP.** Each feature ships with a thin API and MCP tool and a parity test. The last or second-to-last milestone of every phase is MCP hardening plus a trial with a different assistant.
+- **C8. Name.** The product is **Ithax**. The package `lcsim` and the command `lcsim-mcp` are renamed early in Phase 1a; a trademark and name-clash search comes before any public release.
+- **C9. Contributors.** No outside pull requests or contributors until Phase 4 is complete.
+- **C10. Merging.** The orchestrating session merges and monitors CI; nested sessions or agents fix what fails. Never merge with red or not-running CI. Spec changes keep the draft-and-approve step (2026-11-09, B2), except as F3 below says for specs 5 to 7.
+
+### Part D: judgement calls from the build
+
+| Item | Decision |
+| --- | --- |
+| D1 Ranking and selection | Phase 2, early, with fresh-random-number confirmation (AKS-133); the method is chosen by a transparent rule from the problem's features |
+| D2 Default optimization model | Starts empty; the "no variables" problem shows as a tooltip warning on the project and its blocks |
+| D3 Save order | Make the save atomic; Phase 1a |
+| D4 Live key numbers on the Run monitor | Phase 2 |
+| D5 Import limits | Keep |
+| D6 Import formats | Widen, with a progress bar: efficient formats for tables in Phase 2 (for example Parquet), for 3D and fields in Phase 3 (for example STEP, VTK, HDF5) |
+| D7 Graphics detection on Windows and macOS | Phase 4 |
+| D8 Idle timeout | Default stays 30 minutes (a run is never idle time, spec 3 "Lifetime"); entered in minutes, hours or days; up to 7 days, or "never" |
+| D9 Coffee-shop run length | Both: run 210 h, labelled "200 hours measured after a 10-hour warm-up" |
+| D10 Time-varying arrivals | Phase 2, after research into how other tools and open datasets (Kaggle) model them |
+| D11 Missing constructs | Leaving the queue, assembly, periodic stock policies and partial availability in Phase 2; probabilistic calendars and multitasking in Phase 3; each after research |
+| D12 Store reorder position | Follow the textbook: inventory position subtracts items waiting; Phase 1a, with a benchmark |
+| D13 Failures | One failure process per unit, Phase 2; a warning for capacity above 1 until then |
+| D14 Editing indexed models in Table and Diagram views | Phase 2 |
+| D15 Data import through the assistant | Phase 2 |
+| D16 Two-option "not enough runs" finding | Keep |
+| D17 `issues` in the run summary | Keep |
+| D18 Sessions editing the build guide | Sessions update factual and status rows freely; changes to rules, milestones or conventions are proposed and approved by the owner |
+
+### Part E: technical readings
+
+- **E1.** Accepted as built, with their suggested phases, as the current behaviour of format 0.x (not frozen), except the items of Reviewer A's table (`docs/fable-review/A/1-decisions-feedback.md`, Part E), which take the action given there: M4-17, M4-34, M4-39, M4-40, M2-1 with M1-9, M2-5 with M4-14, M2-7, M3-2, M5-1 with M5-10, M5-12, M5-15, M5-23, M6-34, M1-7 and M11-51. Items marked "drop?" are dropped where Reviewer A agrees (M4-23, M4-38, M9-5, M9-37, M9-38, M11-26, M11-40).
+
+### Part F: Phases 2 to 4
+
+- **F1. Phase 1a scope.** Everything not explicitly assigned to Phase 2, 3 or 4 is Phase 1a, unless it depends on a later feature, in which case it goes to the phase after that dependency. Order: correctness, then data safety, then usability; v0.1.0 after the first two.
+- **F2. Agent coding setup.** Adopt all of the retrospective (PR #60, AKS-143).
+- **F3. Specs 5 to 7.** One research session per spec; a small engine case is run before its section is written; an agent council (simulation, optimization, computational mechanics and software engineering) deliberates and expands each spec, starting from the reviewer's draft (`docs/fable-review/A/2-phase2-4-spec-expansion.md`). No owner approval before work starts; the owner reviews the specs and council reports during development. New items go to Phase 3, Phase 3a or Phase 4.
+- **F4. Engine licences.** Accepted counter: engines run as separate processes exchanging files (the spec 1 rule), which makes GPL-2.0-only engines such as CalculiX usable and costs nothing, since the wrappers work that way anyway. Engine code is never copied or linked into Ithax. Further legal review is deferred; the licences page (B4) cites each engine and its authors. code_aster (GPL-3.0) is proposed as a second structural engine for cross-checking (F18).
+- **F5. Windows.** Phase 2.
+- **F6. Hardware targets.** Features first; low- and mid-tier optimization in Phase 3a. GPU speed comes from engines that support it or from upstream work, not from solver code written here.
+- **F7. Releases.** Engineering practice: v0.1.0 after Phase 1a correctness and data safety; semantic versions with a changelog; the model format and `/v1` API change only additively within 0.x.
+- **F8. Working mode.** Merges are automatic when CI and review are clean (C10); the owner takes decisions every two days, and urgent ones by email; two or three milestones per session; the orchestrating session emails a short progress note at the end of each milestone. No budget cap for now.
+- **F9 to F19.** Proposed by the agent council (F3), then reviewed by the owner.
