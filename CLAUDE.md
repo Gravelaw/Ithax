@@ -12,10 +12,10 @@ This tab tells a coding session how to turn the specs into software: where thing
 ## Session rules
 
 1. **Read first.** Before any work, read this guide and the spec for the current milestone.
-2. **One milestone per session.** Do not start the next until the current one's acceptance checks pass.
+2. **Two or three milestones per session, in order.** Do not start the next until the current one's acceptance checks pass (owner decision F8, 2026-11-13).
 3. **Research before code.** Complete the research items tagged with the current milestone and save one note per item in `docs/research/`.
 4. **Tests before implementation.** Write the acceptance checks as failing tests, then make them pass.
-5. **Never guess silently.** If a spec is unclear or seems wrong, stop and ask. If the owner is not available, take the simplest reading, record it in `docs/DECISIONS.md`, and flag it in the session summary.
+5. **Never guess silently.** If a spec is unclear or seems wrong, stop and ask. If the owner is not available, take the simplest reading, record it in `docs/DECISIONS.md`, and flag it in the session summary. Reversible, internal matters are decided by the session and logged in `DECISIONS.md`; only what changes a user-visible answer, the model format, the `/v1` API, a guide rule, a milestone or a convention goes under "Awaiting owner", and that list is kept short (owner decisions F8 and D18, 2026-11-13).
 6. **The spec changes before the code does.** A decision that departs from a spec updates the spec file in the same change and adds a dated line under that spec's "Changes in this version" heading; the version number is bumped when a review or a milestone closes with changes to that spec. Sessions never write to the owner's Claude Docs; the repository is the source of truth.
 7. **Wrap engines.** Never write a numerical solver: no code that integrates differential equations, solves linear systems or iterates to convergence over a field. If an engine lacks a feature, record it; do not fill the gap with new numerical code. Calculators are allowed: closed-form formulas, published empirical laws and code-based design checks applied to inputs or engine output (Archard wear, stress-life fatigue, JMAK kinetics). Each calculator cites its formula and is tested against a published worked example.
 8. **Benchmarks are gates.** A milestone is not done while any benchmark fails.
@@ -97,7 +97,9 @@ scripts/                check.sh and the package build, package_linux.py
 | Randomness | Only through the spec 1 stream scheme; never the global random generator |
 | Files | Engines write only inside their run folder |
 | Dependencies | Each new dependency is recorded in `DECISIONS.md` with its licence |
-| Commits | Small, one purpose each; message `M<n>: <imperative summary>`, or `specs: ...` for spec-only commits |
+| Commits | Small, one purpose each; message `M<n>: <imperative summary>`, or `specs: ...` for spec-only commits and `docs: ...` for other documentation-only commits |
+| Tracking | GitHub issues are the project tracker, labelled `phase:*` and `type:bug`, `type:feature`, `type:research`, `type:chore` or `type:epic`; each phase is an epic issue and its sub-issues are the work. Linear is retired and kept as read-only history (2026-11-13) |
+| Pull requests | Title as a commit message (checked by `.github/workflows/pr-title.yml`); the body follows `.github/pull_request_template.md`, at most about 12 lines: `Closes #<n>` for every issue it closes, Why, What (at most five bullets), Checks and Needs owner. Details go in the issue, `DECISIONS.md` and the session summary. The orchestrating session merges once CI is green and review has nothing open (owner decision C10) |
 
 ## Milestones
 
@@ -117,6 +119,11 @@ Build in this order. Each milestone lists what must be true before moving on.
 | M9 | Interface | 3 | `docs/design/` files exist; the owner's walkthrough or logged fallback is in `DECISIONS.md`; the pointer-only end-to-end test passes; `docs/research/perf-M9.md` exists |
 | M10 | Templates and Learn mode | 4 | All ten templates reproduce their expected results, each with at least one theory- or benchmark-sourced value; the first four success measures of spec 0 are measured and recorded |
 | M11 | Packaging (Linux); idle timeout setting | 3 (and 0) | The service's idle timeout is a setting with a default of 30 minutes; a Linux package installs the interface, the service and the Phase 1 engines, and a fresh install reaches a first template result in under ten minutes in a clean container (agent); the installed app works offline; the unsigned-package note and the checksum are documented. Remote and cluster targets moved to Phases 2 and 4 (A1), the Windows installer deferred (B4) |
+| M12 | Phase 1a setup | Guide | Issues #100, #99, #70 and #78 are closed: PR and issue templates and the PR-title check are in place; the retrospective's agent setup is applied, or its conflicting items listed for the owner; the package is `ithax` and the command `ithax-mcp`; Ithax, SimPy and HiGHS report their real versions |
+| M13 | Phase 1a correctness | 1, 2, 3, 4 | Issues #69, #72, #73, #74, #75, #76, #77, #79, #80, #81, #84, #85, #86 and #132 are closed, and the two wrong error hints of #83 are fixed; each correctness fix has a fixture or benchmark that fails before it and passes after |
+| M14 | Phase 1a data safety, MCP and limits | 1, 3, 4 | Issues #71, #82 and #98 are closed, and #83 with its stale `service.json` |
+| M15 | Phase 1a usability | 3, 4 | Issues #87, #89, #90, #91, #92, #93, #94, #95, #96 and #97 are closed |
+| M16 | Phase 1a release | 0 to 4 | Issues #88, #101, #102 and #103 are closed: the AppImage builds, the Phase 1 review's changes are in specs 0 to 4, the owner checks are done, and v0.1.0 is tagged |
 
 M7 comes before the interface on purpose. Once the service and MCP server exist, the product is usable through an assistant, and that use will expose format problems cheaply.
 
@@ -132,7 +139,9 @@ If the real adapter and the prototype's reference values disagree on a result, t
 ## Session procedure
 
 - **Research notes.** One file per research item, `docs/research/spec-<n>-<slug>.md`, with the headings Question, Finding, Sources, Decision, Tested.
+- **Issues.** Work starts from a GitHub issue; a new issue uses a template in `.github/ISSUE_TEMPLATE/` (bug, feature, research or chore), each with the sections "Why and what", "Done when" and "Source". A session checks each issue it closed on GitHub before it ends.
 - **Session summary.** `docs/sessions/<yyyy-mm-dd>-M<n>.md` with the headings Built, Checks passing, Decisions logged, Awaiting owner, Left. The session's last act updates "Current state" in `CLAUDE.md`.
+- **Editing this guide.** Sessions update factual and status rows freely ("Current state", the "How" column of the known gaps); changes to rules, milestones or conventions are proposed to the owner and made once approved (owner decision D18, 2026-11-13).
 - **Engine gaps.** A DECISIONS entry "Engine gap: <engine> lacks <feature>" with the workaround and the spec section concerned.
 - **DECISIONS entry template.** A date and milestone heading, then Decision, Reason, Alternatives considered, Spec sections updated, Dependencies added (name, version, licence, how checked).
 - **Test subsets.** `pytest tests/model`, `pytest -m benchmark`, `pytest -m perf`; `pytest -m package` after `python scripts/package_linux.py` (M11). The full gate is `bash scripts/check.sh`.
