@@ -2394,3 +2394,10 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **F7. Releases.** Engineering practice: v0.1.0 after Phase 1a correctness and data safety; semantic versions with a changelog; the model format and `/v1` API change only additively within 0.x.
 - **F8. Working mode.** Merges are automatic when CI and review are clean (C10); the owner takes decisions every two days, and urgent ones by email; two or three milestones per session; the orchestrating session emails a short progress note at the end of each milestone. No budget cap for now.
 - **F9 to F19.** Proposed by the agent council (F3), then reviewed by the owner.
+## 2026-11-13 · HiGHS capped below 1.16
+
+- **Decision:** `pyproject.toml` declares `highspy>=1.15.1,<1.16`, the version the Linux package ships (`packaging/linux/requirements.lock`, 1.15.1).
+- **Reason:** highspy 1.16.0 (2026-11-11) returns a different optimal rota for the staff rota template, whose problem has several optima of objective 9, so `tests/templates/test_templates.py` failed in CI on PR #63 while the shipped package was unaffected. Development and CI now match the shipped build.
+- **Alternatives considered:** loosening the test to the objective only (hides that users on a newer HiGHS see a different rota than the tested one); a unique optimum for the template (a model and lesson change, tracked as its own issue together with a deliberate HiGHS upgrade).
+- **Spec sections updated:** none.
+- **Dependencies added:** none; highspy's range narrowed (MIT, unchanged).
