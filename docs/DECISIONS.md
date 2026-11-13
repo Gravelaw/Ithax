@@ -2394,6 +2394,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **F7. Releases.** Engineering practice: v0.1.0 after Phase 1a correctness and data safety; semantic versions with a changelog; the model format and `/v1` API change only additively within 0.x.
 - **F8. Working mode.** Merges are automatic when CI and review are clean (C10); the owner takes decisions every two days, and urgent ones by email; two or three milestones per session; the orchestrating session emails a short progress note at the end of each milestone. No budget cap for now.
 - **F9 to F19.** Proposed by the agent council (F3), then reviewed by the owner.
+
 ## 2026-11-13 · HiGHS capped below 1.16
 
 - **Decision:** `pyproject.toml` declares `highspy>=1.15.1,<1.16`, the version the Linux package ships (`packaging/linux/requirements.lock`, 1.15.1).
