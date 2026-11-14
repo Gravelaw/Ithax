@@ -95,23 +95,58 @@ def test_a_cancel_set_before_the_run_runs_nothing(
     assert reports == []
 
 
-@pytest.mark.parametrize(("workers", "after"), [(1, 0.3), (2, 1.0)])
-def test_cancel_stops_a_long_run_quickly(
-    make_model: ModelMaker, tmp_path: Path, workers: int, after: float
-) -> None:
-    """Two scenarios of three replications of 10,000 h would take minutes; the run stops
-    within a second of the cancel, also while worker processes run replications (they
-    start in under a second here)."""
+def test_cancel_stops_a_long_run_quickly(make_model: ModelMaker, tmp_path: Path) -> None:
+    """Two scenarios of three replications of 10,000 h would take minutes; in this process
+    the run stops within a second of the cancel."""
     engine = two_scenarios(make_model, tmp_path, length="10000 h")
     cancel = multiprocessing.Event()
+    after = 0.3
     timer = threading.Timer(after, cancel.set)
     started = time.monotonic()
     timer.start()
     try:
-        assert run_all(tmp_path, engine, lambda progress: None, cancel, workers) is None
+        assert run_all(tmp_path, engine, lambda progress: None, cancel, 1) is None
     finally:
         timer.cancel()
     assert time.monotonic() - started < after + 1.0
+
+
+def test_cancel_stops_running_workers_within_a_second(
+    make_model: ModelMaker, tmp_path: Path
+) -> None:
+    """Workers that run replications stop within a second of the cancel (#173). The cancel
+    is set when the first pair finishes, so the workers have started: a spawned worker
+    imports the engine first, which under load takes more than a second (checks (3.13),
+    run 43612701781: 2.77 s), and the pool waits for it before it can see the stop. The
+    scenario "quick" has one arrival, so its pairs end at once; the "long" pairs would
+    take minutes."""
+    components, connections = line(
+        {"dist": "exponential", "mean": "2 min"}, {"dist": "exponential", "mean": "1.5 min"}
+    )
+    components[0]["params"]["max_items"] = {"$param": "items"}
+    model = make_model(
+        components,
+        connections,
+        length="10000 h",
+        warmup="10 min",
+        replications=3,
+        seed=2024,
+        parameters={"items": {"value": 1_000_000_000, "type": "integer", "min": 1}},
+        scenarios=[{"id": "quick", "set": {"items": 1}}, {"id": "long", "set": {}}],
+    )
+    write_input(model, "e", tmp_path)
+    engine = read_input(tmp_path)
+    cancel = multiprocessing.Event()
+    cancelled: list[float] = []
+
+    def on_progress(progress: Progress) -> None:
+        if not cancelled:
+            cancelled.append(time.monotonic())
+            cancel.set()
+
+    assert run_all(tmp_path, engine, on_progress, cancel, 2) is None
+    assert cancelled, "no pair finished"
+    assert time.monotonic() - cancelled[0] < 1.0
 
 
 def test_a_run_issue_in_one_worker_stops_the_others_quickly(
