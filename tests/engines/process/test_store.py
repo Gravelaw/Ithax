@@ -3,9 +3,10 @@ AKS-106).
 
 Each item arriving takes one unit of stock and leaves at once; an item finding the stock at
 zero waits, first in first out, until a delivery, and counts as a stock-out when it
-arrives. After every withdrawal, and once at time 0, the store reviews its stock: when the
-stock on hand plus on order is at or below ``reorder_point`` it places one order of
-``order_quantity``, delivered after a ``lead_time`` drawn from the store's own stream.
+arrives. At every demand, and once at time 0, the store reviews its inventory position,
+stock on hand plus on order minus the items waiting for stock (the textbook one, #72): when
+it is at or below ``reorder_point`` it places one order of ``order_quantity``, delivered
+after a ``lead_time`` drawn from the store's own stream. A delivery reviews nothing.
 Every case below is computed by hand, event by event, with constant times.
 """
 
@@ -93,38 +94,39 @@ def test_the_store_type_is_registered_with_its_metrics() -> None:
 
 
 def test_stock_depletes_reorders_and_releases_waiting_items(make_model: ModelMaker) -> None:
-    """Item i arrives at 60i s. Item 0 leaves 1 on hand, at the reorder point: order 1 at
-    0 s, due at 150 s. Item 1 takes the last unit (1 on hand plus 2 on order is above 1).
-    Item 2 (120 s) finds none: a stock-out. At 150 s the delivery of 2 releases item 2,
-    leaving 1, at the reorder point: order 2, due at 300 s. Item 3 (180 s) takes the last
-    unit; item 4 (240 s) is a stock-out. At 300 s the delivery (scheduled at 150 s) runs
-    before item 5's arrival (scheduled at 240 s): item 4 takes a unit, leaving 1, order 3
-    due at 450 s; item 5 takes the other. Items 6 and 7 are stock-outs; at 450 s both are
-    released in order, item 6 leaving 1 (order 4, due at 600 s, the end, so it never
-    arrives), item 7 leaving 0 with 2 on order. Items 8 and 9 are stock-outs."""
+    """Item i arrives at 60i s; the position is on hand plus on order minus waiting. Item 0
+    leaves 1 on hand, position 1, at the reorder point: order A at 0 s, due at 150 s
+    (position 3). Item 1 takes the last unit (position 2). Item 2 (120 s) finds none: a
+    stock-out, and waiting it brings the position to 1, so order B at 120 s, due at 270 s.
+    At 150 s A releases item 2, leaving 1 on hand; a delivery leaves the position as it
+    was. Item 3 (180 s) takes the last unit (position 2); item 4 (240 s) is a stock-out
+    (position 1: order C, due at 390 s); B releases it at 270 s. The same repeats: item 5
+    takes the last unit, item 6 (360 s) waits (order D, due at 510 s) and C releases it at
+    390 s, item 7 takes the last unit, item 8 (480 s) waits (order E, due at 630 s, after
+    the end, so it never arrives) and D releases it at 510 s, item 9 takes the last."""
     metrics = metrics_of_model(depletion_line(make_model))
-    assert metrics["shelf.orders"] == 4 / 600  # at 0, 150, 300 and 450 s
-    assert metrics["shelf.stockouts"] == 6.0  # items 2, 4, 6, 7, 8 and 9
-    # On hand: 1 over [0, 60), 1 over [150, 180), 0 otherwise (each delivery is taken at
-    # its instant).
-    assert metrics["shelf.stock.mean"] == (60 + 30) / 600
-    assert metrics["exit.count"] == 8.0  # items 0 to 7
-    assert metrics["exit.cycle_time.mean"] == (0 + 0 + 30 + 0 + 60 + 0 + 90 + 30) / 8
+    assert metrics["shelf.orders"] == 5 / 600  # at 0, 120, 240, 360 and 480 s
+    assert metrics["shelf.stockouts"] == 4.0  # items 2, 4, 6 and 8
+    # On hand: 1 over [0, 60), [150, 180), [270, 300), [390, 420) and [510, 540), 0
+    # otherwise (each delivery is taken at its instant).
+    assert metrics["shelf.stock.mean"] == (60 + 4 * 30) / 600
+    assert metrics["exit.count"] == 10.0
+    assert metrics["exit.cycle_time.mean"] == (4 * 30) / 10
     assert metrics["arrivals.discarded"] == 0.0  # a store always accepts
 
 
 @pytest.mark.parametrize(
     ("warmup", "orders", "stockouts", "area"),
     [
-        # At 120 s: item 2's stock-out (at the warm-up) counts; the orders at 150, 300 and
-        # 450 s count; on hand 1 over [150, 180).
-        ("120 s", 3, 6, 30),
+        # At 120 s: item 2's stock-out and order B (both at the warm-up) count, then C, D
+        # and E and items 4, 6 and 8; on hand 1 over four 30 s spans from 150 s.
+        ("120 s", 4, 4, 120),
         # At 150 s: item 2's stock-out (120 s) does not count although it is released at
-        # 150 s; the order at exactly 150 s counts.
-        ("150 s", 3, 5, 30),
-        # At 30 s: the order at 0 s does not count; on hand 1 over [30, 60) and
-        # [150, 180).
-        ("30 s", 3, 6, 60),
+        # 150 s, nor does order B (120 s); C, D and E and items 4, 6 and 8 count.
+        ("150 s", 3, 3, 120),
+        # At 30 s: order A (0 s) does not count; on hand 1 over [30, 60) and the four
+        # spans.
+        ("30 s", 4, 4, 150),
     ],
 )
 def test_the_warm_up_boundary(
@@ -171,33 +173,35 @@ def test_the_time_0_review_orders_only_at_or_below_the_reorder_point(
 
 def test_several_orders_can_be_outstanding(make_model: ModelMaker) -> None:
     """A store of 6, ``reorder_point`` 5, ``order_quantity`` 2, lead time 1,000 s: items 0,
-    2 and 4 each bring the stock on hand plus on order down to 5 (5 + 0, 3 + 2, 1 + 4), so
-    three orders are outstanding by 240 s; none arrives before the end at 600 s. Item 5
-    takes the last unit; items 6 to 9 are stock-outs."""
+    2, 4, 6 and 8 each bring the position down to 5 (5 + 0, 3 + 2, 1 + 4, 0 + 6 - 1,
+    0 + 8 - 3), so five orders are outstanding by 480 s; none arrives before the end at
+    600 s. Item 5 takes the last unit; items 6 to 9 are stock-outs."""
     model = make_model([source(), store(6, 5, 2, "1000 s"), sink()], LINE, length="600 s")
     metrics = metrics_of_model(model)
-    assert metrics["shelf.orders"] == 3 / 600
+    assert metrics["shelf.orders"] == 5 / 600
     assert metrics["shelf.stockouts"] == 4.0
     assert metrics["shelf.stock.mean"] == 60 * (5 + 4 + 3 + 2 + 1) / 600
 
 
-def test_a_position_below_the_reorder_point_orders_at_every_withdrawal(
+def test_a_position_below_the_reorder_point_orders_at_every_demand(
     make_model: ModelMaker,
 ) -> None:
     """A "falls to" read as "at or below": a store of 3 with ``reorder_point`` 5 and
-    ``order_quantity`` 1 (lead time 1,000 s) orders at the 0 s review (3 + 0) and after
-    each of items 0, 1 and 2 (2 + 1, 1 + 2, 0 + 3), one order each time. Items 3 and 4 find
-    no stock and withdraw nothing, so they trigger no review."""
+    ``order_quantity`` 1 (lead time 1,000 s) orders at the 0 s review (3 + 0) and at each
+    of the five demands (2 + 1, 1 + 2, 0 + 3, then items 3 and 4, which find no stock and
+    wait: 0 + 4 - 1, 0 + 5 - 2), one order each time (#72: a demand that waits is reviewed
+    too)."""
     model = make_model([source(), store(3, 5, 1, "1000 s"), sink()], LINE, length="300 s")
     metrics = metrics_of_model(model)
-    assert metrics["shelf.orders"] == 4 / 300
+    assert metrics["shelf.orders"] == 6 / 300
     assert metrics["shelf.stockouts"] == 2.0
 
 
 def test_waiting_items_are_released_first_in_first_out(make_context: ContextMaker) -> None:
     """Three items reach an empty store at 0, 1 and 2 s; the order placed at the 0 s review
-    arrives at 100 s with 2 units: the first two move on at 100 s in arrival order and the
-    third waits for the next order (placed at 100 s, after the second withdrawal)."""
+    arrives at 100 s with 2 units, and the first two move on then, in arrival order. Item 1
+    waiting brought the position to 0 + 2 - 2 = 0, so a second order was placed at 1 s; it
+    arrives at 101 s, and the third item takes one of its units."""
     context = make_context(0.0, 300.0)
     block = block_store(context, initial=0, reorder_point=0, order_quantity=2)
     out = recorder(context)
@@ -211,16 +215,17 @@ def test_waiting_items_are_released_first_in_first_out(make_context: ContextMake
             yield context.env.timeout(1.0)
 
     context.env.process(arrive())
-    context.env.run(until=150.0)
+    context.env.run(until=100.5)
     assert out.items == items[:2]
     assert out.times == [100.0, 100.0]
     assert block.waiting_items() == 1
     context.env.run(until=250.0)
     assert out.items == items
-    assert out.times == [100.0, 100.0, 200.0]
+    assert out.times == [100.0, 100.0, 101.0]
     assert block.metrics()["stockouts"] == 3.0
-    # At 0 s and at 100 s, after the second withdrawal; at 200 s item 2 leaves 1 on hand.
+    # At 0 s (the review) and at 1 s (item 1 waiting); the deliveries review nothing.
     assert block.metrics()["orders"] == 2 / 300
+    assert block.position() == 1
 
 
 def test_a_store_always_accepts_and_counts_items_waiting_for_stock(
