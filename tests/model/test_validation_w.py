@@ -939,23 +939,37 @@ def test_w201_a_repeated_id_is_checked_once() -> None:
 # --- W202: a normal distribution clipped at zero --------------------------------------------------
 
 
-def test_w202_a_normal_that_clips_two_percent_or_more() -> None:
+def test_w202_a_normal_that_clips_more_than_one_percent() -> None:
     document = with_service({"dist": "normal", "mean": "1.5 min", "sd": "1 min"})
     (issue,) = clipping_issues(built(document))
     assert codes([issue]) == [("W202", "/components/1/params/service")]
     assert issue.component == "till"
     assert issue.message == (
         "The 'normal' distribution in the 'service' setting of 'till' has a 'mean' (1.5 min) "
-        "less than twice its 'sd' (1 min), so about 6.7% of its samples are below zero; "
-        "they are set to zero, which raises its mean to 1.53 min."
+        "and an 'sd' (1 min) that put about 6.7% of its samples below zero; they are set to "
+        "zero, which raises its mean to 1.53 min."
+    )
+    assert issue.hint == (
+        "Use a 'mean' of at least 2.33 times the 'sd', or a distribution that is never "
+        "negative, such as 'lognormal' with the same mean and sd."
     )
     assert_plain(issue)
 
 
-def test_w202_a_mean_of_exactly_twice_the_sd_is_not_reported() -> None:
-    """Spec 1 W202: `mean` below twice `sd`; at exactly twice, 2.3% of samples clip."""
-    document = with_service({"dist": "normal", "mean": "2 min", "sd": "1 min"})
-    assert clipping_issues(built(document)) == []
+@pytest.mark.parametrize(
+    ("mean", "reported"),
+    [
+        ("2 min", True),  # 2.3% below zero: reported since #69 (it was the old boundary)
+        ("2.32 min", True),  # 1.02%
+        ("2.33 min", False),  # 0.99%
+        ("3 min", False),
+    ],
+)
+def test_w202_more_than_one_percent_below_zero_is_reported(mean: str, reported: bool) -> None:
+    """#69 (M2-1): a `normal` with more than about 1% of its samples below zero warns; the
+    boundary is `mean` = 2.326 times `sd`, where Φ(-mean/sd) = 1%."""
+    document = with_service({"dist": "normal", "mean": mean, "sd": "1 min"})
+    assert bool(clipping_issues(built(document))) is reported
 
 
 def test_w202_in_every_setting_that_holds_a_distribution() -> None:
@@ -992,7 +1006,7 @@ def test_w202_a_parameter_fed_sd_in_a_scenario() -> None:
     (issue,) = clipping_issues(built(document))
     assert issue.message.startswith(
         "The 'normal' distribution in the 'service' setting of 'till' has a 'mean' (3 min) "
-        "less than twice its 'sd' (2 min) in scenario 'wide' of experiment 'base', so"
+        "and an 'sd' (2 min) in scenario 'wide' of experiment 'base' that put about"
     )
 
 
@@ -1012,7 +1026,7 @@ def test_w202_not_for_an_unusable_normal_or_another_distribution(service: dict[s
 def test_w202_a_normal_with_a_negative_mean_clips_most_samples() -> None:
     document = with_service({"dist": "normal", "mean": "-1 min", "sd": "1 min"})
     (issue,) = clipping_issues(built(document))
-    assert "about 84% of its samples are below zero" in issue.message
+    assert "that put about 84% of its samples below zero" in issue.message
 
 
 def test_w202_a_clipped_mean_beyond_the_range_of_a_float_is_shown_in_words() -> None:

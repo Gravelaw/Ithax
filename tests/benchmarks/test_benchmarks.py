@@ -85,6 +85,7 @@ BLOCK_MILESTONES = {block: "M2" for block in M2_BLOCKS} | {
 STANDARD_SETTINGS = (100, 200, 10)
 STATED_SETTINGS = {
     "store_deterministic": (2, 1000, 100),
+    "store_backlog": (2, 1000, 100),
     "schedule_deterministic": (2, 204, 12),
     # Spec 2 "Benchmark definitions": "The coffee shop", whose experiment is 30 replications
     # of 200 h with 10 h of warm-up.

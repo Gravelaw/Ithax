@@ -640,6 +640,40 @@ def test_fields_spec_1_does_not_restrict_pass(service: dict[str, Any]) -> None:
     assert distribution_issues(built(with_service(service))) == []
 
 
+@pytest.mark.parametrize(
+    ("service", "field", "shown"),
+    [
+        ({"dist": "constant", "value": "-1 min"}, "value", "-1 min"),
+        ({"dist": "uniform", "min": "-1 min", "max": "1 min"}, "min", "-1 min"),
+        ({"dist": "uniform", "min": "-3 min", "max": "-2 min"}, "min", "-3 min"),
+        ({"dist": "triangular", "min": "-1 s", "mode": "1 min", "max": "2 min"}, "min", "-1 s"),
+    ],
+)
+def test_a_bound_below_zero_is_e160(service: dict[str, Any], field: str, shown: str) -> None:
+    """#69 (M2-1, M1-9): every Phase 1 distribution is a time, and a bound below zero would
+    be set to 0 s when drawn; the only issue is at the bound."""
+    issues = distribution_issues(built(with_service(service)))
+    issue = only(issues, "E160", f"{SERVICE}/{field}")
+    assert [item.code for item in issues] == ["E160"]
+    assert issue.component == "till"
+    assert issue.message == (
+        f"The '{field}' of the '{service['dist']}' distribution in the 'service' setting of "
+        f"'till' is {shown}; a time cannot be below zero, and every sample below zero would "
+        "be set to 0 s."
+    )
+    assert issue.hint == f"Use a '{field}' of 0 s or more."
+
+
+def test_a_bound_below_zero_through_a_parameter_is_e160() -> None:
+    service = {"dist": "constant", "value": {"$param": "delay"}}
+    document = with_service(service)
+    document["parameters"]["delay"] = {"value": "1 min", "type": "quantity", "min": "-1 min"}
+    issue = only(distribution_issues(built(document)), "E160", f"{SERVICE}/value")
+    assert "is -1 min with the parameter 'delay' at its 'min'; a time cannot be below zero" in (
+        issue.message
+    )
+
+
 def test_uniform_min_above_max_is_e160_at_min() -> None:
     service = {"dist": "uniform", "min": "3 min", "max": "90 s"}
     issue = only(distribution_issues(built(with_service(service))), "E160", f"{SERVICE}/min")

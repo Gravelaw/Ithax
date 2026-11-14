@@ -2791,6 +2791,40 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Spec sections updated:** spec 1 "Engine contract" (a dated line).
 - **Dependencies added:** none.
 
+## 2026-11-14 · M13 · Negative samples: E160 for a bound below zero, W202 above 1% (#69)
+
+- **Decision:**
+  - **E160 for a bound below zero.** A `constant` `value`, or a `uniform` or `triangular` `min`, below zero is now E160 at that field. The message says a time cannot be below zero and that every such sample would be set to 0 s; the hint asks for 0 s or more.
+    - With the fields' order, no bound of those three distributions can then be below zero.
+    - The check runs on each parameter's `value`, `min` and `max` and in each scenario, like E160's other cases.
+    - In the catalogue this is a `nonnegative` field flag beside `positive`.
+  - **W202 above 1%.** W202 now warns when a `normal` puts more than 1% of its samples below zero, Φ(−mean/sd) > 0.01, which is `mean` < 2.326 × `sd`. It used to warn at `mean` < 2 × `sd`, about 2.3%. The message gives the share; the hint asks for a `mean` of at least 2.33 times the `sd`.
+  - **Fitter.** The data-import fitter's one gate already leaves out any candidate the model refuses. So a `uniform` or `triangular` whose fitted `min` is below zero is no longer offered. For skewed columns of non-negative values, scipy's triangular fit has `min` below zero: −2.39 for the test's exponential column, −0.0004 for its Weibull one. Such columns now get no triangular candidate.
+  - **Checks:** a fixture that fails before and passes after (`E160_uniform_min_below_zero.json`), tests at the W202 boundary (2.32 × `sd` warns, 2.33 does not), and the fitter's tests updated, with a new test of the gate.
+  - **Shipped models:** none is affected. A scan of the 145 model files in `examples/`, `templates/`, `benchmarks/`, `tests/compat/models/` and the fixtures found no negative bound and no `normal` between 2 and 2.326 `sd`.
+- **Reason:** issue #69 (E1: M2-1, M1-9). Negative times were silently set to 0 s, which changed the mean without a word.
+- **Reading (reversible):** the new case is E160, not a new code. E160 already covers distribution fields out of range (an `sd` or a positive distribution's `mean` not above zero), so a client handles one code for "this distribution's fields cannot be used".
+- **Alternatives considered:**
+  - A new code. One more code to fixture and document, for the same remedy.
+  - Clipping a fitted `min` at zero. That would offer a distribution that is not the fit.
+- **Spec sections updated:** spec 1 "Distributions", the E160 and W202 rows (a dated line); spec 3's fit note (a dated line).
+
+## 2026-11-14 · M13 · The store's inventory position is the textbook one (#72; D12)
+
+- **Decision:**
+  - **The position.** A store's inventory position is now stock on hand plus on order minus the items waiting for stock. It is reviewed at time 0 and at every demand, whether the item takes a unit or waits.
+  - **Deliveries.** A delivery does not change the position, so it reviews nothing.
+  - **Before.** The position left the waiting items out, and the store reviewed only after a withdrawal. During a stock-out, orders then came once per delivery instead of every Q demands, so supply fell behind demand and the backlog grew without limit.
+  - **`benchmarks/store_backlog`** (M13), derived by hand in spec 2 "Benchmark definitions": a demand every 6 min; store initial 15, R 5, Q 10; constant lead time 63 min. Expected `stock.mean` 1.25, orders 1 per hour, 4,500 stock-outs over the observed 900 h.
+    - Under the old rule the same case gives 0.0, 0.952 per hour and 9,000. That output is copied from the failing benchmark run before the fix.
+  - **`CURRENT_MILESTONE`** in `tests/benchmarks/conftest.py` moves to M13. It was still M11, and M12 added no benchmark.
+  - **Unit tests.** The store's unit tests that encoded the old rule were re-derived by hand, event by event, under the new one, and the engine matches each: the depletion line, the three warm-up cases, several outstanding orders, a position below R, and first in, first out.
+  - **Flow-rate test.** The test that a store stops W201's rate (`test_flow_rates.py`) was re-derived the same way. The store now passes the source's rate on, and the server downstream falls behind: 11 items finish, the queue peaks at 7. W201's rule that a store stops the rate is left as spec 1 has it, for #73 (W201 coverage) to revisit, since a store no longer limits what gets through in the long run.
+  - **Templates.** The inventory template and every other template still reproduce their expected results (`pytest -m template`).
+- **Reason:** owner decision D12 (M4-17): follow the textbook, with a benchmark.
+- **Alternatives considered:** reviewing also at a delivery. The position does not change there, so reviewing would change nothing except under a policy that orders several Q at once, which spec 2 does not have.
+- **Spec sections updated:** spec 2 "Block reference" (store), "Store", the benchmark table and "Benchmark definitions" (a dated line).
+
 ## 2026-11-14 · M13 · W201 covers schedules, failures and pools (#73; M4-39, M4-40)
 
 - **Decision:**
