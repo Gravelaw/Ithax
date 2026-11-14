@@ -2516,3 +2516,17 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** banning `json` outright with `noqa` at every site (hides the helper); moving the loader's reader (above).
 - **Spec sections updated:** none.
 - **Dependencies added:** none.
+
+## 2026-11-14 · M12 · Retrospective PR 7: a uv lockfile for what CI runs (#99; rest of P9)
+
+- **Decision:**
+  - `uv.lock` is committed, made with `uv lock` (uv 0.11.32). It holds 75 packages, among them numpy 2.4.6 on Python 3.11 and 2.5.4 on newer versions, highspy 1.15.1 within the `<1.16` cap, pydantic 2.14.3 and pytest-xdist 3.8.0.
+  - The four CI jobs (`checks`, `interface`, `desktop`, `package`) set up uv with `astral-sh/setup-uv@v10.3.3` (the latest release, 2026-10-28, read on its releases page on 2026-11-14) and its cache. They install with `uv sync --locked --extra dev` against the Python of `actions/setup-python`, then put `.venv/bin` first on the job's `PATH`, so every later step runs in the locked environment unchanged.
+  - `--locked`, not the proposal's `--frozen`: it also fails when the lock no longer matches `pyproject.toml`, so a dependency change without `uv lock` cannot pass CI.
+  - The `>=` floors in `pyproject.toml` stay, and `pip install -e ".[dev]"` still works (README), so the package installs as a library and the owner's documented command is unchanged.
+  - Checked before the change: `check.sh` passes in a fresh environment made only from the lock (`uv sync --locked --extra dev --python 3.13`, 4,002 tests). The Linux package build is unaffected: it runs pip from the bundled Python, not from the job's environment, and ships its own `packaging/linux/requirements.lock`.
+  - The README names `uv sync`, `uv lock --upgrade` and `scripts/fast.sh`.
+- **Reason:** owner decision F2; the proposal's evidence W7: seeded results asserted to 3 or 4 decimals can change with an unpinned numpy or simpy release, as highspy 1.16 showed on 2026-11-13.
+- **Alternatives considered:** `--frozen` (does not catch a stale lock); a `uv lock --check` step in `check.sh` (would make uv a requirement of the local gate); the proposal's one-week `exclude-newer` cooldown (attrs uses it; not part of the proposal's text, and dependency updates are already deliberate PRs).
+- **Spec sections updated:** none.
+- **Dependencies added:** none to the product. uv 0.11.32 (MIT OR Apache-2.0, its PyPI metadata, read 2026-11-14) is a tool used by CI and for locking, not a dependency of lcsim; `astral-sh/setup-uv` is a CI action (MIT, its repository's licence, read 2026-11-14).
