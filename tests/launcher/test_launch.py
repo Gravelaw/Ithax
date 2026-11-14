@@ -32,13 +32,16 @@ from lcsim.service.discovery import SERVICE_FILE, ServiceInfo, read_service_file
 
 
 def stop(info: ServiceInfo, config_dir: Path) -> None:
-    """Stop a service the launcher started, and wait until its file is gone."""
+    """Stop a service the launcher started, wait until its file is gone, and reap it."""
     with contextlib.suppress(ProcessLookupError):
         os.kill(info.pid, signal.SIGTERM)
     deadline = time.monotonic() + 30
     while (config_dir / SERVICE_FILE).exists():
         assert time.monotonic() < deadline, "the service did not stop"
         time.sleep(0.05)
+    for process in [process for process in launcher.DETACHED if process.pid == info.pid]:
+        process.wait(timeout=30)
+        launcher.DETACHED.remove(process)
 
 
 class Run:

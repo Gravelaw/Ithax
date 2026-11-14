@@ -74,6 +74,10 @@ markers = [
 # No coverage flags here, so that the subset commands (pytest tests/model,
 # pytest -m benchmark, pytest -m perf) run without failing the coverage threshold.
 addopts = "-ra --strict-markers -p xdist_routes -m 'not benchmark_coverage and not perf and not remote and not cluster and not desktop and not package'"
+# Warnings are errors (Power of Ten rule 10; docs/retrospective/proposed-agent-setup.md,
+# P20; #99). A third-party warning that cannot be fixed here gets its own "ignore:" entry
+# with the reason.
+filterwarnings = ["error"]
 
 [tool.ruff]
 target-version = "py311"

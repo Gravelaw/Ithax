@@ -55,15 +55,16 @@ def test_the_lock_is_released_when_its_process_ends(tmp_path: Path) -> None:
         "print('locked', flush=True)\n"
         "time.sleep(30)\n"
     )
-    child = subprocess.Popen(
+    # As a context manager, so its output pipe is closed and the child waited for (P20).
+    with subprocess.Popen(
         [sys.executable, "-c", code, str(path)], stdout=subprocess.PIPE, text=True
-    )
-    try:
-        assert child.stdout is not None and child.stdout.readline().strip() == "locked"
-        assert is_held(path)
-    finally:
-        child.kill()
-        child.wait()
+    ) as child:
+        try:
+            assert child.stdout is not None and child.stdout.readline().strip() == "locked"
+            assert is_held(path)
+        finally:
+            child.kill()
+            child.wait()
     assert not is_held(path)
 
 
