@@ -300,7 +300,11 @@ def test_the_installed_shell_reaches_home(
         shell = str(folder / "lib" / "lcsim-desktop").encode()
         assert any(line.startswith(shell) for line in command_lines())
         web.close_window()
-    deadline = time.monotonic() + WAIT_S
-    while any(line.startswith(shell) for line in command_lines()):
-        assert time.monotonic() < deadline, "the shell did not end"
-        time.sleep(0.2)
+        # Wait while tauri-driver and WebKitWebDriver still run, as tests/desktop does: they
+        # finish closing the window after the request returns. Leaving `driver` stops them,
+        # and stopping them mid-close left the shell orphaned and running, its window never
+        # closed (#135: about 1 run in 12 here, more on CI).
+        deadline = time.monotonic() + WAIT_S
+        while any(line.startswith(shell) for line in command_lines()):
+            assert time.monotonic() < deadline, "the shell did not end"
+            time.sleep(0.2)
