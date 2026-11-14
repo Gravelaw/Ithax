@@ -919,6 +919,35 @@ def test_no_variables_at_all_lists_none_in_the_hint() -> None:
     assert issue.hint == "Add a variable 'chairs' to 'variables'."
 
 
+@pytest.mark.parametrize(("lower", "upper"), [(30, 10), (0.5, 0.25), (-1, -2)])
+def test_a_variable_whose_lower_is_above_its_upper_is_e123(lower: float, upper: float) -> None:
+    """#81: crossed bounds leave a variable no value; validation says so, at 'lower'."""
+    document = copy.deepcopy(PRODUCT_MIX)
+    document["variables"][0].update({"lower": lower, "upper": upper})
+    result = load_document(document)
+    assert result.model is None
+    (issue,) = result.issues
+    assert (issue.code, issue.path) == ("E123", "/variables/0/lower")
+    assert issue.message == (
+        f"The 'lower' of variable 'chairs' is {lower!r}, which is above its 'upper', "
+        f"{upper!r}, so no value can meet both."
+    )
+    assert issue.hint == "Make 'lower' no larger than 'upper'."
+
+
+def test_equal_bounds_fix_a_variable_and_pass() -> None:
+    document = copy.deepcopy(PRODUCT_MIX)
+    document["variables"][0].update({"lower": 24, "upper": 24})
+    assert load_document(document).issues == ()
+
+
+def test_crossed_bounds_of_an_indexed_variable_are_reported_once_at_the_declaration() -> None:
+    document = json.loads((ROOT / "benchmarks" / "transport" / "model.json").read_text())
+    document["variables"][0].update({"lower": 5, "upper": 1})
+    issues = load_document(document).issues
+    assert [(issue.code, issue.path) for issue in issues] == [("E123", "/variables/0/lower")]
+
+
 def test_a_long_list_of_variables_is_not_spelled_out() -> None:
     document = copy.deepcopy(PRODUCT_MIX)
     document["variables"] = [{"id": f"v{index}", "type": "continuous"} for index in range(13)]
