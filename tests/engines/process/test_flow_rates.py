@@ -120,15 +120,19 @@ def test_a_source_feeding_a_batch_is_not_a_loss_point(make_model: ModelMaker) ->
     assert metrics_of_model(model)["arrivals.discarded"] == 0.0
 
 
-def test_a_store_stops_the_rate_because_its_orders_set_what_gets_through(
+def test_a_store_stops_the_rate_propagation(
     make_model: ModelMaker,
 ) -> None:
     """Spec 1 "Validation": W201 is skipped for every server downstream of a store (AKS-106).
     Arrivals every 60 s into an empty store with ``reorder_point`` 0 that orders one unit at
-    a time (lead time 120 s), then a server of service 90 s, 1,200 s. Passed on, the
-    source's rate would load the server at 1.5 and raise W201; but the store lets one item
-    through per delivery, at 120, 240, ..., 1,080 s, so the server keeps up: no item waits.
-    Every one of the 20 arrivals finds no stock."""
+    a time (lead time 120 s), then a server of service 90 s, 1,200 s. Since #72 the store
+    reviews its textbook position at every demand: the 0 s review and each of the 20
+    arrivals (each waits, bringing the position to 0) order one unit, 21 orders. So the
+    store passes the source's rate on, 120 s late: items 0 and 1 at 120 s (two
+    deliveries), item k at 60(k + 1) s, and the server, loaded at 1.5, falls behind. Its
+    starts are at 120 + 90j s, so 11 items finish before the end (210 + 90j s, j = 0 to 10)
+    and its queue reaches 7 (19 arrived and 12 started, at 1,140 s). W201 is still skipped
+    here, as spec 1 says; #73 revisits a store's propagation."""
     components = [
         source(),
         {
@@ -150,11 +154,10 @@ def test_a_store_stops_the_rate_because_its_orders_set_what_gets_through(
     assert rates["till"] is None and rates["exit"] is None
     assert load_issues(model) == []
     metrics = metrics_of_model(model)
-    assert metrics["shelf.orders"] == 10 / 1200  # at 0, 120, ..., 1,080 s
+    assert metrics["shelf.orders"] == 21 / 1200  # twice at 0 s, then at 60, ..., 1,140 s
     assert metrics["shelf.stockouts"] == 20.0
-    assert metrics["till.wait.mean"] == 0.0
-    assert metrics["till.queue_length.max"] == 0.0
-    assert metrics["exit.count"] == 9.0  # at 210, 330, ..., 1,170 s
+    assert metrics["till.queue_length.max"] == 7.0
+    assert metrics["exit.count"] == 11.0
 
 
 def test_a_schedule_stops_the_rate_because_its_server_serves_less(

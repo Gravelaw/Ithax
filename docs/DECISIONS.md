@@ -2808,4 +2808,20 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - A new code. One more code to fixture and document, for the same remedy.
   - Clipping a fitted `min` at zero. That would offer a distribution that is not the fit.
 - **Spec sections updated:** spec 1 "Distributions", the E160 and W202 rows (a dated line); spec 3's fit note (a dated line).
+
+## 2026-11-14 · M13 · The store's inventory position is the textbook one (#72; D12)
+
+- **Decision:**
+  - **The position.** A store's inventory position is now stock on hand plus on order minus the items waiting for stock. It is reviewed at time 0 and at every demand, whether the item takes a unit or waits.
+  - **Deliveries.** A delivery does not change the position, so it reviews nothing.
+  - **Before.** The position left the waiting items out, and the store reviewed only after a withdrawal. During a stock-out, orders then came once per delivery instead of every Q demands, so supply fell behind demand and the backlog grew without limit.
+  - **`benchmarks/store_backlog`** (M13), derived by hand in spec 2 "Benchmark definitions": a demand every 6 min; store initial 15, R 5, Q 10; constant lead time 63 min. Expected `stock.mean` 1.25, orders 1 per hour, 4,500 stock-outs over the observed 900 h.
+    - Under the old rule the same case gives 0.0, 0.952 per hour and 9,000. That output is copied from the failing benchmark run before the fix.
+  - **`CURRENT_MILESTONE`** in `tests/benchmarks/conftest.py` moves to M13. It was still M11, and M12 added no benchmark.
+  - **Unit tests.** The store's unit tests that encoded the old rule were re-derived by hand, event by event, under the new one, and the engine matches each: the depletion line, the three warm-up cases, several outstanding orders, a position below R, and first in, first out.
+  - **Flow-rate test.** The test that a store stops W201's rate (`test_flow_rates.py`) was re-derived the same way. The store now passes the source's rate on, and the server downstream falls behind: 11 items finish, the queue peaks at 7. W201's rule that a store stops the rate is left as spec 1 has it, for #73 (W201 coverage) to revisit, since a store no longer limits what gets through in the long run.
+  - **Templates.** The inventory template and every other template still reproduce their expected results (`pytest -m template`).
+- **Reason:** owner decision D12 (M4-17): follow the textbook, with a benchmark.
+- **Alternatives considered:** reviewing also at a delivery. The position does not change there, so reviewing would change nothing except under a policy that orders several Q at once, which spec 2 does not have.
+- **Spec sections updated:** spec 2 "Block reference" (store), "Store", the benchmark table and "Benchmark definitions" (a dated line).
 - **Dependencies added:** none.

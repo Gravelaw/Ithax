@@ -1,0 +1,61 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Store with a backlog, deterministic benchmark",
+    "description": "Spec 2 benchmark store with a backlog (#72): one arrival every 6 min from 0 into a store of initial 15 with reorder_point 5, order_quantity 10 and a constant lead time of 63 min, then a sink. The inventory position is stock on hand plus on order minus the items waiting for stock, reviewed at every demand: an order every 10 demands (60 min), each arriving 63 min later, after five items have waited."
+  },
+  "domain": "process",
+  "components": [
+    {
+      "id": "arrivals",
+      "type": "source",
+      "params": {
+        "interarrival": {
+          "dist": "constant",
+          "value": "6 min"
+        }
+      }
+    },
+    {
+      "id": "store",
+      "type": "store",
+      "params": {
+        "initial": 15,
+        "reorder_point": 5,
+        "order_quantity": 10,
+        "lead_time": {
+          "dist": "constant",
+          "value": "63 min"
+        }
+      }
+    },
+    {
+      "id": "exit",
+      "type": "sink",
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": "arrivals.out",
+      "to": "store.in"
+    },
+    {
+      "from": "store.out",
+      "to": "exit.in"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "benchmark",
+      "length": "1000 h",
+      "warmup": "100 h",
+      "replications": 2,
+      "seed": 1009
+    }
+  ],
+  "run": {
+    "target": "local",
+    "fidelity": "standard"
+  }
+}
