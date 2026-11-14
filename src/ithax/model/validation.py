@@ -2231,7 +2231,8 @@ def _load_issue(
 ) -> Issue | None:
     settings = component.settings
     rate = _total(inflow)
-    if "queue_capacity" in settings or rate is None:
+    if "queue_capacity" in settings or rate is None or rate == 0:
+        # No item arrives: no queue, even where a schedule leaves no unit (review of #159).
         return None
     capacity = _mean_capacity(model, graph, component, case)
     service = settings["service"]
@@ -2270,7 +2271,7 @@ def _pool_load_issue(
     ]
     if not servers or all("queue_capacity" in server.settings for server in servers):
         return None
-    load = Fraction(0)
+    load = arrivals = Fraction(0)
     for server in servers:
         rate = _total(inflow[server.id])
         service = server.settings["service"]
@@ -2279,8 +2280,10 @@ def _pool_load_issue(
         if rate is None or mean is None:
             return None
         load += rate * mean
+        arrivals += rate
     capacity = _mean_capacity(model, graph, pool, case)
-    if capacity is None or load < capacity[0]:
+    if capacity is None or arrivals == 0 or load < capacity[0]:
+        # No item reaches the pool's servers: no queue (review of #159).
         return None
     name = _quote(pool.id)
     users = ", ".join(_quote(server.id) for server in servers)

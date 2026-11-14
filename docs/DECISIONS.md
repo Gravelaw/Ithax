@@ -2816,5 +2816,6 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Left:** a store still stops the rate. Since #72 it fills every demand in the long run, so it should pass the rate on. That change waits for #157 to merge, since #157 rewrites the store's flow-rate test, and then follows in this PR or the next.
 - **Reason:** issue #73 (E1: M4-39, M4-40). An overloaded system under a schedule, a failure or a shared pool got no warning.
 - **Alternatives considered:** a simulation to measure the capacity. That is not a load-time check, and W201 must stay a closed-form calculator (guide rule 7).
+- **Review of PR #159:** a server or pool that no item reaches (rate zero) is not checked. With the schedule's mean capacity it could be 0, and a load of 0 "at least" a capacity of 0 was reported as a queue growing without limit. A positive rate into a capacity of 0 is still reported, even with a service time of 0, since no unit ever serves the items. Tests: `test_w201_a_server_no_item_reaches_is_not_reported_at_zero_capacity` and `test_w201_a_pool_no_item_reaches_is_not_reported_at_zero_capacity`, which fail before the fix.
 - **Spec sections updated:** spec 1 "Validation" and the W201 row (a dated line).
 - **Dependencies added:** none.

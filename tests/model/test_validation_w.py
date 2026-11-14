@@ -724,6 +724,19 @@ def test_w201_a_day_shift_in_a_run_of_one_shift_is_never_off() -> None:
     assert codes(load_issues(built(document))) == [("W201", "/components/1")]
 
 
+@pytest.mark.parametrize(("weight_b", "warned"), [(0, False), (1, True)])
+def test_w201_a_server_no_item_reaches_is_not_reported_at_zero_capacity(
+    weight_b: int, warned: bool
+) -> None:
+    """Review of PR #159: ``serve_b`` is behind a route of weight 0 and its schedule gives
+    0 units all day. A load of 0 against a capacity of 0 is no queue; with weight 1 its
+    queue does grow (1/2 per min, no unit ever on shift)."""
+    document = branch_model({"a": 1, "b": weight_b})
+    document["components"][2]["params"]["service"] = exponential("0.5 min")
+    document["components"].append(rota(("0 h", "24 h", 0), target="serve_b"))
+    assert codes(load_issues(built(document))) == ([("W201", "/components/3")] if warned else [])
+
+
 def pooled(pool_capacity: Any = 1, **till: Any) -> dict[str, Any]:
     """The coffee shop with two servers in a row, each of capacity 1 and service 1.2 min
     (load 0.6 each), both using the pool ``staff``: together 1.2 of its units."""
@@ -770,6 +783,23 @@ def test_w201_a_scheduled_pool_is_checked_against_its_mean_capacity() -> None:
     (issue,) = load_issues(built(document))
     assert issue.component == "staff"
     assert "at least its mean available capacity of 1 (under schedule 'rota')" in (issue.message)
+
+
+@pytest.mark.parametrize(("weight_b", "warned"), [(0, False), (1, True)])
+def test_w201_a_pool_no_item_reaches_is_not_reported_at_zero_capacity(
+    weight_b: int, warned: bool
+) -> None:
+    """Review of PR #159: the one server of the pool ``staff`` is behind a route of weight
+    0 and the pool's schedule gives 0 units all day: no item needs a unit, so no queue."""
+    document = branch_model({"a": 1, "b": weight_b})
+    document["components"][2]["params"]["service"] = exponential("0.5 min")
+    document["components"][3]["params"]["pool"] = "staff"
+    document["components"] += [
+        block("staff", "resource_pool", capacity=1),
+        rota(("0 h", "24 h", 0), target="staff"),
+    ]
+    found = [issue.component for issue in load_issues(built(document))]
+    assert found == (["staff"] if warned else [])
 
 
 def test_w201_a_pool_with_a_server_of_unknown_rate_is_not_checked() -> None:
