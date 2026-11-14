@@ -57,7 +57,7 @@
   "experiments": [
    {
     "id": "base",
-    "length": "200 h",
+    "length": "210 h",
     "warmup": "10 h",
     "replications": 30,
     "seed": 12345
@@ -72,7 +72,7 @@
   "model": "Coffee shop",
   "experiment": "base",
   "fidelity": "standard",
-  "fidelity_label": "Standard: 30 replications of 200 h, 95% confidence",
+  "fidelity_label": "Standard: 30 replications of 210 h, 95% confidence",
   "replications": 30,
   "confidence": 0.95,
   "scenarios": {
@@ -80,8 +80,8 @@
     "set": {},
     "metrics": {
      "arrivals.created": {
-      "mean": 8099.033333333334,
-      "half_width": 34.019834368155166,
+      "mean": 8528.433333333332,
+      "half_width": 34.22178831925541,
       "unit": "1",
       "n": 30
      },
@@ -92,14 +92,14 @@
       "n": 30
      },
      "till.wait.mean": {
-      "mean": 25138.743631291705,
-      "half_width": 2218.7871592267156,
+      "mean": 26256.689162614464,
+      "half_width": 2251.673696289116,
       "unit": "s",
       "n": 30
      },
      "till.utilization": {
-      "mean": 0.9997380069152882,
-      "half_width": 0.0002624216869127445,
+      "mean": 0.9997511065695238,
+      "half_width": 0.00024930060256710747,
       "unit": "1",
       "n": 30
      },
@@ -116,38 +116,38 @@
       "n": 30
      },
      "till.queue_length.mean": {
-      "mean": 297.8324856165239,
-      "half_width": 26.642596396115216,
+      "mean": 310.7544592223685,
+      "half_width": 26.9169086900532,
       "unit": "1",
       "n": 30
      },
      "till.queue_length.max": {
-      "mean": 561.3,
-      "half_width": 38.96428548199711,
+      "mean": 587.2666666666667,
+      "half_width": 39.49068525617219,
       "unit": "1",
       "n": 30
      },
      "exit.throughput": {
-      "mean": 0.011094395711500974,
-      "half_width": 3.815478391643921e-05,
+      "mean": 0.011106064814814815,
+      "half_width": 3.758631934297767e-05,
       "unit": "1/s",
       "n": 30
      },
      "exit.cycle_time.mean": {
-      "mean": 25223.13195915881,
-      "half_width": 2218.5430379683,
+      "mean": 26341.097426625594,
+      "half_width": 2251.442137750104,
       "unit": "s",
       "n": 30
      },
      "exit.count": {
-      "mean": 7588.566666666667,
-      "half_width": 26.0978721988444,
+      "mean": 7996.366666666667,
+      "half_width": 27.06214992694394,
       "unit": "1",
       "n": 30
      },
      "model.wip.mean": {
-      "mean": 298.8322236234395,
-      "half_width": 26.642683445777678,
+      "mean": 311.75421032893826,
+      "half_width": 26.91699144975946,
       "unit": "1",
       "n": 30
      }

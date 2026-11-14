@@ -52,7 +52,7 @@ def test_validate_adds_no_issue_to_a_valid_model() -> None:
 
 
 def test_the_coffee_shop_runs_end_to_end(tmp_path: Path) -> None:
-    """30 replications of 200 h with 10 h of warm-up, as the file says. Theory (M/M/1,
+    """30 replications of 210 h with 10 h of warm-up, as the file says (#86, D9). Theory (M/M/1,
     arrivals every 2 min, service 1.5 min): wait 270 s, utilization 0.75, queue length
     2.25, cycle time 360 s, throughput 1/120 per second, work in progress 3."""
     adapter = ProcessAdapter()
@@ -92,7 +92,7 @@ def test_the_coffee_shop_runs_end_to_end(tmp_path: Path) -> None:
     assert means["exit.cycle_time.mean"] == pytest.approx(360.0, rel=0.15)
     assert means["exit.throughput"] == pytest.approx(1 / 120, rel=0.02)
     assert means["model.wip.mean"] == pytest.approx(3.0, rel=0.15)
-    assert means["arrivals.created"] == pytest.approx(190 * 30, rel=0.02)
+    assert means["arrivals.created"] == pytest.approx(200 * 30, rel=0.02)
     assert means["arrivals.discarded"] == 0.0
     assert units["till.wait.mean"] == "s" and units["exit.throughput"] == "1/s"
     assert units["till.utilization"] == "1"
@@ -106,7 +106,8 @@ def test_the_coffee_shop_runs_end_to_end(tmp_path: Path) -> None:
         "till.queue_length",
         "till.utilization",
     ]
-    assert sorted(set(series["time_s"].to_pylist())) == [3600.0 * k for k in range(200)]
+    # record_interval is length / 200: 756,000 s / 200 = 3,780 s.
+    assert sorted(set(series["time_s"].to_pylist())) == [3780.0 * k for k in range(200)]
 
     files = sorted(str(path.relative_to(tmp_path)) for path in tmp_path.rglob("*"))
     assert files == [

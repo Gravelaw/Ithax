@@ -46,12 +46,12 @@ def test_the_coffee_shop_input_holds_the_resolved_model_in_si_units() -> None:
         "input_version": 2,
         "experiment": {
             "id": "base",
-            "length": 720_000.0,
+            "length": 756_000.0,
             "warmup": 36_000.0,
             "replications": 30,
             "first_replication": 0,
             "seed": 12345,
-            "record_interval": 3_600.0,
+            "record_interval": 3_780.0,
         },
         "connections": [
             {"from": "arrivals.out", "to": "till.in"},

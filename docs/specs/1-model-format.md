@@ -49,7 +49,7 @@ A minimal example:
     {"from": "till.out", "to": "exit.in"}
   ],
   "experiments": [
-    {"id": "base", "length": "200 h", "warmup": "10 h",
+    {"id": "base", "length": "210 h", "warmup": "10 h",
      "replications": 30, "seed": 12345}
   ],
   "run": {"target": "local", "fidelity": "standard"}
@@ -403,7 +403,7 @@ Results are stored in SI units with the unit named. The interface chooses displa
 
 ```json
 {"model": "Coffee shop", "experiment": "base", "fidelity": "standard",
- "fidelity_label": "Standard: 30 replications of 200 h, 95% confidence",
+ "fidelity_label": "Standard: 30 replications of 210 h, 95% confidence",
  "replications": 30, "confidence": 0.95,
  "scenarios": {
    "default": {
@@ -589,3 +589,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-14, crossed variable bounds (#81): the E123 row adds an `optimization` variable whose `lower` is above its `upper`, reported at its `lower`; such a model was answered `infeasible`.
 - 2026-11-14, a failure on a server of capacity above 1 (#84; D13, M4-34): "Validation issues" adds W203, and the meaning-pass and summary warning ranges read W200 to W203.
 - 2026-11-14, nothing to decide (#80; owner decision 2026-11-07, item 14; D2): "Validation issues" adds E179, an `optimization` model with no variables or a constraint with an empty `linear` and no `terms`; such a model was answered `optimal` at 0. A new optimization project still starts empty and shows E179.
+- 2026-11-14, the coffee shop measures 200 h (#86, D9): the minimal example's `base` experiment has `length` 210 h, since `length` includes the 10 h warm-up, and the `summary.json` example's fidelity label reads 210 h.

@@ -2,7 +2,7 @@
  * The Run monitor and Results against a real service (AKS-138).
  *
  * Runs start from the Canvas's Run button. The coffee shop (`examples/coffee_shop.json`,
- * 30 repeat runs of 200 h at seed 12345) fires no finding (spec 4: till 0.749, 3.7%), and
+ * 30 repeat runs of 210 h at seed 12345) fires no finding (spec 4: till 0.748, 3.4%), and
  * its results carry every footer item; its exports give the CSV, a PDF whose every page
  * carries the footer, and the project zip. The three-machine line fires `bottleneck` (weld
  * 90%) and `not_enough_runs` (15.7 min plus or minus 2.09 min) before any chart. A fresh
@@ -119,7 +119,7 @@ test("the coffee shop runs from the Canvas; its results have no finding, the foo
   const footerItems = [
     "Model: Coffee shop",
     `Run: ${rid}`,
-    "Fidelity: Standard: 30 replications of 200 h, 95% confidence",
+    "Fidelity: Standard: 30 replications of 210 h, 95% confidence",
     "Replications: 30 · Confidence: 95%",
     `Engine: simpy ${runBody.engine.version}`,
     NO_WARRANTY,

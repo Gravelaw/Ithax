@@ -14,7 +14,7 @@
  *   `format_version` (a new project is written at the reader's 0.2 since AKS-123; the
  *   example is 0.1);
  * - `till.wait.mean` from the run's summary is within 3 standard errors of 270 s at the
- *   example's seed, 12345, with 30 repeat runs of 200 h (spec 2's pass rule; the standard
+ *   example's seed, 12345, with 30 repeat runs of 210 h (spec 2's pass rule; the standard
  *   error is the half-width divided by the t quantile the summary used);
  * - Results shows no finding and the footer;
  * - the service's own request log (`tests/service/logged_service.py`, every call that
@@ -217,10 +217,10 @@ test("the coffee shop is built, run and viewed by pointer, through documented ro
   await connect(page, "till", "exit");
   await expect(page.locator(".problems [role=status]")).toHaveText("No problems");
 
-  // The Experiment screen: the base experiment of 30 repeat runs of 200 h at seed 12345.
+  // The Experiment screen: the base experiment of 30 repeat runs of 210 h at seed 12345.
   await rail(page, "Experiment").click();
   await expect(page.getByRole("heading", { name: "base", exact: true })).toBeVisible();
-  await enter(page, "Run length", "200");
+  await enter(page, "Run length", "210");
   await page.getByRole("combobox", { name: "Unit of Settling-in time" }).selectOption("h");
   await saved(page);
   await enter(page, "Settling-in time", "10");
@@ -254,7 +254,7 @@ test("the coffee shop is built, run and viewed by pointer, through documented ro
   for (const item of [
     "Model: Coffee shop",
     `Run: ${rid}`,
-    "Fidelity: Standard: 30 replications of 200 h, 95% confidence",
+    "Fidelity: Standard: 30 replications of 210 h, 95% confidence",
     "Replications: 30 · Confidence: 95%",
     "Engine: simpy",
     NO_WARRANTY,

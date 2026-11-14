@@ -3005,3 +3005,20 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - Two codes. The remedy is the same, so one code says what is missing.
 - **Spec sections updated:** spec 1 "Validation issues" (E179); spec 3 "Canvas behaviour", Optimization models; dated lines in both.
 - **Dependencies added:** none.
+
+## 2026-11-14 · M13 · The coffee shop measures 200 h (#86; D9)
+
+- **Decision:**
+  - The coffee shop (`examples/coffee_shop.json`, `templates/coffee_shop/`) runs `length` 210 h with `warmup` 10 h, so 200 h are measured, and its description and lesson say "200 hours measured after a 10-hour warm-up". It measured 190 h before.
+  - The template's expected arrivals are 6,000 (200 h at one per 120 s), from 5,700.
+  - **Measured at seed 12345, 30 replications** (the regenerated findings fixtures, `tests/findings/make_fixtures.py`): till utilization 0.748 (0.749 before); `till.wait.mean` 267.74 s, half-width 9.05 s, 3.4% of the mean (267.63 s, 9.79 s and 3.7% before), 0.51 standard errors below 270 s. Neither `bottleneck` nor `not_enough_runs` fires. At a 2.5% threshold `not_enough_runs` asks for about 60 replications (70 before).
+  - **Checks.** The template, loading, translation, adapter, summary, validation, findings and service tests pin the new values; the Experiment, pointer-only and Results end-to-end tests enter and read 210 h. Each fails against the 200 h model.
+- **Reason:** owner decision D9: "Both: run 210 h, labelled '200 hours measured after a 10-hour warm-up'".
+- **Readings (reversible):**
+  - "Labelled" is read as the description and the lesson. The fidelity label keeps its spec 1 form and now reads "30 replications of 210 h".
+  - D9 names the coffee shop only. The `machine_count` benchmark, the `how_many_machines` template and the other templates keep 200 h, 190 h measured; listed under Left.
+  - The machine-count findings fixture (`optimization_result_fires`) is not regenerated here, since it does not run the coffee shop example; its stale values are #172's.
+  - The 0.1 compatibility copy `tests/compat/models/0.1/templates-coffee_shop.json` keeps 200 h: it records a model that once loaded.
+- **Alternatives considered:** keeping 200 h and relabelling it "190 h measured". D9 chose both.
+- **Spec sections updated:** spec 1 example and `summary.json` example; spec 3 pointer-only and package rows; spec 4 template table, finding checks and M10 table; dated lines in each.
+- **Dependencies added:** none.

@@ -123,7 +123,7 @@ def test_a_process_summary_has_the_spec_1_layout() -> None:
     assert summary["model"] == "Coffee shop"
     assert summary["experiment"] == "base"
     assert summary["fidelity"] == "standard"
-    assert summary["fidelity_label"] == "Standard: 3 replications of 200 h, 95% confidence"
+    assert summary["fidelity_label"] == "Standard: 3 replications of 210 h, 95% confidence"
     assert summary["replications"] == 3
     assert summary["confidence"] == 0.95
     assert list(summary["scenarios"]) == ["default"]
