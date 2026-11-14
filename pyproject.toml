@@ -82,7 +82,12 @@ src = ["src", "tests"]
 extend-exclude = ["docs/specs", "CLAUDE.md"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "ANN", "RUF"]
+select = ["E", "F", "W", "I", "B", "UP", "ANN", "RUF", "C90", "S102", "S307", "PLW0603"]
+
+# Power of Ten rule 4 in spirit, and NPR 7150.2D SWE-220's cap for safety-critical code.
+# No function exceeded it on 2026-11-09 (docs/retrospective/proposed-agent-setup.md, P21).
+[tool.ruff.lint.mccabe]
+max-complexity = 15
 
 # tests/mcp mirrors src/lcsim/mcp; without this, isort would take the MCP SDK, `mcp`, for a
 # first-party package because `src` lists `tests`.
