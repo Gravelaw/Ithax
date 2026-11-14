@@ -19,15 +19,16 @@ jobs:
   pr-title:
     runs-on: ubuntu-latest
     steps:
-      - name: PR title starts with Linear issue identifiers
+      - name: PR title starts with a milestone, specs or docs
         env:
           # Passed through the environment, never interpolated into the script.
           TITLE: ${{ github.event.pull_request.title }}
         run: |
-          pattern='^AKS-[0-9]+(, AKS-[0-9]+)*: [^ ]'
+          # Guide "Conventions", Commits row; GitHub issues replaced Linear on 2026-11-13 (#100).
+          pattern='^(M[0-9]+|specs|docs): [^ ]'
           if [[ "$TITLE" =~ $pattern ]]; then
             echo "PR title OK: $TITLE"
           else
-            echo "::error::PR title must start with 'AKS-<n>: ' (or 'AKS-<n>, AKS-<m>: ') so Linear links the PR. Got: $TITLE"
+            echo "::error::PR title must start with 'M<n>: ', 'specs: ' or 'docs: ' followed by an imperative summary. Got: $TITLE"
             exit 1
           fi
