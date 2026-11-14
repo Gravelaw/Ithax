@@ -167,11 +167,11 @@ def test_the_coffee_shop_fires_neither_and_its_findings_read_the_run_s_model(
     assert body["findings"] == [] and body["issues"] == []
     metrics = body["summary"]["scenarios"]["default"]["metrics"]
     wait = metrics["till.wait.mean"]
-    # The measured values of the DECISIONS M8 entry (seed 12345, 30 replications of 200 h
-    # with 10 h of warm-up), the same as AKS-117's fixture.
-    assert round(metrics["till.utilization"]["mean"], 3) == 0.749
-    assert round(wait["mean"], 1) == 267.6 and round(wait["half_width"], 2) == 9.79
-    assert round(wait["half_width"] / wait["mean"], 3) == 0.037
+    # The measured values of the DECISIONS #86 entry (seed 12345, 30 replications of 210 h
+    # with 10 h of warm-up, 200 h measured), the same as AKS-117's fixture.
+    assert round(metrics["till.utilization"]["mean"], 3) == 0.748
+    assert round(wait["mean"], 1) == 267.7 and round(wait["half_width"], 2) == 9.05
+    assert round(wait["half_width"] / wait["mean"], 3) == 0.034
 
     # Lower thresholds make each rule fire on the same run.
     set_thresholds(config, {"bottleneck_utilization": 0.7})

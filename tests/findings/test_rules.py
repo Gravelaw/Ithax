@@ -112,10 +112,10 @@ def test_the_fixtures_hold_the_measured_values_logged_in_decisions() -> None:
         100 * line["weld.wait.mean"]["half_width"] / line["weld.wait.mean"]["mean"], 1
     ) == (13.3)
     shop = read_run("bottleneck_silent")[0]["scenarios"]["default"]["metrics"]
-    assert round(shop["till.utilization"]["mean"], 3) == 0.749
+    assert round(shop["till.utilization"]["mean"], 3) == 0.748
     assert round(
         100 * shop["till.wait.mean"]["half_width"] / shop["till.wait.mean"]["mean"], 1
-    ) == (3.7)
+    ) == (3.4)
 
 
 # --- thresholds ----------------------------------------------------------------------------
@@ -469,7 +469,7 @@ def test_the_interval_named_follows_the_threshold() -> None:
     found = texts(find(summary, model, Thresholds(relative_half_width=0.025)), "not_enough_runs")
     assert found == [
         "The estimates for exit.cycle_time.mean and till.wait.mean are still uncertain: "
-        "till.wait.mean is 4.46 min plus or minus 0.163 min. About 70 replications would be needed "
+        "till.wait.mean is 4.46 min plus or minus 0.151 min. About 60 replications would be needed "
         "for a 2.5% interval."
     ]
 
