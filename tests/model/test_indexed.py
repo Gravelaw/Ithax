@@ -68,8 +68,9 @@ def codes_at(document: dict[str, Any]) -> list[tuple[str, str]]:
 # --- the version ---------------------------------------------------------------------------
 
 
-def test_the_reader_is_format_0_2() -> None:
-    assert FORMAT_VERSION == "0.2"
+def test_the_reader_is_format_0_3() -> None:
+    """0.2 added the indexed keys (AKS-123); 0.3 added rate units (#77)."""
+    assert FORMAT_VERSION == "0.3"
 
 
 def test_the_transport_benchmark_is_format_0_2_and_loads() -> None:

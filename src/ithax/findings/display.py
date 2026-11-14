@@ -4,7 +4,8 @@ units as in `summary.json`; the text uses display units"; research note
 
 - A time is shown in the largest Phase 1 unit it reaches (``s``, ``min``, ``h``, ``d``),
   and a half-width in the unit of its mean, so "15.7 min plus or minus 2.09 min".
-- A rate (``1/s``) is shown per hour.
+- A rate (``1/s``) is shown per hour, or per second when its hourly figure is beyond a
+  float (review of PR #165).
 - A fraction metric (``utilization``, ``availability``, ``scheduled_fraction``) is a
   percentage; any other plain number is shown as it is.
 - Numbers have three significant figures (four for an optimization's values), never an
@@ -15,10 +16,12 @@ from __future__ import annotations
 
 import math
 
+from ithax.model.units import UNIT_SIZES, in_unit
+
 __all__ = ["figures", "percent", "quantity", "value_text"]
 
-# Phase 1 time units, largest first, with their length in seconds (spec 1 "Quantities").
-_TIME_UNITS = (("d", 86_400.0), ("h", 3_600.0), ("min", 60.0))
+# Phase 1 time units above the second, largest first (their sizes: ``UNIT_SIZES``).
+_LARGER_TIME_UNITS = ("d", "h", "min")
 
 # Metrics measured as a share of something, shown as percentages (spec 2 "Statistic
 # definitions").
@@ -30,8 +33,13 @@ def figures(value: float, digits: int = 3) -> str:
     2200 is "2,200" and 13.999999999999998 to four figures is "14"."""
     if value == 0:
         return "0"
+    if not math.isfinite(value):  # no metric mean is; shown in words, never raised
+        return "not a number" if math.isnan(value) else "beyond any number"
     places = digits - 1 - math.floor(math.log10(abs(value)))
-    rounded = round(value, places)
+    try:
+        rounded = round(value, places)
+    except OverflowError:  # rounding up from near 1.8e308 leaves the range of a float
+        rounded = value
     # Rounding can carry into the next power of ten (9.996 is 10.0); recount the places.
     places = max(digits - 1 - math.floor(math.log10(abs(rounded))), 0)
     text = f"{rounded:,.{places}f}"
@@ -45,11 +53,11 @@ def percent(fraction: float) -> str:
     return f"{math.floor(fraction * 100 + 0.5)}%"
 
 
-def _time_unit(seconds: float) -> tuple[str, float]:
-    for symbol, size in _TIME_UNITS:
-        if abs(seconds) >= size:
-            return symbol, size
-    return "s", 1.0
+def _time_unit(seconds: float) -> str:
+    for symbol in _LARGER_TIME_UNITS:
+        if abs(seconds) >= UNIT_SIZES[symbol]:
+            return symbol
+    return "s"
 
 
 def quantity(value: float, unit: str, *, like: float | None = None) -> str:
@@ -57,10 +65,16 @@ def quantity(value: float, unit: str, *, like: float | None = None) -> str:
     ``like`` (default: the value itself) reaches, a rate (``1/s``) per hour, anything else
     as a plain number."""
     if unit == "s":
-        symbol, size = _time_unit(value if like is None else like)
-        return f"{figures(value / size)} {symbol}"
+        symbol = _time_unit(value if like is None else like)
+        shown = in_unit(value, symbol)
+        if shown is None:  # not a finite number: shown as it is, in seconds
+            return f"{figures(value)} s"
+        return f"{figures(shown)} {symbol}"
     if unit == "1/s":
-        return f"{figures(value * 3600)} per hour"
+        per_hour = in_unit(value, "1/h")
+        if per_hour is None:
+            return f"{figures(value)} per second"
+        return f"{figures(per_hour)} per hour"
     return figures(value)
 
 

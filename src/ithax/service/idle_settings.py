@@ -42,7 +42,7 @@ IDLE_TIMEOUT = "idle_timeout_minutes"
 DEFAULT_IDLE_MINUTES = 30
 
 #: Spec 3 "Lifetime": at most 7 days, the upper bound of ``run_time_limit_s``.
-MAX_IDLE_MINUTES = 7 * 24 * 60
+MAX_IDLE_MINUTES = 7 * 24 * 60  # unit factor: a constant
 
 #: How a message words the idle timeout's range.
 IDLE_WORDS = f"a whole number of minutes from 1 to {MAX_IDLE_MINUTES:,} (7 days)"
@@ -60,7 +60,7 @@ class IdleSettings:
     @property
     def timeout_s(self) -> float:
         """The idle timeout in seconds, as ``ithax.service.lifetime.Lifetime`` takes it."""
-        return self.minutes * 60.0
+        return self.minutes * 60.0  # unit factor: whole minutes, a setting
 
 
 def read_idle_settings(config_dir: Path) -> IdleSettings:

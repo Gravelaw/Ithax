@@ -25,6 +25,10 @@ that reads input, and say whether the shared helper was bypassed:
 
 - integers beyond float range, values near 1e308 and their sums, NaN and infinity
   (helpers: `ithax.strict_json.real_in`, `ithax.strict_json.whole_in`);
+- a quantity scaled by a unit's size by hand (`value * 3600`, `seconds / 60`), which
+  overflows near 1e308 or turns a finite rate into "inf per hour" (helpers:
+  `ithax.model.units.in_unit` and `UNIT_SIZES`; `inUnit` in `ui/src/results/display.ts`;
+  `tests/test_conventions.py` flags a literal 60, 3600 or 86400 outside `units.py`; PR #165);
 - lone surrogate strings, JSON `null` where an object is expected, duplicate keys, and keys
   such as `constructor` in the interface (helper: `ithax.strict_json.read_json`);
 - Windows paths without a drive, symlink or junction aliases, `..` after a link

@@ -288,6 +288,13 @@ describe("objectives, constraints and the search", () => {
     expect(lastEdits(fake)).toEqual([
       { edit: "set_path", path: "/constraints/0/value", value: "5 min" },
     ]);
+    // A rate with its unit is sent as written (#77; format 0.3).
+    await user.clear(box("Value of constraint constraint_1"));
+    await user.type(box("Value of constraint constraint_1"), "30 1/h{Enter}");
+    await settled(toolbar);
+    expect(lastEdits(fake)).toEqual([
+      { edit: "set_path", path: "/constraints/0/value", value: "30 1/h" },
+    ]);
     await user.clear(box("Value of constraint constraint_1"));
     await user.type(box("Value of constraint constraint_1"), "0.85{Enter}");
     await settled(toolbar);
