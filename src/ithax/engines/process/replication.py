@@ -37,9 +37,20 @@ from typing import Any, NamedTuple, TypeAlias
 
 import simpy
 
-from ithax.engines.process.blocks import BLOCK_TYPES, Block, Context, Stopped, Transfers
+from ithax.engines.adapter import RunIssue
+from ithax.engines.process.blocks import (
+    BLOCK_TYPES,
+    INSTANT_STEP_LIMIT,
+    Block,
+    Context,
+    InstantCounter,
+    Stopped,
+    Transfers,
+    ZeroTimeLoop,
+)
 from ithax.engines.process.statistics import TimeWeighted, Window
 from ithax.model.catalogue import MEASURE_KINDS, PROCESS_TYPES, MeasureKind
+from ithax.model.issues import Issue
 from ithax.model.streams import generator_for
 
 __all__ = [
@@ -153,6 +164,25 @@ class TimeSeries:
         ]
 
 
+def zero_time_issue(at: float, scenario: str, replication: int) -> Issue:
+    """E196 (#74): more than ``INSTANT_STEP_LIMIT`` events and moves happened at the
+    instant ``at`` without time passing, so items circle blocks that take no time."""
+    return Issue(
+        code="E196",
+        component=None,
+        path="",
+        message=(
+            f"The run was stopped: more than {INSTANT_STEP_LIMIT:,} events happened at "
+            f"{at:g} s of replication {replication + 1} of scenario '{scenario}' without "
+            "time passing, so items circle blocks that take no time."
+        ),
+        hint=(
+            "Give a block on the loop a time above zero (a service, delay or lead time), or "
+            "route the items out of the loop."
+        ),
+    )
+
+
 def run_replication(
     engine_input: Mapping[str, Any],
     scenario: int,
@@ -163,8 +193,12 @@ def run_replication(
     experiment = engine_input["experiment"]
     window = Window(warmup=float(experiment["warmup"]), end=float(experiment["length"]))
     env = simpy.Environment()
+    counter = InstantCounter(env)
     context = Context(
-        env=env, window=window, wip=TimeWeighted(window), transfers=Transfers(should_stop)
+        env=env,
+        window=window,
+        wip=TimeWeighted(window),
+        transfers=Transfers(should_stop, counter),
     )
     blocks = build_blocks(
         engine_input["scenarios"][scenario],
@@ -192,18 +226,28 @@ def run_replication(
             return None
         try:
             env.step()
+            counter.tick()
         except Stopped:  # items circling blocks that take no time; see ``Transfers``
             return None
+        except ZeroTimeLoop as loop:
+            raise RunIssue(
+                zero_time_issue(loop.at, engine_input["scenarios"][scenario]["id"], replication)
+            ) from None
     while series.next_time < window.end:
         if stopped():
             return None
         series.advance()
+    return Outcome(_rows(engine_input["scenarios"][scenario], blocks, context), series.rows())
+
+
+def _rows(scenario: Mapping[str, Any], blocks: Sequence[Block], context: Context) -> list[Row]:
+    """The replication's summary rows: each block's metrics in catalogue order, then the
+    model's work in progress."""
     rows: list[Row] = []
-    components = engine_input["scenarios"][scenario]["components"]
-    for component, block in zip(components, blocks, strict=True):
+    for component, block in zip(scenario["components"], blocks, strict=True):
         measures = block.metrics()
         for measure in PROCESS_TYPES[component["type"]].metrics:
             unit = UNITS[MEASURE_KINDS[measure]]
             rows.append((f"{block.id}.{measure}", measures[measure], unit))
     rows.append(("model.wip.mean", context.wip.mean(), UNITS[MEASURE_KINDS["wip.mean"]]))
-    return Outcome(rows, series.rows())
+    return rows

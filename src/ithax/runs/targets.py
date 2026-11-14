@@ -596,9 +596,9 @@ class LocalRun:
         return "cancelled"
 
     def _run_worker(self, workdir: Path) -> tuple[Issue, str] | None:
-        """Runs ``run`` in ``workdir`` in a spawned worker; the E190 or E192 issue and the
-        details for ``log.txt`` when it failed, otherwise ``None`` (finished or
-        cancelled)."""
+        """Runs ``run`` in ``workdir`` in a spawned worker; the issue (E190, E192, or the one
+        a ``RunIssue`` carries, #74) and the details for ``log.txt`` when it failed,
+        otherwise ``None`` (finished or cancelled)."""
         context = multiprocessing.get_context("spawn")
         receive, send = context.Pipe(duplex=False)
         worker = context.Process(
@@ -638,10 +638,28 @@ class LocalRun:
         receive.close()
         exit_code = worker.exitcode
         self.log(f"worker ended, exit status {exit_code}")
+        return self._failure(report, exceeded, exit_code)
+
+    def _failure(
+        self, report: tuple[Any, ...] | None, exceeded: str | None, exit_code: int | None
+    ) -> tuple[Issue, str] | None:
+        """What the ended worker's last report and the exceeded limit mean: the issue and the
+        details for ``log.txt``, or ``None`` when it finished or was cancelled."""
         if exceeded is not None:
             return _limit_issue(exceeded, self._target.limits), f"{exceeded} limit exceeded"
         if report is not None and report[0] == "error":
             return _engine_error(self._adapter.name), "run raised:\n" + str(report[1])
+        if report is not None and report[0] == "issue":
+            # The model stopped the run (#74): the adapter's own issue, not E190.
+            found = report[1]
+            issue = Issue(
+                code=found["code"],
+                component=found["component"],
+                path=found["path"],
+                message=found["message"],
+                hint=found["hint"],
+            )
+            return issue, "run stopped with " + issue.code + ":\n" + str(report[2])
         if report is None and not self._cancel.is_set():
             return (
                 _engine_error(self._adapter.name),
@@ -653,7 +671,7 @@ class LocalRun:
         self, worker: BaseProcess, pid: int, receive: Connection
     ) -> tuple[tuple[Any, ...] | None, str | None]:
         """Reads the worker's reports until it ends; returns its last report
-        (``finished`` or ``error``) and the limit it exceeded, if any."""
+        (``finished``, ``error`` or ``issue``) and the limit it exceeded, if any."""
         limits = self._target.limits
         report: tuple[Any, ...] | None = None
         memory: int | None = None
