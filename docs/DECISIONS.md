@@ -2947,3 +2947,29 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - Numbering the table rows from 0 while drawing offset streams. A row would then not name its stream.
 - **Spec sections updated:** spec 1 "Random streams", the `replications` table, the adapter contract; spec 2 "Simulation-based optimization" ("Overlap of the two stages" becomes "Fresh random numbers for confirmation"; "Result", "Result layout"); dated lines in both.
 - **Dependencies added:** none.
+
+## 2026-11-14 · M13 · A plan with nothing to decide: E179 (#80; item 14, D2)
+
+- **Decision:**
+  - **E179** (meaning pass, `decision_issues`). It is reported for:
+    - an `optimization` model with no variables, at `/variables`;
+    - a constraint as declared with an empty `linear` and no `terms`, at its `linear`.
+    - Such a model was answered `optimal` at 0, with the finding "Best found: . The objective is 0."
+    - Fixtures: `E179_no_variables.json` and `E179_constraint_with_empty_linear.json`.
+  - **Default plan.** A new optimization project still starts empty (D2), so its one issue is E179 until a variable is added. The run is refused, as for any error. The MCP `create_model` description says so.
+  - **Interface.** A warning mark beside the plan's heading, and on the Diagram view's goal and limit cards, carries the E179 message as its tooltip. A limit card adds its own empty-`linear` message. The Table view already shows the issue in its Decisions section, and the problems list lists it.
+  - **Checks.**
+    - New model tests and the two fixtures.
+    - The service tests now expect E179 from a new plan. The MCP refusal test gives its plan the product mix before testing E184.
+    - Two interface tests: the marks and their tooltips, and no mark on a plan with decisions. They fail before the change.
+- **Review of PR #167:** the heading's mark listed only the `/variables` E179, so a plan with decisions but a limit with no coefficient had no mark, though it cannot run. The mark now lists every E179. The cards keep their own: the plan's, and a limit's own `linear`. New test `warns on the plan when only a limit has no coefficient` fails before the fix; the first test's mark now holds both messages.
+- **Reason:** issue #80 (D2); owner decision 2026-11-07, item 14: "when building an optimiser, we'll need variables via the simulation or manually made by the user". Both cases "should not be answered at all".
+- **Readings (reversible):**
+  - Item 14's second case, a constraint with an empty `linear`, is built here under the same code, since it is the same decision. It has no issue of its own.
+  - "The project and its blocks" are read as the plan's heading and the Diagram view's goal and limit cards.
+  - The issue is an error, as item 14 says; the mark that shows it is a warning, as D2 says.
+- **Alternatives considered:**
+  - A starter variable in the default plan. D2 chose "starts empty".
+  - Two codes. The remedy is the same, so one code says what is missing.
+- **Spec sections updated:** spec 1 "Validation issues" (E179); spec 3 "Canvas behaviour", Optimization models; dated lines in both.
+- **Dependencies added:** none.

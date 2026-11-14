@@ -815,10 +815,14 @@ def test_validate_reports_a_schema_failure_of_the_saved_file(client: TestClient)
     assert body["issues"] and {issue["code"] for issue in body["issues"]} == {"E100"}
 
 
-def test_validate_of_the_default_models_has_no_issues(client: TestClient) -> None:
-    for domain in ("process", "optimization"):
-        pid = new_project(client, domain)
-        assert client.post(f"/v1/projects/{pid}/validate").json() == {"revision": 0, "issues": []}
+def test_validate_of_the_default_models(client: TestClient) -> None:
+    """A new process model has no issues; a new optimization model starts empty, so its
+    one issue is E179 at /variables (#80, D2)."""
+    pid = new_project(client, "process")
+    assert client.post(f"/v1/projects/{pid}/validate").json() == {"revision": 0, "issues": []}
+    pid = new_project(client, "optimization")
+    body = client.post(f"/v1/projects/{pid}/validate").json()
+    assert [(issue["code"], issue["path"]) for issue in body["issues"]] == [("E179", "/variables")]
 
 
 def test_validate_checks_data_references_against_the_project(client: TestClient) -> None:

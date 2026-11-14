@@ -805,6 +805,9 @@ def test_run_model_refusals_are_data(client: ServiceClient, http: httpx2.Client)
         error, plan = await call(
             mcp_client, "create_model", {"name": "Plan", "domain": "optimization"}
         )
+        # A plan with decisions: an empty one is E179 before its experiment is looked at.
+        product_mix = json.loads((ROOT / "benchmarks/product_mix/model.json").read_text())
+        assert http.put(f"/v1/projects/{plan['id']}/model", json=product_mix).status_code == 200
         error, body = await call(
             mcp_client, "run_model", {"project_id": plan["id"], "experiment_id": "base"}
         )
