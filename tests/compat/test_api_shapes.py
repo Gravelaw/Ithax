@@ -29,9 +29,9 @@ from typing import Any
 import pytest
 from starlette.testclient import TestClient
 
-from lcsim.service.app import create_app
-from lcsim.service.config import ServiceConfig
-from lcsim.service.hardware import Hardware
+from ithax.service.app import create_app
+from ithax.service.config import ServiceConfig
+from ithax.service.hardware import Hardware
 
 ROOT = Path(__file__).resolve().parents[2]
 SHAPES = Path(__file__).resolve().parent / "api" / "v1"

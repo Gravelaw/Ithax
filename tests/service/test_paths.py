@@ -7,7 +7,7 @@ from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 
 import pytest
 
-from lcsim.service.paths import canonical, fully_qualified, same_folder
+from ithax.service.paths import canonical, fully_qualified, same_folder
 
 
 def link(target: Path, alias: Path) -> Path:

@@ -1,6 +1,6 @@
 """Engine discovery and selection (AKS-97).
 
-Spec 1 "Engine contract" (v0.4 and AKS-97): entry points in group ``lcsim.engines`` are
+Spec 1 "Engine contract" (v0.4 and AKS-97): entry points in group ``ithax.engines`` are
 listed without importing them, then each is loaded inside a guard; one that fails is left
 out and logged, never fatal; two with the same name are both left out and logged; the
 entry-point name equals the class ``name``. Spec 1 "Top-level keys": the adapter for a
@@ -19,10 +19,10 @@ from pathlib import Path
 
 import pytest
 
-from lcsim.engines import registry
-from lcsim.engines.adapter import Capabilities, EngineAdapter, Progress, Results
-from lcsim.engines.process.adapter import ProcessAdapter
-from lcsim.engines.registry import (
+from ithax.engines import registry
+from ithax.engines.adapter import Capabilities, EngineAdapter, Progress, Results
+from ithax.engines.process.adapter import ProcessAdapter
+from ithax.engines.registry import (
     ENTRY_POINT_GROUP,
     Selection,
     installed_adapters,
@@ -30,11 +30,11 @@ from lcsim.engines.registry import (
     load_adapters,
     select_adapter,
 )
-from lcsim.model.catalogue import PROCESS_TYPES
-from lcsim.model.issues import Issue
-from lcsim.model.validation import InstalledEngine
+from ithax.model.catalogue import PROCESS_TYPES
+from ithax.model.issues import Issue
+from ithax.model.validation import InstalledEngine
 
-PROCESS_CLASS = "lcsim.engines.process.adapter:ProcessAdapter"
+PROCESS_CLASS = "ithax.engines.process.adapter:ProcessAdapter"
 
 
 class DummyAdapter:
@@ -125,15 +125,15 @@ def warnings_in(caplog: pytest.LogCaptureFixture) -> list[str]:
     return [
         record.getMessage()
         for record in caplog.records
-        if record.name == "lcsim.engines.registry" and record.levelno == logging.WARNING
+        if record.name == "ithax.engines.registry" and record.levelno == logging.WARNING
     ]
 
 
 # --- discovery ----------------------------------------------------------------------------
 
 
-def test_the_group_is_lcsim_engines() -> None:
-    assert ENTRY_POINT_GROUP == "lcsim.engines"
+def test_the_group_is_ithax_engines() -> None:
+    assert ENTRY_POINT_GROUP == "ithax.engines"
 
 
 def test_a_dummy_adapter_is_found(installed: list[object]) -> None:
@@ -296,10 +296,10 @@ def test_the_installed_process_adapter_is_discovered() -> None:
 
 def test_the_installed_optimization_adapter_is_discovered() -> None:
     # AKS-108: the product's second adapter, by its own entry point.
-    from lcsim.engines.optimize.adapter import HighsAdapter as RealHighsAdapter
+    from ithax.engines.optimize.adapter import HighsAdapter as RealHighsAdapter
 
     [point] = [p for p in entry_points(group=ENTRY_POINT_GROUP) if p.name == "highs"]
-    assert point.value == "lcsim.engines.optimize.adapter:HighsAdapter"
+    assert point.value == "ithax.engines.optimize.adapter:HighsAdapter"
     adapters = load_adapters()
     assert list(adapters) == ["highs", "simpy"]
     assert isinstance(adapters["highs"], RealHighsAdapter)

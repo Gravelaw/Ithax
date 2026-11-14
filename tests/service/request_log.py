@@ -12,7 +12,7 @@ matched none (a 401 or 403 from the hardening rules, an unknown path, another me
 before it was accepted; ``client`` is the ``X-Client`` header, or ``null``.
 
 The log is a test's, never the product's: ``logged_service.py`` starts the service of
-``python -m lcsim.service`` with it, and the pointer-only end-to-end test
+``python -m ithax.service`` with it, and the pointer-only end-to-end test
 (``ui/e2e/pointer-only.spec.ts``) starts that. ``python tests/service/request_log.py <log>``
 checks a log: every call must have matched a row of the endpoint table, read from spec 3 as
 ``tests/service/test_routes.py`` reads it, and none may have been answered with a status of

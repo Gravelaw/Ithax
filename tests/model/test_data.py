@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from lcsim.model.data import (
+from ithax.model.data import (
     EMPTY_DATA_INDEX,
     INDEX_FILE,
     DataColumn,
@@ -323,7 +323,7 @@ def test_an_index_folder_that_cannot_be_read_is_taken_as_empty(tmp_path: Path) -
 
 
 def test_a_new_entry_records_each_number_column_s_largest_absolute_value() -> None:
-    from lcsim.model.data_files import read_table
+    from ithax.model.data_files import read_table
 
     raw = b"a,b,c\n-7.5,x,\n2,y,\n"
     entry = new_entry(
@@ -344,7 +344,7 @@ def test_a_new_entry_records_each_number_column_s_largest_absolute_value() -> No
 def test_a_value_fits_in_seconds_by_the_check_inline_quantities_use(
     value: float, unit: str, fits: bool
 ) -> None:
-    from lcsim.model.units import Dimension, QuantityError, parse_quantity
+    from ithax.model.units import Dimension, QuantityError, parse_quantity
 
     try:
         parse_quantity(f"{value!r} {unit}", Dimension.TIME)

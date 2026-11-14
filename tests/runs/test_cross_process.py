@@ -3,7 +3,7 @@ tables equal row for row for the same model and seed" (AKS-104).
 
 Two run folders are prepared from the same model file (created by the local target, the
 process adapter's input translated into each ``engine/``). Then two workers are started as
-separate operating-system processes with ``python -m lcsim.runs.worker`` (spec 1 "Run
+separate operating-system processes with ``python -m ithax.runs.worker`` (spec 1 "Run
 targets"), at the same time, from different working directories, with different
 ``PYTHONHASHSEED`` values (spec 1 "Random streams" forbids the salted ``hash()``), and with
 ``--workers 1`` and ``--workers 2``, so that the result is shown not to depend on the
@@ -22,10 +22,10 @@ from typing import Any
 import pytest
 from run_comparison import read_table, tables_equal
 
-from lcsim.engines.process.adapter import REPLICATIONS_FILE, TIMESERIES_FILE, ProcessAdapter
-from lcsim.model.loading import load_text
-from lcsim.runs.targets import LocalTarget
-from lcsim.runs.worker import EXIT_DONE
+from ithax.engines.process.adapter import REPLICATIONS_FILE, TIMESERIES_FILE, ProcessAdapter
+from ithax.model.loading import load_text
+from ithax.runs.targets import LocalTarget
+from ithax.runs.worker import EXIT_DONE
 
 EXAMPLES = Path(__file__).resolve().parents[2] / "examples"
 
@@ -69,7 +69,7 @@ def outputs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
         cwd.mkdir()
         environment = {**os.environ, "PYTHONHASHSEED": str(workers)}
         processes[workers] = subprocess.Popen(
-            [sys.executable, "-m", "lcsim.runs.worker", str(engine), "--workers", str(workers)],
+            [sys.executable, "-m", "ithax.runs.worker", str(engine), "--workers", str(workers)],
             cwd=cwd,
             env=environment,
             stdout=subprocess.PIPE,

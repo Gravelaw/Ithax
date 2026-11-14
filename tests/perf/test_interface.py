@@ -7,7 +7,7 @@ Run with ``taskset -c 0-3 pytest -m perf`` (guide "Performance measurement proto
 ``npm ci`` and ``npm run build`` in ``ui/``, with Chromium installed for Playwright
 (``PLAYWRIGHT_BROWSERS_PATH`` or ``LCSIM_CHROMIUM``, ``ui/README.md``).
 
-- **Selecting a block paints within 100 ms.** A real ``python -m lcsim.service`` serves the
+- **Selecting a block paints within 100 ms.** A real ``python -m ithax.service`` serves the
   built interface (``ui/dist``, its default); ``ui/perf/canvas.perf.ts`` (Playwright with
   Chromium) writes a model of 200 components by API, opens the Canvas on it and clicks 12
   drawn blocks in turn, each timed from its ``pointerdown`` to the first frame painted with
@@ -33,7 +33,7 @@ from typing import Any
 
 import pytest
 
-from lcsim.service.discovery import read_service_file
+from ithax.service.discovery import read_service_file
 from perf.test_service import IDLE_TARGET_BYTES, READY_TARGET_S, Service, machine
 from perf.test_three_machine_line import max_rss_bytes, mib
 

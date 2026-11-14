@@ -8,11 +8,11 @@ import pytest
 from jsonschema import Draft202012Validator
 from starlette.testclient import TestClient
 
-from lcsim.engines.registry import installed_adapters
-from lcsim.model.catalogue import PROCESS_TYPES, SettingKind, SettingSpec
-from lcsim.model.schema import model_schema
-from lcsim.model.units import Dimension, Quantity
-from lcsim.service.engines import (
+from ithax.engines.registry import installed_adapters
+from ithax.model.catalogue import PROCESS_TYPES, SettingKind, SettingSpec
+from ithax.model.schema import model_schema
+from ithax.model.units import Dimension, Quantity
+from ithax.service.engines import (
     COMPONENT_TYPES_KEY,
     composed_schema,
     describe_component,

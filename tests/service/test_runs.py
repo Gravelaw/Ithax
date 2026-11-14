@@ -25,18 +25,18 @@ from fastapi import FastAPI
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from lcsim.engines.adapter import EngineAdapter
-from lcsim.engines.optimize.adapter import HighsAdapter
-from lcsim.engines.process.adapter import ProcessAdapter
-from lcsim.runs.lock import LOCK_FILE, RunLock, take_lock
-from lcsim.runs.manifest import MANIFEST_FILE, read_manifest, write_manifest
-from lcsim.runs.targets import LocalTarget
-from lcsim.service.app import create_app
-from lcsim.service.config import ServiceConfig
-from lcsim.service.errors import ServiceError
-from lcsim.service.hardware import SETTINGS_FILE, tier_workers
-from lcsim.service.projects_store import PROJECT_FILE
-from lcsim.service.state import ServiceState
+from ithax.engines.adapter import EngineAdapter
+from ithax.engines.optimize.adapter import HighsAdapter
+from ithax.engines.process.adapter import ProcessAdapter
+from ithax.runs.lock import LOCK_FILE, RunLock, take_lock
+from ithax.runs.manifest import MANIFEST_FILE, read_manifest, write_manifest
+from ithax.runs.targets import LocalTarget
+from ithax.service.app import create_app
+from ithax.service.config import ServiceConfig
+from ithax.service.errors import ServiceError
+from ithax.service.hardware import SETTINGS_FILE, tier_workers
+from ithax.service.projects_store import PROJECT_FILE
+from ithax.service.state import ServiceState
 from service.run_adapters import GO_FILE, RUN_RECORD, WAITING, GatedAdapter
 from service.service_support import AUTH, BASE_URL, TOKEN, WS_URL, assert_error
 

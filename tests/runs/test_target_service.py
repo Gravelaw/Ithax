@@ -14,12 +14,12 @@ from typing import Any
 import pytest
 from dummy_adapters import DummyAdapter, SlowAdapter, StubbornAdapter
 
-from lcsim.engines.adapter import EngineAdapter
-from lcsim.runs.lock import LOCK_FILE
-from lcsim.runs.manager import ExperimentChoiceError
-from lcsim.runs.manifest import MANIFEST_FILE, read_manifest
-from lcsim.runs.states import JobState
-from lcsim.runs.targets import LocalRun, LocalTarget, RunRefused, recover_interrupted
+from ithax.engines.adapter import EngineAdapter
+from ithax.runs.lock import LOCK_FILE
+from ithax.runs.manager import ExperimentChoiceError
+from ithax.runs.manifest import MANIFEST_FILE, read_manifest
+from ithax.runs.states import JobState
+from ithax.runs.targets import LocalRun, LocalTarget, RunRefused, recover_interrupted
 
 EXAMPLES = Path(__file__).resolve().parents[2] / "examples"
 

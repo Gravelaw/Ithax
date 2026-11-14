@@ -21,19 +21,19 @@ from typing import Any
 import numpy
 import pytest
 
-from lcsim.model.catalogue import DISTRIBUTIONS
-from lcsim.model.distributions import (
+from ithax.model.catalogue import DISTRIBUTIONS
+from ithax.model.distributions import (
     DataNotReadError,
     Sampler,
     sampler_for,
     sampler_from_numbers,
 )
-from lcsim.model.issues import Issue
-from lcsim.model.loading import build_document
-from lcsim.model.model import DataRef, Distribution, Model, ParamRef, Scalar
-from lcsim.model.streams import generator_for
-from lcsim.model.units import Dimension, Quantity
-from lcsim.model.validation import distribution_mean
+from ithax.model.issues import Issue
+from ithax.model.loading import build_document
+from ithax.model.model import DataRef, Distribution, Model, ParamRef, Scalar
+from ithax.model.streams import generator_for
+from ithax.model.units import Dimension, Quantity
+from ithax.model.validation import distribution_mean
 
 ROOT = Path(__file__).resolve().parents[2]
 COFFEE_SHOP: dict[str, Any] = json.loads(

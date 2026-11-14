@@ -1,4 +1,4 @@
-//! How the shell reaches the engine service: it runs the launcher, `python -m lcsim.launcher
+//! How the shell reaches the engine service: it runs the launcher, `python -m ithax.launcher
 //! --print-url`, and reads the interface's address from its output (spec 3 "Service rules",
 //! Launcher and Desktop shell; AKS-142). The launcher finds the running service through
 //! `service.json` and its probe, or starts one and waits up to 30 seconds for it, so none of
@@ -55,7 +55,7 @@ pub fn passed_options(arguments: &[OsString]) -> Vec<OsString> {
 
 /// The launcher's arguments: the module, the passed options, and `--print-url`.
 pub fn launcher_arguments(options: &[OsString]) -> Vec<OsString> {
-    let mut arguments: Vec<OsString> = vec!["-m".into(), "lcsim.launcher".into()];
+    let mut arguments: Vec<OsString> = vec!["-m".into(), "ithax.launcher".into()];
     arguments.extend(options.iter().cloned());
     arguments.push("--print-url".into());
     arguments
@@ -194,7 +194,7 @@ mod tests {
     fn launcher_arguments_end_with_print_url() {
         assert_eq!(
             launcher_arguments(&strings(&["--config-dir", "/c"])),
-            strings(&["-m", "lcsim.launcher", "--config-dir", "/c", "--print-url"])
+            strings(&["-m", "ithax.launcher", "--config-dir", "/c", "--print-url"])
         );
     }
 
@@ -237,10 +237,10 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn run_reports_what_a_failing_launcher_said() {
-        // `sh -m lcsim.launcher --print-url` finds no script file `lcsim.launcher`, says so
+        // `sh -m ithax.launcher --print-url` finds no script file `ithax.launcher`, says so
         // on its standard error and exits with a status that is not 0.
         let error = run(OsStr::new("sh"), &[]).unwrap_err();
-        assert!(error.contains("lcsim.launcher"), "{error}");
+        assert!(error.contains("ithax.launcher"), "{error}");
     }
 
     #[cfg(unix)]

@@ -15,8 +15,8 @@ from typing import Any
 import pytest
 from conftest import ModelMaker, line
 
-from lcsim.engines.adapter import Progress
-from lcsim.engines.process.runner import (
+from ithax.engines.adapter import Progress
+from ithax.engines.process.runner import (
     REPLICATIONS_SCHEMA,
     init_worker,
     replications_table,
@@ -25,7 +25,7 @@ from lcsim.engines.process.runner import (
     timeseries_table,
     write_table,
 )
-from lcsim.engines.process.translate import read_input, write_input
+from ithax.engines.process.translate import read_input, write_input
 
 MESSAGE = re.compile(r"Scenario (\d+) of (\d+), replication (\d+) of (\d+)")
 

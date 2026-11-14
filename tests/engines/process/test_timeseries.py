@@ -16,9 +16,9 @@ import pyarrow as pa
 import pytest
 from conftest import ModelMaker, constant, line
 
-from lcsim.engines.process.replication import Outcome, TimeSeries, run_replication
-from lcsim.engines.process.runner import TIMESERIES_SCHEMA, run_all, timeseries_table
-from lcsim.engines.process.translate import engine_input, read_input, write_input
+from ithax.engines.process.replication import Outcome, TimeSeries, run_replication
+from ithax.engines.process.runner import TIMESERIES_SCHEMA, run_all, timeseries_table
+from ithax.engines.process.translate import engine_input, read_input, write_input
 
 
 def never() -> bool:

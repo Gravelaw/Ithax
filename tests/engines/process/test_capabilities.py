@@ -8,8 +8,8 @@ into the process. Spec 1 "Division of labour" and the AKS-98 plan: replications 
 parallel up to ``workers``.
 """
 
-from lcsim.engines.process.adapter import ProcessAdapter
-from lcsim.model.catalogue import PROCESS_TYPES, output_ports
+from ithax.engines.process.adapter import ProcessAdapter
+from ithax.model.catalogue import PROCESS_TYPES, output_ports
 
 # Spec 2 "Process block library" and "Block reference": the twelve types, written out here
 # rather than read from the catalogue, so that a type lost from both would still fail.

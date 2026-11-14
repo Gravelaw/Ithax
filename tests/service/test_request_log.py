@@ -13,7 +13,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from lcsim.service.discovery import probe, read_service_file
+from ithax.service.discovery import probe, read_service_file
 from service.endpoint_table import spec_table
 from service.request_log import LOG_FILE_VARIABLE, RequestLog, check, read_log
 from service.service_support import AUTH, BASE_URL, TOKEN, WS_URL

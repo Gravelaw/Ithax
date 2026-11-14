@@ -33,17 +33,17 @@ from dummy_adapters import (
     TranslateFailingAdapter,
 )
 
-import lcsim
-from lcsim.engines.adapter import EngineAdapter
-from lcsim.model.issues import Issue
-from lcsim.model.streams import generator_info
-from lcsim.runs import targets
-from lcsim.runs.ids import RUN_ID_PATTERN
-from lcsim.runs.limits import Limits
-from lcsim.runs.lock import LOCK_FILE, take_lock
-from lcsim.runs.manifest import MANIFEST_KEYS, new_manifest, read_manifest, write_manifest
-from lcsim.runs.states import StateError
-from lcsim.runs.targets import LocalRun, LocalTarget, RunRefused, recover_interrupted
+import ithax
+from ithax.engines.adapter import EngineAdapter
+from ithax.model.issues import Issue
+from ithax.model.streams import generator_info
+from ithax.runs import targets
+from ithax.runs.ids import RUN_ID_PATTERN
+from ithax.runs.limits import Limits
+from ithax.runs.lock import LOCK_FILE, take_lock
+from ithax.runs.manifest import MANIFEST_KEYS, new_manifest, read_manifest, write_manifest
+from ithax.runs.states import StateError
+from ithax.runs.targets import LocalRun, LocalTarget, RunRefused, recover_interrupted
 
 EXAMPLES = Path(__file__).resolve().parents[2] / "examples"
 
@@ -128,7 +128,7 @@ def test_a_run_writes_the_full_run_folder(tmp_path: Path) -> None:
     assert manifest["client"] == "mcp"
     assert manifest["engine"] == {"name": "dummy", "version": "9.9.9"}
     assert manifest["generator"] == {"name": info.name, "numpy_version": info.numpy_version}
-    assert manifest["product_version"] == lcsim.__version__
+    assert manifest["product_version"] == ithax.__version__
     assert manifest["format_version"] == "0.1"
     assert manifest["seed"] == 12345
     assert manifest["fraction"] == 1.0
@@ -200,7 +200,7 @@ def test_a_real_run_with_two_workers_writes_only_inside_engine(tmp_path: Path) -
         "output/timeseries.parquet",
     ]
     manifest = read_manifest(run.folder)
-    assert manifest["engine"] == {"name": "simpy", "version": lcsim.__version__}
+    assert manifest["engine"] == {"name": "simpy", "version": ithax.__version__}
     replications = pq.read_table(run.folder / "tables" / "replications.parquet")
     assert set(replications.column("replication").to_pylist()) == {0, 1}
     summary = json.loads((run.folder / "summary.json").read_text(encoding="utf-8"))

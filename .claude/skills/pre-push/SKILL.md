@@ -12,10 +12,10 @@ Retrospective P8 and its evidence item 5: a review round costs 7 to 25 minutes, 
    - Then confirm nothing was lost: `git diff origin/main -- docs/DECISIONS.md | grep -c "^-[^-]"` must print 0.
 2. Run `bash scripts/fast.sh` and judge it by its exit code.
 3. Read `git diff origin/main...HEAD` against each heading of `AGENTS.md` "Code Review Rules". For each class the change could reach, name the shared helper it uses, or fix it:
-   - numbers: `lcsim.strict_json.real_in` and `whole_in`;
+   - numbers: `ithax.strict_json.real_in` and `whole_in`;
    - JSON: `read_json`;
-   - paths: `lcsim.service.paths.canonical`;
-   - file writes: `lcsim.files.atomic_write`;
+   - paths: `ithax.service.paths.canonical`;
+   - file writes: `ithax.files.atomic_write`;
    - loops and waits: a cancellation check and a time limit.
 4. Check the rest of the change:
    - New behaviour has a test.

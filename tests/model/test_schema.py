@@ -11,9 +11,9 @@ from typing import Any
 import pytest
 from jsonschema import Draft202012Validator, ValidationError
 
-from lcsim.model import schema as schema_module
-from lcsim.model.issues import Issue
-from lcsim.model.schema import FORMAT_VERSION, model_schema, schema_pass
+from ithax.model import schema as schema_module
+from ithax.model.issues import Issue
+from ithax.model.schema import FORMAT_VERSION, model_schema, schema_pass
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = sorted((ROOT / "examples").glob("*.json"))

@@ -4,22 +4,22 @@ import importlib
 
 import pytest
 
-import lcsim
+import ithax
 
 SUBPACKAGES = [
-    "lcsim.model",
-    "lcsim.engines",
-    "lcsim.engines.process",
-    "lcsim.engines.optimize",
-    "lcsim.runs",
-    "lcsim.service",
-    "lcsim.mcp",
-    "lcsim.findings",
+    "ithax.model",
+    "ithax.engines",
+    "ithax.engines.process",
+    "ithax.engines.optimize",
+    "ithax.runs",
+    "ithax.service",
+    "ithax.mcp",
+    "ithax.findings",
 ]
 
 
 def test_version_is_set() -> None:
-    assert lcsim.__version__ == "0.0.0"
+    assert ithax.__version__ == "0.0.0"
 
 
 @pytest.mark.parametrize("name", SUBPACKAGES)

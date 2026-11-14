@@ -1,8 +1,8 @@
 """No MCP tool reads or writes outside the project folder (spec 4 "Limits" and acceptance
 table, M7; AKS-134).
 
-``python -m lcsim.mcp``'s ``main`` runs as its own process, as an assistant starts it, with
-an audit hook (``sys.addaudithook``, PEP 578) installed before ``lcsim.mcp`` is imported.
+``python -m ithax.mcp``'s ``main`` runs as its own process, as an assistant starts it, with
+an audit hook (``sys.addaudithook``, PEP 578) installed before ``ithax.mcp`` is imported.
 The hook writes one line for every file the process opens, every folder it lists, and every
 file or folder it creates, renames, removes or changes, and for every program it starts, to
 a log opened before the hook (writing to an open file raises no audit event). A scripted
@@ -13,7 +13,7 @@ nothing of it is in the log.
 The child runs with ``-I`` (so neither the working folder nor any ``PYTHON*`` variable
 reaches ``sys.path``) and ``-B`` (so importing writes no ``.pyc`` file). What the log may
 hold: the interpreter reading its own modules (read-only, under an entry of the child's
-``sys.path`` or the folder holding the ``lcsim`` package); the null device opened
+``sys.path`` or the folder holding the ``ithax`` package); the null device opened
 read-only, which the SDK's stdio transport points standard input at while it serves the
 protocol on a private copy of it (``mcp.server.stdio``), no file in any folder; and the read
 of ``service.json`` in the configuration folder, which is discovery (spec 3), not a tool's
@@ -40,7 +40,7 @@ CHILD = r"""
 import importlib.util, json, os, sys
 
 log = open(sys.argv[1], "w", encoding="utf-8", buffering=1)
-package = importlib.util.find_spec("lcsim").submodule_search_locations[0]
+package = importlib.util.find_spec("ithax").submodule_search_locations[0]
 roots = sys.path + [os.path.dirname(package)]
 log.write(json.dumps({"roots": roots}) + "\n")
 PATHS = {
@@ -74,7 +74,7 @@ def hook(event, args):
         log.write(json.dumps({"event": event, "path": repr(args[:1])}) + "\n")
 
 sys.addaudithook(hook)
-from lcsim.mcp.server import main
+from ithax.mcp.server import main
 raise SystemExit(main(sys.argv[2:]))
 """
 
@@ -238,7 +238,7 @@ def test_no_mcp_tool_reads_or_writes_outside_the_project_folder(tmp_path: Path) 
 
     assert "" not in roots and all(os.path.isabs(root) for root in roots)
     # The hook saw the process work: its own modules, among them the tools.
-    tools = os.path.join("lcsim", "mcp", "")
+    tools = os.path.join("ithax", "mcp", "")
     assert any(code(r) and tools in r["path"] for r in records)
     service_file = os.path.realpath(config_dir / "service.json")
     others = [r for r in records if not code(r) and not transport(r)]

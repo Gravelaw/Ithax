@@ -20,14 +20,14 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from lcsim.engines.process.adapter import ProcessAdapter
-from lcsim.model.edits import EDIT_KINDS
-from lcsim.model.issues import Issue
-from lcsim.model.model import Model
-from lcsim.service import projects_store
-from lcsim.service.app import create_app
-from lcsim.service.config import ServiceConfig
-from lcsim.service.projects_store import MODEL_FILE, PROJECT_FILE
+from ithax.engines.process.adapter import ProcessAdapter
+from ithax.model.edits import EDIT_KINDS
+from ithax.model.issues import Issue
+from ithax.model.model import Model
+from ithax.service import projects_store
+from ithax.service.app import create_app
+from ithax.service.config import ServiceConfig
+from ithax.service.projects_store import MODEL_FILE, PROJECT_FILE
 from service.service_support import AUTH, BASE_URL, assert_error
 
 FIXTURES = Path(__file__).resolve().parents[1] / "model" / "fixtures" / "edits"
@@ -337,7 +337,7 @@ def test_two_writes_with_the_same_base_revision_cannot_both_pass(
         time.sleep(0.2)
         return record
 
-    monkeypatch.setattr("lcsim.service.model_store.read_project", slowly)
+    monkeypatch.setattr("ithax.service.model_store.read_project", slowly)
     statuses: list[int] = []
 
     def write(name: str) -> None:

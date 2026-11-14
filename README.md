@@ -80,7 +80,7 @@ python scripts/package_linux.py   # the Linux package, into dist/
 pytest -m package                 # install it in a clean container, online and offline
 ```
 
-Run the app from a checkout with `python -m lcsim.launcher` once `ui/` is built.
+Run the app from a checkout with `python -m ithax.launcher` once `ui/` is built.
 
 - Product brief and build specs: [`docs/specs/`](docs/specs/), the source of truth, each with
   a version line

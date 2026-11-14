@@ -3,9 +3,9 @@
 
 from pathlib import Path
 
-from lcsim.service.app import create_app, route_table
-from lcsim.service.config import ServiceConfig
-from lcsim.service.hardware import Hardware
+from ithax.service.app import create_app, route_table
+from ithax.service.config import ServiceConfig
+from ithax.service.hardware import Hardware
 from service import route_recorder
 from service.endpoint_table import route_problems, spec_table
 

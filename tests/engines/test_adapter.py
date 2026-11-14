@@ -15,7 +15,7 @@ from types import MappingProxyType
 import pyarrow as pa
 import pytest
 
-from lcsim.engines.adapter import (
+from ithax.engines.adapter import (
     INVOCATIONS,
     PARALLEL_MODES,
     CancelToken,
@@ -25,9 +25,9 @@ from lcsim.engines.adapter import (
     Results,
     Table,
 )
-from lcsim.engines.process.adapter import ProcessAdapter
-from lcsim.model.catalogue import PROCESS_TYPES
-from lcsim.model.issues import Issue
+from ithax.engines.process.adapter import ProcessAdapter
+from ithax.model.catalogue import PROCESS_TYPES
+from ithax.model.issues import Issue
 
 
 def capabilities(**changes: object) -> Capabilities:

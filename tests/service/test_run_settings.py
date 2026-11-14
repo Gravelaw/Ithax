@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from lcsim.runs.limits import DEFAULT_TIME_LIMIT_S, default_memory_limit
-from lcsim.service.hardware import SETTINGS_FILE
-from lcsim.service.run_settings import RunSettings, read_run_settings
+from ithax.runs.limits import DEFAULT_TIME_LIMIT_S, default_memory_limit
+from ithax.service.hardware import SETTINGS_FILE
+from ithax.service.run_settings import RunSettings, read_run_settings
 
 
 def test_defaults_without_a_settings_file(tmp_path: Path) -> None:
@@ -127,9 +127,9 @@ def test_the_bounds_themselves_are_taken(tmp_path: Path) -> None:
 def test_the_service_starts_with_a_settings_file_holding_huge_numbers(tmp_path: Path) -> None:
     from starlette.testclient import TestClient
 
-    from lcsim.service.app import create_app
-    from lcsim.service.config import ServiceConfig
-    from lcsim.service.hardware import Hardware
+    from ithax.service.app import create_app
+    from ithax.service.config import ServiceConfig
+    from ithax.service.hardware import Hardware
     from service.service_support import AUTH, BASE_URL, PORT, TOKEN
 
     config_dir = tmp_path / "config"

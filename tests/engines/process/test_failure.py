@@ -23,12 +23,12 @@ from conftest import (
     series_of_model,
 )
 
-from lcsim.engines.process.blocks import BLOCK_TYPES, Failure, Item, Server, sampler_from_json
-from lcsim.engines.process.replication import run_replication
-from lcsim.engines.process.translate import engine_input
-from lcsim.model.catalogue import PROCESS_TYPES
-from lcsim.model.loading import load_document
-from lcsim.model.streams import generator_for
+from ithax.engines.process.blocks import BLOCK_TYPES, Failure, Item, Server, sampler_from_json
+from ithax.engines.process.replication import run_replication
+from ithax.engines.process.translate import engine_input
+from ithax.model.catalogue import PROCESS_TYPES
+from ithax.model.loading import load_document
+from ithax.model.streams import generator_for
 
 
 def source(name: str = "arrivals", interarrival: str = "200 s", **settings: Any) -> dict[str, Any]:

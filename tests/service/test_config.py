@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from lcsim.service.config import (
+from ithax.service.config import (
     default_templates_dir,
     default_ui_dir,
     installed_share_dir,

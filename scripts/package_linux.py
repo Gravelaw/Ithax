@@ -392,9 +392,9 @@ def installed_distributions(python: Path) -> dict[str, str]:
 def build(out: Path, prebuilt: bool) -> Path:
     """Build the package into ``out``; the archive's path."""
     sys.path.insert(0, str(ROOT / "src"))
-    import lcsim  # the checkout's own version
+    import ithax  # the checkout's own version
 
-    version = lcsim.__version__
+    version = ithax.__version__
     name = f"lcsim-{version}-linux-x86_64"
     commit = _output(["git", "rev-parse", "HEAD"]).strip()
     mtime = int(

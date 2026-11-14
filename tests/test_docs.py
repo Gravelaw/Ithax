@@ -60,7 +60,7 @@ def test_every_path_claude_md_names_exists() -> None:
 
 def test_the_path_finder_skips_what_is_not_a_path() -> None:
     text = (
-        "`docs/x.md` `AGENTS.md` `model/` `lcsim.files` `docs/<n>.md` `.venv/bin/python` "
+        "`docs/x.md` `AGENTS.md` `model/` `ithax.files` `docs/<n>.md` `.venv/bin/python` "
         "`/v1` `a b`"
     )
     assert named_paths(text) == ["docs/x.md", "AGENTS.md"]

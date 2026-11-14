@@ -13,14 +13,14 @@ import pytest
 import simpy
 from conftest import ModelMaker, constant, line
 
-from lcsim.engines.process.blocks import Context
-from lcsim.engines.process.replication import (
+from ithax.engines.process.blocks import Context
+from ithax.engines.process.replication import (
     build_blocks,
     run_replication,
 )
-from lcsim.engines.process.statistics import TimeWeighted, Window
-from lcsim.engines.process.translate import engine_input
-from lcsim.model.streams import generator_for
+from ithax.engines.process.statistics import TimeWeighted, Window
+from ithax.engines.process.translate import engine_input
+from ithax.model.streams import generator_for
 
 
 def never() -> bool:

@@ -14,9 +14,9 @@ from pathlib import Path
 
 import pytest
 
-from lcsim.service.config import DEFAULT_IDLE_TIMEOUT_S
-from lcsim.service.hardware import SETTINGS_FILE
-from lcsim.service.idle_settings import (
+from ithax.service.config import DEFAULT_IDLE_TIMEOUT_S
+from ithax.service.hardware import SETTINGS_FILE
+from ithax.service.idle_settings import (
     DEFAULT_IDLE_MINUTES,
     IDLE_TIMEOUT,
     MAX_IDLE_MINUTES,

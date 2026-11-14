@@ -1,5 +1,5 @@
 """Writing ``summary.json`` and ``tables/*.parquet`` (spec 1 "Run folder and results" and
-"Tables for the process domain"; AKS-102): ``lcsim.runs.tables``."""
+"Tables for the process domain"; AKS-102): ``ithax.runs.tables``."""
 
 import json
 import math
@@ -10,7 +10,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from lcsim.runs.tables import TABLE_NAMES, write_summary, write_tables
+from ithax.runs.tables import TABLE_NAMES, write_summary, write_tables
 
 
 def table() -> pa.Table:

@@ -31,8 +31,8 @@ from typing import Any, Literal
 
 import pytest
 
-from lcsim.runs.limits import process_tree_memory, system_memory
-from lcsim.runs.targets import LocalTarget
+from ithax.runs.limits import process_tree_memory, system_memory
+from ithax.runs.targets import LocalTarget
 
 pytestmark = pytest.mark.perf
 

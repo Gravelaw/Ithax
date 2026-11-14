@@ -19,9 +19,9 @@ from typing import Any
 import numpy
 import pytest
 
-from lcsim.model.loading import build_document
-from lcsim.model.model import Model
-from lcsim.model.streams import (
+from ithax.model.loading import build_document
+from ithax.model.model import Model
+from ithax.model.streams import (
     GENERATOR_NAME,
     MAX_SEED,
     OPTIMIZER_STREAM,
@@ -96,7 +96,7 @@ def test_a_different_seed_replication_or_component_gives_another_stream(
 
 _CHILD = """
 import json, sys
-from lcsim.model.streams import generator_for
+from ithax.model.streams import generator_for
 rng = generator_for(int(sys.argv[1]), int(sys.argv[2]), sys.argv[3])
 print(json.dumps(rng.random(50).tolist()))
 """

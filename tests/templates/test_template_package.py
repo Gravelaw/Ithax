@@ -12,9 +12,9 @@ from typing import Any
 
 import pytest
 
-from lcsim.model.loading import load_document
-from lcsim.templates import load_package, package_folders
-from lcsim.templates.package import model_metrics
+from ithax.model.loading import load_document
+from ithax.templates import load_package, package_folders
+from ithax.templates.package import model_metrics
 
 ROOT = Path(__file__).resolve().parents[2]
 COFFEE_SHOP = ROOT / "templates" / "coffee_shop"

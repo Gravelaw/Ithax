@@ -22,10 +22,10 @@ Node 22.12 or later. Every dependency is pinned exactly in `package.json` and `p
 
 ```bash
 npm ci && npm run build
-python -m lcsim.launcher          # from the repository root, with the package installed
+python -m ithax.launcher          # from the repository root, with the package installed
 ```
 
-The launcher (spec 3 "Service rules", Launcher) finds the running service through `service.json`, or starts one, and opens `http://127.0.0.1:<port>/v1/ui/#token=<token>`. The service serves `ui/dist` by default (`python -m lcsim.service --ui-dir` names another folder). The page takes the token from the fragment, removes it from the address bar and keeps it in the tab's session storage.
+The launcher (spec 3 "Service rules", Launcher) finds the running service through `service.json`, or starts one, and opens `http://127.0.0.1:<port>/v1/ui/#token=<token>`. The service serves `ui/dist` by default (`python -m ithax.service --ui-dir` names another folder). The page takes the token from the fragment, removes it from the address bar and keeps it in the tab's session storage.
 
 ## End-to-end tests
 

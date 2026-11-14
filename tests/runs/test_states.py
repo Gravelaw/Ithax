@@ -4,7 +4,7 @@ import itertools
 
 import pytest
 
-from lcsim.runs.states import (
+from ithax.runs.states import (
     ALLOWED_MOVES,
     FINAL_STATES,
     JOB_STATES,

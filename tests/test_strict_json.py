@@ -1,4 +1,4 @@
-"""``lcsim.strict_json``: the one strict reader for the JSON files the product reads from
+"""``ithax.strict_json``: the one strict reader for the JSON files the product reads from
 disk, and the encoder of the files it writes (review of PR #36). A document is read only
 when it would be written back exactly: no ``NaN`` or infinity (also ``1e999``, which
 Python reads as an infinity) and no text that is not valid Unicode."""
@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from lcsim import strict_json
-from lcsim.strict_json import UnreadableJSON, encode_json, read_json, read_json_file
+from ithax import strict_json
+from ithax.strict_json import UnreadableJSON, encode_json, read_json, read_json_file
 
 #: Texts that ``json.loads`` accepts but the product cannot write back or send.
 POISONED = [
@@ -63,7 +63,7 @@ def test_encode_json_round_trips_what_read_json_reads() -> None:
 
 # --- Typed, bounded fields (review of PR #36, third finding on numbers read from disk) ---
 
-from lcsim.strict_json import MAX_WHOLE, real_in, whole_in  # noqa: E402
+from ithax.strict_json import MAX_WHOLE, real_in, whole_in  # noqa: E402
 
 HUGE = 10**400
 BAD_KINDS: list[object] = [True, False, None, "3", [3], {"a": 3}]

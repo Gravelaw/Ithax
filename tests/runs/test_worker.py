@@ -1,5 +1,5 @@
 """The worker (spec 1 "Run targets"; AKS-103): the spawned worker's entry function and
-``python -m lcsim.runs.worker <workdir>``, in process and as a real subprocess."""
+``python -m ithax.runs.worker <workdir>``, in process and as a real subprocess."""
 
 import io
 import json
@@ -14,11 +14,11 @@ from typing import Any
 import pytest
 from dummy_adapters import DummyAdapter, FailingAdapter
 
-from lcsim.engines.process.adapter import REPLICATIONS_FILE, TIMESERIES_FILE, ProcessAdapter
-from lcsim.model.loading import load_text
-from lcsim.runs import worker
-from lcsim.runs.targets import LocalTarget
-from lcsim.runs.worker import (
+from ithax.engines.process.adapter import REPLICATIONS_FILE, TIMESERIES_FILE, ProcessAdapter
+from ithax.model.loading import load_text
+from ithax.runs import worker
+from ithax.runs.targets import LocalTarget
+from ithax.runs.worker import (
     CANCEL_FILE,
     EXIT_CANCELLED,
     EXIT_DONE,
@@ -129,7 +129,7 @@ def test_child_main_reports_the_traceback_of_an_error(tmp_path: Path) -> None:
     assert "Traceback" in details and "secret engine detail 4711" in details
 
 
-# --- python -m lcsim.runs.worker, in this process ----------------------------------------
+# --- python -m ithax.runs.worker, in this process ----------------------------------------
 
 
 def test_main_runs_the_installed_adapter_named_in_the_manifest(tmp_path: Path) -> None:
@@ -197,14 +197,14 @@ def test_main_writes_to_the_process_streams_by_default(
     assert "manifest.json" in capsys.readouterr().err
 
 
-# --- python -m lcsim.runs.worker, as a real subprocess ---------------------------------
+# --- python -m ithax.runs.worker, as a real subprocess ---------------------------------
 
 
 def test_the_module_runs_as_a_subprocess(tmp_path: Path) -> None:
     engine = prepared_engine_folder(tmp_path, coffee_shop())
     before = sorted(path.name for path in engine.parent.iterdir())
     finished = subprocess.run(
-        [sys.executable, "-m", "lcsim.runs.worker", str(engine), "--workers", "2"],
+        [sys.executable, "-m", "ithax.runs.worker", str(engine), "--workers", "2"],
         capture_output=True,
         text=True,
         timeout=120,
@@ -221,7 +221,7 @@ def test_the_module_runs_as_a_subprocess(tmp_path: Path) -> None:
 def test_the_subprocess_stops_soon_after_cancel_appears(tmp_path: Path) -> None:
     engine = prepared_engine_folder(tmp_path, coffee_shop(length="2000 h", replications=30))
     process = subprocess.Popen(
-        [sys.executable, "-m", "lcsim.runs.worker", str(engine)],
+        [sys.executable, "-m", "ithax.runs.worker", str(engine)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

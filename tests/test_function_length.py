@@ -8,7 +8,10 @@ splitting one of them means deleting its line here, and no new name may be added
 import ast
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parent.parent / "src" / "lcsim"
+import ithax
+
+# The package as imported, so a moved or renamed package cannot leave the scan empty (#70).
+SRC = Path(ithax.__file__).resolve().parent
 MAX_LINES = 60
 ALLOWED = {
     "model/loading.py::_Builder.build",

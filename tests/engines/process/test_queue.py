@@ -24,7 +24,7 @@ from conftest import (
     series_of_model,
 )
 
-from lcsim.engines.process.blocks import (
+from ithax.engines.process.blocks import (
     BLOCK_TYPES,
     Context,
     Item,
@@ -33,9 +33,9 @@ from lcsim.engines.process.blocks import (
     Transfers,
     Unbatch,
 )
-from lcsim.engines.process.statistics import TimeWeighted, Window
-from lcsim.model.catalogue import PROCESS_TYPES
-from lcsim.model.streams import generator_for
+from ithax.engines.process.statistics import TimeWeighted, Window
+from ithax.model.catalogue import PROCESS_TYPES
+from ithax.model.streams import generator_for
 
 
 def source(interarrival: str) -> dict[str, Any]:

@@ -8,15 +8,15 @@ from typing import Any
 
 import pytest
 
-from lcsim.model.catalogue import PROCESS_TYPES, BlockType, SettingKind, SettingSpec
-from lcsim.model.edits import (
+from ithax.model.catalogue import PROCESS_TYPES, BlockType, SettingKind, SettingSpec
+from ithax.model.edits import (
     EDIT_KINDS,
     EditOutcome,
     apply_edits,
     check_edits,
     first_unstorable,
 )
-from lcsim.model.loading import load_document
+from ithax.model.loading import load_document
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "edits"
 
@@ -991,7 +991,7 @@ def test_a_null_scenario_set_does_not_stop_removing_a_parameter() -> None:
 def test_an_edit_that_fails_unexpectedly_is_e180_without_exception_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import lcsim.model.edits as edits
+    import ithax.model.edits as edits
 
     def broken(*_args: object) -> None:
         raise KeyError("secret detail")

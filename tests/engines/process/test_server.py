@@ -15,9 +15,9 @@ import pytest
 import simpy
 from conftest import ContextMaker, Recorder, recorder
 
-from lcsim.engines.process.blocks import Context, Item, Server
-from lcsim.model.catalogue import PROCESS_TYPES
-from lcsim.model.streams import generator_for
+from ithax.engines.process.blocks import Context, Item, Server
+from ithax.model.catalogue import PROCESS_TYPES
+from ithax.model.streams import generator_for
 
 
 def constant(seconds: float) -> dict[str, object]:

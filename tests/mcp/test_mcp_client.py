@@ -2,7 +2,7 @@
 "Discovery", "One service per user", "Lifetime" and "Client header"; AKS-115).
 
 The client finds the service through ``service.json`` and the spec 3 probe, starts
-``python -m lcsim.service`` when none answers, sends every request to ``/v1`` on
+``python -m ithax.service`` when none answers, sends every request to ``/v1`` on
 ``127.0.0.1`` with the token and ``X-Client: mcp`` and no proxy, reads every answer with the
 strict JSON reader, repeats a request only when its connection was refused or it was
 answered 401, and reports a service it cannot reach as E193.
@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 from mcp_support import DROP, TRUNCATED, StubService, in_process_service, stop_service
 
-from lcsim.mcp.client import (
+from ithax.mcp.client import (
     CLIENT,
     SERVICE_UNAVAILABLE,
     START_TIMEOUT_S,
@@ -27,8 +27,8 @@ from lcsim.mcp.client import (
     ServiceUnavailable,
     detached_options,
 )
-from lcsim.service.discovery import ServiceInfo, probe, read_service_file, write_service_file
-from lcsim.service.main import STARTUP_WAIT_S
+from ithax.service.discovery import ServiceInfo, probe, read_service_file, write_service_file
+from ithax.service.main import STARTUP_WAIT_S
 
 
 @pytest.fixture
@@ -283,7 +283,7 @@ def test_the_service_command_passes_both_folders(folders: tuple[Path, Path]) -> 
     assert client.command == [
         sys.executable,
         "-m",
-        "lcsim.service",
+        "ithax.service",
         "--config-dir",
         str(config_dir),
         "--data-dir",
@@ -410,7 +410,7 @@ def test_a_start_that_exits_cleanly_finds_the_service_it_deferred_to(
             probes.append(found)
             return len(probes) > 1 and real_probe(found)
 
-        monkeypatch.setattr("lcsim.mcp.client.probe", first_probe_fails)
+        monkeypatch.setattr("ithax.mcp.client.probe", first_probe_fails)
         client = ServiceClient(*folders, command=[sys.executable, "-c", "pass"])
         assert client.request("GET", "/v1/projects") == Answer(200, [])
         assert client.started is not None and client.started.wait(60) == 0
@@ -466,7 +466,7 @@ def test_the_service_is_started_with_its_output_discarded(
         seen.update(options, command=command)
         raise Refused
 
-    monkeypatch.setattr("lcsim.mcp.client.subprocess.Popen", popen)
+    monkeypatch.setattr("ithax.mcp.client.subprocess.Popen", popen)
     client = ServiceClient(*folders)
     with pytest.raises(ServiceUnavailable):
         client.request("GET", "/v1/projects")

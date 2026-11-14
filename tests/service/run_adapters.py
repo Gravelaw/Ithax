@@ -21,10 +21,10 @@ from pathlib import Path
 
 import pyarrow as pa
 
-from lcsim.engines.adapter import CancelToken, Capabilities, Progress, Results
-from lcsim.model.catalogue import PROCESS_TYPES
-from lcsim.model.issues import Issue
-from lcsim.model.model import Model
+from ithax.engines.adapter import CancelToken, Capabilities, Progress, Results
+from ithax.model.catalogue import PROCESS_TYPES
+from ithax.model.issues import Issue
+from ithax.model.model import Model
 
 GO_FILE = "GO"
 RUN_RECORD = "run.json"

@@ -8,8 +8,8 @@ own.
 from fastapi import FastAPI
 from starlette.websockets import WebSocket
 
-from lcsim.service.app import ROUTERS, create_app, route_table
-from lcsim.service.config import ServiceConfig
+from ithax.service.app import ROUTERS, create_app, route_table
+from ithax.service.config import ServiceConfig
 
 AKS_110_ROUTES = {
     ("GET", "/v1/system"),

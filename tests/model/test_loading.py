@@ -12,8 +12,8 @@ from typing import Any
 
 import pytest
 
-from lcsim.model.issues import Issue
-from lcsim.model.loading import (
+from ithax.model.issues import Issue
+from ithax.model.loading import (
     SEED_LIMIT,
     LoadResult,
     ModelLoadError,
@@ -22,7 +22,7 @@ from lcsim.model.loading import (
     load_model,
     load_text,
 )
-from lcsim.model.model import (
+from ithax.model.model import (
     Component,
     Connection,
     DataRef,
@@ -43,7 +43,7 @@ from lcsim.model.model import (
     Search,
     Variable,
 )
-from lcsim.model.units import Dimension, Quantity
+from ithax.model.units import Dimension, Quantity
 
 ROOT = Path(__file__).resolve().parents[2]
 COFFEE_SHOP_PATH = ROOT / "examples" / "coffee_shop.json"

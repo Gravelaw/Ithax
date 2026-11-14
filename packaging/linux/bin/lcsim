@@ -24,4 +24,4 @@ else
     exec "$shell" "$@"
 fi
 echo "lcsim: opening the interface in the browser, since $reason" >&2
-exec "$LCSIM_PYTHON" -m lcsim.launcher "$@"
+exec "$LCSIM_PYTHON" -m ithax.launcher "$@"

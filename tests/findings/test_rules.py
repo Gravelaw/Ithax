@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 from findings_support import Run, read_run
 
-from lcsim.findings import (
+from ithax.findings import (
     DEFAULT_THRESHOLDS,
     RULES,
     Finding,
@@ -24,7 +24,7 @@ from lcsim.findings import (
     find,
     n_required,
 )
-from lcsim.findings.rules import key_metrics
+from ithax.findings.rules import key_metrics
 
 LINE_WAIT = (
     "The estimates for weld.wait.mean are still uncertain: weld.wait.mean is 15.7 min plus or "

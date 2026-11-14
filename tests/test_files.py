@@ -1,4 +1,4 @@
-"""``lcsim.files``: the one way the product replaces a file (#99, P5)."""
+"""``ithax.files``: the one way the product replaces a file (#99, P5)."""
 
 import os
 import stat
@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from lcsim import files
-from lcsim.files import atomic_write, atomic_write_with, temporary_path, write_synced
+from ithax import files
+from ithax.files import atomic_write, atomic_write_with, temporary_path, write_synced
 
 
 @pytest.fixture

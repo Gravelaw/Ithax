@@ -7,8 +7,8 @@ from collections.abc import Callable
 
 import pytest
 
-from lcsim.runs.queue import RunQueue
-from lcsim.runs.states import JobState
+from ithax.runs.queue import RunQueue
+from ithax.runs.states import JobState
 
 
 class Job:

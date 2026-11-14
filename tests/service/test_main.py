@@ -1,4 +1,4 @@
-"""``python -m lcsim.service`` (spec 3 "Discovery", "One service per user" and "Lifetime";
+"""``python -m ithax.service`` (spec 3 "Discovery", "One service per user" and "Lifetime";
 AKS-110 acceptance: ``service.json`` written, second start exits when the first answers).
 
 ``main`` runs in a thread here, so coverage sees it; one test also runs the module as a
@@ -24,10 +24,10 @@ import httpx2
 import pytest
 import uvicorn
 
-from lcsim.service.config import ServiceConfig, default_ui_dir
-from lcsim.service.discovery import SERVICE_FILE, ServiceInfo, read_service_file
-from lcsim.service.hardware import SETTINGS_FILE
-from lcsim.service.main import LOCAL_ADDRESS, SignalServer, bind_local, main, raise_again
+from ithax.service.config import ServiceConfig, default_ui_dir
+from ithax.service.discovery import SERVICE_FILE, ServiceInfo, read_service_file
+from ithax.service.hardware import SETTINGS_FILE
+from ithax.service.main import LOCAL_ADDRESS, SignalServer, bind_local, main, raise_again
 
 
 def wait_for(condition: object, timeout_s: float = 20.0) -> None:
@@ -138,8 +138,8 @@ def test_two_starts_at_once_give_one_service(folders: list[str], tmp_path: Path)
 def test_a_start_that_cannot_take_the_lock_and_finds_no_service_fails(
     folders: list[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import lcsim.service.main as entry
-    from lcsim.runs.lock import take_lock
+    import ithax.service.main as entry
+    from ithax.runs.lock import take_lock
 
     monkeypatch.setattr(entry, "STARTUP_WAIT_S", 0.3)
     config_dir = tmp_path / "config"
@@ -155,8 +155,8 @@ def test_a_start_that_cannot_take_the_lock_and_finds_no_service_fails(
 
 
 def test_the_lock_is_released_when_the_service_exits(folders: list[str], tmp_path: Path) -> None:
-    from lcsim.runs.lock import is_held
-    from lcsim.service.main import SERVICE_LOCK
+    from ithax.runs.lock import is_held
+    from ithax.service.main import SERVICE_LOCK
 
     started = Started([*folders, "--idle-minutes", "0.005"])
     started.thread.join(30)
@@ -172,7 +172,7 @@ def test_idle_minutes_must_be_above_zero(minutes: str) -> None:
 
 
 def test_the_module_entry_point_is_main() -> None:
-    import lcsim.service.__main__ as entry
+    import ithax.service.__main__ as entry
 
     assert entry.main is main
 
@@ -203,13 +203,13 @@ def test_bind_local_closes_its_socket_when_binding_fails(monkeypatch: pytest.Mon
     assert closed == [True]
 
 
-def test_python_dash_m_lcsim_service_runs_as_a_process(tmp_path: Path) -> None:
+def test_python_dash_m_ithax_service_runs_as_a_process(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     process = subprocess.Popen(
         [
             sys.executable,
             "-m",
-            "lcsim.service",
+            "ithax.service",
             "--config-dir",
             str(config_dir),
             "--data-dir",
@@ -247,7 +247,7 @@ def test_a_service_stopped_by_a_signal_removes_its_file(tmp_path: Path, stop: in
         [
             sys.executable,
             "-m",
-            "lcsim.service",
+            "ithax.service",
             "--config-dir",
             str(config_dir),
             "--data-dir",
@@ -354,7 +354,7 @@ def made_configs(monkeypatch: pytest.MonkeyPatch, factor: float) -> list[Service
     ``factor`` times as fast and a check every 10 ms, so that minutes of idle time pass in
     well under a second while ``main``, the app and its lifetime run as they do in a real
     start."""
-    import lcsim.service.main as entry
+    import ithax.service.main as entry
 
     made: list[ServiceConfig] = []
 

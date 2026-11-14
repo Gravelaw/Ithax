@@ -9,9 +9,9 @@ from pathlib import Path
 from hypothesis import given
 from hypothesis import strategies as st
 
-from lcsim.runs.manifest import MANIFEST_FILE, read_run_manifest
-from lcsim.service.hardware import SETTINGS_FILE, Hardware
-from lcsim.service.settings_store import SettingsStore
+from ithax.runs.manifest import MANIFEST_FILE, read_run_manifest
+from ithax.service.hardware import SETTINGS_FILE, Hardware
+from ithax.service.settings_store import SettingsStore
 from properties.strategies import JSON_VALUES
 
 HARDWARE = Hardware(cores=4, memory=8 * 1024**3, graphics=())

@@ -15,7 +15,7 @@ import { App } from "./App";
 export const CONNECTING = "Connecting to the engine service…";
 export const NOT_ANSWERING = "The engine service did not answer.";
 export const NO_TOKEN =
-  "This page needs the engine service's token. Open the interface with the launcher: python -m lcsim.launcher";
+  "This page needs the engine service's token. Open the interface with the launcher: python -m ithax.launcher";
 
 export function Boot({ client, root }: { client: ApiClient; root: HTMLElement }) {
   const [loaded, setLoaded] = useState<ApiResult<SettingsBody> | null>(null);

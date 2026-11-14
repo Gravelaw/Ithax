@@ -30,7 +30,7 @@ from run_comparison import (
     tables_equal,
 )
 
-from lcsim.runs.targets import LocalTarget
+from ithax.runs.targets import LocalTarget
 
 EXAMPLES = Path(__file__).resolve().parents[2] / "examples"
 

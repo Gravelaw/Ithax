@@ -1,4 +1,4 @@
-"""``python -m lcsim.install_check``, the check the Linux package's ``install.sh`` runs
+"""``python -m ithax.install_check``, the check the Linux package's ``install.sh`` runs
 (spec 3 "Packaging"; AKS-127)."""
 
 import io
@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-import lcsim
-from lcsim.engines.registry import load_adapters
-from lcsim.install_check import PHASE_1_ENGINES, check, main
+import ithax
+from ithax.engines.registry import load_adapters
+from ithax.install_check import PHASE_1_ENGINES, check, main
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES = ROOT / "templates"
@@ -69,7 +69,7 @@ def test_main_reports_a_complete_installation(ui_dir: Path) -> None:
     assert err.getvalue() == ""
     python = ".".join(str(part) for part in sys.version_info[:3])
     assert out.getvalue() == (
-        f"lcsim {lcsim.__version__} on Python {python}: engines highs, simpy; "
+        f"lcsim {ithax.__version__} on Python {python}: engines highs, simpy; "
         f"the interface in {ui_dir}; 10 templates in {TEMPLATES}.\n"
     )
 
@@ -88,7 +88,7 @@ def test_main_lists_each_problem_and_fails(tmp_path: Path) -> None:
 
 
 def test_main_uses_the_service_defaults(monkeypatch: pytest.MonkeyPatch, ui_dir: Path) -> None:
-    import lcsim.install_check as module
+    import ithax.install_check as module
 
     monkeypatch.setattr(module, "default_ui_dir", lambda: ui_dir)
     monkeypatch.setattr(module, "default_templates_dir", lambda: TEMPLATES)
@@ -102,7 +102,7 @@ def test_python_dash_m_runs_it(ui_dir: Path) -> None:
         [
             sys.executable,
             "-m",
-            "lcsim.install_check",
+            "ithax.install_check",
             "--ui-dir",
             str(ui_dir),
             "--templates-dir",

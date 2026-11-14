@@ -11,10 +11,10 @@ from pathlib import Path, PureWindowsPath
 import pytest
 from starlette.testclient import TestClient
 
-from lcsim.engines.registry import select_adapter
-from lcsim.model.loading import load_text
-from lcsim.model.migration import FORMAT_VERSION
-from lcsim.service.projects_store import (
+from ithax.engines.registry import select_adapter
+from ithax.model.loading import load_text
+from ithax.model.migration import FORMAT_VERSION
+from ithax.service.projects_store import (
     LAYOUT_VERSION,
     MODEL_FILE,
     PROJECT_FILE,
@@ -382,9 +382,9 @@ def test_a_relative_data_folder_still_registers_absolute_paths(
 ) -> None:
     """Review of PR #34: a project path stored relative to the working directory would
     be lost by a service started from another folder."""
-    from lcsim.service.app import create_app
-    from lcsim.service.config import ServiceConfig
-    from lcsim.service.hardware import Hardware
+    from ithax.service.app import create_app
+    from ithax.service.config import ServiceConfig
+    from ithax.service.hardware import Hardware
     from service.service_support import AUTH, BASE_URL, PORT, TOKEN
 
     monkeypatch.chdir(tmp_path)
@@ -422,7 +422,7 @@ def test_both_project_endpoints_refuse_a_windows_path_without_drive_or_share(
 ) -> None:
     """``os.path.isabs`` on Windows takes ``\\projects\\demo`` as absolute although it has no
     drive, so it would be persisted and later name a folder on whichever drive is current."""
-    monkeypatch.setattr("lcsim.service.paths.PATH_FLAVOUR", PureWindowsPath)
+    monkeypatch.setattr("ithax.service.paths.PATH_FLAVOUR", PureWindowsPath)
     for route, body in (
         ("/v1/projects", {"name": "Demo", "path": path}),
         ("/v1/projects/open", {"path": path}),
@@ -473,7 +473,7 @@ def test_projects_json_stores_the_resolved_path(client: TestClient, tmp_path: Pa
 
 
 def test_the_service_folders_are_resolved(tmp_path: Path) -> None:
-    from lcsim.service.config import ServiceConfig
+    from ithax.service.config import ServiceConfig
 
     real = tmp_path / "real"
     real.mkdir()

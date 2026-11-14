@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
-from lcsim.runs.ids import RUN_ID_PATTERN, new_run_id
+from ithax.runs.ids import RUN_ID_PATTERN, new_run_id
 
 
 def test_a_run_id_is_the_utc_time_and_six_base32_characters() -> None:

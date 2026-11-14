@@ -12,9 +12,9 @@ from typing import Any
 import pytest
 from starlette.testclient import TestClient
 
-from lcsim.model.loading import load_text
-from lcsim.service.app import create_app
-from lcsim.service.config import ServiceConfig, default_templates_dir
+from ithax.model.loading import load_text
+from ithax.service.app import create_app
+from ithax.service.config import ServiceConfig, default_templates_dir
 from service.service_support import AUTH, BASE_URL, assert_error
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -135,7 +135,7 @@ def test_a_package_whose_json_is_null_is_left_out_not_a_500(
 def test_a_package_with_issues_is_not_served_and_its_issues_are_logged(
     config: ServiceConfig, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    caplog.set_level(logging.WARNING, logger="lcsim.service.templates")
+    caplog.set_level(logging.WARNING, logger="ithax.service.templates")
     with template_client(config, broken_folder(tmp_path)) as test_client:
         assert [item["id"] for item in test_client.get("/v1/templates").json()] == ["coffee_shop"]
         response = test_client.get("/v1/templates/broken")

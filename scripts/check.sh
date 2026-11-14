@@ -20,4 +20,4 @@ echo "== types (mypy --strict)"
 echo "== tests (pytest)"
 # In parallel (pytest-xdist), with line and branch coverage gated at 99% ([tool.coverage.run]
 # branch = true); docs/retrospective/proposed-agent-setup.md, P1 and P9 (#99).
-"$python" -m pytest -n auto --cov=lcsim --cov-report=term-missing --cov-fail-under=99
+"$python" -m pytest -n auto --cov=ithax --cov-report=term-missing --cov-fail-under=99

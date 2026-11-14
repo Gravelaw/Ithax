@@ -14,9 +14,9 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from lcsim.service.app import create_app, table_path
-from lcsim.service.config import ServiceConfig
-from lcsim.service.interface_files import content_security_policy, interface_path, media_type
+from ithax.service.app import create_app, table_path
+from ithax.service.config import ServiceConfig
+from ithax.service.interface_files import content_security_policy, interface_path, media_type
 from service.service_support import AUTH, BASE_URL, PORT, assert_error
 
 INDEX = "<!doctype html><title>lcsim</title>"

@@ -7,13 +7,13 @@ from typing import Any
 import pytest
 import simpy
 
-from lcsim.engines.process.blocks import Block, Context, Item
-from lcsim.engines.process.replication import Outcome, run_replication
-from lcsim.engines.process.statistics import TimeWeighted, Window
-from lcsim.engines.process.translate import engine_input
-from lcsim.model.loading import load_document
-from lcsim.model.model import Model
-from lcsim.model.streams import generator_for
+from ithax.engines.process.blocks import Block, Context, Item
+from ithax.engines.process.replication import Outcome, run_replication
+from ithax.engines.process.statistics import TimeWeighted, Window
+from ithax.engines.process.translate import engine_input
+from ithax.model.loading import load_document
+from ithax.model.model import Model
+from ithax.model.streams import generator_for
 
 ModelMaker = Callable[..., Model]
 ContextMaker = Callable[[float, float], Context]

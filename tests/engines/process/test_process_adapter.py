@@ -17,11 +17,11 @@ from typing import Any
 import pyarrow as pa
 import pytest
 
-import lcsim
-from lcsim.engines.adapter import Progress
-from lcsim.engines.process.adapter import REPLICATIONS_FILE, TIMESERIES_FILE, ProcessAdapter
-from lcsim.model.loading import load_document
-from lcsim.model.model import Model
+import ithax
+from ithax.engines.adapter import Progress
+from ithax.engines.process.adapter import REPLICATIONS_FILE, TIMESERIES_FILE, ProcessAdapter
+from ithax.model.loading import load_document
+from ithax.model.model import Model
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -42,7 +42,7 @@ def load(document: object) -> Model:
 def test_the_adapter_is_named_simpy_with_the_product_version() -> None:
     adapter = ProcessAdapter()
     assert adapter.name == "simpy"
-    assert adapter.version == lcsim.__version__
+    assert adapter.version == ithax.__version__
 
 
 def test_validate_adds_no_issue_to_a_valid_model() -> None:

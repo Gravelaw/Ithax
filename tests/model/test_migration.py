@@ -16,10 +16,10 @@ from typing import Any
 
 import pytest
 
-from lcsim.model import migration as migration_module
-from lcsim.model.issues import Issue
-from lcsim.model.loading import load_document, load_text
-from lcsim.model.migration import (
+from ithax.model import migration as migration_module
+from ithax.model.issues import Issue
+from ithax.model.loading import load_document, load_text
+from ithax.model.migration import (
     FORMAT_VERSION,
     MIGRATIONS,
     MigrationRegistry,
@@ -29,8 +29,8 @@ from lcsim.model.migration import (
     parse_version,
     version_issue,
 )
-from lcsim.model.schema import FORMAT_VERSION as SCHEMA_FORMAT_VERSION
-from lcsim.model.schema import schema_pass
+from ithax.model.schema import FORMAT_VERSION as SCHEMA_FORMAT_VERSION
+from ithax.model.schema import schema_pass
 
 ROOT = Path(__file__).resolve().parents[2]
 COFFEE_SHOP_FILE = ROOT / "examples" / "coffee_shop.json"
@@ -150,7 +150,7 @@ def test_a_fresh_program_has_no_migration_registered() -> None:
     # The test-only migration is registered from this file only: a new interpreter that
     # imports the whole model layer finds the registry empty.
     code = (
-        "import lcsim.model.loading, lcsim.model.migration as m; "
+        "import ithax.model.loading, ithax.model.migration as m; "
         "print(m.MIGRATIONS.pairs(), m.can_open('99.0'))"
     )
     done = subprocess.run(

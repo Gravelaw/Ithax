@@ -1,6 +1,6 @@
 """Reading an imported CSV or Excel file (spec 3 "Endpoints", the data notes; AKS-113).
 
-``lcsim.model.data_files`` reads the bytes of an uploaded file into its columns: names
+``ithax.model.data_files`` reads the bytes of an uploaded file into its columns: names
 from the first row, a type per column (``number``, ``text`` or ``empty``), the numbers of
 each column in row order, the record count and a preview. Every problem with the content is
 ``UnreadableData`` (E189) with a message and a hint, never an exception from the parser;
@@ -15,8 +15,8 @@ import numpy
 import openpyxl
 import pytest
 
-from lcsim.model import data_files
-from lcsim.model.data_files import (
+from ithax.model import data_files
+from ithax.model.data_files import (
     PREVIEW_RECORDS,
     UnreadableData,
     file_format,

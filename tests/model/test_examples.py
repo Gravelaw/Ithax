@@ -20,10 +20,10 @@ from pathlib import Path
 
 import pytest
 
-from lcsim.model.loading import load_model, load_text
-from lcsim.model.model import Component, Distribution, Model
-from lcsim.model.units import Dimension, Quantity
-from lcsim.model.validation import distribution_mean, flow_rates, meaning_pass
+from ithax.model.loading import load_model, load_text
+from ithax.model.model import Component, Distribution, Model
+from ithax.model.units import Dimension, Quantity
+from ithax.model.validation import distribution_mean, flow_rates, meaning_pass
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES_DIR = ROOT / "examples"

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from lcsim.service.config import (
+from ithax.service.config import (
     TOKEN_BYTES,
     ServiceConfig,
     default_config_dir,

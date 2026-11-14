@@ -46,9 +46,9 @@ spec your issue names.
 
 | Rule | Enforced by |
 |---|---|
-| Randomness only through the spec 1 stream scheme (`lcsim.model.streams`) | ruff TID251 |
-| JSON read and written only through `lcsim.strict_json` | ruff TID251 |
-| Files replaced only through `lcsim.files.atomic_write` | ruff TID251, `tests/test_conventions.py` |
+| Randomness only through the spec 1 stream scheme (`ithax.model.streams`) | ruff TID251 |
+| JSON read and written only through `ithax.strict_json` | ruff TID251 |
+| Files replaced only through `ithax.files.atomic_write` | ruff TID251, `tests/test_conventions.py` |
 | Numbers checked with `strict_json.is_whole`, `is_number`, `whole_in`, `real_in` | `tests/test_conventions.py` |
 | No input makes a loader raise; problems are issue objects with a code | `tests/properties/` (routes: review) |
 | A model file that loads keeps loading; `/v1` responses keep their fields | `tests/compat/` |
@@ -73,7 +73,7 @@ spec your issue names.
 
 ## Where things are
 
-- `src/lcsim/`: `model/` (schema, loading, validation, edits), `engines/` (adapter, plugins
+- `src/ithax/`: `model/` (schema, loading, validation, edits), `engines/` (adapter, plugins
   `process/` SimPy and `optimize/` HiGHS), `runs/`, `service/`, `mcp/`, `findings/`,
   `templates/`, `launcher/`; `tests/` mirrors `src/`.
 - `ui/`: the interface (React, React Flow; its own `npm run check`). `desktop/`: the Tauri
@@ -90,4 +90,5 @@ spec your issue names.
   change them. Upgrade dependencies in their own PR.
 - Linux first (owner decision B4, 2026-11-09): keep the code platform-neutral as built;
   Windows packaging is deferred.
-- The package name `lcsim` is a placeholder until #70.
+- The Python package is `ithax`; the distribution, commands and folders still read `lcsim`
+  until the second #70 change.
