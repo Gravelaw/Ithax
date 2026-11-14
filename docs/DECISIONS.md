@@ -2478,6 +2478,15 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** a longer wait (an orphaned shell never ends, so it could not help); killing any leftover shell in teardown (hides the race instead of removing it).
 - **Spec sections updated:** build guide "Milestones" (M12), and `CLAUDE.md`.
 
+## 2026-11-14 · M12 · Owner: rule 5 adds a change of target platform; P11 stays out (#99)
+
+- **Decision (owner, 2026-11-14, through the orchestrating session):**
+  - Rule 5's blocking criteria, which send a question to "Awaiting owner", gain "a target platform", from retrospective P14. P14's other proposed criterion, "more than a day of work", is not added.
+  - P11 ("sessions and sub-agents never merge; the owner merges") stays unapplied: the owner confirms that the orchestrating session merges without the owner's consent once CI is green and review has nothing open (C10).
+- **Reason:** the owner's answer to the two items listed by PR #140.
+- **Alternatives considered:** none; the owner decided.
+- **Spec sections updated:** build guide rule 5 (and `CLAUDE.md`).
+
 ## 2026-11-14 · M12 · Retrospective PR 4: review rules for Codex, and the review-findings procedure (#99; P7)
 
 - **Decision:**
