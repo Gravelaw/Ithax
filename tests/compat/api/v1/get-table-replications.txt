@@ -1,0 +1,7 @@
+$ array
+$[] object
+$[].metric string
+$[].replication number
+$[].scenario string
+$[].unit string
+$[].value number

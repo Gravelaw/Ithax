@@ -1,0 +1,8 @@
+$ object
+$.available boolean
+$.created string
+$.id string
+$.layout_version number
+$.model_revision number
+$.name string
+$.path string

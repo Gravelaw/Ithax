@@ -2507,3 +2507,17 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** `--frozen` (does not catch a stale lock); a `uv lock --check` step in `check.sh` (would make uv a requirement of the local gate); the proposal's one-week `exclude-newer` cooldown (attrs uses it; not part of the proposal's text, and dependency updates are already deliberate PRs).
 - **Spec sections updated:** none.
 - **Dependencies added:** none to the product. uv 0.11.32 (MIT OR Apache-2.0, its PyPI metadata, read 2026-11-14) is a tool used by CI and for locking, not a dependency of lcsim; `astral-sh/setup-uv` is a CI action (MIT, its repository's licence, read 2026-11-14).
+
+## 2026-11-14 · M12 · Retrospective PR 11b: `/v1` response shapes recorded (#99; P24)
+
+- **Decision:**
+  - `tests/compat/test_api_shapes.py` runs one fixed, seeded scenario through the service in process: the coffee shop, 2 replications of 2 h, created, saved, validated and run to the end.
+  - It records the shape of 17 JSON responses in `tests/compat/api/v1/<route>.txt`: system, settings, engines, a component schema, the template list and one template, project create, project list, model put and get, validate, the data list, run start, the run, the project's runs, the summary and the replications table. A shape is the set of key paths with their JSON types; array items are merged under `[]`, and integers and floats are both `number`, since a value that happens to be whole is still a number. That makes the 353 recorded lines independent of the run's values.
+  - The test fails when a recorded path disappears or changes type, and passes when one is added. That is the Compatibility rule (#148). A deliberately added record line, for a field the response lacks, fails it with the field named.
+  - Recording is by hand (`LCSIM_RECORD_API_SHAPES=1`). A changed record line needs a new API version and an owner decision record.
+  - Stable: passed twice in a row and under `-n 4`.
+  - Not recorded, as the test says: the WebSocket event streams, the interface files and the project export (not JSON), and the data upload, fit, delete and run cancel routes (each needs its own scenario).
+- **Reason:** owner decision F2; assistants calling `/v1` through MCP depend on these fields from Phase 2.
+- **Alternatives considered:** recording whole responses (values change from run to run); a JSON Schema per route (more to maintain, and the spec's tables do not define one).
+- **Spec sections updated:** none (#148 adds the rule).
+- **Dependencies added:** none.
