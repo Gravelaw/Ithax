@@ -143,18 +143,30 @@ def run_all(
             pool.submit(run_task, *task): task for task in tasks
         }
         pending = set(futures)
-        while pending:
-            if cancel.is_set():
-                stop.set()
-                for future in pending:
-                    future.cancel()
-                return None  # leaving the block waits for the running pairs to stop
-            finished, pending = wait(pending, timeout=POLL_SECONDS, return_when=FIRST_COMPLETED)
-            for future in sorted(finished, key=futures.__getitem__):
-                outcome = future.result()
-                assert outcome is not None  # only a set stop event gives None
-                record(futures[future], outcome)
+        try:
+            while pending:
+                if cancel.is_set():
+                    _stop_all(stop, pending)
+                    return None  # leaving the block waits for the running pairs to stop
+                finished, pending = wait(pending, timeout=POLL_SECONDS, return_when=FIRST_COMPLETED)
+                for future in sorted(finished, key=futures.__getitem__):
+                    outcome = future.result()
+                    assert outcome is not None  # only a set stop event gives None
+                    record(futures[future], outcome)
+        except BaseException:
+            # A pair raised (a RunIssue such as E196, or a fault): the other workers stop
+            # and the pairs not started are cancelled, so leaving the block does not wait
+            # for the rest of the run (review of PR #160).
+            _stop_all(stop, pending)
+            raise
     return done
+
+
+def _stop_all(stop: ProcessEvent, pending: set[Future[Outcome | None]]) -> None:
+    """Tells every worker to stop its pair and cancels the pairs not started."""
+    stop.set()
+    for future in pending:
+        future.cancel()
 
 
 def _table(

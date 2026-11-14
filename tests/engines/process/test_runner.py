@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 from conftest import ModelMaker, line
 
-from ithax.engines.adapter import Progress
+from ithax.engines.adapter import Progress, RunIssue
 from ithax.engines.process.runner import (
     REPLICATIONS_SCHEMA,
     init_worker,
@@ -111,6 +111,38 @@ def test_cancel_stops_a_long_run_quickly(
     finally:
         timer.cancel()
     assert time.monotonic() - started < after + 1.0
+
+
+def test_a_run_issue_in_one_worker_stops_the_others_quickly(
+    make_model: ModelMaker, tmp_path: Path
+) -> None:
+    """Review of PR #160 (#74): scenario "loop" circles one item through a server of 0 s
+    service and stops with E196 after about a second; scenario "long", at 1 s of service
+    for 10,000 h, would take minutes. Three workers take the pairs in order: both "long"
+    pairs and the first "loop" pair. The E196 reaches the caller in seconds, well inside 30: the two
+    other workers are told to stop and the last pair, not started, is cancelled."""
+    service = {"dist": "constant", "value": {"$param": "pause"}}
+    till = {"id": "till", "type": "server", "params": {"capacity": 1, "service": service}}
+    arrivals = {
+        "id": "arrivals",
+        "type": "source",
+        "params": {"interarrival": {"dist": "constant", "value": "60 s"}, "max_items": 1},
+    }
+    model = make_model(
+        [arrivals, till],
+        [("arrivals.out", "till.in"), ("till.out", "till.in")],
+        length="10000 h",
+        replications=2,
+        parameters={"pause": {"value": "1 s", "type": "quantity"}},
+        scenarios=[{"id": "long", "set": {}}, {"id": "loop", "set": {"pause": "0 s"}}],
+    )
+    write_input(model, "e", tmp_path)
+    started = time.monotonic()
+    with pytest.raises(RunIssue) as raised:
+        run_all(tmp_path, read_input(tmp_path), lambda progress: None, threading.Event(), 3)
+    assert raised.value.issue.code == "E196"
+    assert "scenario 'loop'" in raised.value.issue.message
+    assert time.monotonic() - started < 30.0
 
 
 def test_workers_below_one_are_refused(make_model: ModelMaker, tmp_path: Path) -> None:

@@ -449,6 +449,47 @@ def test_an_adapter_error_in_run_is_e190_with_the_traceback_in_the_log(tmp_path:
     assert "Traceback" in log_text(run)
 
 
+def test_a_zero_time_loop_fails_the_run_with_e196_not_e190(tmp_path: Path) -> None:
+    """#74: items circling blocks that take no time stop the run with the engine's own
+    issue, E196, carried from the replication's worker as a ``RunIssue``."""
+    document = coffee_shop()
+    document["parameters"] = {}
+    document["components"] = [
+        {
+            "id": "arrivals",
+            "type": "source",
+            "params": {
+                "interarrival": {"dist": "constant", "value": "1 min"},
+                "max_items": 1,
+            },
+        },
+        {
+            "id": "loop",
+            "type": "branch",
+            "params": {
+                "routes": ["again", "done"],
+                "rule": "probability",
+                "weights": {"again": 1, "done": 0},
+            },
+        },
+        {"id": "exit", "type": "sink", "params": {}},
+    ]
+    document["connections"] = [
+        {"from": "arrivals.out", "to": "loop.in"},
+        {"from": "loop.again", "to": "loop.in"},
+        {"from": "loop.done", "to": "exit.in"},
+    ]
+    for key in ("objectives", "constraints"):
+        document.pop(key, None)
+    run = target(tmp_path).create(file_bytes(document), "base")
+    assert run.execute() == "failed"
+    error = error_of(run)
+    assert error["code"] == "E196" and error["severity"] == "error"
+    assert "without time passing" in error["message"]
+    assert "run stopped with E196" in log_text(run)
+    assert not (run.folder / "summary.json").exists()
+
+
 def test_a_worker_that_ends_without_reporting_is_e190(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

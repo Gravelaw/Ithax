@@ -2876,6 +2876,31 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Spec sections updated:** spec 2 "Reference values from the prototype", the acceptance tests (an M13 row), and a dated line.
 - **Dependencies added:** none.
 
+## 2026-11-14 · M13 · A guard against zero-time loops: E196 (#74; M2-5, M4-14)
+
+- **Decision:**
+  - **The guard.** A process replication counts the steps at each simulated instant (each SimPy event it runs, and each same-instant transfer step), from 0 whenever the clock moves. Past `INSTANT_STEP_LIMIT`, 1,000,000, it raises `ZeroTimeLoop`.
+    - The counter is checked in `Transfers` too, since a branch routed back to itself circles inside one SimPy event and never returns to the event loop.
+  - **The issue.** The replication turns `ZeroTimeLoop` into `RunIssue(E196)`, naming the instant, the replication and the scenario. The worker reports it as `("issue", ...)`, and the run fails with E196 instead of E190, with the traceback in `log.txt`.
+  - **`RunIssue`.** This is new in `ithax.engines.adapter`, and spec 1 "Engine adapter interface" says an adapter raises it when the model itself makes a run impossible. It is picklable, since a replication runs in a pool process. A search's evaluations use the same worker path, so they report it too.
+  - **E196** is a new run code in spec 1, and the manifest's `error` may hold it. `get_run_status`'s description names it.
+  - **Timing.** 10⁶ steps of a branch loop take about 0.9 s (measured), so a stuck model fails in about a second instead of at the 10-minute limit.
+  - **Tests:**
+    - the limit's value, and the counter resetting when the clock moves;
+    - both kinds of loop (transfer steps and events) at a lowered limit;
+    - the transfer loop at the real limit;
+    - a loop whose items take time, which is not stopped;
+    - the issue crossing a process boundary;
+    - an end-to-end local run failing with E196, not E190.
+- **Readings (reversible):**
+  - **A new code.** The issue's message and hint are specific to the cause, unlike E190's "see log.txt".
+  - **The limit** counts events and moves together, both being work at one instant.
+  - **The command-line worker** (`python -m ithax.runs.worker`, for the remote targets of Phase 2) still exits with status 1 and the traceback, as spec 1 defines it. Carrying the issue across SSH is for when that target is built.
+- **Reason:** issue #74 (E1: M2-5, M4-14). A loop with no delay ran until the 10-minute limit and then failed with E192, which named the wrong cause.
+- **Alternatives considered:** a load-time check for loops of zero-time blocks. It cannot see a delay drawn at 0 from a distribution, or a branch whose weights send most items out.
+- **Review of PR #160:** with several workers, an exception from one pair (the E196 `RunIssue`, or a fault) escaped `run_all` without setting the stop event or cancelling the pairs not started. Leaving the pool then waited for every other replication, so a long sibling held the run until the target's time limit (E192, not E196). `run_all` now stops the workers and cancels pending pairs before it re-raises, through the same `_stop_all` the cancel path uses. Test: `test_a_run_issue_in_one_worker_stops_the_others_quickly` (three workers, two long pairs and one loop). It fails before the fix (still running at 60 s) and passes after (about 4 s under coverage).
+- **Spec sections updated:** spec 1 "Validation issues" (E196), "Engine adapter interface" and the manifest's `error`; spec 2 "Rules that apply across blocks" ("Zero-time loops"). Each has a dated line.
+
 ## 2026-11-14 · M13 · Clean solver values (#76; M5-12)
 
 - **Decision:**

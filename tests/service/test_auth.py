@@ -167,11 +167,14 @@ def websocket_app(config: ServiceConfig) -> FastAPI:
 
 @pytest.fixture
 def quick(config: ServiceConfig) -> ServiceConfig:
+    """A short token wait, for the one test that waits it out. Every other WebSocket test
+    uses ``config``'s 5 s: under load a 0.2 s wait can end before the test client's token
+    message arrives, and the socket is closed with E182 (checks (3.11), run 43590391867)."""
     return dataclasses.replace(config, websocket_auth_timeout_s=0.2)
 
 
-def test_a_websocket_with_the_token_message_is_served(quick: ServiceConfig) -> None:
-    with TestClient(websocket_app(quick), base_url=BASE_URL) as client:
+def test_a_websocket_with_the_token_message_is_served(config: ServiceConfig) -> None:
+    with TestClient(websocket_app(config), base_url=BASE_URL) as client:
         with client.websocket_connect(f"{WS_URL}/v1/test/socket") as socket:
             socket.send_text(json.dumps({"token": TOKEN}))
             assert socket.receive_json() == {"type": "hello"}
@@ -200,9 +203,9 @@ def test_a_websocket_without_a_token_message_is_closed_with_1008(quick: ServiceC
     ids=["wrong", "not-text", "array", "not-json", "bare-token"],
 )
 def test_a_websocket_with_a_wrong_token_message_is_closed_with_1008(
-    quick: ServiceConfig, message: str
+    config: ServiceConfig, message: str
 ) -> None:
-    with TestClient(websocket_app(quick), base_url=BASE_URL) as client:
+    with TestClient(websocket_app(config), base_url=BASE_URL) as client:
         with client.websocket_connect(f"{WS_URL}/v1/test/socket") as socket:
             socket.send_text(message)
             with pytest.raises(WebSocketDisconnect) as closed:
@@ -211,8 +214,8 @@ def test_a_websocket_with_a_wrong_token_message_is_closed_with_1008(
     assert closed.value.reason == "E182"
 
 
-def test_a_binary_first_message_is_closed_with_1008(quick: ServiceConfig) -> None:
-    with TestClient(websocket_app(quick), base_url=BASE_URL) as client:
+def test_a_binary_first_message_is_closed_with_1008(config: ServiceConfig) -> None:
+    with TestClient(websocket_app(config), base_url=BASE_URL) as client:
         with client.websocket_connect(f"{WS_URL}/v1/test/socket") as socket:
             socket.send_bytes(json.dumps({"token": TOKEN}).encode())
             with pytest.raises(WebSocketDisconnect) as closed:
@@ -220,9 +223,9 @@ def test_a_binary_first_message_is_closed_with_1008(quick: ServiceConfig) -> Non
     assert closed.value.code == 1008
 
 
-def test_a_client_that_leaves_before_its_token_ends_the_helper(quick: ServiceConfig) -> None:
+def test_a_client_that_leaves_before_its_token_ends_the_helper(config: ServiceConfig) -> None:
     results: list[bool] = []
-    app = create_app(quick)
+    app = create_app(config)
 
     @app.websocket("/v1/test/leaving")
     async def leaving(websocket: WebSocket) -> None:
@@ -235,9 +238,9 @@ def test_a_client_that_leaves_before_its_token_ends_the_helper(quick: ServiceCon
 
 
 def test_a_websocket_with_an_origin_is_refused_before_it_is_accepted(
-    quick: ServiceConfig,
+    config: ServiceConfig,
 ) -> None:
-    with TestClient(websocket_app(quick), base_url=BASE_URL) as client:
+    with TestClient(websocket_app(config), base_url=BASE_URL) as client:
         with pytest.raises(WebSocketDisconnect) as refused:
             with client.websocket_connect(
                 f"{WS_URL}/v1/test/socket", headers={"Origin": "http://evil.example"}
@@ -247,8 +250,8 @@ def test_a_websocket_with_an_origin_is_refused_before_it_is_accepted(
     assert refused.value.reason == "E183"
 
 
-def test_an_allowed_origin_passes(quick: ServiceConfig) -> None:
-    allowed = dataclasses.replace(quick, allowed_origins=frozenset({"tauri://localhost"}))
+def test_an_allowed_origin_passes(config: ServiceConfig) -> None:
+    allowed = dataclasses.replace(config, allowed_origins=frozenset({"tauri://localhost"}))
     with TestClient(websocket_app(allowed), base_url=BASE_URL) as client:
         with client.websocket_connect(
             f"{WS_URL}/v1/test/socket", headers={"Origin": "tauri://localhost"}
@@ -261,10 +264,10 @@ def test_an_allowed_origin_passes(quick: ServiceConfig) -> None:
     "origin",
     [f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}", f"http://LocalHost:{PORT}"],
 )
-def test_the_interface_s_own_origin_passes(quick: ServiceConfig, origin: str) -> None:
+def test_the_interface_s_own_origin_passes(config: ServiceConfig, origin: str) -> None:
     """Spec 3 "Hardening" (AKS-119): the interface is served by the service, so its origin
     is the service's own."""
-    with TestClient(websocket_app(quick), base_url=BASE_URL) as client:
+    with TestClient(websocket_app(config), base_url=BASE_URL) as client:
         with client.websocket_connect(
             f"{WS_URL}/v1/test/socket", headers={"Origin": origin}
         ) as socket:
@@ -285,8 +288,8 @@ def test_the_interface_s_own_origin_passes(quick: ServiceConfig, origin: str) ->
         "",
     ],
 )
-def test_another_origin_is_refused(quick: ServiceConfig, origin: str) -> None:
-    with TestClient(websocket_app(quick), base_url=BASE_URL) as client:
+def test_another_origin_is_refused(config: ServiceConfig, origin: str) -> None:
+    with TestClient(websocket_app(config), base_url=BASE_URL) as client:
         with pytest.raises(WebSocketDisconnect) as refused:
             with client.websocket_connect(f"{WS_URL}/v1/test/socket", headers={"Origin": origin}):
                 pass  # pragma: no cover - the upgrade is refused
@@ -339,16 +342,16 @@ def test_the_interface_s_files_keep_the_host_check(app: FastAPI) -> None:
     assert_error(response.json(), "E183")
 
 
-def test_a_websocket_with_another_host_is_refused(quick: ServiceConfig) -> None:
-    with TestClient(websocket_app(quick), base_url=BASE_URL) as client:
+def test_a_websocket_with_another_host_is_refused(config: ServiceConfig) -> None:
+    with TestClient(websocket_app(config), base_url=BASE_URL) as client:
         with pytest.raises(WebSocketDisconnect) as refused:
             with client.websocket_connect("ws://evil.example/v1/test/socket"):
                 pass  # pragma: no cover - the upgrade is refused
     assert refused.value.reason == "E183"
 
 
-def test_an_open_websocket_holds_the_lifetime(quick: ServiceConfig) -> None:
-    app = websocket_app(quick)
+def test_an_open_websocket_holds_the_lifetime(config: ServiceConfig) -> None:
+    app = websocket_app(config)
     lifetime = app.state.service.lifetime
     with TestClient(app, base_url=BASE_URL) as client:
         with client.websocket_connect(f"{WS_URL}/v1/test/socket") as socket:
