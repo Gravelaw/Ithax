@@ -449,3 +449,28 @@ def test_a_continuous_value_within_the_tolerance_is_the_same_plan() -> None:
 
 def test_the_probe_weights_are_square_roots_of_square_free_numbers() -> None:
     assert solver.probe_weights(8) == [math.sqrt(n) for n in (2, 3, 5, 6, 7, 10, 11, 13)]
+
+
+def test_a_stop_set_before_the_probes_starts_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Review of PR #178: ``stop`` is asked before each probe; set, no probe starts."""
+    first = solver._solve_once
+    calls: list[int] = []
+
+    def counted(model: Any, options: Mapping[str, object]) -> Any:
+        calls.append(1)
+        return first(model, options)
+
+    monkeypatch.setattr(solver, "_solve_once", counted)
+    outcome = solve(STAFF_ROTA, stop=lambda: True)
+    assert (outcome.status, outcome.objective, outcome.alternate) == ("optimal", 9, False)
+    assert calls == [1]
+    asked: list[int] = []
+
+    def after_one_probe() -> bool:
+        asked.append(1)
+        return len(asked) > 1
+
+    calls.clear()
+    solve(SEGMENT, stop=after_one_probe)
+    # The solve and the first probe; whichever vertex HiGHS gives, no second probe starts.
+    assert calls == [1, 1]

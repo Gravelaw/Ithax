@@ -43,7 +43,7 @@ else uses (Pyomo would leave it unset).
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from typing import Any, Literal, TypeAlias
 
@@ -241,9 +241,16 @@ def _nothing(status: Status) -> Outcome:
     return Outcome(status, None, {}, {}, None)
 
 
-def solve(program: LinearProgram, *, options: Mapping[str, object] | None = None) -> Outcome:
+def solve(
+    program: LinearProgram,
+    *,
+    options: Mapping[str, object] | None = None,
+    stop: Callable[[], bool] = lambda: False,
+) -> Outcome:
     """Solves ``program`` with HiGHS; ``options`` are HiGHS options for every solve (the
-    adapter passes none). ``SolverStopped`` when HiGHS gives no answer of the three."""
+    adapter passes none). ``stop`` is asked before each alternate-optimum probe, and a
+    probe is not started once it is true (review of PR #178: a run's cancel); the outcome
+    then says no alternate. ``SolverStopped`` when HiGHS gives no answer of the three."""
     if not all(_holds(item) for item in program.constraints if not item.linear):
         return _nothing("infeasible")
     continuous = all(variable.type == "continuous" for variable in program.variables)
@@ -282,7 +289,7 @@ def solve(program: LinearProgram, *, options: Mapping[str, object] | None = None
         float(pyo.value(built.model.objective)), _size(program.objective.linear, values)
     )
     found = Outcome("optimal", objective, values, slacks, duals)
-    return replace(found, alternate=_has_alternate(program, found, given))
+    return replace(found, alternate=_has_alternate(program, found, given, stop))
 
 
 def _reported_values(program: LinearProgram, built: _Built) -> dict[str, float]:
@@ -346,11 +353,17 @@ def is_alternate(program: LinearProgram, outcome: Outcome, values: Mapping[str, 
     return False
 
 
-def _has_alternate(program: LinearProgram, outcome: Outcome, options: Mapping[str, object]) -> bool:
+def _has_alternate(
+    program: LinearProgram,
+    outcome: Outcome,
+    options: Mapping[str, object],
+    stop: Callable[[], bool],
+) -> bool:
     """Over the plans no worse than ``outcome``'s objective, minimize and then maximize
     the probe ``probe_weights`` times the variables; a second plan of the same objective,
     or an unbounded probe (an unbounded optimal set), is an alternate optimum. A probe
-    that ends otherwise is no evidence. At most two more HiGHS solves."""
+    that ends otherwise is no evidence. At most two more HiGHS solves, each started only
+    while ``stop`` is false."""
     assert outcome.objective is not None
     built = _pyomo_model(program)
     model = built.model
@@ -367,6 +380,8 @@ def _has_alternate(program: LinearProgram, outcome: Outcome, options: Mapping[st
         w * var for w, var in zip(weights, built.variables.values(), strict=True)
     )
     for sense in (pyo.minimize, pyo.maximize):
+        if stop():
+            return False
         model.probe = pyo.Objective(expr=direction, sense=sense)
         results = _solve_once(model, options)
         model.del_component("probe")

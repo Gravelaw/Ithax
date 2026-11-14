@@ -3116,6 +3116,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - **The objective bound is the optimum itself**, not a band. A band of 1e-6 × |z| let the probe move continuous plans by its width (product mix, diet, transport) and flagged them falsely.
   - **The report is a run warning in the existing `warnings`**, so no `/v1` field and no model-format change are needed, as the orchestrating session asked. W211 sits beside W210, the other run warning.
   - The finding keeps severity `info`.
+- **Review of PR #178:** a cancel set during the first solve still let both probes start before `run` checked it. `solve` now takes `stop`, asked before each probe, and the adapter passes its cancel. New tests: a cancel during the solve starts no probe and writes nothing; `stop` set after one probe starts no second. Both fail before the fix.
 - **Alternatives considered:** options A and C of #176. The owner chose B.
 - **Spec sections updated:** spec 1 "Validation issues" (W211); spec 2 "Mathematical optimization in the model file" (alternate optima); spec 4 `optimization_result`; dated lines in each.
 - **Dependencies added:** none.
