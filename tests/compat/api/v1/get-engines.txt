@@ -1,0 +1,13 @@
+$ array
+$[] object
+$[].component_types array
+$[].component_types[] string
+$[].domains array
+$[].domains[] string
+$[].hardware array
+$[].invocation string
+$[].licence string
+$[].name string
+$[].parallel_modes array
+$[].parallel_modes[] string
+$[].version string
