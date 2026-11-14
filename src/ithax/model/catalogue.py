@@ -427,12 +427,16 @@ class FieldSpec:
 
     ``positive``: the field must be above zero (spec 1 E160: "``sd``, ``shape``,
     ``scale`` or the ``mean`` of a positive distribution not greater than zero").
+    ``nonnegative``: the field must not be below zero (E160: "a ``constant`` ``value`` or a
+    ``uniform`` or ``triangular`` ``min`` below zero", #69); with the order of ``min``,
+    ``mode`` and ``max``, no bound of those distributions is then below zero.
     """
 
     name: str
     kind: FieldKind
     many: bool = False
     positive: bool = False
+    nonnegative: bool = False
 
 
 @dataclass(frozen=True)
@@ -451,21 +455,32 @@ class DistributionSpec:
         return tuple(field.name for form in self.forms for field in form)
 
 
-def _quantities(*names: str, positive: tuple[str, ...] = ()) -> tuple[FieldSpec, ...]:
-    return tuple(FieldSpec(name, FieldKind.QUANTITY, positive=name in positive) for name in names)
+def _quantities(
+    *names: str, positive: tuple[str, ...] = (), nonnegative: tuple[str, ...] = ()
+) -> tuple[FieldSpec, ...]:
+    return tuple(
+        FieldSpec(
+            name, FieldKind.QUANTITY, positive=name in positive, nonnegative=name in nonnegative
+        )
+        for name in names
+    )
 
 
 DISTRIBUTIONS: Mapping[str, DistributionSpec] = MappingProxyType(
     {
         spec.name: spec
         for spec in (
-            DistributionSpec("constant", (_quantities("value"),)),
+            DistributionSpec("constant", (_quantities("value", nonnegative=("value",)),)),
             # The positive distributions: exponential, lognormal and weibull.
             DistributionSpec("exponential", (_quantities("mean", positive=("mean",)),)),
-            DistributionSpec("uniform", (_quantities("min", "max"),), ordered=("min", "max")),
+            DistributionSpec(
+                "uniform",
+                (_quantities("min", "max", nonnegative=("min",)),),
+                ordered=("min", "max"),
+            ),
             DistributionSpec(
                 "triangular",
-                (_quantities("min", "mode", "max"),),
+                (_quantities("min", "mode", "max", nonnegative=("min",)),),
                 ordered=("min", "mode", "max"),
             ),
             DistributionSpec("normal", (_quantities("mean", "sd", positive=("sd",)),)),

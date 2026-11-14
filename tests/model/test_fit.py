@@ -20,6 +20,10 @@ from ithax.model.streams import generator_for
 from ithax.model.units import Dimension, parse_quantity
 
 FAMILIES = ("exponential", "uniform", "triangular", "normal", "lognormal", "weibull")
+#: For these columns scipy's triangular fit puts `min` below zero (-2.39 for the exponential
+#: column of 4,000, -0.0004 for the Weibull one), which spec 1 refuses since #69 (E160), so
+#: the gate leaves the triangular out.
+WITHOUT_TRIANGULAR = set(FAMILIES) - {"triangular"}
 
 
 def sample(dist: str, count: int, **fields: float) -> numpy.ndarray:
@@ -47,7 +51,7 @@ def test_exponential_data_ranks_the_exponential_first_with_its_mean() -> None:
     candidates = fit_column(values, None)
     assert str(candidates[0].distribution["dist"]) in ("exponential", "weibull")
     found = by_name(candidates)
-    assert set(found) == set(FAMILIES)
+    assert set(found) == WITHOUT_TRIANGULAR
     exponential = found["exponential"].distribution
     assert exponential == {"dist": "exponential", "mean": pytest.approx(values.mean())}
     assert found["exponential"].score < 0.05
@@ -115,21 +119,19 @@ def test_a_constant_column_gives_constant_alone() -> None:
 
 def test_zero_or_negative_values_leave_out_the_positive_families() -> None:
     with_zero = numpy.concatenate([sample("exponential", 500, mean=2.0), [0.0]])
-    assert set(by_name(fit_column(with_zero, None))) == {
-        "exponential",
-        "uniform",
-        "triangular",
-        "normal",
-    }
+    # The triangular's fitted `min` is below zero here too (E160 since #69).
+    assert set(by_name(fit_column(with_zero, None))) == {"exponential", "uniform", "normal"}
     negative = sample("normal", 500, mean=0.5, sd=1.0) - 1.0
-    assert set(by_name(fit_column(negative, None))) == {"uniform", "triangular", "normal"}
+    # A uniform and a triangular of negative values have a `min` below zero (E160, #69); a
+    # normal may have a negative mean, and W202 is a warning.
+    assert set(by_name(fit_column(negative, None))) == {"normal"}
 
 
 @pytest.mark.parametrize("size", [1e-300, 1e300])
 def test_tiny_and_huge_columns_are_fitted_after_a_change_of_unit(size: float) -> None:
     values = sample("weibull", 1000, shape=1.5, scale=1.0) * size
     found = by_name(fit_column(values, None))
-    assert set(found) == set(FAMILIES)
+    assert set(found) == WITHOUT_TRIANGULAR
     weibull = found["weibull"].distribution
     assert weibull["shape"] == pytest.approx(1.5, rel=0.15)
     assert weibull["scale"] == pytest.approx(size, rel=0.15)
@@ -340,3 +342,15 @@ def test_every_edge_is_finite_and_ordered(values: list[float]) -> None:
     assert edges == sorted(edges)
     assert edges[0] == min(values) and edges[-1] == max(values)
     assert sum(found["counts"]) == len(values)
+
+
+def test_a_candidate_with_a_bound_below_zero_is_left_out() -> None:
+    """#69: the gate refuses what the model refuses, so a fit is never offered that would
+    set samples to 0 s. A triangular fitted to values from 1 to 3 has its bounds there."""
+    values = sample("triangular", 2000, min=1.0, mode=2.0, max=3.0)
+    triangular = by_name(fit_column(values, None))["triangular"].distribution
+    assert float(triangular["min"]) >= 0
+    assert not fit._admitted(
+        Candidate({"dist": "triangular", "min": -1.0, "mode": 1.0, "max": 2.0}, 0.1), None
+    )
+    assert not fit._admitted(Candidate({"dist": "constant", "value": -1.0}, 0.0), None)
