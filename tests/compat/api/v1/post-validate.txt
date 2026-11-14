@@ -1,0 +1,3 @@
+$ object
+$.issues array
+$.revision number

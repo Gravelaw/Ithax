@@ -1,0 +1,14 @@
+$ object
+$.created string
+$.ended string
+$.engine object
+$.engine.name string
+$.engine.version string
+$.error null
+$.experiment_id string
+$.fraction number
+$.message string
+$.project_id string
+$.run_id string
+$.started string
+$.state string

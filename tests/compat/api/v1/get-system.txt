@@ -1,0 +1,6 @@
+$ object
+$.cores number
+$.graphics array
+$.memory number
+$.tier string
+$.workers number
