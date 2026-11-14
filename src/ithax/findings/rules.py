@@ -530,6 +530,10 @@ def _program_result(summary: Mapping[str, Any], model: Model) -> list[Finding]:
         "variables": dict(variables),
         "tight": list(tight),
     }
+    # The adapter's W211 (#176; owner option B): other plans reach the same objective.
+    if any(issue.get("code") == "W211" for issue in summary["warnings"]):
+        text += " Other plans reach the same objective; this is one of them."
+        evidence["alternate"] = True
     return [Finding("optimization_result", "info", None, None, text, evidence)]
 
 

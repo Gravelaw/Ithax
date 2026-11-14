@@ -3085,3 +3085,38 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Readings (reversible):** the hint for a bound is Reviewer A's suggested wording. Messages and codes are unchanged; only hints changed. The stale `service.json` part of #83 stays in M14 with #158.
 - **Spec sections updated:** none; spec 1 gives no hint text for E123 or E178.
 - **Dependencies added:** none.
+
+## 2026-11-14 · M13 · Alternate optima: W211 (#176, owner option B; #132)
+
+- **Decision:**
+  - **Detection** (`engines/optimize/solver.py`, the one module that calls Pyomo).
+    - After an `optimal` solve with variables, at most two more HiGHS solves probe the optimal set: the model's constraints plus the objective no worse than its optimum, with Σ √sᵢ xᵢ minimized and then maximized. Here sᵢ is the i-th square-free integer, taken in the model's variable order.
+    - Other plans reach the same objective when a probe's plan has the same objective (within 1e-6, relative above 1) and a different value. An integer or binary value differs when it is different rounded; a continuous one differs by more than 1e-6, relative above 1.
+    - An unbounded probe also counts: the optimal set is unbounded.
+    - A probe that ends otherwise, or that finds a strictly better plan (HiGHS's integer gap), claims nothing.
+    - The reported plan, objective, slacks and status stay the first solve's.
+  - **Reporting.**
+    - The adapter writes `alternate` to its own `engine/output/solution.json`.
+    - `collect` adds **W211** (stage `run`, path `/objective`) to the run's warnings: "Other plans reach the same objective; the plan shown is one of them." Hint: "To prefer one of them, add a small cost or a constraint that tells them apart."
+    - `optimization_result` adds "Other plans reach the same objective; this is one of them." and `alternate: true` to its evidence.
+  - **Checks.** Each test fails before the change.
+    - Solver tests: the staff rota, a segment and an unbounded face report alternate optima. The product mix, the diet, the knapsack and the assignment do not.
+    - A probe stopped by HiGHS claims nothing, and a better plan is not an alternate. Also tested: the tolerance and the weights.
+    - Adapter tests: W211 for the staff rota, none for the product mix, none for a `solution.json` from before this change.
+    - Two finding tests, and the staff rota template's finding text.
+- **Reason:**
+  - Owner decision on #176, 2026-11-14 (relayed by the orchestrating session and recorded on the issue): "option B. The optimization adapter detects alternate optima, and the finding says that several plans reach the same objective."
+  - The staff rota has 7 optimal rotas of 9 people. Which one is shown depends on the HiGHS version (#132).
+- **Readings (reversible):**
+  - **The method** is the research note's, `docs/research/m13-alternate-optima.md`.
+    - One probe direction, not one solve per variable: 2n solves have no bound for large models.
+    - Duals do not detect it under degeneracy and say nothing for integer programmes.
+    - A no-good cut needs extra binaries for general integers.
+    - It is a test, not a proof: a second plan whose difference is nearly orthogonal to the weights could be missed.
+  - **The objective bound is the optimum itself**, not a band. A band of 1e-6 × |z| let the probe move continuous plans by its width (product mix, diet, transport) and flagged them falsely.
+  - **The report is a run warning in the existing `warnings`**, so no `/v1` field and no model-format change are needed, as the orchestrating session asked. W211 sits beside W210, the other run warning.
+  - The finding keeps severity `info`.
+- **Review of PR #178:** a cancel set during the first solve still let both probes start before `run` checked it. `solve` now takes `stop`, asked before each probe, and the adapter passes its cancel. New tests: a cancel during the solve starts no probe and writes nothing; `stop` set after one probe starts no second. Both fail before the fix.
+- **Alternatives considered:** options A and C of #176. The owner chose B.
+- **Spec sections updated:** spec 1 "Validation issues" (W211); spec 2 "Mathematical optimization in the model file" (alternate optima); spec 4 `optimization_result`; dated lines in each.
+- **Dependencies added:** none.
