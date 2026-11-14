@@ -92,7 +92,7 @@ scripts/                check.sh and the package build, package_linux.py
 | --- | --- |
 | Language | Python 3.11 or later for everything except the interface |
 | Types | Full type hints; a type checker runs in the checks |
-| Tests | pytest; line coverage of `src/lcsim` at or above 90% (`--cov-fail-under`), every public function exercised by at least one test; benchmarks are tests (marker `benchmark`); performance checks carry `perf` and are excluded from `check.sh` |
+| Tests | pytest, run in parallel by `check.sh` (pytest-xdist, `-n auto`); line and branch coverage of `src/lcsim` at or above 99% (`--cov-fail-under`), every public function exercised by at least one test; benchmarks are tests (marker `benchmark`); performance checks carry `perf` and are excluded from `check.sh` |
 | Style | One formatter and linter, run before every commit |
 | Errors | User-facing problems are spec 1 issue objects with a code; never a bare exception message |
 | Units | Quantities are converted at load; no unit strings past the model layer |

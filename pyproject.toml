@@ -21,6 +21,9 @@ dependencies = [
     "optuna>=5.0.0",
     "pint>=0.25.3",
     "pyarrow>=26.0.1",
+    # Imported directly by lcsim.service (request bodies); it was only a transitive
+    # dependency of fastapi (#99, P9). The version installed on 2026-11-13.
+    "pydantic>=2.14.3",
     "pyomo>=6.10.1",
     "python-multipart>=0.0.33",
     "scipy>=1.17.1",
@@ -32,6 +35,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=9.2",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.17.4",
     "mypy>=2.4.1",
     "pytest-cov>=7.1",
@@ -53,6 +57,9 @@ packages = ["src/lcsim"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# tests/ on the path before plugins load, for the route check under pytest-xdist
+# (tests/xdist_routes.py, loaded by `-p xdist_routes` below; #99, P1).
+pythonpath = ["tests"]
 markers = [
     "benchmark: benchmark with a known answer",
     "benchmark_coverage: 20-seed coverage run, by hand",
@@ -65,7 +72,7 @@ markers = [
 ]
 # No coverage flags here, so that the subset commands (pytest tests/model,
 # pytest -m benchmark, pytest -m perf) run without failing the coverage threshold.
-addopts = "-ra --strict-markers -m 'not benchmark_coverage and not perf and not remote and not cluster and not desktop and not package'"
+addopts = "-ra --strict-markers -p xdist_routes -m 'not benchmark_coverage and not perf and not remote and not cluster and not desktop and not package'"
 
 [tool.ruff]
 target-version = "py311"
@@ -93,7 +100,7 @@ known-third-party = ["mcp"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["src", "tests", "scripts/package_linux.py"]
+files = ["src", "tests", "scripts/package_linux.py", "scripts/hooks"]
 
 # pyarrow 26.0.1 ships no type information (no py.typed, no stubs); pyarrow-stubs follows
 # pyarrow 20. Its tables are typed as Any (docs/DECISIONS.md, AKS-97).
@@ -120,6 +127,11 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["pyomo", "pyomo.*"]
 ignore_missing_imports = true
+
+[tool.coverage.run]
+# Branches as well as lines (docs/retrospective/proposed-agent-setup.md, P9; #99); the gate in
+# scripts/check.sh is 99% of lines and branches combined.
+branch = true
 
 [tool.coverage.report]
 # `python -m lcsim.runs.worker` runs its guarded line only as a script; main() itself is

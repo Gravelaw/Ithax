@@ -21,6 +21,12 @@ the test would fail the same way.
 whether every service test was collected, and moves the coverage test to the end of the
 session. With ``LCSIM_ROUTE_RECORD`` set (the coverage test's own fallback run) the session
 writes what it recorded to that file when it ends.
+
+Under pytest-xdist (#99, P1) each worker records only its own requests. The controller (the
+plugin ``tests/xdist_routes.py``) gives every worker a folder, ``workerinput[RECORD_DIR_KEY]``;
+each worker writes its record there when its session ends (``write_worker_record``), noting
+whether its coverage test handed the check over (``DEFERRED``), and the controller checks the
+union once every worker has finished (``read_worker_records``).
 """
 
 from __future__ import annotations
@@ -35,15 +41,20 @@ from starlette.routing import WebSocketRoute
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from lcsim.service.app import table_path
+from xdist_routes import RECORD_DIR_KEY
 
 __all__ = [
+    "DEFERRED",
     "INCOMPLETE",
     "RECORDED",
+    "RECORD_DIR_KEY",
     "RECORD_FILE_VARIABLE",
     "RecordingApp",
     "install",
     "read_record",
+    "read_worker_records",
     "write_record",
+    "write_worker_record",
 ]
 
 #: The environment variable naming the file a fallback session writes its record to.
@@ -51,6 +62,10 @@ RECORD_FILE_VARIABLE = "LCSIM_ROUTE_RECORD"
 
 #: The ``(method, path template)`` pairs recorded in this session.
 RECORDED: set[tuple[str, str]] = set()
+
+
+#: The coverage tests of this session that handed their check to the controller.
+DEFERRED: list[str] = []
 
 #: Why this session's record cannot stand for every request test (a service test module
 #: not collected, a service test deselected); empty when every one runs.
@@ -110,3 +125,24 @@ def write_record(path: Path, routes: set[tuple[str, str]]) -> None:
 
 def read_record(path: Path) -> set[tuple[str, str]]:
     return {(method, route) for method, route in json.loads(path.read_text(encoding="utf-8"))}
+
+
+def write_worker_record(
+    folder: Path, worker: str, routes: set[tuple[str, str]], deferred: list[str]
+) -> None:
+    """Writes one pytest-xdist worker's record into the controller's ``folder``."""
+    record = {"routes": sorted(routes), "deferred": deferred}
+    (folder / f"{worker}.json").write_text(json.dumps(record), encoding="utf-8")
+
+
+def read_worker_records(folder: Path) -> tuple[int, set[tuple[str, str]], list[str]]:
+    """The number of worker records in ``folder``, the union of their routes, and every
+    coverage test that handed its check over."""
+    routes: set[tuple[str, str]] = set()
+    deferred: list[str] = []
+    files = sorted(folder.glob("*.json"))
+    for path in files:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        routes |= {(method, route) for method, route in record["routes"]}
+        deferred.extend(record["deferred"])
+    return len(files), routes, deferred

@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/format_edited.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && { git diff --quiet HEAD -- '*.py' && git diff --cached --quiet -- '*.py'; } || bash scripts/fast.sh --lint 1>&2 || exit 2"
+          }
+        ]
+      }
+    ]
+  }
+}
