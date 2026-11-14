@@ -1,0 +1,25 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Inventory reorder point",
+    "description": "A shop sells one spare part. Customers arrive at random, 4 a day on average (exponential, mean 6 h), and each takes one part. When the parts on hand plus on order fall to the reorder point, 20, the shop orders 50, which arrive exactly 5 days later. A customer who finds the shelf empty is a stock-out and waits for the next delivery. Demand over a lead time is Poisson with mean 20, so the reorder point holds no safety stock. Theory, the (R, Q) policy with Poisson demand (the stock position uniform on 21 to 70): 3.55% of customers find no stock, 135 in the period measured; mean stock 25.59; 4/50 orders a day. The run is 1000 d long including 50 d of warm-up, so 950 d are measured."
+  },
+  "domain": "process",
+  "components": [
+    {"id": "customers", "type": "source",
+     "params": {"interarrival": {"dist": "exponential", "mean": "6 h"}}},
+    {"id": "stock", "type": "store",
+     "params": {"initial": 70, "reorder_point": 20, "order_quantity": 50,
+                "lead_time": {"dist": "constant", "value": "5 d"}}},
+    {"id": "sold", "type": "sink", "params": {}}
+  ],
+  "connections": [
+    {"from": "customers.out", "to": "stock.in"},
+    {"from": "stock.out", "to": "sold.in"}
+  ],
+  "experiments": [
+    {"id": "base", "length": "1000 d", "warmup": "50 d",
+     "replications": 30, "seed": 12345}
+  ],
+  "run": {"target": "local", "fidelity": "standard"}
+}

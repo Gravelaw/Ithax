@@ -1,0 +1,36 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Three-machine line",
+    "description": "Parts are cut, welded, moved on a 2 min transfer, then painted. Written fresh at M1 to the spec 2 targets: weld utilization 0.85 to 0.92, the other stations below 0.70. Parts arrive 30 per hour (exponential, mean 2 min). Utilization = arrival rate x mean service time / capacity: cut 30 per hour x 1.2 min = 0.60; weld 30 per hour x 1.8 min = 0.90; paint 30 per hour x 1 min = 0.50. By Burke's theorem each station sees Poisson arrivals, so each is M/M/1 with mean wait rho / (1 - rho) x service time: cut 1.8 min, weld 16.2 min, paint 1.0 min. Mean cycle time (time in each station, wait plus service, and the transfer) cut 3.0 + weld 18.0 + transfer 2 + paint 2.0 = 25.0 min; throughput 30 per hour. The weld station is the bottleneck."
+  },
+  "domain": "process",
+  "components": [
+    {"id": "arrivals", "type": "source",
+     "params": {"interarrival": {"dist": "exponential", "mean": "2 min"}}},
+    {"id": "cut", "type": "server",
+     "params": {"capacity": 1,
+                "service": {"dist": "exponential", "mean": "1.2 min"}}},
+    {"id": "weld", "type": "server",
+     "params": {"capacity": 1,
+                "service": {"dist": "exponential", "mean": "1.8 min"}}},
+    {"id": "transfer", "type": "delay",
+     "params": {"time": {"dist": "constant", "value": "2 min"}}},
+    {"id": "paint", "type": "server",
+     "params": {"capacity": 1,
+                "service": {"dist": "exponential", "mean": "1 min"}}},
+    {"id": "exit", "type": "sink", "params": {}}
+  ],
+  "connections": [
+    {"from": "arrivals.out", "to": "cut.in"},
+    {"from": "cut.out", "to": "weld.in"},
+    {"from": "weld.out", "to": "transfer.in"},
+    {"from": "transfer.out", "to": "paint.in"},
+    {"from": "paint.out", "to": "exit.in"}
+  ],
+  "experiments": [
+    {"id": "base", "length": "100 h", "warmup": "20 h",
+     "replications": 30, "seed": 12345}
+  ],
+  "run": {"target": "local", "fidelity": "standard"}
+}
