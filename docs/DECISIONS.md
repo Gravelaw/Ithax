@@ -2824,4 +2824,32 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Reason:** owner decision D12 (M4-17): follow the textbook, with a benchmark.
 - **Alternatives considered:** reviewing also at a delivery. The position does not change there, so reviewing would change nothing except under a policy that orders several Q at once, which spec 2 does not have.
 - **Spec sections updated:** spec 2 "Block reference" (store), "Store", the benchmark table and "Benchmark definitions" (a dated line).
+
+## 2026-11-14 · M13 · W201 covers schedules, failures and pools (#73; M4-39, M4-40)
+
+- **Decision:**
+  - **Schedules and failures.** A server under a schedule or a failure is now checked by W201 against its mean available capacity, and passes its rate on. Before, such a server stopped the rate and was not checked.
+    - The mean is the time average of E[max(scheduled capacity − failed units, 0)], worked out exactly in fractions.
+    - The scheduled capacity is capped at the nominal capacity (spec 2 "Schedule").
+    - Each failure block keeps one unit down a share E[repair] / (E[failure] + E[repair]) of the time. That is an alternating renewal process on calendar time (spec 2 "Failure"), independent of the schedule and of the other failures.
+  - **Pools.** A pool is checked against the loads of the servers that name it, added up: rate × mean service time, since each item holds a pool unit for its service. The warning is given only when at least one of those servers has an unlimited queue. The W201 issue is at the pool, and it names the servers.
+  - **Messages.** They say "its mean available capacity of X (under schedule 'rota', failure 'breakdowns')" when a schedule or failure reduced it.
+  - **Tests.**
+    - Hand-computed cases: schedule, failure, a shift above nominal, and the two together at exact equality (capacity 2, mean 1, a load of exactly 1 warns and 0.95 does not).
+    - Two schedules on one target, the pool cases, and a fixture `W201_pool_needed_beyond_its_capacity.json` that fails without the fix and passes with it.
+    - The engine-backed flow tests were re-derived. Their runs agree: fewer items leave than arrive, and the queue grows.
+- **Readings (reversible):**
+  - **Averaging window.** The schedule is averaged over the first `period` of the run, or over the longest experiment when that is shorter. A day shift in a run of one shift is then never off: the edit fixture's 8 h run with one 8 h shift of a 24 h period gave a false warning when averaged over the period.
+  - **Two schedules on one target.** Such a server is not checked: how two schedules combine is not defined.
+  - **Overloaded downstream rate.** An overloaded server passes its arrival rate on, not its capacity, as an ordinary server already did.
+- **The MCP example.** `edit_model`'s worked example now uses a daily rota (period 24 h): a day shift 8 h–16 h with 2 staff, and a night shift 22:00–06:00 with 1, split at the period end into 22 h–24 h and 0 h–6 h. Its arrivals are every 75 min on average.
+  - Before, it used a weekly rota (16 staffed hours a week) with arrivals every 30 min around the clock. That needed 1.5 staff units against a weekly mean of 1/7, and W201 now reports it.
+  - The research notes asked for a weekly example (`docs/research/spec-2-prior-art.md`, `spec-4-assistant-tool-design.md`). But a source runs around the clock, and no block sets an arrival calendar, so a weekly rota cannot keep up unless arrivals are very sparse.
+  - The daily example teaches the same split at the period end. Its load of 0.6 is below its mean of 1 over a day, and of 0.75 over a new project's 8 h run. This is a reversible reading.
+- **Tests that change their expectations:** the service validation test's `shop` model (arrivals about every 1.08 min to one till under a failure and a pool under a rota) now reports W201 at both, correctly.
+- **Left:** a store still stops the rate. Since #72 it fills every demand in the long run, so it should pass the rate on. That change waits for #157 to merge, since #157 rewrites the store's flow-rate test, and then follows in this PR or the next.
+- **Reason:** issue #73 (E1: M4-39, M4-40). An overloaded system under a schedule, a failure or a shared pool got no warning.
+- **Alternatives considered:** a simulation to measure the capacity. That is not a load-time check, and W201 must stay a closed-form calculator (guide rule 7).
+- **Review of PR #159:** a server or pool that no item reaches (rate zero) is not checked. With the schedule's mean capacity it could be 0, and a load of 0 "at least" a capacity of 0 was reported as a queue growing without limit. A positive rate into a capacity of 0 is still reported, even with a service time of 0, since no unit ever serves the items. Tests: `test_w201_a_server_no_item_reaches_is_not_reported_at_zero_capacity` and `test_w201_a_pool_no_item_reaches_is_not_reported_at_zero_capacity`, which fail before the fix.
+- **Spec sections updated:** spec 1 "Validation" and the W201 row (a dated line).
 - **Dependencies added:** none.
