@@ -27,7 +27,6 @@ validator's own messages are never shown (research note ``spec-1-schema-and-unit
 from __future__ import annotations
 
 import copy
-import json
 import re
 from collections.abc import Mapping, Sequence
 from functools import cache
@@ -38,6 +37,7 @@ from jsonschema import Draft202012Validator, ValidationError
 
 from lcsim.model.issues import Issue, pointer
 from lcsim.model.migration import FORMAT_VERSION, parse_version, version_issue
+from lcsim.strict_json import read_json
 
 __all__ = ["FORMAT_VERSION", "model_schema", "schema_pass"]
 
@@ -48,8 +48,9 @@ _INDEX = re.compile(r"[0-9]+")
 
 @cache
 def _schema() -> Mapping[str, Any]:
-    text = resources.files("lcsim.model").joinpath("schema.json").read_text(encoding="utf-8")
-    loaded: dict[str, Any] = json.loads(text)
+    raw = resources.files("lcsim.model").joinpath("schema.json").read_bytes()
+    loaded = read_json(raw)
+    assert isinstance(loaded, dict), "schema.json holds a JSON object"
     return loaded
 
 

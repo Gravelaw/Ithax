@@ -230,7 +230,9 @@ def load_text(
         return made
 
     try:
-        document = json.loads(
+        # The model file's own strict reader: duplicate keys, digit limits and constants each
+        # become a coded issue that names their place, which read_json cannot give (#99, P5).
+        document = json.loads(  # noqa: TID251
             text,
             object_pairs_hook=make_object,
             parse_constant=_reject_constant,
