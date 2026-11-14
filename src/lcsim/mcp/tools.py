@@ -26,7 +26,6 @@ Errors are data (spec 4): every one of these is a tool result, never a protocol 
 
 from __future__ import annotations
 
-import json
 import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -37,6 +36,7 @@ from mcp.types import CallToolResult, TextContent, Tool
 from lcsim.mcp.client import Answer, ServiceClient, ServiceUnavailable
 from lcsim.mcp.limits import RunLimitReached, segment
 from lcsim.model.issues import Issue, pointer
+from lcsim.strict_json import json_text
 
 __all__ = [
     "KINDS",
@@ -152,7 +152,7 @@ class ToolSpec:
 
     @property
     def description(self) -> str:
-        arguments = json.dumps(self.example_arguments)
+        arguments = json_text(self.example_arguments, ascii_only=True)
         return f"{self.summary}\n\nExample: {arguments} returns {self.example_result}"
 
     def input_schema(self) -> dict[str, Any]:
@@ -223,7 +223,7 @@ def check_arguments(spec: ToolSpec, arguments: Mapping[str, object]) -> list[Iss
 def result_of(body: object, *, is_error: bool) -> CallToolResult:
     """A tool result holding ``body``: its JSON text, and the same object as structured
     content when it is a JSON object."""
-    text = json.dumps(body, ensure_ascii=False)
+    text = json_text(body)
     return CallToolResult(
         content=[TextContent(type="text", text=text)],
         structured_content=body if isinstance(body, dict) else None,

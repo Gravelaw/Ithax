@@ -32,7 +32,6 @@ started, which spec 4's run limit counts (``lcsim.mcp.limits``; AKS-134).
 from __future__ import annotations
 
 import http.client
-import json
 import os
 import subprocess
 import sys
@@ -50,7 +49,7 @@ from lcsim.model.issues import Issue
 from lcsim.service.discovery import ServiceInfo, probe, read_service_file
 from lcsim.service.main import LOCAL_ADDRESS, STARTUP_WAIT_S
 from lcsim.service.paths import canonical
-from lcsim.strict_json import UnreadableJSON, read_json
+from lcsim.strict_json import UnreadableJSON, json_text, read_json
 
 __all__ = [
     "CLIENT",
@@ -208,7 +207,7 @@ class ServiceClient:
         headers = {"Authorization": f"Bearer {info.token}", "X-Client": CLIENT}
         data = None
         if body is not None:
-            data = json.dumps(body, ensure_ascii=True, allow_nan=False).encode("ascii")
+            data = json_text(body, ascii_only=True).encode("ascii")
             headers["Content-Type"] = "application/json"
         request = urllib.request.Request(
             f"http://{LOCAL_ADDRESS}:{info.port}{path}", data=data, headers=headers, method=method
