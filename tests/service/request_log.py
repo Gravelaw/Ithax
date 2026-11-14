@@ -127,7 +127,7 @@ def check(entries: Iterable[dict[str, Any]], table: set[tuple[str, str]]) -> dic
 
 def main(argv: Sequence[str]) -> int:
     """Checks the log named by ``argv[0]`` against spec 3's endpoint table."""
-    from service.test_routes import spec_table
+    from service.endpoint_table import spec_table
 
     found = check(read_log(Path(argv[0])), spec_table())
     print(json.dumps(found, indent=2))

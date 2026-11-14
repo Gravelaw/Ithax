@@ -83,7 +83,7 @@ scripts/                check.sh and the package build, package_linux.py
 | --- | --- |
 | Language | Python 3.11 or later for everything except the interface |
 | Types | Full type hints; a type checker runs in the checks |
-| Tests | pytest; line coverage of `src/lcsim` at or above 90% (`--cov-fail-under`), every public function exercised by at least one test; benchmarks are tests (marker `benchmark`); performance checks carry `perf` and are excluded from `check.sh` |
+| Tests | pytest, run in parallel by `check.sh` (pytest-xdist, `-n auto`); line and branch coverage of `src/lcsim` at or above 99% (`--cov-fail-under`), every public function exercised by at least one test; benchmarks are tests (marker `benchmark`); performance checks carry `perf` and are excluded from `check.sh` |
 | Style | One formatter and linter, run before every commit |
 | Errors | User-facing problems are spec 1 issue objects with a code; never a bare exception message |
 | Units | Quantities are converted at load; no unit strings past the model layer |
@@ -114,7 +114,7 @@ Build in this order. Each milestone lists what must be true before moving on.
 | M11 | Packaging (Linux); idle timeout setting | 3 (and 0) | The service's idle timeout is a setting with a default of 30 minutes; a Linux package installs the interface, the service and the Phase 1 engines, and a fresh install reaches a first template result in under ten minutes in a clean container (agent); the installed app works offline; the unsigned-package note and the checksum are documented. Remote and cluster targets moved to Phases 2 and 4 (A1), the Windows installer deferred (B4) |
 | M12 | Phase 1a setup | Guide | Issues #100, #99, #70 and #78 are closed: PR and issue templates and the PR-title check are in place; the retrospective's agent setup is applied, or its conflicting items listed for the owner; the package is `ithax` and the command `ithax-mcp`; Ithax, SimPy and HiGHS report their real versions |
 | M13 | Phase 1a correctness | 1, 2, 3, 4 | Issues #69, #72, #73, #74, #75, #76, #77, #79, #80, #81, #84, #85, #86 and #132 are closed, and the two wrong error hints of #83 are fixed; each correctness fix has a fixture or benchmark that fails before it and passes after |
-| M14 | Phase 1a data safety, MCP and limits | 1, 3, 4 | Issues #71, #82 and #98 are closed, and #83 with its stale `service.json` |
+| M14 | Phase 1a data safety, MCP and limits | 1, 3, 4 | Issues #71, #82, #98 and #135 are closed, and #83 with its stale `service.json` |
 | M15 | Phase 1a usability | 3, 4 | Issues #87, #89, #90, #91, #92, #93, #94, #95, #96 and #97 are closed |
 | M16 | Phase 1a release | 0 to 4 | Issues #88, #101, #102 and #103 are closed: the AppImage builds, the Phase 1 review's changes are in specs 0 to 4, the owner checks are done, and v0.1.0 is tagged |
 
