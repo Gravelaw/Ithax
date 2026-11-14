@@ -126,6 +126,8 @@ _HINT: Mapping[Dimension, str] = MappingProxyType(
 _QUANTITY = re.compile(
     r"(?P<number>-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?) (?P<unit>[^\s]+)"
 )
+# The JSON number grammar alone: a number written as text.
+_NUMBER = re.compile(r"-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?")
 
 
 @dataclass(frozen=True)
@@ -293,7 +295,18 @@ def read_number(value: object) -> int | float:
         message = f"'{value}' is text, but a plain number with no unit is expected."
     else:
         message = f"{_json_repr(value)} is not a number; a plain number with no unit is expected."
-    raise QuantityKindError(value, message, _HINT[Dimension.DIMENSIONLESS])
+    raise QuantityKindError(value, message, _number_hint(value))
+
+
+def _number_hint(value: object) -> str:
+    """The hint for a value that is not a plain number, by what was written (Reviewer A,
+    #83): "Remove the unit" only for a number with a unit."""
+    if isinstance(value, str):
+        if _QUANTITY.fullmatch(value):
+            return _HINT[Dimension.DIMENSIONLESS]
+        if _NUMBER.fullmatch(value):
+            return f"Write the number without quotes, as in {value}."
+    return "Write a plain number, as in 3."
 
 
 def _number_text(value: int | float) -> str:

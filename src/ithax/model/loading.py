@@ -44,7 +44,7 @@ import json
 import secrets
 import sys
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, TypeVar
@@ -135,6 +135,8 @@ _SENSES = ("minimize", "maximize")
 _METRIC_OPS = ("<=", ">=")
 _LINEAR_OPS = ("<=", ">=", "==")
 _VARIABLE_TYPES = ("continuous", "integer", "binary")
+# How messages name the objective, the one owner of terms that has no 'for'.
+OBJECTIVE = "the objective"
 
 SeedSource = Callable[[], int]
 _T = TypeVar("_T")
@@ -1256,7 +1258,7 @@ class _Builder:
             bounds: dict[str, int | float | None] = {}
             for key in ("lower", "upper"):
                 bounds[key] = (
-                    self.number(raw[key], f"the '{key}' of variable '{variable_id}'", (*at, key))
+                    self.bound(raw[key], f"the '{key}' of variable '{variable_id}'", (*at, key))
                     if key in raw
                     else None
                 )
@@ -1283,7 +1285,7 @@ class _Builder:
             objective_raw.get("linear", {}), "the objective", ("objective",)
         )
         objective_terms = self.terms(
-            objective_raw.get("terms", []), "the objective", ("objective",), (), index
+            objective_raw.get("terms", []), OBJECTIVE, ("objective",), (), index
         )
         constraints: list[IndexedConstraint] = []
         for position, raw in enumerate(document.get("constraints", [])):
@@ -1535,17 +1537,35 @@ class _Builder:
                             if bound
                             else f"the 'over' of '{variable}' does not name"
                         )
+                        # Only a constraint has a 'for'; the objective's hint offers none
+                        # (Reviewer A, #83).
+                        sets_of = f"the 'over' of '{variable}'" + (
+                            "" if owner == OBJECTIVE else f" or the 'for' of {owner}"
+                        )
                         self.issue(
                             "E178",
                             (*term_at, "coefficient"),
                             f"{where} is the table '{coefficient.table}', over the set "
                             f"'{unbound[0]}', which {naming}, so no member of it is chosen.",
-                            f"Use a table over sets that the 'over' of '{variable}' or the 'for' "
-                            f"of {owner} names.",
+                            f"Use a table over sets that {sets_of} names.",
                         )
                         complete = False
             terms.append(Term(variable, coefficient))
         return tuple(terms) if complete else None
+
+    def bound(self, value: object, where: str, at: Segments) -> int | float | None:
+        """A variable's ``lower`` or ``upper``: a plain number. A table written there gets
+        a hint toward a constraint with ``for`` (Reviewer A, #83), since a bound holds
+        one number for every member."""
+        before = len(self.issues)
+        number = self.number(value, where, at)
+        if number is None and isinstance(value, Mapping):
+            self.issues[before] = replace(
+                self.issues[before],
+                hint="Bounds are plain numbers; for a bound per member, add a constraint "
+                "with 'for'.",
+            )
+        return number
 
     def rhs(
         self,

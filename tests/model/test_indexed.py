@@ -510,6 +510,45 @@ def test_an_index_that_cannot_be_bound_is_e178(change: Any, path: str) -> None:
     assert {code for code, _ in codes} == {"E178"}, codes
 
 
+def test_an_unbound_objective_coefficient_is_e178_with_a_hint_that_names_no_for() -> None:
+    """Reviewer A (#83): the objective has no 'for', so its E178 hint does not offer one."""
+    document = transport()
+    document["variables"].append({"id": "extra", "type": "continuous", "lower": 0})
+    document["objective"]["terms"].append(
+        {"variable": "extra", "coefficient": {"$table": "demand"}}
+    )
+    [issue] = issues_of(document)
+    assert (issue.code, issue.path) == ("E178", "/objective/terms/1/coefficient")
+    assert issue.hint == "Use a table over sets that the 'over' of 'extra' names."
+    assert "'for'" not in issue.message
+
+
+def test_an_unbound_constraint_coefficient_hint_offers_the_constraints_for() -> None:
+    document = transport()
+    unbound_coefficient(document)
+    [issue] = issues_of(document)
+    assert issue.hint == (
+        "Use a table over sets that the 'over' of 'extra' or the 'for' of constraint "
+        "'supply' names."
+    )
+
+
+@pytest.mark.parametrize("key", ["lower", "upper"])
+def test_a_table_as_a_variable_bound_is_e123_with_a_hint_for_bounds_per_member(key: str) -> None:
+    """Reviewer A (#83): a bound written as a table reference has no unit to remove."""
+    document = transport()
+    document["variables"][0][key] = {"$table": "supply"}
+    [issue] = issues_of(document)
+    assert (issue.code, issue.path) == ("E123", f"/variables/0/{key}")
+    assert issue.message == (
+        f"In the '{key}' of variable 'ship', an object is not a number; a plain number with "
+        "no unit is expected."
+    )
+    assert issue.hint == (
+        "Bounds are plain numbers; for a bound per member, add a constraint with 'for'."
+    )
+
+
 def test_a_table_coefficient_bound_by_the_term_variable_is_allowed() -> None:
     document = transport()
     # cost is over depots and customers: depots from `for`, customers from ship's `over`.
