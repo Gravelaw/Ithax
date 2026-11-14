@@ -1,6 +1,6 @@
 # The interface
 
-The lcsim interface: React 19 with TypeScript (strict), built with Vite, tested with Vitest and Testing Library (components) and Playwright (end to end, against a real engine service). It is a client of the engine service's HTTP and WebSocket API and nothing else (spec 3 "API": no private channel). Its design is `docs/design/`; its behaviour is spec 3 "Screens".
+The Ithax interface: React 19 with TypeScript (strict), built with Vite, tested with Vitest and Testing Library (components) and Playwright (end to end, against a real engine service). It is a client of the engine service's HTTP and WebSocket API and nothing else (spec 3 "API": no private channel). Its design is `docs/design/`; its behaviour is spec 3 "Screens".
 
 Node 22.12 or later. Every dependency is pinned exactly in `package.json` and `package-lock.json`, and recorded with its licence in `docs/DECISIONS.md`.
 
@@ -29,9 +29,9 @@ The launcher (spec 3 "Service rules", Launcher) finds the running service throug
 
 ## End-to-end tests
 
-`e2e/service.ts` starts a real service for each test through the launcher, with temporary `--config-dir` and `--data-dir` folders and `--ui-dir dist`, and stops it with SIGTERM after the test, checking that `service.json` is removed. The Python is `LCSIM_PYTHON`, else the repository's `.venv`, else `python3`; the package must be installed (`pip install -e ".[dev]"`).
+`e2e/service.ts` starts a real service for each test through the launcher, with temporary `--config-dir` and `--data-dir` folders and `--ui-dir dist`, and stops it with SIGTERM after the test, checking that `service.json` is removed. The Python is `ITHAX_PYTHON`, else the repository's `.venv`, else `python3`; the package must be installed (`pip install -e ".[dev]"`).
 
-`@playwright/test` is pinned to 1.63.0. Where Chromium is already installed (the agent container has it at `/opt/pw-browsers`), set `PLAYWRIGHT_BROWSERS_PATH` to that folder, or `LCSIM_CHROMIUM` to the browser itself; never run `playwright install` there. CI installs its own with `npx playwright install --with-deps chromium`.
+`@playwright/test` is pinned to 1.63.0. Where Chromium is already installed (the agent container has it at `/opt/pw-browsers`), set `PLAYWRIGHT_BROWSERS_PATH` to that folder, or `ITHAX_CHROMIUM` to the browser itself; never run `playwright install` there. CI installs its own with `npx playwright install --with-deps chromium`.
 
 The fixtures in `e2e/fixtures.ts` give each test:
 

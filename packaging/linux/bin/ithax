@@ -1,5 +1,5 @@
 #!/bin/sh
-# lcsim: start the app (spec 3 "Packaging"; AKS-127). The desktop shell when a display is set
+# ithax: start the app (spec 3 "Packaging"; AKS-127). The desktop shell when a display is set
 # and its system libraries are found, else the launcher, which opens the interface in the
 # default browser. Options are passed on (--config-dir, --data-dir, --ui-dir, --idle-minutes).
 set -eu
@@ -8,9 +8,9 @@ root=$(dirname "$(dirname "$(readlink -f "$0")")")
 # service and its run workers inherit this.
 unset PYTHONHOME PYTHONPATH
 export PYTHONNOUSERSITE=1 PYTHONSAFEPATH=1
-LCSIM_PYTHON="$root/python/bin/python3"
-export LCSIM_PYTHON
-shell="$root/lib/lcsim-desktop"
+ITHAX_PYTHON="$root/python/bin/python3"
+export ITHAX_PYTHON
+shell="$root/lib/ithax-desktop"
 
 if [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
     reason="no display is set (DISPLAY, WAYLAND_DISPLAY)"
@@ -23,5 +23,5 @@ On Ubuntu or Debian: sudo apt install libwebkit2gtk-4.1-0"
 else
     exec "$shell" "$@"
 fi
-echo "lcsim: opening the interface in the browser, since $reason" >&2
-exec "$LCSIM_PYTHON" -m ithax.launcher "$@"
+echo "ithax: opening the interface in the browser, since $reason" >&2
+exec "$ITHAX_PYTHON" -m ithax.launcher "$@"

@@ -135,7 +135,7 @@ def create_app(config: ServiceConfig) -> FastAPI:
             await run_in_threadpool(state.runs.stop)
 
     app = FastAPI(
-        title="lcsim engine service",
+        title="Ithax engine service",
         version=__version__,
         docs_url=None,
         redoc_url=None,

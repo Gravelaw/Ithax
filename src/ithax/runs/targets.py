@@ -610,7 +610,7 @@ class LocalRun:
                 self._target.workers,
                 send,
             ),
-            name=f"lcsim-run-{self.run_id}",
+            name=f"ithax-run-{self.run_id}",
         )
         try:
             worker.start()

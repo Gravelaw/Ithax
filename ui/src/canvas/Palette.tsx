@@ -12,7 +12,7 @@ import { lock, useBusy } from "./busy";
 import { categoryOf, GROUPS } from "./model";
 import { own } from "./own";
 
-export const BLOCK_MIME = "application/x-lcsim-block";
+export const BLOCK_MIME = "application/x-ithax-block";
 
 export function Palette({
   types,

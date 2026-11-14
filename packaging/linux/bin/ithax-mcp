@@ -1,5 +1,5 @@
 #!/bin/sh
-# lcsim-mcp: the MCP server for an assistant, on standard input and output
+# ithax-mcp: the MCP server for an assistant, on standard input and output
 # (python -m ithax.mcp; spec 4 and spec 3 "Packaging").
 set -eu
 root=$(dirname "$(dirname "$(readlink -f "$0")")")

@@ -2,8 +2,8 @@
  * Spec 3 "Performance targets" (proposed): "Canvas stays responsive with 200 components: an
  * end-to-end test adds 200 components by API and selecting a block paints within 100 ms"
  * (AKS-121). Started by `tests/perf/test_interface.py`, which starts the service and passes
- * its address and token in `LCSIM_PERF_ORIGIN` and `LCSIM_PERF_TOKEN`, and reads what this
- * writes to `LCSIM_PERF_OUT`; not part of `npm run e2e`.
+ * its address and token in `ITHAX_PERF_ORIGIN` and `ITHAX_PERF_TOKEN`, and reads what this
+ * writes to `ITHAX_PERF_OUT`; not part of `npm run e2e`.
  *
  * The model is a source, 198 servers in a line and a sink (as spec 3's validation target
  * measures), written by API with `PUT .../model`, each block placed in a grid of 20 columns.
@@ -16,9 +16,9 @@
 import { writeFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
-const ORIGIN = process.env.LCSIM_PERF_ORIGIN ?? "";
-const TOKEN = process.env.LCSIM_PERF_TOKEN ?? "";
-const OUT = process.env.LCSIM_PERF_OUT ?? "";
+const ORIGIN = process.env.ITHAX_PERF_ORIGIN ?? "";
+const TOKEN = process.env.ITHAX_PERF_TOKEN ?? "";
+const OUT = process.env.ITHAX_PERF_OUT ?? "";
 const SELECTIONS = 12;
 const COLUMNS = 20;
 
@@ -82,7 +82,7 @@ test("selecting a block on a 200-component canvas paints within 100 ms", async (
   test.setTimeout(180_000);
   expect(
     ORIGIN && TOKEN && OUT,
-    "LCSIM_PERF_ORIGIN, LCSIM_PERF_TOKEN and LCSIM_PERF_OUT",
+    "ITHAX_PERF_ORIGIN, ITHAX_PERF_TOKEN and ITHAX_PERF_OUT",
   ).toBeTruthy();
   await api("PUT", "/v1/settings", { interface: { first_start_seen: true } });
   const { id: pid } = (await api("POST", "/v1/projects", {

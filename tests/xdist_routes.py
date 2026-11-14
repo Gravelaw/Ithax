@@ -28,7 +28,7 @@ from typing import Any
 import pytest
 
 #: The ``workerinput`` key naming the folder the workers write their route records to.
-RECORD_DIR_KEY = "lcsim_route_record_dir"
+RECORD_DIR_KEY = "ithax_route_record_dir"
 
 #: The controller's record folder and the number of workers it was given to.
 _FOLDER = pytest.StashKey[Path]()
@@ -37,7 +37,7 @@ _WORKERS = pytest.StashKey[int]()
 
 def _record_folder(config: pytest.Config) -> Path:
     if _FOLDER not in config.stash:
-        config.stash[_FOLDER] = Path(tempfile.mkdtemp(prefix="lcsim-routes-"))
+        config.stash[_FOLDER] = Path(tempfile.mkdtemp(prefix="ithax-routes-"))
         config.stash[_WORKERS] = 0
     return config.stash[_FOLDER]
 

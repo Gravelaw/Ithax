@@ -136,7 +136,7 @@ def wait_until_ready(
 def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python -m ithax.launcher",
-        description="Open the lcsim interface, starting the engine service if needed.",
+        description="Open the Ithax interface, starting the engine service if needed.",
     )
     parser.add_argument("--config-dir", type=Path, help="the configuration folder")
     parser.add_argument("--data-dir", type=Path, help="the user data folder, for a new service")

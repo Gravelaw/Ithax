@@ -1,5 +1,5 @@
 #!/bin/sh
-# Install lcsim from this unpacked folder, for the current user (spec 3 "Packaging";
+# Install Ithax from this unpacked folder, for the current user (spec 3 "Packaging";
 # AKS-127). No administrator rights and no network are needed: this folder already holds
 # everything. It checks the bundled Python and engines, links the commands into
 # ~/.local/bin and adds a desktop entry. Run it again after moving the folder.
@@ -20,35 +20,35 @@ if ! "$python" -m ithax.install_check; then
 fi
 
 mkdir -p "$bin_dir"
-for name in lcsim lcsim-launcher lcsim-mcp; do
+for name in ithax ithax-launcher ithax-mcp; do
     ln -sfn "$root/bin/$name" "$bin_dir/$name"
 done
-echo "Linked lcsim, lcsim-launcher and lcsim-mcp into $bin_dir"
+echo "Linked ithax, ithax-launcher and ithax-mcp into $bin_dir"
 
 mkdir -p "$apps_dir"
-cat > "$apps_dir/lcsim.desktop" <<EOF
+cat > "$apps_dir/ithax.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=lcsim
+Name=Ithax
 Comment=Model, simulate and optimize processes without writing code
-Exec="$root/bin/lcsim"
-Icon=$root/share/lcsim.png
+Exec="$root/bin/ithax"
+Icon=$root/share/ithax.png
 Terminal=false
 Categories=Education;Science;Engineering;
 EOF
-echo "Added the desktop entry $apps_dir/lcsim.desktop"
+echo "Added the desktop entry $apps_dir/ithax.desktop"
 
 if [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
-    echo "No display is set here: use 'lcsim-launcher --print-url' to get the interface's address."
-elif missing=$(ldd "$root/lib/lcsim-desktop" 2>/dev/null | grep "not found"); then
-    echo "The desktop shell's system libraries are missing, so 'lcsim' opens the interface in"
+    echo "No display is set here: use 'ithax-launcher --print-url' to get the interface's address."
+elif missing=$(ldd "$root/lib/ithax-desktop" 2>/dev/null | grep "not found"); then
+    echo "The desktop shell's system libraries are missing, so 'ithax' opens the interface in"
     echo "the browser. To get the desktop window (Ubuntu or Debian):"
     echo "  sudo apt install libwebkit2gtk-4.1-0"
     echo "$missing"
 else
-    echo "'lcsim' opens the desktop window."
+    echo "'ithax' opens the desktop window."
 fi
 case ":$PATH:" in
-    *":$bin_dir:"*) echo "Done. Start it with: lcsim" ;;
-    *) echo "Done. $bin_dir is not on your PATH; start it with: $bin_dir/lcsim" ;;
+    *":$bin_dir:"*) echo "Done. Start it with: ithax" ;;
+    *) echo "Done. $bin_dir is not on your PATH; start it with: $bin_dir/ithax" ;;
 esac

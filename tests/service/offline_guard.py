@@ -31,7 +31,7 @@ __all__ = ["FOLDER_VARIABLE", "BlockedNetwork", "install", "install_from_environ
 
 #: The environment variable naming the guard's folder; a process started with it set
 #: (and its spawned children, which inherit it) installs the guard at import.
-FOLDER_VARIABLE = "LCSIM_TEST_OFFLINE_DIR"
+FOLDER_VARIABLE = "ITHAX_TEST_OFFLINE_DIR"
 
 _ADDRESS_EVENTS = frozenset({"socket.connect", "socket.sendto", "socket.sendmsg"})
 _NAME_EVENTS = frozenset(
@@ -102,7 +102,7 @@ def install(folder: Path) -> None:
 
 
 def install_from_environment() -> None:
-    """Installs the guard when ``LCSIM_TEST_OFFLINE_DIR`` is set."""
+    """Installs the guard when ``ITHAX_TEST_OFFLINE_DIR`` is set."""
     folder = os.environ.get(FOLDER_VARIABLE)
     if folder:
         install(Path(folder))

@@ -2732,3 +2732,42 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** one change for everything. It would put a 1,200-line mechanical diff and the fallback behaviour in one review.
 - **Spec sections updated:** spec 1 "Engine contract" (the group, with a dated line); specs 2, 3 and 4, module paths only (a dated line each).
 - **Dependencies added:** none.
+
+## 2026-11-14 · M12 · The names renamed Ithax, with the old names read for one release (#70, second of two changes; owner decision C8)
+
+- **Decision:**
+  - **Renamed:**
+    - the distribution is `ithax` (`pyproject.toml`, `uv.lock` relocked);
+    - the commands are `ithax`, `ithax-launcher` and `ithax-mcp`;
+    - the MCP server's name is `ithax`, so an assistant's tools are `mcp__ithax__<tool>`;
+    - the configuration and data folders, and `share/ithax` in the package;
+    - the archive is `ithax-<version>-linux-x86_64.tar.gz`, and the CI artifact `ithax-linux-x86_64`;
+    - the desktop shell is `ithax-desktop`: product name "Ithax", identifier `org.ithax.desktop`;
+    - the desktop entry and icon are `ithax.desktop` and `ithax.png`;
+    - in the interface: its npm name, the drag type `application/x-ithax-block`, the theme's style id, the PDF producer, and the stored-token key `ithax.token`;
+    - thread and temporary-file prefixes;
+    - the product name in titles and messages, such as "Ithax engine service" and "Ithax service on 127.0.0.1:<port>". The model schema's title is "Ithax model file, format version 0.2".
+  - **Read for one release, as the orchestrator asked ("keep `LCSIM_*` fallbacks for one release"):**
+    - **Folders (reading).** The configuration and data folders: `lcsim` in the same place is used while no `ithax` folder exists, and `ithax` wins once it exists (`ithax.service.config.LEGACY_APP_FOLDER`; spec 3 "Discovery"). Projects and settings made before the rename are not lost. This is a reversible reading. The alternative was moving the folder on first start, which writes into a user's folders without asking.
+    - **Variables a person sets** each read the old `LCSIM_` name when the new one is unset or empty:
+      - `ITHAX_PYTHON`, in the desktop shell (`launcher::python_variable`, with two unit tests) and the interface's test harness;
+      - `ITHAX_CHROMIUM`;
+      - `ITHAX_PACKAGE` and `ITHAX_PACKAGE_RUNNER`;
+      - `ITHAX_DESKTOP_APP`;
+      - `ITHAX_RECORD_API_SHAPES`.
+    - **Variables the tests set and read themselves** (`ITHAX_TEST_REQUEST_LOG`, `ITHAX_TEST_OFFLINE_DIR`, `ITHAX_ROUTE_RECORD`, `ITHAX_PERF_*`) are renamed outright: nothing outside the tests sets them.
+  - **Not read under the old name:**
+    - the stored-token key: it is per tab and per service start, so a new start gives the page its token again;
+    - the MCP server name: an assistant's configuration names the command, and the tool names follow the server;
+    - the desktop identifier.
+
+    No release used any of these.
+  - **Checked:**
+    - `git grep -i lcsim` outside the historical records now finds only the fallbacks, their comments and tests, and the changelog lines;
+    - specs 3 and 4 have dated lines, and README, the build guide and `CLAUDE.md` say Ithax.
+- **Reason:** owner decision C8. The orchestrator's brief for #70 asked for `LCSIM_*` fallbacks for one release. The folder fallback follows from the same aim, that nothing made under the old name is lost.
+- **Alternatives considered:**
+  - Moving `lcsim` folders to `ithax`. That writes into user folders unasked, and two services of different versions could then disagree on where projects are.
+  - No fallbacks at all, since nothing was released. But an install made for the M11 owner checks may hold `lcsim` folders.
+- **Spec sections updated:** spec 3 "Discovery", "Packaging" and "Desktop shell" (names and the folder rule), spec 4 (the server name, in its changelog line), the build guide's layout note on the package name. Each has a dated line where it has a changelog.
+- **Dependencies added:** none.

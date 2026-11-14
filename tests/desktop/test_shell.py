@@ -4,7 +4,7 @@ Marker ``desktop``: excluded from ``bash scripts/check.sh`` as ``perf`` is, run 
 ``pytest -m desktop`` and by the CI job ``desktop``. It needs, on Linux:
 
 - the built shell, ``cd desktop && npm ci && npm run build``
-  (``desktop/src-tauri/target/release/lcsim-desktop``, or ``LCSIM_DESKTOP_APP``);
+  (``desktop/src-tauri/target/release/ithax-desktop``, or ``ITHAX_DESKTOP_APP``);
 - the built interface, ``cd ui && npm run build`` (``ui/dist``);
 - ``tauri-driver`` (``cargo install tauri-driver --version 2.1.0 --locked``) and
   ``WebKitWebDriver`` (Debian and Ubuntu package ``webkit2gtk-driver``);
@@ -39,10 +39,11 @@ pytestmark = [
 ]
 
 ROOT = Path(__file__).resolve().parents[2]
+# Also read under its old name, LCSIM_DESKTOP_APP, for one release (#70).
 APP = Path(
-    os.environ.get(
-        "LCSIM_DESKTOP_APP", ROOT / "desktop" / "src-tauri" / "target" / "release" / "lcsim-desktop"
-    )
+    os.environ.get("ITHAX_DESKTOP_APP")
+    or os.environ.get("LCSIM_DESKTOP_APP")
+    or ROOT / "desktop" / "src-tauri" / "target" / "release" / "ithax-desktop"
 )
 UI_DIST = ROOT / "ui" / "dist"
 HOME_HEADING = "What would you like to do?"
@@ -189,9 +190,9 @@ def display() -> Iterator[str]:
 
 @contextlib.contextmanager
 def driver(display: str, python: str, log: Path) -> Iterator[WebDriver]:
-    """``tauri-driver`` on a free port, its shell run with ``python`` as ``LCSIM_PYTHON``."""
+    """``tauri-driver`` on a free port, its shell run with ``python`` as ``ITHAX_PYTHON``."""
     port = free_port()
-    environment = {**os.environ, "DISPLAY": display, "LCSIM_PYTHON": python}
+    environment = {**os.environ, "DISPLAY": display, "ITHAX_PYTHON": python}
     environment.pop("WAYLAND_DISPLAY", None)
     with log.open("ab") as output:
         process = subprocess.Popen(
@@ -356,5 +357,5 @@ def test_the_shell_says_why_when_no_service_starts(display: str, tmp_path: Path)
         assert web.text(status) == "The engine service did not start"
         detail = web.text(web.find("//p[@id='detail']"))
         assert detail.startswith(f"{missing} could not be run"), detail
-        assert "LCSIM_PYTHON" in detail
+        assert "ITHAX_PYTHON" in detail
     assert not (tmp_path / "config" / SERVICE_FILE).exists()

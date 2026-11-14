@@ -91,7 +91,7 @@ def test_main_exits_when_idle_and_removes_its_file(folders: list[str], tmp_path:
     started = Started([*folders, "--idle-minutes", "0.005"])
     started.thread.join(30)
     assert started.status == [0]
-    assert "lcsim service on 127.0.0.1:" in started.output.getvalue()
+    assert "Ithax service on 127.0.0.1:" in started.output.getvalue()
     assert not (tmp_path / "config" / SERVICE_FILE).exists()
 
 
@@ -129,7 +129,7 @@ def test_two_starts_at_once_give_one_service(folders: list[str], tmp_path: Path)
         start.thread.join(60)
     assert [start.status for start in starts] == [[0], [0]]
     outputs = [start.output.getvalue() for start in starts]
-    served = [output for output in outputs if "lcsim service on" in output]
+    served = [output for output in outputs if "Ithax service on" in output]
     found = [output for output in outputs if "already running" in output]
     assert len(served) == 1, outputs
     assert len(found) == 1, outputs
@@ -232,7 +232,7 @@ def test_python_dash_m_ithax_service_runs_as_a_process(tmp_path: Path) -> None:
         if process.poll() is None:  # pragma: no cover - only when the test fails
             process.kill()
     assert process.returncode == 0, stderr
-    assert f"lcsim service on 127.0.0.1:{info.port}" in stdout
+    assert f"Ithax service on 127.0.0.1:{info.port}" in stdout
     assert not (config_dir / SERVICE_FILE).exists()
 
 

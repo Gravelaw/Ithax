@@ -8,7 +8,7 @@
  * the service has another port, so another origin, whose storage is empty.
  */
 
-export const TOKEN_KEY = "lcsim.token";
+export const TOKEN_KEY = "ithax.token";
 
 const FRAGMENT = /^#token=([A-Za-z0-9_-]+)$/;
 

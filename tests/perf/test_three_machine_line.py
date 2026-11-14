@@ -41,7 +41,7 @@ EXAMPLE = Path(__file__).resolve().parents[2] / "examples" / "three_machine_line
 #: Spec 2's proposed target, in seconds.
 TARGET_S = 60.0
 #: Libraries whose versions the result depends on.
-LIBRARIES = ("lcsim", "numpy", "scipy", "pyarrow", "simpy", "pint", "jsonschema", "pytest")
+LIBRARIES = ("ithax", "numpy", "scipy", "pyarrow", "simpy", "pint", "jsonschema", "pytest")
 
 
 def usable_cores() -> int:

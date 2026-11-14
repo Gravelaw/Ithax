@@ -4,12 +4,12 @@ principle 6; AKS-127).
 
 Marker ``package``: excluded from ``bash scripts/check.sh`` as ``perf`` is; run with
 ``pytest -m package`` after ``python scripts/package_linux.py`` and by the CI job
-``package``. The archive is ``dist/lcsim-<version>-linux-x86_64.tar.gz`` (or
-``LCSIM_PACKAGE``); the test fails, rather than skips, when it is missing.
+``package``. The archive is ``dist/ithax-<version>-linux-x86_64.tar.gz`` (or
+``ITHAX_PACKAGE``); the test fails, rather than skips, when it is missing.
 
 The clean container is a plain ``ubuntu:24.04`` image run by Docker, as its ordinary user
 ``ubuntu``, with only the package's folder and this folder mounted read-only; the offline
-run adds ``--network none``. Where Docker cannot run (``LCSIM_PACKAGE_RUNNER=local``), the
+run adds ``--network none``. Where Docker cannot run (``ITHAX_PACKAGE_RUNNER=local``), the
 same script runs in a fresh home folder with a minimal environment, offline inside
 ``unshare -rn`` (a network namespace holding only loopback). The desktop check needs a
 display server and ``tauri-driver`` as ``tests/desktop/test_shell.py`` does.
@@ -47,8 +47,13 @@ pytestmark = [
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
-NAME = f"lcsim-{ithax.__version__}-linux-x86_64"
-ARCHIVE = Path(os.environ.get("LCSIM_PACKAGE", ROOT / "dist" / f"{NAME}.tar.gz"))
+NAME = f"ithax-{ithax.__version__}-linux-x86_64"
+# Each variable is also read under its old name, LCSIM_..., for one release (#70).
+ARCHIVE = Path(
+    os.environ.get("ITHAX_PACKAGE")
+    or os.environ.get("LCSIM_PACKAGE")
+    or ROOT / "dist" / f"{NAME}.tar.gz"
+)
 IMAGE = "ubuntu:24.04"
 #: Spec 3's acceptance row: under ten minutes from install to a first result.
 LIMIT_S = 600.0
@@ -77,7 +82,11 @@ def docker_works() -> bool:
 
 
 def runner() -> str:
-    chosen = os.environ.get("LCSIM_PACKAGE_RUNNER") or ("docker" if docker_works() else "local")
+    chosen = (
+        os.environ.get("ITHAX_PACKAGE_RUNNER")
+        or os.environ.get("LCSIM_PACKAGE_RUNNER")
+        or ("docker" if docker_works() else "local")
+    )
     assert chosen in ("docker", "local"), chosen
     return chosen
 
@@ -117,7 +126,7 @@ def clean_install(archive: Path, offline: bool, tmp_path: Path) -> tuple[float, 
 
 
 def assert_first_result(result: dict[str, Any]) -> None:
-    assert result["interface_title"] == "lcsim"
+    assert result["interface_title"] == "Ithax"
     assert result["templates"] == TEMPLATES
     assert result["engines"] == ["highs", "simpy"]
     assert result["run_state"] == "done"
@@ -143,7 +152,7 @@ def test_the_archive_holds_the_interface_service_engines_and_templates(archive: 
         members = {member.name: member for member in tar.getmembers()}
     assert all(name == NAME or name.startswith(f"{NAME}/") for name in members)
     assert not [name for name in members if ".." in Path(name).parts or name.startswith("/")]
-    for command in ("bin/lcsim", "bin/lcsim-launcher", "bin/lcsim-mcp", "install.sh"):
+    for command in ("bin/ithax", "bin/ithax-launcher", "bin/ithax-mcp", "install.sh"):
         assert members[f"{NAME}/{command}"].mode == 0o755, command
     for name in (
         "uninstall.sh",
@@ -151,12 +160,12 @@ def test_the_archive_holds_the_interface_service_engines_and_templates(archive: 
         "INSTALL.txt",
         "THIRD-PARTY-LICENSES.txt",
         "BUILD-INFO.json",
-        "share/lcsim.png",
-        "lib/lcsim-desktop",
+        "share/ithax.png",
+        "lib/ithax-desktop",
         "python/bin/python3.13",
         "python/licenses/LICENSE.cpython.txt",
-        "python/share/lcsim/ui/index.html",
-        "python/share/lcsim/ui/THIRD-PARTY-NOTICES.txt",
+        "python/share/ithax/ui/index.html",
+        "python/share/ithax/ui/THIRD-PARTY-NOTICES.txt",
     ):
         assert f"{NAME}/{name}" in members, name
     site = f"{NAME}/python/lib/python3.13/site-packages"
@@ -166,11 +175,11 @@ def test_the_archive_holds_the_interface_service_engines_and_templates(archive: 
     shipped = {
         name.split("/")[5]
         for name in members
-        if name.startswith(f"{NAME}/python/share/lcsim/templates/") and name.count("/") >= 6
+        if name.startswith(f"{NAME}/python/share/ithax/templates/") and name.count("/") >= 6
     }
     assert sorted(shipped) == TEMPLATES
     for tid in TEMPLATES:
-        assert f"{NAME}/python/share/lcsim/templates/{tid}/template.json" in members
+        assert f"{NAME}/python/share/ithax/templates/{tid}/template.json" in members
     assert not [name for name in members if "/lib-dynload/_dbm." in name]
 
 
@@ -204,7 +213,7 @@ def unpacked(archive: Path, tmp_path: Path) -> Iterator[tuple[Path, dict[str, st
     )
     assert done.returncode == 0, done.stdout + done.stderr
     yield folder, environment
-    stop_service(home / ".config" / "lcsim")
+    stop_service(home / ".config" / "ithax")
 
 
 def test_install_links_the_commands_and_uninstall_removes_them(
@@ -212,10 +221,10 @@ def test_install_links_the_commands_and_uninstall_removes_them(
 ) -> None:
     folder, environment = unpacked
     home = Path(environment["HOME"])
-    links = [home / ".local" / "bin" / name for name in ("lcsim", "lcsim-launcher", "lcsim-mcp")]
-    entry = home / ".local" / "share" / "applications" / "lcsim.desktop"
+    links = [home / ".local" / "bin" / name for name in ("ithax", "ithax-launcher", "ithax-mcp")]
+    entry = home / ".local" / "share" / "applications" / "ithax.desktop"
     assert [link.readlink() for link in links] == [folder / "bin" / link.name for link in links]
-    assert f'Exec="{folder}/bin/lcsim"' in entry.read_text("utf-8")
+    assert f'Exec="{folder}/bin/ithax"' in entry.read_text("utf-8")
     done = subprocess.run(
         [folder / "uninstall.sh"], env=environment, capture_output=True, text=True, timeout=60
     )
@@ -241,17 +250,17 @@ def test_the_bundled_console_scripts_run_from_where_the_package_was_unpacked(
     assert done.returncode == 0, done.stderr
     assert "uvicorn 0.54.0" in done.stdout
     record = next(
-        (folder / "python" / "lib" / "python3.13" / "site-packages").glob("lcsim-*/RECORD")
+        (folder / "python" / "lib" / "python3.13" / "site-packages").glob("ithax-*/RECORD")
     )
     assert "direct_url.json" not in record.read_text("utf-8")
 
 
-def test_lcsim_without_a_display_opens_the_interface_through_the_launcher(
+def test_ithax_without_a_display_opens_the_interface_through_the_launcher(
     unpacked: tuple[Path, dict[str, str]],
 ) -> None:
     folder, environment = unpacked
     done = subprocess.run(
-        [folder / "bin" / "lcsim", "--print-url"],
+        [folder / "bin" / "ithax", "--print-url"],
         env=environment,
         capture_output=True,
         text=True,
@@ -259,10 +268,10 @@ def test_lcsim_without_a_display_opens_the_interface_through_the_launcher(
     )
     assert done.returncode == 0, done.stderr
     assert done.stderr.startswith(
-        "lcsim: opening the interface in the browser, since no display is set"
+        "ithax: opening the interface in the browser, since no display is set"
     )
     assert done.stdout.startswith("http://127.0.0.1:")
-    info = read_service_file(Path(environment["HOME"]) / ".config" / "lcsim")
+    info = read_service_file(Path(environment["HOME"]) / ".config" / "ithax")
     assert info is not None and probe(info)
     # The service runs on the package's own Python.
     command = (Path("/proc") / str(info.pid) / "cmdline").read_bytes().split(b"\0")
@@ -274,15 +283,15 @@ def test_the_installed_shell_reaches_home(
     display: str,  # noqa: F811
     tmp_path: Path,
 ) -> None:
-    """``lcsim`` with a display runs the installed desktop shell, which starts the
+    """``ithax`` with a display runs the installed desktop shell, which starts the
     package's Python and service with the installed interface and templates."""
     folder, environment = unpacked
     home = Path(environment["HOME"])
-    config_dir = home / ".config" / "lcsim"
+    config_dir = home / ".config" / "ithax"
     with driver(display, "python-unused", tmp_path / "driver.log") as web:
         capabilities = {
             "tauri:options": {
-                "application": str(home / ".local" / "bin" / "lcsim"),
+                "application": str(home / ".local" / "bin" / "ithax"),
                 "args": ["--config-dir", str(config_dir), "--data-dir", str(home / "data")],
             }
         }
@@ -297,7 +306,7 @@ def test_the_installed_shell_reaches_home(
         command = (Path("/proc") / str(info.pid) / "cmdline").read_bytes().split(b"\0")
         assert command[0] == str(folder / "python" / "bin" / "python3").encode()
         assert b"--ui-dir" not in command  # the installed interface, by the service's default
-        shell = str(folder / "lib" / "lcsim-desktop").encode()
+        shell = str(folder / "lib" / "ithax-desktop").encode()
         assert any(line.startswith(shell) for line in command_lines())
         web.close_window()
         # Wait while tauri-driver and WebKitWebDriver still run, as tests/desktop does: they

@@ -102,7 +102,7 @@ class RunQueue:
             if job.state != "queued":
                 continue
             thread = threading.Thread(
-                target=self._execute, args=(job,), name=f"lcsim-run-{job.run_id}", daemon=True
+                target=self._execute, args=(job,), name=f"ithax-run-{job.run_id}", daemon=True
             )
             self._threads.append(thread)
             thread.start()

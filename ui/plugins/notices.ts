@@ -74,7 +74,7 @@ export function noticesText(packages: BundledPackage[]): string {
     (item) => `${item.name} ${item.version}\nLicence: ${item.license}\n\n${item.text}\n`,
   );
   return [
-    "Third-party software bundled with the lcsim interface",
+    "Third-party software bundled with the Ithax interface",
     "",
     ...parts.flatMap((part) => ["=".repeat(72), part]),
   ].join("\n");
@@ -82,7 +82,7 @@ export function noticesText(packages: BundledPackage[]): string {
 
 export function notices(productLicence: string): Plugin {
   return {
-    name: "lcsim-notices",
+    name: "ithax-notices",
     apply: "build",
     generateBundle() {
       const roots = new Set<string>();

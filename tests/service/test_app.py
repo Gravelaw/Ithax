@@ -102,4 +102,4 @@ def test_two_apps_do_not_share_state(config: ServiceConfig, tmp_path: object) ->
     first = create_app(config)
     second = create_app(config)
     assert first.state.service is not second.state.service
-    assert first.title == "lcsim engine service"
+    assert first.title == "Ithax engine service"

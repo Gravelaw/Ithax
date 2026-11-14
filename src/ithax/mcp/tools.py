@@ -352,7 +352,7 @@ LIST_PROJECTS = ToolSpec(
     example_result=(
         f'[{{"id": "{_EXAMPLE_PID}", "name": "Coffee shop", "created": '
         '"2026-11-08T09:30:00.000Z", "layout_version": 1, "model_revision": 3, "path": '
-        f'"/home/me/.local/share/lcsim/projects/{_EXAMPLE_PID}", "available": true}}]'
+        f'"/home/me/.local/share/ithax/projects/{_EXAMPLE_PID}", "available": true}}]'
     ),
     calls=_get("/v1/projects"),
 )
@@ -502,7 +502,7 @@ CREATE_MODEL = ToolSpec(
     example_result=(
         f'{{"id": "{_EXAMPLE_PID}", "name": "Coffee shop", "created": '
         '"2026-11-08T09:30:00.000Z", "layout_version": 1, "model_revision": 0, "path": '
-        f'"/home/me/.local/share/lcsim/projects/{_EXAMPLE_PID}", "available": true}}'
+        f'"/home/me/.local/share/ithax/projects/{_EXAMPLE_PID}", "available": true}}'
     ),
     calls=_create_model,
 )

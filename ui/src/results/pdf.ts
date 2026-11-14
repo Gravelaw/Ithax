@@ -184,7 +184,7 @@ export function makePdf(
   const bold = add(
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>",
   );
-  const info = add(`<< /Title ${pdfString(title)} /Producer (lcsim) >>`);
+  const info = add(`<< /Title ${pdfString(title)} /Producer (Ithax) >>`);
   const kids: number[] = [];
   pages.forEach((placed, index) => {
     const ops: string[] = [];

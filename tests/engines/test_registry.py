@@ -164,13 +164,13 @@ def test_a_plugin_that_fails_to_import_is_left_out_and_logged(
 ) -> None:
     caplog.set_level(logging.WARNING)
     installed += [
-        EntryPoint("broken", "lcsim_engine_that_is_not_installed:Adapter", ENTRY_POINT_GROUP),
+        EntryPoint("broken", "ithax_engine_that_is_not_installed:Adapter", ENTRY_POINT_GROUP),
         FakeEntryPoint("dummy", DummyAdapter),
     ]
     assert list(load_adapters()) == ["dummy"]
     [message] = warnings_in(caplog)
     assert "'broken'" in message
-    assert "lcsim_engine_that_is_not_installed:Adapter" in message
+    assert "ithax_engine_that_is_not_installed:Adapter" in message
     assert "left out" in message
     assert "ModuleNotFoundError" in caplog.text
 

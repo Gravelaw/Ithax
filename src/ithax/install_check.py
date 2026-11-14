@@ -93,7 +93,7 @@ def main(
         return 1
     python = ".".join(str(part) for part in sys.version_info[:3])
     print(
-        f"lcsim {ithax.__version__} on Python {python}: engines {', '.join(report.engines)}; "
+        f"Ithax {ithax.__version__} on Python {python}: engines {', '.join(report.engines)}; "
         f"the interface in {ui_dir}; {report.templates} templates in {templates_dir}.",
         file=out,
     )

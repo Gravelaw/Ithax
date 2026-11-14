@@ -5,7 +5,7 @@ UTF-8 string ``<seed>:<replication>:<component id>`` (replication numbered from 
 SHA-256 digest, read as a big-endian integer, seeds ``numpy.random.SeedSequence``, which
 seeds a PCG64 ``numpy.random.Generator``. Python's ``hash()`` is salted per process and is
 never used, nor is the global random generator (guide "Conventions", Randomness): every
-random number lcsim draws comes from a generator made here.
+random number Ithax draws comes from a generator made here.
 
 Scenario and search candidate do not enter the key (common random numbers), and a
 component's stream depends on its own id only, so adding or removing a component leaves

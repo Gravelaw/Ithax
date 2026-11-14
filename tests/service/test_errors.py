@@ -79,7 +79,7 @@ def test_malformed_names_one_problem_or_counts_several() -> None:
         ({"type": "missing", "loc": ("query", "format")}, "/query/format", "'format' is missing"),
     ],
 )
-def test_request_errors_become_e184_issues_in_lcsims_words(
+def test_request_errors_become_e184_issues_in_ithaxs_words(
     error: dict[str, object], path: str, words: str
 ) -> None:
     [issue] = request_issues([error])

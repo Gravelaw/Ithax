@@ -3,7 +3,7 @@ requires = ["hatchling>=1.33"]
 build-backend = "hatchling.build"
 
 [project]
-name = "lcsim"
+name = "ithax"
 description = "Low-code simulation, modelling and optimization (working name)"
 readme = "README.md"
 license = "AGPL-3.0-only"

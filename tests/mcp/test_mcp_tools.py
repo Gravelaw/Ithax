@@ -335,7 +335,7 @@ def test_a_client_of_the_handshake_era_gets_the_same_answers(
 def test_the_modern_era_is_negotiated_by_default(client: ServiceClient) -> None:
     async def check(mcp_client: Client) -> None:
         assert mcp_client.protocol_version == "2026-07-28"
-        assert mcp_client.server_info is not None and mcp_client.server_info.name == "lcsim"
+        assert mcp_client.server_info is not None and mcp_client.server_info.name == "ithax"
 
     run(check, client)
 

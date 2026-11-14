@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "lcsim model file, format version 0.2",
+  "title": "Ithax model file, format version 0.2",
   "description": "Spec 1 'Validation': checks only the top-level keys, the JSON type of each top-level value, and that every component, connection, parameter and experiment entry is an object with its required keys of the right JSON type. Unknown keys are an error except inside a component's 'ui' object. Identifiers are plain strings; quantities, plain numbers and enumerated values (such as 'type', 'sense', 'op', 'target' and 'fidelity') take any JSON value here, so that the meaning pass reports them with their specific codes. Component settings ('params') are a plain object. Format 0.2 adds the indexed optimization keys 'sets', 'tables', a variable's 'over', a constraint's 'for' and 'terms' in a constraint or the objective; an optimization constraint or objective needs 'linear' or 'terms' (checked beside this schema, as are the 0.2 keys in a file of an older minor).",
   "type": "object",
   "required": ["format_version", "meta", "domain"],

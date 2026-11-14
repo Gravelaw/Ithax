@@ -69,7 +69,7 @@ def test_main_reports_a_complete_installation(ui_dir: Path) -> None:
     assert err.getvalue() == ""
     python = ".".join(str(part) for part in sys.version_info[:3])
     assert out.getvalue() == (
-        f"lcsim {ithax.__version__} on Python {python}: engines highs, simpy; "
+        f"Ithax {ithax.__version__} on Python {python}: engines highs, simpy; "
         f"the interface in {ui_dir}; 10 templates in {TEMPLATES}.\n"
     )
 

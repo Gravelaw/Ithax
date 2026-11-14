@@ -1,4 +1,4 @@
-# Ithax (lcsim): guide for coding sessions
+# Ithax: guide for coding sessions
 
 This file is a map (retrospective P8). The build guide, `docs/specs/build-guide.md`, holds the
 rules, milestones, known gaps and procedures, and decides wherever this file is shorter.
@@ -90,5 +90,5 @@ spec your issue names.
   change them. Upgrade dependencies in their own PR.
 - Linux first (owner decision B4, 2026-11-09): keep the code platform-neutral as built;
   Windows packaging is deferred.
-- The Python package is `ithax`; the distribution, commands and folders still read `lcsim`
-  until the second #70 change.
+- Names were `lcsim` before #70; for one release the folders `lcsim` and the variables
+  `LCSIM_*` are still read when the `ithax` ones are absent.

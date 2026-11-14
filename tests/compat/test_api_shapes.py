@@ -10,7 +10,7 @@ recorded in ``tests/compat/api/v1/``; this test fails when a recorded path disap
 type changes.
 
 To record after an intended, compatible change (new fields only), or for a new route:
-``LCSIM_RECORD_API_SHAPES=1 pytest tests/compat/test_api_shapes.py``, then review the diff:
+``ITHAX_RECORD_API_SHAPES=1 pytest tests/compat/test_api_shapes.py``, then review the diff:
 a recorded line may be added, never removed or changed, without a new API version and an
 owner decision record.
 
@@ -35,7 +35,11 @@ from ithax.service.hardware import Hardware
 
 ROOT = Path(__file__).resolve().parents[2]
 SHAPES = Path(__file__).resolve().parent / "api" / "v1"
-RECORD = os.environ.get("LCSIM_RECORD_API_SHAPES") == "1"
+# The old name, LCSIM_RECORD_API_SHAPES, is read for one release (#70).
+RECORD = "1" in (
+    os.environ.get("ITHAX_RECORD_API_SHAPES"),
+    os.environ.get("LCSIM_RECORD_API_SHAPES"),
+)
 PORT = 8767
 TOKEN = "compat-token"
 BASE_URL = f"http://127.0.0.1:{PORT}"

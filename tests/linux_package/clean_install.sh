@@ -28,5 +28,5 @@ step unpacked
 "$HOME/.local/opt/$name/install.sh" >&2
 step installed
 "$HOME/.local/opt/$name/python/bin/python3" -I "$here/first_result.py" \
-    --launcher "$HOME/.local/bin/lcsim-launcher" "$@"
+    --launcher "$HOME/.local/bin/ithax-launcher" "$@"
 step first_result

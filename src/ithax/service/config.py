@@ -25,6 +25,7 @@ from ithax.service.paths import canonical
 __all__ = [
     "APP_FOLDER",
     "DEFAULT_IDLE_TIMEOUT_S",
+    "LEGACY_APP_FOLDER",
     "TOKEN_BYTES",
     "WEBSOCKET_AUTH_TIMEOUT_S",
     "ServiceConfig",
@@ -36,9 +37,12 @@ __all__ = [
     "new_token",
 ]
 
-#: The folder name under the platform's configuration and data folders; renamed with the
-#: placeholder package.
-APP_FOLDER = "lcsim"
+#: The folder name under the platform's configuration and data folders (owner decision C8).
+APP_FOLDER = "ithax"
+#: The folder name before the product was named (#70). A folder of that name is used, for
+#: one release, when the ``ithax`` folder does not exist, so projects and settings made
+#: before the rename are still found; the ``ithax`` folder wins once it exists.
+LEGACY_APP_FOLDER = "lcsim"
 
 #: Spec 3 "Lifetime": exit after 30 idle minutes unless ``idle_timeout_minutes`` in
 #: ``settings.json`` or ``--idle-minutes`` says otherwise (owner decision B5, AKS-141).
@@ -79,7 +83,8 @@ def _platform_folder(
         base = env.get(xdg_variable)
         # The XDG specification ignores a relative path.
         root = Path(base) if base and Path(base).is_absolute() else home / xdg_default
-    return root / APP_FOLDER
+    folder, legacy = root / APP_FOLDER, root / LEGACY_APP_FOLDER
+    return legacy if not folder.exists() and legacy.is_dir() else folder
 
 
 def default_config_dir(
@@ -87,9 +92,9 @@ def default_config_dir(
     platform: str | None = None,
     home: Path | None = None,
 ) -> Path:
-    """The per-user configuration folder: ``%APPDATA%\\lcsim`` on Windows,
-    ``~/Library/Application Support/lcsim`` on macOS, ``$XDG_CONFIG_HOME/lcsim``
-    (default ``~/.config/lcsim``) elsewhere.
+    """The per-user configuration folder: ``%APPDATA%\\ithax`` on Windows,
+    ``~/Library/Application Support/ithax`` on macOS, ``$XDG_CONFIG_HOME/ithax``
+    (default ``~/.config/ithax``) elsewhere.
 
     The arguments default to the running process's environment, platform and home folder.
     """
@@ -109,9 +114,9 @@ def default_data_dir(
     platform: str | None = None,
     home: Path | None = None,
 ) -> Path:
-    """The per-user data folder, which holds ``projects/``: ``%LOCALAPPDATA%\\lcsim`` on
-    Windows, ``~/Library/Application Support/lcsim`` on macOS, ``$XDG_DATA_HOME/lcsim``
-    (default ``~/.local/share/lcsim``) elsewhere."""
+    """The per-user data folder, which holds ``projects/``: ``%LOCALAPPDATA%\\ithax`` on
+    Windows, ``~/Library/Application Support/ithax`` on macOS, ``$XDG_DATA_HOME/ithax``
+    (default ``~/.local/share/ithax``) elsewhere."""
     return _platform_folder(
         os.environ if env is None else env,
         sys.platform if platform is None else platform,
@@ -128,7 +133,7 @@ _CHECKOUT = Path(__file__).resolve().parents[3]
 
 
 def installed_share_dir(prefix: str | None = None) -> Path:
-    """Where the Linux package puts the interface and the templates: ``share/lcsim`` under
+    """Where the Linux package puts the interface and the templates: ``share/ithax`` under
     the Python installation's prefix, ``sys.prefix`` by default (spec 3 "Packaging", M11,
     AKS-127, owner to confirm)."""
     return Path(sys.prefix if prefix is None else prefix) / "share" / APP_FOLDER
@@ -142,7 +147,7 @@ def _first_folder(*candidates: Path) -> Path:
 def default_ui_dir(checkout: Path | None = None, prefix: str | None = None) -> Path:
     """The built interface the service serves by default: ``ui/dist`` of the source
     checkout, which a checkout has once the interface is built (``npm run build`` in
-    ``ui/``), or else ``share/lcsim/ui`` under the Python prefix, where the Linux package
+    ``ui/``), or else ``share/ithax/ui`` under the Python prefix, where the Linux package
     puts it (``installed_share_dir``). When neither exists, the checkout's folder is named
     and ``/v1/ui/`` is 404 (AKS-119, AKS-127, owner to confirm).
 
@@ -153,7 +158,7 @@ def default_ui_dir(checkout: Path | None = None, prefix: str | None = None) -> P
 
 def default_templates_dir(checkout: Path | None = None, prefix: str | None = None) -> Path:
     """The template packages the service serves by default: ``templates`` of the source
-    checkout, or else ``share/lcsim/templates`` under the Python prefix, where the Linux
+    checkout, or else ``share/ithax/templates`` under the Python prefix, where the Linux
     package puts them; when neither exists, the checkout's folder is named and no template
     is served (AKS-122, AKS-127, owner to confirm). The arguments are as for
     ``default_ui_dir``."""

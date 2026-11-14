@@ -8,7 +8,8 @@
  * (the service with every call that reaches it logged to `requestLog`, AKS-121), and the
  * launcher then finds it running, as it finds any running service.
  *
- * The Python is `LCSIM_PYTHON`, else the repository's `.venv`, else `python3`.
+ * The Python is `ITHAX_PYTHON` (or, for one release, its old name `LCSIM_PYTHON`; #70), else
+ * the repository's `.venv`, else `python3`.
  */
 import { execFileSync, spawn } from "node:child_process";
 import { closeSync, existsSync, mkdtempSync, openSync, readFileSync, rmSync } from "node:fs";
@@ -34,7 +35,8 @@ export interface Service {
 }
 
 export function python(): string {
-  if (process.env.LCSIM_PYTHON) return process.env.LCSIM_PYTHON;
+  const named = process.env.ITHAX_PYTHON || process.env.LCSIM_PYTHON;
+  if (named) return named;
   const venv = join(
     REPOSITORY,
     ".venv",
@@ -60,7 +62,7 @@ async function startLogged(
     {
       detached: true,
       stdio: ["ignore", output, output],
-      env: { ...process.env, LCSIM_TEST_REQUEST_LOG: log },
+      env: { ...process.env, ITHAX_TEST_REQUEST_LOG: log },
     },
   );
   child.unref();
@@ -83,7 +85,7 @@ export async function startService(options: { requestLog?: boolean } = {}): Prom
   if (!existsSync(join(dist, "index.html"))) {
     throw new Error("ui/dist has no index.html: run `npm run build` before the end-to-end tests");
   }
-  const folder = mkdtempSync(join(tmpdir(), "lcsim-e2e-"));
+  const folder = mkdtempSync(join(tmpdir(), "ithax-e2e-"));
   const configDir = join(folder, "config");
   const dataDir = join(folder, "data");
   const args = [
