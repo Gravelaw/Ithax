@@ -262,8 +262,8 @@ export function trialPoints(search: Search): TrialPoints {
     trial.objective?.mean === null || trial.objective === null ? [] : [trial.objective.mean],
   );
   const share = isShare(search.metric, unit);
-  // A rate is drawn per hour, unless a mean per hour is not a finite number (review of PR
-  // #165); a time in the largest unit its means reach.
+  // A rate is drawn per hour, unless a mean per hour is not a finite number (review of
+  // pull request 165); a time in the largest unit its means reach.
   const hourly = [...means, search.after ?? 0].every((mean) => inUnit(mean, "1/h") !== null);
   const [timeSymbol] = timeUnit(Math.max(0, ...means.map(Math.abs)));
   const [symbol, shown]: readonly [string, (mean: number) => number] =

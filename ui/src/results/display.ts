@@ -22,7 +22,7 @@ export const TIME_UNITS: readonly (readonly [string, number])[] = (["d", "h", "m
 /**
  * A value in SI units in a Phase 1 unit: a time in `s`, `min`, `h` or `d`, a rate per
  * second in `1/s`, `1/min`, `1/h` or `1/d`; `null` for another unit, or when the result
- * is not a finite number, as 1e308 per second is per hour (review of PR #165). Every rate
+ * is not a finite number, as 1e308 per second is per hour (review of pull request 165). Every rate
  * shown per hour goes through here.
  */
 export function inUnit(si: number, unit: string): number | null {

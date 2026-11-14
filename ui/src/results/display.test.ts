@@ -52,7 +52,7 @@ describe("display units", () => {
   });
 });
 
-describe("values near the float limit (review of PR #165)", () => {
+describe("values near the float limit (review of pull request 165)", () => {
   it("shows a rate per second when its hourly figure is not a finite number", () => {
     expect(quantity(1e308, "1/s")).toMatch(/ per second$/);
     expect(quantity(1e308, "1/s")).not.toMatch(/Infinity/);
@@ -66,4 +66,3 @@ describe("values near the float limit (review of PR #165)", () => {
     expect(inUnit(1, "furlong")).toBeNull();
   });
 });
-
