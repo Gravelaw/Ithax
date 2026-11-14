@@ -46,6 +46,9 @@ def _long_functions(path: Path, root: Path = SRC) -> set[str]:
                 if end - child.lineno + 1 > MAX_LINES:
                     found.add(f"{path.relative_to(root).as_posix()}::{prefix}{child.name}")
                 visit(child, f"{prefix}{child.name}.")
+            else:
+                # Definitions under if, try, with or a loop keep the enclosing prefix.
+                visit(child, prefix)
 
     visit(ast.parse(path.read_text(encoding="utf-8")), "")
     return found
@@ -77,6 +80,38 @@ def test_the_ratchet_finds_long_methods_and_nested_functions(tmp_path: Path) -> 
     probe.write_text(source, encoding="utf-8")
     assert _long_functions(probe, tmp_path) == {
         "probe.py::C.long",
+        "probe.py::outer",
+        "probe.py::outer.inner",
+    }
+
+
+def test_the_ratchet_finds_functions_under_control_flow(tmp_path: Path) -> None:
+    """A definition under `if`, `try`, `with` or a loop counts too (Codex, PR #136)."""
+    body = "".join(f"        x{i} = {i}\n" for i in range(MAX_LINES))
+    method_body = "".join(f"            y{i} = {i}\n" for i in range(MAX_LINES))
+    source = (
+        "if True:\n    def under_if() -> None:\n"
+        + body
+        + "try:\n    def under_try() -> None:\n"
+        + body
+        + "except Exception:\n    pass\n"
+        + "with open(__file__):\n    def under_with() -> None:\n"
+        + body
+        + "for _ in []:\n    def under_for() -> None:\n"
+        + body
+        + "if True:\n    class K:\n        def m(self) -> None:\n"
+        + method_body
+        + "def outer() -> None:\n    while False:\n        def inner() -> None:\n"
+        + "".join(f"            z{i} = {i}\n" for i in range(MAX_LINES))
+    )
+    probe = tmp_path / "probe.py"
+    probe.write_text(source, encoding="utf-8")
+    assert _long_functions(probe, tmp_path) == {
+        "probe.py::under_if",
+        "probe.py::under_try",
+        "probe.py::under_with",
+        "probe.py::under_for",
+        "probe.py::K.m",
         "probe.py::outer",
         "probe.py::outer.inner",
     }
