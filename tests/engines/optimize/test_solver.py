@@ -329,7 +329,7 @@ def test_tight_means_a_slack_within_one_millionth() -> None:
 def test_the_solver_version_is_highs_own() -> None:
     from importlib.metadata import version
 
-    # highspy's version is HiGHS's (1.15.1 for both).
+    # highspy's version is HiGHS's (1.16.0 for both since #132).
     assert solver_version() == version("highspy")
 
 

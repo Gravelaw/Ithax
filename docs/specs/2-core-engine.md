@@ -212,7 +212,7 @@ How the M5 optimization benchmark files read the table (AKS-108, proposed defaul
 
 - **Files.** `benchmarks/product_mix` holds the example of "Mathematical optimization in the model file" below; `benchmarks/knapsack` has binary variables `a` to `d` and the constraint `weight`; `benchmarks/assignment` has binary variables `x_<row>_<column>` (rows and columns from 0), constraints `row_<r>` and `col_<c>` each summing three variables `==` 1, and minimizes the cost; `benchmarks/diet` has continuous variables `x` and `y` with lower bound 0 and constraints `nutrient_a` and `nutrient_b`. None has an experiment or a seed; each is solved once through the HiGHS adapter, and the coverage run skips them.
 - **Rows.** Each row's `metric` is `objective` or `variables.<id>` of the solution, its `method` is `sig_figs_4`, and its `value` is the exact answer (98/45 for the diet's objective, 16/9 and 10/9 for its variables). Beyond the objective, which "Benchmarks" requires, every case also checks its variables: 24 chairs and 14 tables; b = c = 1 and a = d = 0; the assignment x_0_1 = x_1_0 = x_2_2 = 1 and the other six 0; x = 1.778 and y = 1.111. A solution whose `status` is not `optimal` fails every row.
-- **Results.** HiGHS 1.15.1 gives 2,200 at (24.000000000000004, 13.999999999999998), 21, 9 and 2.177777777777778 at (1.777777777777778, 1.1111111111111112): every row passes.
+- **Results.** HiGHS 1.15.1 gives 2,200 at (24.000000000000004, 13.999999999999998), 21, 9 and 2.177777777777778 at (1.777777777777778, 1.1111111111111112): every row passes. Every row passes with HiGHS 1.16.0 too (#132).
 
 How the M5 machine-count file reads the table (AKS-109, proposed default, owner to confirm):
 
@@ -225,7 +225,7 @@ How the M10 transport file reads the table (AKS-123, owner to confirm):
 - **File.** `benchmarks/transport/model.json` is the example of "Indexed problems" above, the indexed layout's first benchmark, with no experiment or seed, solved once through the HiGHS adapter like the M5 files.
 - **Rows.** `objective` and each of the twelve `variables.ship[<depot>,<customer>]`, `sig_figs_4`, exact values (the six unused routes 0).
 - **Certificate.** The plan is optimal because LP duality says so, not because a solver found it: the dual prices u = (0, −3, −2) for the supply limits (north, centre, south) and v = (4, 6, 6, 5) for the demand limits (city, harbour, park, market) satisfy u ≤ 0, v ≥ 0 and c_ij − u_i − v_j ≥ 0 on every route, with equality on the six used routes; the plan meets every limit (north has 30 left); and the plan's cost 180·4 + 20·6 + 70·5 + 200·3 + 150·4 + 100·3 = 2,690 equals the dual value Σ u_i s_i + Σ v_j d_j = −600 − 500 + 720 + 1,320 + 900 + 850 = 2,690. The reduced costs of the six unused routes are 3, 6, 2, 6, 4 and 4, all positive, so the optimum is unique. `tests/benchmarks/test_transport_certificate.py` checks these sums from the files (Hitchcock 1941; Dantzig 1951; any LP text's duality theorem, such as Hillier and Lieberman, chapter 6; the problem's numbers are this project's).
-- **Results.** HiGHS 1.15.1 gives 2,690 at exactly these amounts, and the supply limits of centre and south and every demand limit tight.
+- **Results.** HiGHS 1.15.1 gives 2,690 at exactly these amounts, and the supply limits of centre and south and every demand limit tight; so does HiGHS 1.16.0 (#132).
 
 The Optuna path (budget 3) is checked by `tests/runs/test_search.py`, not by a benchmark file, since its known answer is only that the best is feasible and the search repeats.
 
@@ -452,3 +452,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-14, fresh random numbers for confirmation (#79; owner decision 2026-11-07, item 6): "Overlap of the two stages" becomes "Fresh random numbers for confirmation": a confirmation numbers its replications from `search.replications`; "Result" and "Result layout" add each candidate's `evaluations`.
 - 2026-11-14, a sampled search's result (#85, M5-23): "Result" and "Result layout" add the search's `method` and `tried`.
 - 2026-11-14, alternate optima (#176, owner option B): "Mathematical optimization in the model file" adds how the HiGHS adapter probes the optimal set with at most two more solves and reports spec 1 W211 when another plan reaches the same objective.
+- 2026-11-14, HiGHS 1.16.0 (#132): the optimization benchmarks' results say that every row passes with HiGHS 1.16.0 as well; its default tolerances are 1.15.1's (primal and dual 10⁻⁷, MIP feasibility 10⁻⁶, MIP gap 10⁻⁴).

@@ -3120,3 +3120,20 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** options A and C of #176. The owner chose B.
 - **Spec sections updated:** spec 1 "Validation issues" (W211); spec 2 "Mathematical optimization in the model file" (alternate optima); spec 4 `optimization_result`; dated lines in each.
 - **Dependencies added:** none.
+
+## 2026-11-14 · M13 · HiGHS 1.16.0 (#132)
+
+- **Decision:**
+  - `pyproject.toml` declares `highspy>=1.16.0`, replacing the cap `>=1.15.1,<1.16` of 2026-11-13. `uv.lock` (`uv lock --upgrade-package highspy`), the Linux package's `requirements.lock` (the cp313 manylinux x86_64 wheel, SHA-256 `9340b4a2…d202db`) and `licences.json` hold 1.16.0.
+  - The staff rota's template test no longer pins one rota. Its run is in `ALTERNATE`: the finding must show a rota of 9 whole people that meets every day's need, `alternate` in its evidence, and W211's sentence (#176). Every other template's findings must not carry that sentence.
+- **Reason:**
+  - Issue #132: highspy 1.16.0 returns a different one of the staff rota's 7 optimal rotas.
+  - With #176 (W211) the product says so. The template test now passes on HiGHS 1.15.1 and on 1.16.0, both checked, so which optimum a version returns no longer matters.
+- **Measured on 1.16.0:**
+  - Every optimization benchmark row and template passes.
+  - The transport plan gives the same amounts.
+  - The staff rota shows tue_sat 1, wed_sun 2, thu_mon 1, fri_tue 3, sat_wed 1, sun_thu 1. 1.15.1 showed wed_sun 3, thu_mon 1, fri_tue 3, sat_wed 1, sun_thu 1.
+  - Default tolerances are unchanged (primal and dual 1e-7, MIP feasibility 1e-6, MIP gap 1e-4), so `TIGHT_TOLERANCE` and the probe's tolerance hold.
+- **Licences checked** (not legal advice): highspy 1.16.0 is MIT (`LICENSE.txt`, "Copyright (c) 2026 HiGHS"). `THIRD_PARTY_NOTICES.md` lists the same components as 1.15.1: AMD BSD-3, CLI11 BSD-3, METIS Apache-2.0, pdqsort zlib, RCM MIT, zstr MIT.
+- **Spec sections updated:** spec 2's two optimization benchmark results, with a dated line.
+- **Dependencies added:** none; highspy upgraded from 1.15.1 to 1.16.0 (MIT, unchanged).
