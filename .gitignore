@@ -16,3 +16,6 @@ ui/playwright-report/
 desktop/node_modules/
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
+
+# Hypothesis example database (tests/properties; #99, P6)
+.hypothesis/

@@ -1,0 +1,109 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Resource pool benchmark",
+    "description": "Spec 2 benchmark resource pool, as two lines that share nothing. Line a: the M/M/1 model (exponential arrivals mean 2 min, service mean 1.5 min) with server capacity 2 and pool pool_a of capacity 1, so one item at a time is in service: M/M/1. Line b: arrivals mean 1 min into server capacity 2 with pool pool_b of capacity 2: M/M/2."
+  },
+  "domain": "process",
+  "components": [
+    {
+      "id": "arrivals_a",
+      "type": "source",
+      "params": {
+        "interarrival": {
+          "dist": "exponential",
+          "mean": "2 min"
+        }
+      }
+    },
+    {
+      "id": "server_a",
+      "type": "server",
+      "params": {
+        "capacity": 2,
+        "service": {
+          "dist": "exponential",
+          "mean": "1.5 min"
+        },
+        "pool": "pool_a"
+      }
+    },
+    {
+      "id": "pool_a",
+      "type": "resource_pool",
+      "params": {
+        "capacity": 1
+      }
+    },
+    {
+      "id": "exit_a",
+      "type": "sink",
+      "params": {}
+    },
+    {
+      "id": "arrivals_b",
+      "type": "source",
+      "params": {
+        "interarrival": {
+          "dist": "exponential",
+          "mean": "1 min"
+        }
+      }
+    },
+    {
+      "id": "server_b",
+      "type": "server",
+      "params": {
+        "capacity": 2,
+        "service": {
+          "dist": "exponential",
+          "mean": "1.5 min"
+        },
+        "pool": "pool_b"
+      }
+    },
+    {
+      "id": "pool_b",
+      "type": "resource_pool",
+      "params": {
+        "capacity": 2
+      }
+    },
+    {
+      "id": "exit_b",
+      "type": "sink",
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": "arrivals_a.out",
+      "to": "server_a.in"
+    },
+    {
+      "from": "server_a.out",
+      "to": "exit_a.in"
+    },
+    {
+      "from": "arrivals_b.out",
+      "to": "server_b.in"
+    },
+    {
+      "from": "server_b.out",
+      "to": "exit_b.in"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "benchmark",
+      "length": "200 h",
+      "warmup": "10 h",
+      "replications": 100,
+      "seed": 1009
+    }
+  ],
+  "run": {
+    "target": "local",
+    "fidelity": "standard"
+  }
+}

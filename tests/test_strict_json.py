@@ -4,10 +4,12 @@ when it would be written back exactly: no ``NaN`` or infinity (also ``1e999``, w
 Python reads as an infinity) and no text that is not valid Unicode."""
 
 import json
+import math
 from pathlib import Path
 
 import pytest
 
+from lcsim import strict_json
 from lcsim.strict_json import UnreadableJSON, encode_json, read_json, read_json_file
 
 #: Texts that ``json.loads`` accepts but the product cannot write back or send.
@@ -85,3 +87,47 @@ def test_real_in_takes_finite_numbers_in_range_without_raising() -> None:
     assert real_in(1.0, 0.0, 1.0) == 1.0
     for value in [HUGE, -HUGE, 10.5, -0.1, float("inf"), float("-inf"), float("nan"), *BAD_KINDS]:
         assert real_in(value, 0.0, 10.0) is None, value
+
+
+def test_json_text_is_one_line_and_refuses_what_json_cannot_hold() -> None:
+    """The one maker of JSON text that is not a file (#99, P5)."""
+    value = {"a": [1, 2.5], "b": "café"}
+    assert strict_json.json_text(value) == '{"a": [1, 2.5], "b": "café"}'
+    assert strict_json.json_text(value, ascii_only=True) == '{"a": [1, 2.5], "b": "caf\\u00e9"}'
+    assert strict_json.json_text(value, compact=True) == '{"a":[1,2.5],"b":"café"}'
+    for bad in (math.nan, math.inf, -math.inf):
+        with pytest.raises(ValueError):
+            strict_json.json_text({"x": bad})
+    with pytest.raises(TypeError):
+        strict_json.json_text({"x": object()})
+
+
+def test_read_json_object_file_admits_only_an_object(tmp_path: Path) -> None:
+    path = tmp_path / "file.json"
+    path.write_bytes(strict_json.encode_json({"a": 1}))
+    assert strict_json.read_json_object_file(path) == {"a": 1}
+    for text in (b"[1]\n", b'"text"\n', b"NaN\n", b"{"):
+        path.write_bytes(text)
+        with pytest.raises(strict_json.UnreadableJSON):
+            strict_json.read_json_object_file(path)
+    with pytest.raises(OSError):
+        strict_json.read_json_object_file(tmp_path / "missing.json")
+
+
+def test_is_whole_is_number_and_is_finite_real() -> None:
+    """The one "JSON number, not a bool" test (#99, P5; tests/test_conventions.py)."""
+    huge = 10**309  # beyond float range; must not be converted
+    for value, whole, number, finite in [
+        (3, True, True, True),
+        (huge, True, True, True),
+        (2.5, False, True, True),
+        (math.nan, False, True, False),
+        (math.inf, False, True, False),
+        (True, False, False, False),
+        (False, False, False, False),
+        ("3", False, False, False),
+        (None, False, False, False),
+    ]:
+        assert strict_json.is_whole(value) is whole, value
+        assert strict_json.is_number(value) is number, value
+        assert strict_json.is_finite_real(value) is finite, value

@@ -21,6 +21,8 @@ from dataclasses import dataclass
 
 import numpy
 
+from lcsim.strict_json import is_whole
+
 __all__ = [
     "GENERATOR_NAME",
     "MAX_SEED",
@@ -63,10 +65,6 @@ def generator_info() -> GeneratorInfo:
     return GeneratorInfo(name=GENERATOR_NAME, numpy_version=numpy.__version__)
 
 
-def _is_whole(value: object) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool)
-
-
 def stream_key(seed: int, replication: int, component_id: str) -> str:
     """The stream key ``<seed>:<replication>:<component id>``, with the seed and the
     replication as decimal whole numbers.
@@ -75,9 +73,9 @@ def stream_key(seed: int, replication: int, component_id: str) -> str:
     number (``True`` included) and an empty component id are programming errors, since
     loading never gives them: they raise ``ValueError``.
     """
-    if not _is_whole(seed) or not 0 <= seed <= MAX_SEED:
+    if not is_whole(seed) or not 0 <= seed <= MAX_SEED:
         raise ValueError(f"seed {seed!r} is not a whole number from 0 to 2**63 - 1")
-    if not _is_whole(replication) or replication < 0:
+    if not is_whole(replication) or replication < 0:
         raise ValueError(f"replication {replication!r} is not a whole number from 0")
     if not component_id:
         raise ValueError("the component id of a stream key is empty")

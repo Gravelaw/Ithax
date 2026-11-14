@@ -2478,6 +2478,32 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** a longer wait (an orphaned shell never ends, so it could not help); killing any leftover shell in teardown (hides the race instead of removing it).
 - **Spec sections updated:** build guide "Milestones" (M12), and `CLAUDE.md`.
 
+## 2026-11-14 · M12 · Owner: rule 5 adds a change of target platform; P11 stays out (#99)
+
+- **Decision (owner, 2026-11-14, through the orchestrating session):**
+  - Rule 5's blocking criteria, which send a question to "Awaiting owner", gain "a target platform", from retrospective P14. P14's other proposed criterion, "more than a day of work", is not added.
+  - P11 ("sessions and sub-agents never merge; the owner merges") stays unapplied: the owner confirms that the orchestrating session merges without the owner's consent once CI is green and review has nothing open (C10).
+- **Reason:** the owner's answer to the two items listed by PR #140.
+- **Alternatives considered:** none; the owner decided.
+- **Spec sections updated:** build guide rule 5 (and `CLAUDE.md`).
+
+## 2026-11-14 · M12 · Retrospective PR 4: review rules for Codex, and the review-findings procedure (#99; P7)
+
+- **Decision:**
+  - A root `AGENTS.md` steers Codex's review with the proposal's rules. Two corrections, both found by checking before applying, as the proposal asked:
+    - **Heading.** OpenAI's page on Codex's GitHub review ([learn.chatgpt.com/docs/third-party/github](https://learn.chatgpt.com/docs/third-party/github), read 2026-11-14; the old developers.openai.com address now redirects there) says to add "`## Code Review Rules`" to the `AGENTS.md` closest to the code, with `###` groups. The proposal's "Review guidelines" heading came from a search summary, so the file uses the page's heading and groups.
+    - **Helpers.** The proposal named a helper `lcsim.strict_json.is_finite_real`, which does not exist; `real_in` already refuses NaN and infinity. The file names only helpers that exist: `real_in`, `whole_in`, `read_json` and `lcsim.service.paths.canonical`.
+  - Claude Code reads `AGENTS.md` only when there is no `CLAUDE.md`, so sessions are unaffected (proposal P7, item 1).
+  - The guide's "Session procedure" gains "Review findings" (P7 items 2 to 4):
+    - the three reply forms;
+    - redesigning after the second finding of a class, not the third: one shared helper and a check that would catch the next;
+    - an `AGENTS.md` bullet for each class found twice.
+
+    This applies F2's approval of P7; the guide change is that approval.
+- **Reason:** owner decision F2; the proposal's evidence W2 (47 findings in recurring classes over 56 PRs; #34 redesigned after the third path finding, and #45 needed five redesigns).
+- **Alternatives considered:** the proposal's heading verbatim (the current page names another); keeping `is_finite_real` (it does not exist).
+- **Spec sections updated:** build guide "Session procedure" (and `CLAUDE.md`).
+
 ## 2026-11-14 · M12 · Retrospective PR 3: agent hooks and the fast gate (#99; P2)
 
 - **Decision:**
@@ -2491,6 +2517,50 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - The proposal's four skills (P2 "Skills") are in no row of its order of adoption. They read `AGENTS.md` (row 4) and `docs/STATUS.md` (row 6), so they follow row 6 as a PR of their own; `owner-question` will open a GitHub issue, not a Linear one (Linear retired, #100).
 - **Reason:** owner decision F2; the proposal's evidence W8 and W3 (lint findings left to CI; slow local feedback).
 - **Alternatives considered:** the proposal's text verbatim (would run the desktop and package tests, and do nothing where the tools live in `.venv`).
+- **Spec sections updated:** none.
+- **Dependencies added:** none.
+
+## 2026-11-14 · M12 · Retrospective PR 8a: JSON and randomness through one helper each, enforced by ruff (#99; P5)
+
+- **Decision:**
+  - P5 is split into small PRs (P10's size rule). This one covers JSON and randomness; 8b covers whole and finite numbers with `tests/test_conventions.py`; 8c covers atomic writes and the `os.replace` ban.
+  - `lcsim.strict_json` gains two helpers:
+    - `json_text(value, *, ascii_only, compact)`: the one maker of JSON text that is not a file (a message quoting a value, a progress line, the service's response body, an MCP request or result). It refuses NaN and infinity, as `encode_json` does.
+    - `read_json_object_file(path)`: `read_json_file` that also refuses anything but an object.
+  - Sites moved:
+    - Writes through `encode_json`, with byte-identical output: the engine inputs and the solution, `summary.json` and `manifest.json`. These were the proposal's five copies.
+    - Reads through `read_json`, `read_json_file` or `read_json_object_file`: the schema, the engine inputs and the solution, `service.json`, the worker's manifest read, `manifest.json` and the WebSocket token message.
+    - Through `json_text`, with the same text as before: the error body, the progress lines, the fidelity message, the MCP client body and the MCP tool texts.
+  - ruff `TID251` bans `random`, `numpy.random.seed`, `numpy.random.default_rng`, `json.loads`, `json.load`, `json.dumps` and `json.dump`, each with a message naming the helper. A probe file trips all four kinds. `tests/**`, `scripts/**` (tools, not product code) and `strict_json.py` itself are exempt.
+  - Two sites keep `json.loads` with a `noqa` and a reason:
+    - The model loader's strict reader turns duplicate keys, digit limits and constants into coded issues that name their place.
+    - The model store's admission names the place of a value that `read_json` would refuse outright.
+
+    The proposal would move the loader's reader into `strict_json`. That would move issue-producing code for no gain in strictness, so it is not done.
+  - **Behaviour changes, each a stricter read of a file the product itself wrote.** A NaN, an infinity, a lone surrogate or a non-object in an engine input, a solution, a manifest or `service.json` is now refused with `UnreadableJSON` (a `ValueError`), where it was read before. A worker progress fraction cannot be NaN (`Progress` refuses it), so its line cannot fail.
+- **Reason:** owner decision F2; the proposal's evidence W2 (each review fix patched one hand-written copy).
+- **Alternatives considered:** banning `json` outright with `noqa` at every site (hides the helper); moving the loader's reader (above).
+- **Spec sections updated:** none.
+- **Dependencies added:** none.
+
+## 2026-11-14 · M12 · Retrospective PR 8b: "a JSON number, not a bool" written once (#99; P5)
+
+- **Decision:**
+  - `lcsim.strict_json` gains three helpers:
+    - `is_whole`: an `int` that is not a `bool`.
+    - `is_number`: an `int` or `float` that is not a `bool`.
+    - `is_finite_real`: a finite number. An `int` is never converted to a float, so `10**309` is admitted rather than overflowing.
+
+    `whole_in` and `real_in` now use them.
+  - The eight hand-written checks move onto the helpers. These are the proposal's four (`mcp/tools.py`, `model/schema.py`, `model/streams.py`, `service/discovery.py`) and four more of the int-or-float shape (`model/units.py`, `model/data_files.py`, `model/loading.py`, `findings/rules.py`). The private copies in `streams` and `tools`, and `units._is_json_number`, are removed. Behaviour is unchanged.
+  - `tests/test_conventions.py` is the proposal's test, widened:
+    - It matches both written shapes: `… and not isinstance(x, bool)`, and `isinstance(x, bool) or not …`.
+    - It matches `int`, `int | float` and `(int, float)`, and only those numeric sets, so checks such as `migration.py`'s int-or-text one are not flagged.
+    - Against the code before this PR it flags all 8 sites; after it, none. A second test pins which shapes it finds.
+  - Not moved: the float-only NaN checks in `service/run_service.py` (a NaN table cell becomes null or an empty field) and `mcp/tools.py` (a body to send). Both ask "is this float a NaN", not "is this a JSON number". Nor the statistics' NaN filters (NaN means a missing value there). The proposal counted these among "about 12" finiteness checks; none has the JSON-number shape the helper serves.
+  - Stacked on #144 (8a), since both extend `strict_json`.
+- **Reason:** owner decision F2; the proposal's evidence W2.
+- **Alternatives considered:** the proposal's test verbatim (it found only the `and not` shape, and missed the four `or not` and int-or-float sites).
 - **Spec sections updated:** none.
 - **Dependencies added:** none.
 
@@ -2521,3 +2591,45 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** recording whole responses (values change from run to run); a JSON Schema per route (more to maintain, and the spec's tables do not define one).
 - **Spec sections updated:** none (#148 adds the rule).
 - **Dependencies added:** none.
+
+## 2026-11-14 · M12 · Retrospective PR 11a: the compatibility rule and the model corpus (#99; P24)
+
+- **Decision:**
+  - The guide's "Conventions" gains the proposal's **Compatibility** row, applying F2's approval of P24. It reads: a model that loads in a released version loads in every later one, through migration if older; a working `/v1` request keeps working; a `/v1` response keeps every field and its JSON type, and may add fields. A change that cannot meet this needs a new format version with a migration, or a new API version, and an owner decision record.
+  - `tests/compat/models/<format_version>/` is the model corpus, and it only grows. It starts with every model of `examples/` (3), `templates/` (10) and `benchmarks/` (17) at Phase 1's close, each copied verbatim and filed under its own `format_version`: 27 at 0.1 and 3 at 0.2.
+  - `tests/compat/test_models_load.py` loads each file with zero errors (warnings allowed), checks it is filed under its version, and fails if the corpus shrinks below its starting 30.
+  - P24's second half, the `/v1` response-shape records, follows as 11b. It needs a fixed, seeded scenario run through the service.
+- **Reason:** owner decision F2; from Phase 2, saved models, template packages and assistants calling `/v1` depend on these formats.
+- **Alternatives considered:** loading `examples/` and `templates/` in place (they change with the product; a frozen copy is what catches a regression).
+- **Spec sections updated:** build guide "Conventions" (and `CLAUDE.md`).
+
+## 2026-11-14 · M12 · Retrospective PR 10: warnings are errors in the tests (#99; P20)
+
+- **Decision:**
+  - `pyproject.toml` sets `filterwarnings = ["error"]`. This row comes before row 9 (property tests), as it needs nothing that row 9 adds.
+  - Every warning came from a leaked resource, so each was fixed rather than ignored; no `ignore:` entry was needed. Before the fix, the fast tier with `-W error` failed 9 tests (the proposal counted 10 on 2026-11-09). With the `desktop` and `package` markers, 2 more failed. Each leak:
+    - **The launcher (product).** `main()` starts the service detached and dropped its `Popen` while the service ran on. Python reports that as "subprocess … is still running" once the handle is collected; it caused 7 of the 9. The detach is intended, so the handle is now kept in `lcsim.launcher.launch.DETACHED` for the life of the process, as the proposal recommends ("keep its `Popen` handle … rather than silence the warning"). The tests' `stop()` reaps it.
+    - **`tests/runs/test_limits.py` and `tests/runs/test_lock.py` (tests).** Each left a child's pipe open; each now uses `Popen` as a context manager.
+    - **`tests/desktop/test_shell.py` (tests).** The WebDriver helper never closed its kept-alive connection, which failed both desktop tests and the installed-shell package test; `driver()` now closes it.
+  - Checked: `check.sh` (4,002 tests, the benchmarks and templates included), `scripts/fast.sh` twice, `pytest -m desktop` (2) and `pytest -m package` (8) all pass with warnings as errors.
+- **Reason:** owner decision F2; the proposal's evidence W2 and W8 (process-lifetime leaks, which the interpreter reports but nothing gated).
+- **Alternatives considered:** `ignore::ResourceWarning` entries (would hide the class the rule exists to catch); a double fork for the launcher (more code and a Windows path, for the same result).
+- **Spec sections updated:** none.
+- **Dependencies added:** none.
+
+## 2026-11-14 · M12 · Retrospective PR 9: the first property tests (#99; P6)
+
+- **Decision:**
+  - `tests/properties/` holds the first Hypothesis property tests, eight in all:
+    - **The loader never raises:** the proposal's three tests, verbatim: any JSON value, the coffee shop with one hostile leaf, any bytes or text. Each gives a model or an issue.
+    - **`strict_json` round-trips what it admits:** it admits a value only when `encode_json` can write it back, refuses NaN, infinity and lone surrogates, and reads or refuses any bytes without raising.
+    - **The read-back of two files never raises:** any content of `settings.json` gives a settings body, and any content of a run's `manifest.json` gives a run or `None`.
+  - The hostile values the tests share are in `tests/properties/strategies.py`.
+  - The proposal's route and path properties, and the interface's fast-check tests, were untried in it. They are left for later rows, as its order of adoption says ("the first property tests").
+  - Profiles (`tests/properties/conftest.py`): `ci`, used when `CI` is set, is derandomized and has no deadline, so a CI failure reproduces from its log. `thorough` (2,000 examples, `HYPOTHESIS_PROFILE=thorough`) is for long runs. The profiles live in the folder's own conftest rather than the proposal's `tests/conftest.py`, which would shadow the process tests' `conftest` (row 2).
+  - `.hypothesis/` is ignored by git.
+  - Results: 8 passed at the default 100 examples (4 s), and at 2,000 (24 s). No open defect of these classes today; the value is in catching the next one.
+- **Reason:** owner decision F2; the proposal's evidence W2 (29 of the 100 Codex findings were input robustness).
+- **Alternatives considered:** route properties now (untried in the proposal, and much slower through `TestClient`).
+- **Spec sections updated:** none.
+- **Dependencies added:** hypothesis 6.170.15 (`>=6.170.15`), MPL-2.0, dev only; checked with `pip show hypothesis` (License-Expression: MPL-2.0). It brings sortedcontainers 2.4.0, Apache-2.0 (`pip show sortedcontainers`: License: Apache 2.0). Both are in `uv.lock` (`uv lock`, after #143 merged), and `uv sync --locked --extra dev` was checked in a fresh environment. MPL-2.0 is file-level copyleft and compatible with AGPL-3.0 use as a test tool; nothing of either ships in the product.

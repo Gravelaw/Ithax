@@ -45,6 +45,7 @@ from typing import Any, Literal
 
 from lcsim.findings.display import figures, percent, quantity, value_text
 from lcsim.model.model import JsonValue, Model, ParameterType
+from lcsim.strict_json import is_finite_real, is_number
 
 __all__ = [
     "DEFAULT_THRESHOLDS",
@@ -94,9 +95,9 @@ class Thresholds:
     def __post_init__(self) -> None:
         for item in fields(self):
             value = getattr(self, item.name)
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
+            if not is_number(value):
                 raise ValueError(f"threshold {item.name} must be a number, not {value!r}")
-            if not math.isfinite(value) or value < 0:
+            if not is_finite_real(value) or value < 0:
                 raise ValueError(f"threshold {item.name} must be a finite number at least 0")
         for name in ("bottleneck_utilization", "idle_utilization", "relative_half_width"):
             if getattr(self, name) > 1:

@@ -72,20 +72,21 @@ def test_a_child_process_counts_with_its_parent() -> None:
     alone = process_tree_memory(os.getpid())
     # The child holds 50 MB of touched memory, then says so.
     code = "import sys; b = b'x' * 50_000_000; print('ready', flush=True); sys.stdin.read()"
-    child = subprocess.Popen(
+    # As a context manager, so both pipes are closed and the child waited for (P20).
+    with subprocess.Popen(
         [sys.executable, "-c", code], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
-    )
-    try:
-        assert child.stdout is not None and child.stdout.readline().strip() == "ready"
-        own = process_tree_memory(child.pid)
-        with_child = process_tree_memory(os.getpid())
-        assert alone is not None and with_child is not None and own is not None
-        assert own > 50_000_000
-        assert with_child > alone + 45_000_000  # the parent's own use moves a little
-    finally:
-        assert child.stdin is not None
-        child.stdin.close()
-        child.wait()
+    ) as child:
+        try:
+            assert child.stdout is not None and child.stdout.readline().strip() == "ready"
+            own = process_tree_memory(child.pid)
+            with_child = process_tree_memory(os.getpid())
+            assert alone is not None and with_child is not None and own is not None
+            assert own > 50_000_000
+            assert with_child > alone + 45_000_000  # the parent's own use moves a little
+        finally:
+            assert child.stdin is not None
+            child.stdin.close()
+            child.wait()
 
 
 def test_memory_is_unknown_without_proc(tmp_path: Path) -> None:

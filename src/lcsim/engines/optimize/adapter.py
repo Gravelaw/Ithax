@@ -24,7 +24,6 @@ which terminates the worker.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -35,6 +34,7 @@ from lcsim.engines.optimize.solver import is_tight, solve, solver_version
 from lcsim.engines.optimize.translate import INPUT_FILE, read_input, write_input
 from lcsim.model.issues import Issue
 from lcsim.model.model import Model
+from lcsim.strict_json import encode_json, read_json_object_file
 
 __all__ = ["INPUT_FILE", "SOLUTION_FILE", "SOLUTION_KEYS", "HighsAdapter"]
 
@@ -108,15 +108,14 @@ class HighsAdapter:
         }
         output.parent.mkdir(parents=True, exist_ok=True)
         partial = output.with_name(output.name + ".partial")
-        text = json.dumps(document, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
-        partial.write_text(text, encoding="utf-8")
+        partial.write_bytes(encode_json(document))
         partial.replace(output)
         on_progress(Progress(1.0, f"Solved: {outcome.status}"))
 
     def collect(self, workdir: Path) -> Results:
         """The solution ``run`` wrote, in the spec 2 layout, as ``Results.solution``;
         ``FileNotFoundError`` when ``run`` did not finish."""
-        document = json.loads((workdir / SOLUTION_FILE).read_text(encoding="utf-8"))
+        document = read_json_object_file(workdir / SOLUTION_FILE)
         return Results(
             tables={}, warnings=[], solution={key: document[key] for key in SOLUTION_KEYS}
         )
