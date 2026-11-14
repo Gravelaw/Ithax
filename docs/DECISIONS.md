@@ -2426,6 +2426,27 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Spec sections updated:** none (the guide does not describe the CI jobs).
 - **Dependencies added:** none.
 
+## 2026-11-13 · M12 · Retrospective PR 2: parallel tests, branch coverage, pydantic declared (#99; P1, part of P9)
+
+- **Decision:**
+  - `scripts/check.sh` runs pytest with `-n auto` (pytest-xdist). Coverage counts branches as well as lines (`[tool.coverage.run] branch = true`), and the gate is 99% of the two combined, in place of 90% of lines. Measured on 4 cores of the agent container: 99.92% (10,277 statements, none missed; 2,936 branches, 11 of them partial), and `check.sh` takes 3 min 16 s in place of about 8 min, with the same 3,992 tests.
+  - The endpoint-coverage test (spec 3 "Endpoints": every row has a request test) failed under xdist, since each worker records only its own requests. The fix is the one the proposal preferred, a check in the controller after every worker has finished:
+    - Each worker writes its record to a folder the controller hands it (`tests/service/conftest.py`).
+    - The coverage test hands the check over when it runs in a worker.
+    - The controller checks the union and fails the session if a row went unreached, or if a worker wrote no record (`tests/xdist_routes.py`, via `tests/service/route_check.py`).
+    - A deliberately broken worker record made `pytest -n 4 tests/service` exit 1 with the missing row named; restored afterwards.
+    - Serial runs and `-n 0` behave as before, and a partial run still uses the serial fallback, now with `-p no:xdist`.
+    - The endpoint-table parsing moved from `test_routes.py` to `tests/service/endpoint_table.py`, so that both halves share it.
+  - The controller's hooks are a plugin, `tests/xdist_routes.py`, loaded by `-p xdist_routes` with `pythonpath = ["tests"]`, not a `tests/conftest.py`. The process adapter's tests do `from conftest import …` against `tests/engines/process/conftest.py`, which a second top-level `conftest` would shadow (mypy also refuses two modules named `conftest`). The plugin imports nothing from `lcsim` until the session ends, so loading it before coverage starts costs no coverage.
+  - `pydantic` is declared (`>=2.14.3`, the installed and locked version; the proposal named 2.13.5 from 2026-11-09), since `lcsim.service` imports it directly.
+  - The guide's Tests convention now states the parallel run and the 99% line-and-branch gate. The M14 row was to add #135 at the orchestrator's request; #135 then moved to M12 and was closed by #141, so the merge with `main` leaves M14 without it. This applies F2's approval of P1 and P9.
+- **Reason:** owner decision F2; the proposal's evidence W3 (test time) and W8 (a 90% gate against a 100% nothing enforced).
+- **Alternatives considered:** `xdist_group("routes")` with `--dist loadgroup`, which puts every service test on one worker and loses the balance; keeping 90% (the proposal's argument for 99% stands).
+- **Spec sections updated:** build guide "Conventions" (Tests) and "Milestones" (M14), with `CLAUDE.md`.
+- **Dependencies added:**
+  - pytest-xdist 3.8.0, MIT, dev only. Checked with `pip show` (License-Expression: MIT). It brings execnet 2.1.2, MIT, checked the same way.
+  - pydantic 2.14.3, MIT, already installed and locked as fastapi's dependency, now declared. Checked with `pip show` and `packaging/linux/requirements.lock`.
+
 ## 2026-11-14 · M12 · Retrospective PR 5: owner questions, readings, digest, PR size, merge readiness, numbers (#99; P13, P14, P15, P10, P19)
 
 - **Decision:**

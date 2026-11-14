@@ -62,6 +62,15 @@ def pytest_sessionfinish(session: pytest.Session) -> None:
     record = os.environ.get(route_recorder.RECORD_FILE_VARIABLE)
     if record:
         route_recorder.write_record(Path(record), route_recorder.RECORDED)
+    # A pytest-xdist worker: its record goes to the controller's folder (tests/xdist_routes.py).
+    workerinput = getattr(session.config, "workerinput", None)
+    if workerinput is not None and route_recorder.RECORD_DIR_KEY in workerinput:
+        route_recorder.write_worker_record(
+            Path(workerinput[route_recorder.RECORD_DIR_KEY]),
+            workerinput["workerid"],
+            route_recorder.RECORDED,
+            route_recorder.DEFERRED,
+        )
 
 
 @pytest.fixture(scope="session", autouse=True)
