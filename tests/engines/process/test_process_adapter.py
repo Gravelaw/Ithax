@@ -16,6 +16,7 @@ from typing import Any
 
 import pyarrow as pa
 import pytest
+import simpy
 
 import ithax
 from ithax.engines.adapter import Progress
@@ -39,10 +40,11 @@ def load(document: object) -> Model:
     return model
 
 
-def test_the_adapter_is_named_simpy_with_the_product_version() -> None:
+def test_the_adapter_is_named_simpy_with_simpys_version() -> None:
     adapter = ProcessAdapter()
     assert adapter.name == "simpy"
-    assert adapter.version == ithax.__version__
+    # SimPy's own version, not the product's (#78).
+    assert adapter.version == simpy.__version__ != ithax.__version__
 
 
 def test_validate_adds_no_issue_to_a_valid_model() -> None:

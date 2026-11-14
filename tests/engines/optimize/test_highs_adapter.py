@@ -64,7 +64,8 @@ def test_the_adapter_declares_the_optimization_domain_mit_and_in_process() -> No
     adapter = HighsAdapter()
     assert isinstance(adapter, EngineAdapter)
     assert adapter.name == "highs"
-    assert adapter.version == ithax.__version__
+    # HiGHS's own version, the one the solution records (#78).
+    assert adapter.version == solver_version() != ithax.__version__
     assert adapter.capabilities() == Capabilities(
         domains=("optimization",),
         component_types={},

@@ -119,7 +119,7 @@ describe("summary.json", () => {
       `Run: ${RID}`,
       "Fidelity: Standard: 30 replications of 100 h, 95% confidence",
       "Replications: 30 · Confidence: 95%",
-      "Engine: simpy 0.0.0",
+      "Engine: simpy 4.1.2",
       NO_WARRANTY,
     ]);
     expect(NO_WARRANTY).toBe("Simulation results are estimates and carry no warranty.");

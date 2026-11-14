@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Ithax",
-  "version": "0.0.0",
+  "version": "0.1.0-dev.0",
   "identifier": "org.ithax.desktop",
   "build": {
     "frontendDist": "../static"

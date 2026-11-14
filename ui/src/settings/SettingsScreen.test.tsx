@@ -43,7 +43,7 @@ function settingsService(initial: Settings = SETTINGS, issues: Issue[] = []) {
     .answer("GET /v1/engines", [
       {
         name: "simpy",
-        version: "0.0.0",
+        version: "4.1.2",
         domains: ["process"],
         component_types: [],
         hardware: [],
@@ -118,7 +118,7 @@ describe("Settings reads", () => {
       within(targets).getByRole("rowheader", { name: "remote (SSH)" }).closest("tr"),
     ).toHaveTextContent("Not available in this version");
     expect(screen.getByRole("rowheader", { name: "simpy" }).closest("tr")).toHaveTextContent(
-      "simpy0.0.0processMIT",
+      "simpy4.1.2processMIT",
     );
     // The run settings and the idle timeout each say so.
     expect(screen.getAllByText(AT_NEXT_START)).toHaveLength(2);

@@ -2771,3 +2771,22 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - No fallbacks at all, since nothing was released. But an install made for the M11 owner checks may hold `lcsim` folders.
 - **Spec sections updated:** spec 3 "Discovery", "Packaging" and "Desktop shell" (names and the folder rule), spec 4 (the server name, in its changelog line), the build guide's layout note on the package name. Each has a dated line where it has a changelog.
 - **Dependencies added:** none.
+
+## 2026-11-14 · M12 · Real version numbers (#78)
+
+- **Decision:**
+  - **Ithax is `0.1.0.dev0`.** Under owner decision F7 (semantic versions; v0.1.0 after Phase 1a's correctness and data safety), it is the development version of v0.1.0. It is written to PEP 440, as Python packaging requires. The tag commit at M16 sets `0.1.0`.
+    - This number now reaches every place the issue names: the archive's name `ithax-0.1.0.dev0-linux-x86_64.tar.gz`, the manifest's `product_version`, the service's OpenAPI version, the MCP server's version, the install check, and the footer and Settings, which read them.
+    - Taking the planned release's development version is a reversible reading. The release number itself is F7's.
+  - **The desktop shell carries the same version** in semver's spelling, `0.1.0-dev.0`, in `Cargo.toml`, `tauri.conf.json` and its `package.json`. `tests/test_package.py` keeps all three in step with `ithax.__version__`, and checks that the installed distribution reports the same version.
+  - **SimPy and HiGHS report their own versions.** Each product adapter's `version` was the product's (`0.0.0`). It is now its engine's: SimPy 4.1.2 and HiGHS 1.15.1 today, read with `importlib.metadata` from `simpy` and `highspy`.
+    - So `GET /v1/engines`, the manifest's `engine`, Settings, the footer and MCP name the engine that made the results.
+    - The tests check the HiGHS value against the solver's own report, the one `solution.json` records, and the SimPy value against `simpy.__version__`.
+    - Spec 1 "Engine contract" said the adapters carry the product version; it now says the engine's, with a dated line. This changes a value in `/v1` and in the manifest, not a field or its type, so the compatibility rule holds.
+  - **Examples changed:** the MCP tool description's example and the interface's test fixtures now show `simpy 4.1.2`, not `0.0.0`.
+- **Reason:** issue #78 (E1, M11-51: a real version number before any outside tester) and the M12 row of the guide: "Ithax, SimPy and HiGHS report their real versions".
+- **Alternatives considered:**
+  - A version from git tags (hatch-vcs). It adds a build dependency, and gives a version that differs between a checkout and an archive.
+  - `0.1.0` now. It would claim a release that does not exist yet.
+- **Spec sections updated:** spec 1 "Engine contract" (a dated line).
+- **Dependencies added:** none.

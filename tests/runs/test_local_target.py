@@ -17,6 +17,7 @@ from typing import Any
 
 import pyarrow.parquet as pq
 import pytest
+import simpy
 from dummy_adapters import (
     GRANDCHILD_RECORD,
     RUN_RECORD,
@@ -200,7 +201,7 @@ def test_a_real_run_with_two_workers_writes_only_inside_engine(tmp_path: Path) -
         "output/timeseries.parquet",
     ]
     manifest = read_manifest(run.folder)
-    assert manifest["engine"] == {"name": "simpy", "version": ithax.__version__}
+    assert manifest["engine"] == {"name": "simpy", "version": simpy.__version__}
     replications = pq.read_table(run.folder / "tables" / "replications.parquet")
     assert set(replications.column("replication").to_pylist()) == {0, 1}
     summary = json.loads((run.folder / "summary.json").read_text(encoding="utf-8"))

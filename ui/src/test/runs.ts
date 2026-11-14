@@ -12,7 +12,7 @@ export function aRun(change: Partial<Run> = {}): Run {
     run_id: RID,
     project_id: "p1",
     experiment_id: "base",
-    engine: { name: "simpy", version: "0.0.0" },
+    engine: { name: "simpy", version: "4.1.2" },
     state: "done",
     fraction: 1,
     message: "",

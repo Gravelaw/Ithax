@@ -12,7 +12,7 @@ const FOOTER = [
   "Run: 20261108T101502-K3QX7A",
   "Fidelity: Standard: 30 replications of 200 h, 95% confidence",
   "Replications: 30 · Confidence: 95%",
-  "Engine: simpy 0.0.0",
+  "Engine: simpy 4.1.2",
   "Simulation results are estimates and carry no warranty.",
 ];
 
