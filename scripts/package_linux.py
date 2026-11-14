@@ -1,6 +1,6 @@
 """Build the Linux package (spec 3 "Packaging"; AKS-127): ``python scripts/package_linux.py``.
 
-It makes ``dist/lcsim-<version>-linux-x86_64.tar.gz`` and its checksum file
+It makes ``dist/ithax-<version>-linux-x86_64.tar.gz`` and its checksum file
 ``....tar.gz.sha256`` from this checkout (``docs/research/spec-3-linux-packaging.md``):
 
 1. the interface (``npm ci`` and ``npm run build`` in ``ui/``) and the desktop shell
@@ -9,11 +9,11 @@ It makes ``dist/lcsim-<version>-linux-x86_64.tar.gz`` and its checksum file
 2. the relocatable CPython of python-build-standalone, downloaded once into ``dist/cache``
    and checked against its pinned SHA-256;
 3. the run-time wheels of ``packaging/linux/requirements.lock`` (exact versions and hashes)
-   and the ``lcsim`` wheel built from this checkout, installed into that Python;
+   and the ``ithax`` wheel built from this checkout, installed into that Python;
 4. the licences checked against ``packaging/linux/licences.json``: the build fails on any
    installed distribution not recorded there with its version, or any licence term not
    recorded as compatible;
-5. the interface and templates under ``python/share/lcsim``, the shell in ``lib/``, the
+5. the interface and templates under ``python/share/ithax``, the shell in ``lib/``, the
    commands and install scripts of ``packaging/linux``, the licence texts;
 6. one archive in a fixed order, with fixed owners and the commit's time on every file.
 
@@ -64,7 +64,7 @@ PYTHON_SHA256 = "f326b7a386bf22def82e55dc3b95d2bef8b7c938b4c98ec32dd65433e7720b5
 #: Sleepycat licence and nothing in the package uses it (``licences.json``).
 REMOVED_MODULES = ("_dbm",)
 
-COMMANDS = ("lcsim", "lcsim-launcher", "lcsim-mcp")
+COMMANDS = ("ithax", "ithax-launcher", "ithax-mcp")
 
 _PIN = re.compile(
     r"^(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)==(?P<version>[^\s=]+)"
@@ -275,7 +275,7 @@ def third_party_text(record: Mapping[str, Any], crates: Sequence[Mapping[str, st
     licence, and where its licence text is."""
     python = record["python"]
     lines = [
-        "lcsim is free software under the GNU Affero General Public License version 3 only",
+        "Ithax is free software under the GNU Affero General Public License version 3 only",
         "(LICENSE). Its source is at https://github.com/Gravelaw/Ithax. It bundles the",
         "components below, each under its own licence.",
         "",
@@ -298,10 +298,10 @@ def third_party_text(record: Mapping[str, Any], crates: Sequence[Mapping[str, st
         lines += [f"      bundles {bundled}" for bundled in entry.get("bundled", [])]
     lines += [
         "",
-        "The interface (python/share/lcsim/ui): its npm packages and their licences are in",
-        "python/share/lcsim/ui/THIRD-PARTY-NOTICES.txt.",
+        "The interface (python/share/ithax/ui): its npm packages and their licences are in",
+        "python/share/ithax/ui/THIRD-PARTY-NOTICES.txt.",
         "",
-        "The desktop shell (lib/lcsim-desktop) is built from these Rust crates:",
+        "The desktop shell (lib/ithax-desktop) is built from these Rust crates:",
     ]
     lines += [f"  - {crate['name']} {crate['version']}: {crate['license']}" for crate in crates]
     lines += [
@@ -395,7 +395,7 @@ def build(out: Path, prebuilt: bool) -> Path:
     import ithax  # the checkout's own version
 
     version = ithax.__version__
-    name = f"lcsim-{version}-linux-x86_64"
+    name = f"ithax-{version}-linux-x86_64"
     commit = _output(["git", "rev-parse", "HEAD"]).strip()
     mtime = int(
         os.environ.get("SOURCE_DATE_EPOCH") or _output(["git", "log", "-1", "--format=%ct"])
@@ -404,7 +404,7 @@ def build(out: Path, prebuilt: bool) -> Path:
     pins = read_lock(LOCK.read_text(encoding="utf-8"))
 
     ui_dist = ROOT / "ui" / "dist"
-    shell = ROOT / "desktop" / "src-tauri" / "target" / "release" / "lcsim-desktop"
+    shell = ROOT / "desktop" / "src-tauri" / "target" / "release" / "ithax-desktop"
     if not prebuilt:
         _run(["npm", "ci"], cwd=ROOT / "ui")
         _run(["npm", "run", "build"], cwd=ROOT / "ui")
@@ -437,10 +437,10 @@ def build(out: Path, prebuilt: bool) -> Path:
         install: list[str | Path] = [python, "-I", "-m", "pip", "install", "--no-deps"]
         install += ["--disable-pip-version-check", "--root-user-action=ignore", "--no-compile"]
         _run([*install, "--only-binary=:all:", "--require-hashes", "-r", LOCK])
-        _run([*install, *sorted(wheels.glob("lcsim-*.whl"))])
+        _run([*install, *sorted(wheels.glob("ithax-*.whl"))])
 
         installed = installed_distributions(python)
-        installed.pop("lcsim", None)
+        installed.pop("ithax", None)
         problems = check_licences(installed, record)
         locked = {normalise(pin.name): pin.version for pin in pins}
         for dist, dist_version in installed.items():
@@ -450,21 +450,21 @@ def build(out: Path, prebuilt: bool) -> Path:
             raise BuildError("licence or pin problems:\n  " + "\n  ".join(problems))
         rewritten = make_scripts_relocatable(stage / "python" / "bin")
         print(f"Made {len(rewritten)} console scripts relocatable", flush=True)
-        # pip records the lcsim wheel's temporary path; the package keeps no build path.
+        # pip records the ithax wheel's temporary path; the package keeps no build path.
         site_packages = stage / "python" / "lib" / "python3.13" / "site-packages"
-        direct_urls = sorted(site_packages.glob("lcsim-*.dist-info/direct_url.json"))
+        direct_urls = sorted(site_packages.glob("ithax-*.dist-info/direct_url.json"))
         for path in direct_urls:
             path.unlink()
         refresh_records(site_packages, rewritten, direct_urls)
 
-        share = stage / "python" / "share" / "lcsim"
+        share = stage / "python" / "share" / "ithax"
         shutil.copytree(ui_dist, share / "ui")
         shutil.copytree(
             ROOT / "templates", share / "templates", ignore=shutil.ignore_patterns("__pycache__")
         )
         shutil.copytree(PACKAGING / "python-licences", stage / "python" / "licenses")
         (stage / "lib").mkdir()
-        shutil.copy2(shell, stage / "lib" / "lcsim-desktop")
+        shutil.copy2(shell, stage / "lib" / "ithax-desktop")
         (stage / "bin").mkdir()
         for command in COMMANDS:
             shutil.copy2(PACKAGING / "bin" / command, stage / "bin" / command)
@@ -478,7 +478,7 @@ def build(out: Path, prebuilt: bool) -> Path:
             executable.chmod(0o755)
         (stage / "share").mkdir()
         shutil.copy2(
-            ROOT / "desktop" / "src-tauri" / "icons" / "128x128.png", stage / "share" / "lcsim.png"
+            ROOT / "desktop" / "src-tauri" / "icons" / "128x128.png", stage / "share" / "ithax.png"
         )
         shutil.copy2(ROOT / "LICENSE", stage / "LICENSE")
         shutil.copy2(PACKAGING / "INSTALL.txt", stage / "INSTALL.txt")
@@ -497,7 +497,7 @@ def build(out: Path, prebuilt: bool) -> Path:
                     cwd=ROOT / "desktop" / "src-tauri",
                 )
             ),
-            "lcsim-desktop",
+            "ithax-desktop",
         )
         (stage / "THIRD-PARTY-LICENSES.txt").write_text(third_party_text(record, crates), "utf-8")
         info = {
@@ -545,7 +545,7 @@ def build(out: Path, prebuilt: bool) -> Path:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build the lcsim Linux package.")
+    parser = argparse.ArgumentParser(description="Build the Ithax Linux package.")
     parser.add_argument("--out", type=Path, default=ROOT / "dist", help="output folder (dist)")
     parser.add_argument(
         "--prebuilt",

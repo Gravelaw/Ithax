@@ -1,6 +1,6 @@
 """``python tests/service/offline_service.py [service options]``: the service of
 ``python -m ithax.service`` with the network guard of ``offline_guard.py`` installed when
-``LCSIM_TEST_OFFLINE_DIR`` is set (AKS-114, the offline test).
+``ITHAX_TEST_OFFLINE_DIR`` is set (AKS-114, the offline test).
 
 The guard is installed at import, outside the ``__main__`` block, because a run's worker is
 started with ``spawn``, which imports this file again as the worker's main module (and the

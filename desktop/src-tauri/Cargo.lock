@@ -1608,7 +1608,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lcsim-desktop"
+name = "ithax-desktop"
 version = "0.0.0"
 dependencies = [
  "serde_json",

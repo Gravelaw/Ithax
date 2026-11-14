@@ -83,7 +83,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e
         env:
-          LCSIM_PYTHON: python
+          ITHAX_PYTHON: python
 
   # The desktop shell (AKS-142; docs/DECISIONS.md, 2026-11-09 · M11): Tauri's Linux
   # prerequisites, WebKitWebDriver and Xvfb from Ubuntu's archive; the shell built with the
@@ -179,10 +179,10 @@ jobs:
       - run: pytest -m package
       - uses: actions/upload-artifact@v4
         with:
-          name: lcsim-linux-x86_64
+          name: ithax-linux-x86_64
           path: |
-            dist/lcsim-*-linux-x86_64.tar.gz
-            dist/lcsim-*-linux-x86_64.tar.gz.sha256
+            dist/ithax-*-linux-x86_64.tar.gz
+            dist/ithax-*-linux-x86_64.tar.gz.sha256
           retention-days: 14
 
   # The one check that branch protection requires (P4). A skipped or cancelled job counts

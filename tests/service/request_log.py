@@ -38,7 +38,7 @@ from service.route_recorder import matched_route
 __all__ = ["LOG_FILE_VARIABLE", "RequestLog", "check", "main", "read_log"]
 
 #: The environment variable naming the log file of ``logged_service.py``.
-LOG_FILE_VARIABLE = "LCSIM_TEST_REQUEST_LOG"
+LOG_FILE_VARIABLE = "ITHAX_TEST_REQUEST_LOG"
 
 
 def _client(scope: Scope) -> str | None:

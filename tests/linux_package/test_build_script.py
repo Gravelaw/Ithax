@@ -293,7 +293,7 @@ def test_set_times_reaches_every_file_and_link(tmp_path: Path) -> None:
 
 METADATA = {
     "packages": [
-        {"id": "app", "name": "lcsim-desktop", "version": "0.0.0", "license": "AGPL-3.0-only"},
+        {"id": "app", "name": "ithax-desktop", "version": "0.0.0", "license": "AGPL-3.0-only"},
         {"id": "a", "name": "tauri", "version": "2.12.5", "license": "Apache-2.0 OR MIT"},
         {"id": "b", "name": "serde", "version": "1.0.0", "license": "MIT OR Apache-2.0"},
         {"id": "c", "name": "tauri-build", "version": "2.7.4", "license": "Apache-2.0 OR MIT"},
@@ -327,7 +327,7 @@ METADATA = {
 
 
 def test_shipped_crates_follow_normal_dependencies_only() -> None:
-    assert build.shipped_crates(METADATA, "lcsim-desktop") == [
+    assert build.shipped_crates(METADATA, "ithax-desktop") == [
         {"name": "cc", "version": "1.2.0", "license": "see the crate"},
         {"name": "serde", "version": "1.0.0", "license": "MIT OR Apache-2.0"},
         {"name": "tauri", "version": "2.12.5", "license": "Apache-2.0 OR MIT"},
@@ -336,9 +336,9 @@ def test_shipped_crates_follow_normal_dependencies_only() -> None:
 
 def test_the_notices_name_every_component_and_where_its_licence_is() -> None:
     document = record()
-    crates = build.shipped_crates(METADATA, "lcsim-desktop")
+    crates = build.shipped_crates(METADATA, "ithax-desktop")
     text = build.third_party_text(document, crates)
-    assert text.startswith("lcsim is free software under the GNU Affero General Public License")
+    assert text.startswith("Ithax is free software under the GNU Affero General Public License")
     assert "Python: CPython 3.13.16, PSF-2.0" in text
     assert "  - OpenSSL 3.5.9: Apache-2.0" in text
     assert "  - libedit: BSD-3-Clause" in text
@@ -346,7 +346,7 @@ def test_the_notices_name_every_component_and_where_its_licence_is() -> None:
     for name, entry in document["distributions"].items():
         assert f"  - {name} {entry['version']}: {entry['licence']}" in text
     assert "      bundles libgfortran: GPL-3.0-or-later WITH GCC-exception-3.1" in text
-    assert "python/share/lcsim/ui/THIRD-PARTY-NOTICES.txt" in text
+    assert "python/share/ithax/ui/THIRD-PARTY-NOTICES.txt" in text
     assert "  - tauri 2.12.5: Apache-2.0 OR MIT" in text
     assert text.endswith("not bundled.\n")
 
@@ -356,7 +356,7 @@ def test_the_notices_name_every_component_and_where_its_licence_is() -> None:
 
 @pytest.mark.parametrize(
     "name",
-    ["bin/lcsim", "bin/lcsim-launcher", "bin/lcsim-mcp", "install.sh", "uninstall.sh"],
+    ["bin/ithax", "bin/ithax-launcher", "bin/ithax-mcp", "install.sh", "uninstall.sh"],
 )
 def test_the_package_scripts_are_executable_posix_shell(name: str) -> None:
     path = PACKAGING / name
@@ -365,7 +365,7 @@ def test_the_package_scripts_are_executable_posix_shell(name: str) -> None:
     assert subprocess.run(["sh", "-n", path], check=False).returncode == 0
 
 
-@pytest.mark.parametrize("name", ["lcsim", "lcsim-launcher", "lcsim-mcp"])
+@pytest.mark.parametrize("name", ["ithax", "ithax-launcher", "ithax-mcp"])
 def test_each_command_isolates_the_bundled_python(name: str) -> None:
     text = (PACKAGING / "bin" / name).read_text("utf-8")
     assert "unset PYTHONHOME PYTHONPATH" in text

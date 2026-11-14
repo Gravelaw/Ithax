@@ -2,7 +2,7 @@
 
 Every problem the model layer reports to a user is one ``Issue``: a spec 1 code, its
 severity, the component concerned (or ``None``), a JSON Pointer ``path``, and a
-plain-language ``message`` and ``hint`` written by lcsim, never copied from an exception
+plain-language ``message`` and ``hint`` written by Ithax, never copied from an exception
 (guide "Conventions", Errors).
 
 The units layer raises errors that already carry ``code``, ``message`` and ``hint``

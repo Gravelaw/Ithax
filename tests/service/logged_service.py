@@ -1,6 +1,6 @@
 """``python tests/service/logged_service.py [service options]``: the service of
 ``python -m ithax.service``, its application wrapped in ``request_log.RequestLog`` so that
-every call that reaches it is logged to the file ``LCSIM_TEST_REQUEST_LOG`` names (AKS-121,
+every call that reaches it is logged to the file ``ITHAX_TEST_REQUEST_LOG`` names (AKS-121,
 the pointer-only end-to-end test's request log).
 
 The wrapping is a test's: the product has no request log and no option for one. Everything

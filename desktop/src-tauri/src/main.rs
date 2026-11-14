@@ -1,4 +1,4 @@
-//! The lcsim desktop shell (spec 3 "Architecture" and "Service rules", Desktop shell;
+//! The Ithax desktop shell (spec 3 "Architecture" and "Service rules", Desktop shell;
 //! AKS-142): one window that shows the interface the engine service serves.
 //!
 //! The window opens on the shell's own page ("Starting the engine service…"); a thread runs
@@ -31,7 +31,9 @@ const PAGE_WAIT: Duration = Duration::from_secs(10);
 
 fn main() {
     let options = launcher::passed_options(&std::env::args_os().skip(1).collect::<Vec<_>>());
-    let python = launcher::python(std::env::var_os(launcher::PYTHON_VARIABLE));
+    let python = launcher::python(launcher::python_variable(|name: &str| {
+        std::env::var_os(name)
+    }));
     let interface: Interface = Arc::new(Mutex::new(None));
     let page_loaded: PageLoaded = Arc::new((Mutex::new(false), Condvar::new()));
     tauri::Builder::default()
@@ -40,7 +42,7 @@ fn main() {
             let loaded = page_loaded.clone();
             let window =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                    .title("lcsim")
+                    .title("Ithax")
                     .inner_size(1280.0, 800.0)
                     .min_inner_size(800.0, 600.0)
                     .devtools(cfg!(debug_assertions))

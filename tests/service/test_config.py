@@ -19,9 +19,9 @@ CHECKOUT = Path(__file__).resolve().parents[2]
 Finder = Callable[..., Path]
 
 
-def test_the_installed_share_folder_is_share_lcsim_under_the_python_prefix() -> None:
-    assert installed_share_dir() == Path(sys.prefix) / "share" / "lcsim"
-    assert installed_share_dir("/opt/x/python") == Path("/opt/x/python/share/lcsim")
+def test_the_installed_share_folder_is_share_ithax_under_the_python_prefix() -> None:
+    assert installed_share_dir() == Path(sys.prefix) / "share" / "ithax"
+    assert installed_share_dir("/opt/x/python") == Path("/opt/x/python/share/ithax")
 
 
 @pytest.mark.parametrize(
@@ -37,7 +37,7 @@ class TestDefaultFolders:
     ) -> None:
         checkout, prefix = tmp_path / "checkout", tmp_path / "python"
         (checkout / checkout_part).mkdir(parents=True)
-        (prefix / "share" / "lcsim" / installed_part).mkdir(parents=True)
+        (prefix / "share" / "ithax" / installed_part).mkdir(parents=True)
         assert finder(checkout, str(prefix)) == checkout / checkout_part
 
     def test_the_installed_folder_is_used_when_the_checkout_has_none(
@@ -45,8 +45,8 @@ class TestDefaultFolders:
     ) -> None:
         checkout, prefix = tmp_path / "checkout", tmp_path / "python"
         checkout.mkdir()
-        (prefix / "share" / "lcsim" / installed_part).mkdir(parents=True)
-        assert finder(checkout, str(prefix)) == prefix / "share" / "lcsim" / installed_part
+        (prefix / "share" / "ithax" / installed_part).mkdir(parents=True)
+        assert finder(checkout, str(prefix)) == prefix / "share" / "ithax" / installed_part
 
     def test_a_file_is_not_a_folder(
         self, finder: Finder, checkout_part: Path, installed_part: Path, tmp_path: Path
@@ -54,8 +54,8 @@ class TestDefaultFolders:
         checkout, prefix = tmp_path / "checkout", tmp_path / "python"
         (checkout / checkout_part).parent.mkdir(parents=True, exist_ok=True)
         (checkout / checkout_part).write_text("not a folder")
-        (prefix / "share" / "lcsim" / installed_part).mkdir(parents=True)
-        assert finder(checkout, str(prefix)) == prefix / "share" / "lcsim" / installed_part
+        (prefix / "share" / "ithax" / installed_part).mkdir(parents=True)
+        assert finder(checkout, str(prefix)) == prefix / "share" / "ithax" / installed_part
 
     def test_with_neither_the_checkout_folder_is_named(
         self, finder: Finder, checkout_part: Path, installed_part: Path, tmp_path: Path

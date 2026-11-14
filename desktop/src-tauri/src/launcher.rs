@@ -10,15 +10,27 @@ use std::process::{Command, Stdio};
 
 use tauri::Url;
 
-/// The environment variable naming the Python that has `lcsim` installed, as for the
+/// The environment variable naming the Python that has `ithax` installed, as for the
 /// interface's end-to-end tests (`ui/e2e/service.ts`).
-pub const PYTHON_VARIABLE: &str = "LCSIM_PYTHON";
+pub const PYTHON_VARIABLE: &str = "ITHAX_PYTHON";
+
+/// Its name before the product was named, read for one release when [`PYTHON_VARIABLE`] is
+/// unset or empty (#70).
+pub const LEGACY_PYTHON_VARIABLE: &str = "LCSIM_PYTHON";
 
 /// The launcher's options the shell passes on; each takes one value.
 pub const PASSED_OPTIONS: [&str; 4] = ["--config-dir", "--data-dir", "--ui-dir", "--idle-minutes"];
 
-/// The Python to run: `LCSIM_PYTHON` when set and not empty, else `python3` (`python` on
-/// Windows), found on the search path.
+/// The value naming the Python: [`PYTHON_VARIABLE`] when set and not empty, else
+/// [`LEGACY_PYTHON_VARIABLE`], as `read` gives them.
+pub fn python_variable(read: impl Fn(&str) -> Option<OsString>) -> Option<OsString> {
+    read(PYTHON_VARIABLE)
+        .filter(|value| !value.is_empty())
+        .or_else(|| read(LEGACY_PYTHON_VARIABLE))
+}
+
+/// The Python to run: the variable's value when set and not empty, else `python3`
+/// (`python` on Windows), found on the search path.
 pub fn python(variable: Option<OsString>) -> OsString {
     match variable {
         Some(value) if !value.is_empty() => value,
@@ -90,7 +102,7 @@ pub fn run(python: &OsStr, options: &[OsString]) -> Result<Url, String> {
         .map_err(|error| {
             format!(
                 "{} could not be run ({error}). Set {PYTHON_VARIABLE} to the Python that has \
-                 lcsim installed.",
+                 ithax installed.",
                 python.to_string_lossy()
             )
         })?;
@@ -105,7 +117,7 @@ pub fn run(python: &OsStr, options: &[OsString]) -> Result<Url, String> {
         });
     }
     interface_url(&stdout).ok_or_else(|| {
-        "The launcher did not print the interface's address. Check that the lcsim package \
+        "The launcher did not print the interface's address. Check that the ithax package \
          is installed for this Python."
             .to_string()
     })
@@ -148,6 +160,24 @@ mod tests {
             python(Some("/opt/py/bin/python".into())),
             OsString::from("/opt/py/bin/python")
         );
+    }
+
+    #[test]
+    fn python_variable_prefers_the_new_name() {
+        let both = |name: &str| Some(OsString::from(format!("/{name}")));
+        assert_eq!(python_variable(both), Some(OsString::from("/ITHAX_PYTHON")));
+    }
+
+    #[test]
+    fn python_variable_reads_the_old_name_when_the_new_one_is_unset_or_empty() {
+        for new in [None, Some(OsString::new())] {
+            let read = |name: &str| match name {
+                LEGACY_PYTHON_VARIABLE => Some(OsString::from("/old/python")),
+                _ => new.clone(),
+            };
+            assert_eq!(python_variable(read), Some(OsString::from("/old/python")));
+        }
+        assert_eq!(python_variable(|_: &str| None), None);
     }
 
     #[test]

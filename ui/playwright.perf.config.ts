@@ -1,11 +1,12 @@
 /**
  * The interface's performance check (`perf/`, AKS-121), started by
  * `tests/perf/test_interface.py` against a service it started; never part of `npm run e2e`.
- * `LCSIM_CHROMIUM` names a Chromium to use instead of Playwright's own download.
+ * `ITHAX_CHROMIUM` (or, for one release, its old name `LCSIM_CHROMIUM`; #70) names a
+ * Chromium to use instead of Playwright's own download.
  */
 import { defineConfig, devices } from "@playwright/test";
 
-const executablePath = process.env.LCSIM_CHROMIUM;
+const executablePath = process.env.ITHAX_CHROMIUM || process.env.LCSIM_CHROMIUM;
 
 export default defineConfig({
   testDir: "perf",

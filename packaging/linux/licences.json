@@ -26,7 +26,7 @@
     "licence": "PSF-2.0",
     "note": "python-build-standalone's PYTHON.json lists Python-2.0 and CNRI-Python: the Python licence stack, which the FSF lists as GPL-compatible for Python 2.0.1 and later",
     "source": "python-build-standalone release 20261020, cpython-3.13.16+20261020-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz; licences from PYTHON.json and licenses/ of the same release's pgo+lto-full archive, copied to packaging/linux/python-licences",
-    "removed": "_dbm (Berkeley DB 6.0.19 under the Sleepycat licence), which lcsim does not use; the dbm module still has dbm.sqlite3 and dbm.dumb",
+    "removed": "_dbm (Berkeley DB 6.0.19 under the Sleepycat licence), which Ithax does not use; the dbm module still has dbm.sqlite3 and dbm.dumb",
     "bundled": [
       {
         "name": "OpenSSL",

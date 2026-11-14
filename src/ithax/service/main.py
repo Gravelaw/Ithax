@@ -126,7 +126,7 @@ def bind_local() -> socket.socket:
 
 def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="python -m ithax.service", description="Start the lcsim engine service."
+        prog="python -m ithax.service", description="Start the Ithax engine service."
     )
     parser.add_argument("--config-dir", type=Path, help="the configuration folder")
     parser.add_argument("--data-dir", type=Path, help="the user data folder")
@@ -140,13 +140,13 @@ def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
         "--ui-dir",
         type=Path,
         help="the built interface to serve at /v1/ui/ (default: the checkout's ui/dist, else "
-        "share/lcsim/ui under the Python prefix)",
+        "share/ithax/ui under the Python prefix)",
     )
     parser.add_argument(
         "--templates-dir",
         type=Path,
         help="the template packages to serve at /v1/templates (default: the checkout's "
-        "templates, else share/lcsim/templates under the Python prefix)",
+        "templates, else share/ithax/templates under the Python prefix)",
     )
     arguments = parser.parse_args(argv)
     if arguments.idle_minutes is not None and not arguments.idle_minutes > 0:
@@ -166,12 +166,12 @@ def _own_or_find(config_dir: Path, out: TextIO, err: TextIO) -> RunLock | int:
         running = read_service_file(config_dir)
         if running is not None and probe(running):
             print(
-                f"An lcsim service is already running on {LOCAL_ADDRESS}:{running.port}.", file=out
+                f"An Ithax service is already running on {LOCAL_ADDRESS}:{running.port}.", file=out
             )
             return 0
         if time.monotonic() >= deadline:
             print(
-                f"Another lcsim service holds {config_dir / SERVICE_LOCK} but did not answer "
+                f"Another Ithax service holds {config_dir / SERVICE_LOCK} but did not answer "
                 f"within {STARTUP_WAIT_S:g} s.",
                 file=err,
             )
@@ -253,7 +253,7 @@ def _serve(
         servers.append(server)
         info = ServiceInfo(port=port, token=config.token, pid=os.getpid(), started=utc_now())
         write_service_file(config_dir, info)
-        print(f"lcsim service on {LOCAL_ADDRESS}:{port}", file=out, flush=True)
+        print(f"Ithax service on {LOCAL_ADDRESS}:{port}", file=out, flush=True)
         try:
             server.run(sockets=[sock])
         finally:

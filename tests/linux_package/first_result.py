@@ -5,9 +5,9 @@ container"; AKS-127).
 Run inside the clean container by ``clean_install.sh`` with the package's own Python and
 ``-I``, so it uses the standard library only and nothing of the repository::
 
-    python3 -I first_result.py --launcher ~/.local/bin/lcsim-launcher [--offline]
+    python3 -I first_result.py --launcher ~/.local/bin/ithax-launcher [--offline]
 
-It starts the service with the installed ``lcsim-launcher --print-url``, reads the token
+It starts the service with the installed ``ithax-launcher --print-url``, reads the token
 from the printed address, checks that the service serves the interface and ten templates,
 creates a project from the coffee shop template with ``POST /v1/projects``, runs its
 experiment with ``POST /v1/projects/{pid}/runs``, waits for ``done`` and reads

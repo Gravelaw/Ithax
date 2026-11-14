@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "lcsim",
+  "productName": "Ithax",
   "version": "0.0.0",
-  "identifier": "org.lcsim.desktop",
+  "identifier": "org.ithax.desktop",
   "build": {
     "frontendDist": "../static"
   },

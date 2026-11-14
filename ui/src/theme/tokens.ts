@@ -34,7 +34,7 @@ export function themeCss(source: DesignTokens = designTokens): string {
   ].join("\n");
 }
 
-export const THEME_STYLE_ID = "lcsim-tokens";
+export const THEME_STYLE_ID = "ithax-tokens";
 
 /** Adds the token style sheet to `document` once. */
 export function installTheme(document: Document): void {

@@ -19,7 +19,7 @@ the test would fail the same way.
 
 ``tests/service/conftest.py`` installs the recorder for the whole session, keeps track of
 whether every service test was collected, and moves the coverage test to the end of the
-session. With ``LCSIM_ROUTE_RECORD`` set (the coverage test's own fallback run) the session
+session. With ``ITHAX_ROUTE_RECORD`` set (the coverage test's own fallback run) the session
 writes what it recorded to that file when it ends.
 
 Under pytest-xdist (#99, P1) each worker records only its own requests. The controller (the
@@ -58,7 +58,7 @@ __all__ = [
 ]
 
 #: The environment variable naming the file a fallback session writes its record to.
-RECORD_FILE_VARIABLE = "LCSIM_ROUTE_RECORD"
+RECORD_FILE_VARIABLE = "ITHAX_ROUTE_RECORD"
 
 #: The ``(method, path template)`` pairs recorded in this session.
 RECORDED: set[tuple[str, str]] = set()

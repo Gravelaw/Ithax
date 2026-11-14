@@ -85,7 +85,7 @@ _CREATE_NEW_PROCESS_GROUP = 0x00000200
 _POLL_S = 0.1
 
 _HINT = (
-    "Check that lcsim is installed for the Python that runs the MCP server, then start the "
+    "Check that Ithax is installed for the Python that runs the MCP server, then start the "
     "service with 'python -m ithax.service' and try again."
 )
 

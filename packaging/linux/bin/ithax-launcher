@@ -1,5 +1,5 @@
 #!/bin/sh
-# lcsim-launcher: find or start the engine service and open the interface in the browser,
+# ithax-launcher: find or start the engine service and open the interface in the browser,
 # or with --print-url print its address, for scripts and machines without a display
 # (python -m ithax.launcher; spec 3 "Service rules", Launcher, and "Packaging").
 set -eu

@@ -1,35 +1,35 @@
-lcsim for Linux (x86_64)
+Ithax for Linux (x86_64)
 ========================
 
-lcsim models, simulates and optimizes processes without writing code. This folder holds
+Ithax models, simulates and optimizes processes without writing code. This folder holds
 everything it needs: its own Python, the engine service, the Phase 1 engines (SimPy, HiGHS,
 Pyomo, Optuna), the interface, the ten templates and the desktop window. Installing and
 running it needs no network and no administrator rights.
 
 The package is not signed. Check it against its checksum before installing:
-the file lcsim-<version>-linux-x86_64.tar.gz.sha256 comes with the archive, and
+the file ithax-<version>-linux-x86_64.tar.gz.sha256 comes with the archive, and
 
-    sha256sum -c lcsim-<version>-linux-x86_64.tar.gz.sha256
+    sha256sum -c ithax-<version>-linux-x86_64.tar.gz.sha256
 
 must print "OK" for the archive. If it does not, do not install it.
 
 Install (as yourself, not as root):
 
     mkdir -p ~/.local/opt
-    tar -xzf lcsim-<version>-linux-x86_64.tar.gz -C ~/.local/opt
-    ~/.local/opt/lcsim-<version>-linux-x86_64/install.sh
+    tar -xzf ithax-<version>-linux-x86_64.tar.gz -C ~/.local/opt
+    ~/.local/opt/ithax-<version>-linux-x86_64/install.sh
 
-install.sh checks the engines, links lcsim, lcsim-launcher and lcsim-mcp into ~/.local/bin
-and adds lcsim to your desktop's applications.
+install.sh checks the engines, links ithax, ithax-launcher and ithax-mcp into ~/.local/bin
+and adds Ithax to your desktop's applications.
 
 Start:
 
-    lcsim                         the app: the desktop window, or the interface in your
+    ithax                         the app: the desktop window, or the interface in your
                                   browser when the window's system libraries are missing
                                   (on Ubuntu or Debian: sudo apt install libwebkit2gtk-4.1-0)
-    lcsim-launcher --print-url    start the engine service and print the interface's address,
+    ithax-launcher --print-url    start the engine service and print the interface's address,
                                   for a machine without a display or for scripts
-    lcsim-mcp                     the MCP server, for an AI assistant
+    ithax-mcp                     the MCP server, for an AI assistant
 
 First result: in the app, press Continue, then Learn, then "Start the lesson" on
 "Coffee shop queue", and follow the steps to the results.
@@ -39,7 +39,7 @@ or later), glibc 2.34 or later for the browser (Ubuntu 22.04, Debian 12). Tested
 Ubuntu 24.04.
 
 Uninstall: run uninstall.sh in this folder, then delete the folder. Your projects and
-settings stay in ~/.local/share/lcsim and ~/.config/lcsim.
+settings stay in ~/.local/share/ithax and ~/.config/ithax.
 
 Licence: GNU Affero General Public License version 3 only (LICENSE). The bundled components
 and their licences are listed in THIRD-PARTY-LICENSES.txt. Results are estimates and carry

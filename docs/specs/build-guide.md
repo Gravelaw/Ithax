@@ -47,7 +47,7 @@ A rule for all of the above: where a spec section is marked untested, proposed o
 
 ## Repository layout
 
-The package name `lcsim` is a placeholder until the product is named.
+The product is Ithax (owner decision C8); its package, commands and folders are `ithax`, renamed from the working name `lcsim` in M12 (#70).
 
 ```text
 CLAUDE.md               a map of this guide, under 120 lines (tests/test_docs.py)

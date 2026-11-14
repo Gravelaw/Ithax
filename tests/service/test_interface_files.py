@@ -19,7 +19,7 @@ from ithax.service.config import ServiceConfig
 from ithax.service.interface_files import content_security_policy, interface_path, media_type
 from service.service_support import AUTH, BASE_URL, PORT, assert_error
 
-INDEX = "<!doctype html><title>lcsim</title>"
+INDEX = "<!doctype html><title>Ithax</title>"
 
 
 @pytest.fixture

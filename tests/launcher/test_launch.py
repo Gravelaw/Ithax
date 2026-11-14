@@ -105,7 +105,7 @@ def test_the_service_s_output_goes_to_its_log(
 ) -> None:
     _, info = started
     log = (tmp_path / "config" / LOG_FILE).read_text(encoding="utf-8")
-    assert f"lcsim service on 127.0.0.1:{info.port}" in log
+    assert f"Ithax service on 127.0.0.1:{info.port}" in log
 
 
 def test_a_second_launch_finds_the_running_service(

@@ -43,12 +43,12 @@ from ithax.service.config import default_config_dir, default_data_dir
 __all__ = ["INSTRUCTIONS", "SERVER_NAME", "build_server", "main", "serve_stdio"]
 
 #: The server's name in the MCP handshake and discovery.
-SERVER_NAME = "lcsim"
+SERVER_NAME = "ithax"
 
 #: What the server tells a connecting assistant about all its tools.
 INSTRUCTIONS = (
-    "lcsim builds and runs simulation and optimization models. Every tool calls the local "
-    "lcsim engine service, which this server starts when needed. Results are JSON. A "
+    "Ithax builds and runs simulation and optimization models. Every tool calls the local "
+    "Ithax engine service, which this server starts when needed. Results are JSON. A "
     "result marked as an error holds {error: {code, message}, issues}: each issue has a "
     "code, a path, a message and a hint saying how to fix it; read them and correct the "
     "call or the model rather than giving up."
@@ -101,7 +101,7 @@ def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python -m ithax.mcp",
         description=(
-            "Serve the lcsim MCP tools over stdio; the engine service is started when a "
+            "Serve the Ithax MCP tools over stdio; the engine service is started when a "
             "tool needs it."
         ),
     )

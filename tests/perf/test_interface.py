@@ -5,7 +5,7 @@ adds to the service's own targets.
 
 Run with ``taskset -c 0-3 pytest -m perf`` (guide "Performance measurement protocol"), after
 ``npm ci`` and ``npm run build`` in ``ui/``, with Chromium installed for Playwright
-(``PLAYWRIGHT_BROWSERS_PATH`` or ``LCSIM_CHROMIUM``, ``ui/README.md``).
+(``PLAYWRIGHT_BROWSERS_PATH`` or ``ITHAX_CHROMIUM``, ``ui/README.md``).
 
 - **Selecting a block paints within 100 ms.** A real ``python -m ithax.service`` serves the
   built interface (``ui/dist``, its default); ``ui/perf/canvas.perf.ts`` (Playwright with
@@ -77,9 +77,9 @@ def test_selecting_a_block_on_a_200_component_canvas_paints_within_100_ms(
         assert info is not None
         environment = {
             **os.environ,
-            "LCSIM_PERF_ORIGIN": f"http://127.0.0.1:{info.port}",
-            "LCSIM_PERF_TOKEN": info.token,
-            "LCSIM_PERF_OUT": str(out),
+            "ITHAX_PERF_ORIGIN": f"http://127.0.0.1:{info.port}",
+            "ITHAX_PERF_TOKEN": info.token,
+            "ITHAX_PERF_OUT": str(out),
         }
         finished = subprocess.run(
             [npx, "playwright", "test", "-c", "playwright.perf.config.ts", "--trace", "off"],

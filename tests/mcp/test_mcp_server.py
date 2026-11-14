@@ -55,7 +55,7 @@ def test_main_builds_a_server_for_the_folders_given_and_serves_it(
     status = main(["--config-dir", str(config_dir), "--data-dir", str(data_dir)], serve=serve)
     assert status == 0
     [server] = served
-    assert server.name == SERVER_NAME == "lcsim"
+    assert server.name == SERVER_NAME == "ithax"
     assert server.version == __version__
     assert server.instructions == INSTRUCTIONS
     [client] = clients
@@ -153,7 +153,7 @@ def test_serve_stdio_answers_json_rpc_lines(tmp_path: Path) -> None:
     answers = streams.answers
     assert [answer["id"] for answer in answers] == [1, 2]
     assert answers[0]["result"]["protocolVersion"] == "2025-06-18"
-    assert answers[0]["result"]["serverInfo"]["name"] == "lcsim"
+    assert answers[0]["result"]["serverInfo"]["name"] == "ithax"
     assert len(answers[1]["result"]["tools"]) == 11
 
 
