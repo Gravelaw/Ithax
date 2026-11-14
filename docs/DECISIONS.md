@@ -2791,6 +2791,24 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Spec sections updated:** spec 1 "Engine contract" (a dated line).
 - **Dependencies added:** none.
 
+## 2026-11-14 · M13 · Negative samples: E160 for a bound below zero, W202 above 1% (#69)
+
+- **Decision:**
+  - **E160 for a bound below zero.** A `constant` `value`, or a `uniform` or `triangular` `min`, below zero is now E160 at that field. The message says a time cannot be below zero and that every such sample would be set to 0 s; the hint asks for 0 s or more.
+    - With the fields' order, no bound of those three distributions can then be below zero.
+    - The check runs on each parameter's `value`, `min` and `max` and in each scenario, like E160's other cases.
+    - In the catalogue this is a `nonnegative` field flag beside `positive`.
+  - **W202 above 1%.** W202 now warns when a `normal` puts more than 1% of its samples below zero, Φ(−mean/sd) > 0.01, which is `mean` < 2.326 × `sd`. It used to warn at `mean` < 2 × `sd`, about 2.3%. The message gives the share; the hint asks for a `mean` of at least 2.33 times the `sd`.
+  - **Fitter.** The data-import fitter's one gate already leaves out any candidate the model refuses. So a `uniform` or `triangular` whose fitted `min` is below zero is no longer offered. For skewed columns of non-negative values, scipy's triangular fit has `min` below zero: −2.39 for the test's exponential column, −0.0004 for its Weibull one. Such columns now get no triangular candidate.
+  - **Checks:** a fixture that fails before and passes after (`E160_uniform_min_below_zero.json`), tests at the W202 boundary (2.32 × `sd` warns, 2.33 does not), and the fitter's tests updated, with a new test of the gate.
+  - **Shipped models:** none is affected. A scan of the 145 model files in `examples/`, `templates/`, `benchmarks/`, `tests/compat/models/` and the fixtures found no negative bound and no `normal` between 2 and 2.326 `sd`.
+- **Reason:** issue #69 (E1: M2-1, M1-9). Negative times were silently set to 0 s, which changed the mean without a word.
+- **Reading (reversible):** the new case is E160, not a new code. E160 already covers distribution fields out of range (an `sd` or a positive distribution's `mean` not above zero), so a client handles one code for "this distribution's fields cannot be used".
+- **Alternatives considered:**
+  - A new code. One more code to fixture and document, for the same remedy.
+  - Clipping a fitted `min` at zero. That would offer a distribution that is not the fit.
+- **Spec sections updated:** spec 1 "Distributions", the E160 and W202 rows (a dated line); spec 3's fit note (a dated line).
+
 ## 2026-11-14 · M13 · The store's inventory position is the textbook one (#72; D12)
 
 - **Decision:**
