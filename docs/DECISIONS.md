@@ -2947,3 +2947,19 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - Numbering the table rows from 0 while drawing offset streams. A row would then not name its stream.
 - **Spec sections updated:** spec 1 "Random streams", the `replications` table, the adapter contract; spec 2 "Simulation-based optimization" ("Overlap of the two stages" becomes "Fresh random numbers for confirmation"; "Result", "Result layout"); dated lines in both.
 - **Dependencies added:** none.
+
+## 2026-11-14 · M13 · Crossed variable bounds are E123 (#81)
+
+- **Decision:**
+  - **E123** (meaning pass, `bound_issues`) for an `optimization` variable, as the file declares it, whose `lower` is above its `upper`. It is reported at its `lower`, with the hint "Make 'lower' no larger than 'upper'."
+    - Equal bounds fix the variable and pass.
+    - An indexed variable is reported once, at its declaration.
+  - Such a model used to validate and run to `infeasible`. The solver still answers `infeasible` for crossed bounds, since its own test does not go through validation.
+  - **Checks:** the fixture `E123_variable_lower_above_upper.json` and three model tests (integers, floats and negatives; equal bounds; an indexed variable). They fail before the change.
+- **Reason:** issue #81 (Reviewer A walkthrough): "A variable with min above max passes validation. Done when it is an error with a fixture."
+- **Reading (reversible):** the code is E123, not a new one. E123 already covers ordering errors of a value against the place it sits, such as a shift that does not end after it starts. E151, a parameter's `min` above its `max`, belongs to parameters.
+- **Alternatives considered:**
+  - E151. Its row and messages are about parameters.
+  - A new code. It would have the same remedy as E123's ordering cases.
+- **Spec sections updated:** spec 1 "Validation issues", the E123 row (a dated line).
+- **Dependencies added:** none.
