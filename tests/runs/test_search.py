@@ -290,7 +290,18 @@ def test_the_summary_is_the_best_confirmation_with_the_search_object(tmp_path: P
     assert summary["scenarios"]["default"]["set"] == {"tills": 4}
     assert summary["scenarios"]["default"]["metrics"]["till.wait.mean"]["n"] == 30
     assert summary["differences"] == []
-    assert list(summary["search"]) == ["status", "best", "objective", "separated", "candidates"]
+    assert list(summary["search"]) == [
+        "status",
+        "method",
+        "tried",
+        "best",
+        "objective",
+        "separated",
+        "candidates",
+    ]
+    # #85: how the candidates were chosen, and how many distinct settings were run.
+    assert summary["search"]["method"] == "exhaustive"
+    assert summary["search"]["tried"] == len(summary["search"]["candidates"]) == 5
     assert outcome.results is not None
     assert outcome.results.tables["replications"].num_rows == 60
 

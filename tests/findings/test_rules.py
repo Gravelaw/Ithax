@@ -583,7 +583,7 @@ def test_optimization_result_of_a_search() -> None:
         "severity": "info",
         "component": None,
         "scenario": "default",
-        "text": "Best found: tills = 2. till.wait.mean improved from 4.46 min to 14.6 s. It is "
+        "text": "Best found: tills = 2. till.wait.mean improved from 4.36 min to 14.6 s. It is "
         "clearly better than the next best setting tried.",
         "evidence": {
             "status": "feasible",
@@ -610,7 +610,7 @@ def test_a_search_with_no_runner_up_says_nothing_of_one() -> None:
     run[0]["search"]["separated"] = False
     assert search_finding(run[0], run).text == (
         "Best found: tills = 2. The starting values break a constraint; till.wait.mean went "
-        "from 4.46 min to 14.6 s."
+        "from 4.36 min to 14.6 s."
     )
 
 
@@ -623,7 +623,7 @@ def test_a_search_whose_starting_values_are_best() -> None:
     search["separated"] = False
     assert search_finding(run[0], run).text == (
         "Best found: the starting values, tills = 1. No setting tried improved till.wait.mean, "
-        "which is 4.46 min."
+        "which is 4.36 min."
     )
 
 
@@ -636,7 +636,7 @@ def test_an_infeasible_search() -> None:
     assert found.severity == "warning"
     assert found.text == (
         "No setting tried meets every constraint. With the starting values, tills = 1, "
-        "till.wait.mean is 4.46 min."
+        "till.wait.mean is 4.36 min."
     )
 
 
@@ -669,7 +669,7 @@ def test_the_sense_is_the_searched_objectives_not_another_on_the_same_metric() -
         )
 
     run = read_run("optimization_result_fires", rival)
-    assert "till.wait.mean improved from 4.46 min to 14.6 s." in search_finding(run[0], run).text
+    assert "till.wait.mean improved from 4.36 min to 14.6 s." in search_finding(run[0], run).text
 
 
 def test_a_search_over_a_quantity_shows_it_in_display_units() -> None:
@@ -687,6 +687,36 @@ def test_a_search_over_a_quantity_shows_it_in_display_units() -> None:
     assert search_finding(run[0], run).text.startswith(
         "Best found: tills = 2, service_mean = 1.2 min."
     )
+
+
+def test_an_optuna_search_says_its_best_is_of_the_settings_tried_not_proven() -> None:
+    """#85 (M5-23): Optuna samples the settings, with no proof that a better one is not
+    left untried, so the finding says its best is the best of those tried."""
+    run = read_run("optimization_result_fires")
+    run[0]["search"].update({"method": "optuna", "tried": 12})
+    assert search_finding(run[0], run).text == (
+        "Best found: tills = 2. till.wait.mean improved from 4.36 min to 14.6 s. It is "
+        "clearly better than the next best setting tried. It is the best of 12 settings "
+        "tried, not a proven optimum."
+    )
+
+
+def test_an_infeasible_optuna_search_says_how_many_were_tried() -> None:
+    run = read_run("optimization_result_fires")
+    search = run[0]["search"]
+    search.update({"method": "optuna", "tried": 12, "status": "infeasible"})
+    search["best"]["set"] = dict(search["candidates"][0]["set"])
+    assert search_finding(run[0], run).text == (
+        "No setting tried meets every constraint. With the starting values, tills = 1, "
+        "till.wait.mean is 4.36 min. 12 settings were tried, not every one."
+    )
+
+
+def test_an_exhaustive_search_needs_no_such_label() -> None:
+    """Every combination was run, so nothing was left untried."""
+    run = read_run("optimization_result_fires")
+    assert run[0]["search"]["method"] == "exhaustive"
+    assert "proven" not in search_finding(run[0], run).text
 
 
 def program_finding(summary: dict[str, Any], run: Run) -> Finding:

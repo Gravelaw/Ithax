@@ -612,7 +612,8 @@ def search_summary(
     """The ``summary.json`` dict of a search run: the process layout of the best candidate's
     confirmation (its one ``default`` scenario with the best candidate's ``set``, the warm-up
     check on its time series, and the experiment's ``replications``), followed by
-    ``search``: ``{status, best: {set}, objective: {metric, before, after}, separated,
+    ``search``: ``{status, method, tried, best: {set}, objective: {metric, before, after},
+    separated,
     candidates: [{set, metrics, feasible, confirmed, evaluations}]}``. ``before`` is the
     baseline's confirmed mean objective and ``after`` the best's; a candidate's ``metrics``
     and ``feasible`` are from its confirmation when it has one, otherwise from the search
@@ -637,6 +638,10 @@ def search_summary(
 
     summary["search"] = {
         "status": result.status,
+        # #85 (M5-23): how the candidates were chosen, and how many distinct settings ran;
+        # an Optuna search samples them, so its best is the best of those tried.
+        "method": result.method,
+        "tried": len(result.candidates),
         "best": {"set": _si_set(result.variables, best.values)},
         "objective": {
             "metric": metric,
@@ -644,21 +649,22 @@ def search_summary(
             "after": mean(best.confirmation),
         },
         "separated": result.separated,
-        "candidates": [
-            {
-                "set": _si_set(result.variables, candidate.values),
-                "metrics": {
-                    name: item.as_dict() for name, item in candidate.latest.metrics.items()
-                },
-                "feasible": candidate.latest.feasible,
-                "confirmed": candidate.confirmation is not None,
-                "evaluations": [
-                    dict(item.record)
-                    for item in (candidate.search, candidate.confirmation)
-                    if item is not None
-                ],
-            }
-            for candidate in result.candidates
-        ],
+        "candidates": [_candidate_entry(result, candidate) for candidate in result.candidates],
     }
     return summary
+
+
+def _candidate_entry(result: SearchResult, candidate: Candidate) -> dict[str, Any]:
+    """A candidate in ``search.candidates``: its set, metrics, feasibility, whether it was
+    confirmed, and its evaluations (#79)."""
+    return {
+        "set": _si_set(result.variables, candidate.values),
+        "metrics": {name: item.as_dict() for name, item in candidate.latest.metrics.items()},
+        "feasible": candidate.latest.feasible,
+        "confirmed": candidate.confirmation is not None,
+        "evaluations": [
+            dict(item.record)
+            for item in (candidate.search, candidate.confirmation)
+            if item is not None
+        ],
+    }

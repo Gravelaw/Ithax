@@ -46,7 +46,7 @@ LEGACY_APP_FOLDER = "lcsim"
 
 #: Spec 3 "Lifetime": exit after 30 idle minutes unless ``idle_timeout_minutes`` in
 #: ``settings.json`` or ``--idle-minutes`` says otherwise (owner decision B5, AKS-141).
-DEFAULT_IDLE_TIMEOUT_S = DEFAULT_IDLE_MINUTES * 60.0
+DEFAULT_IDLE_TIMEOUT_S = DEFAULT_IDLE_MINUTES * 60.0  # unit factor: a constant
 
 #: Spec 3 "Token": the first WebSocket message must arrive within 5 seconds.
 WEBSOCKET_AUTH_TIMEOUT_S = 5.0

@@ -64,6 +64,8 @@ describe("summary.json", () => {
       [2, false, false, false],
     ]);
     expect(search?.after).toBe(14.7);
+    // #85: a summary written before it has no method or count.
+    expect([search?.method, search?.tried]).toEqual(["", null]);
     const infeasible = searchSummary();
     (infeasible.search as Record<string, unknown>).status = "infeasible";
     expect(searchOf(infeasible)?.trials.some((trial) => trial.best)).toBe(false);
@@ -74,6 +76,8 @@ describe("summary.json", () => {
       }),
     ).toEqual({
       status: "",
+      method: "",
+      tried: null,
       metric: "m",
       before: null,
       after: null,
