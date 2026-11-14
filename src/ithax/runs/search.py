@@ -36,9 +36,10 @@ labour"), done by the ``evaluate`` function the caller gives (in-process for
   candidate order), are run again with the experiment's ``replications``; feasibility is
   judged again on the confirmed means. When none of a group is feasible on confirmation, the
   next group is confirmed, until one is or none remain. The confirmation replications are
-  numbered from 0 like the search stage's, so a candidate's first ``search.replications``
-  confirmed values are its search-stage values (spec 2 as written; the owner decides whether
-  to make them disjoint, research note decision "Overlap of the two stages").
+  numbered from ``search.replications`` (owner decision 2026-11-07, item 6; #79): they draw
+  streams the search stage never used, and every confirmation draws the same ones (common
+  random numbers). Each evaluation records its stage, folder, seed and replication range,
+  listed in the summary as the candidate's ``evaluations``.
 - **Best.** The confirmed feasible candidate, baseline included, with the best confirmed mean
   objective (ties by candidate order); ``status`` ``feasible``. When no confirmed candidate is
   feasible, the baseline, with ``status`` ``infeasible``. ``separated`` says whether the paired
@@ -55,7 +56,7 @@ from __future__ import annotations
 import itertools
 import math
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Literal
 
@@ -106,6 +107,8 @@ SCENARIO = "default"
 
 #: How a search proposes its candidates.
 Method = Literal["exhaustive", "optuna"]
+#: The two stages of a candidate's evaluation (spec 2 "Simulation-based optimization").
+Stage = Literal["search", "confirmation"]
 
 #: Runs one candidate evaluation: ``evaluate(model, experiment_id, folder, on_progress)``
 #: creates ``folder`` (a subfolder of ``engine/`` that does not exist yet), calls the
@@ -130,6 +133,7 @@ class Evaluation:
     metrics: Mapping[str, MetricEstimate]
     feasible: bool
     objective_values: Mapping[int, float]
+    record: Mapping[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -251,16 +255,22 @@ def _value(parameter: Parameter, raw: int | float) -> ParameterValue:
 
 
 def candidate_model(
-    model: Model, experiment_id: str, values: Sequence[ParameterValue], replications: int
+    model: Model,
+    experiment_id: str,
+    values: Sequence[ParameterValue],
+    replications: int,
+    first_replication: int = 0,
 ) -> Model:
     """The model with experiment ``experiment_id`` set to run one candidate: one ``default``
-    scenario whose ``set`` gives each variable its value, ``replications`` replications and
-    no search; everything else, the seed included, is unchanged."""
+    scenario whose ``set`` gives each variable its value, ``replications`` replications
+    numbered from ``first_replication`` (#79) and no search; everything else, the seed
+    included, is unchanged."""
     _, experiment, search = search_of(model, experiment_id)
     scenario = Scenario(SCENARIO, dict(zip(search.variables, values, strict=True)))
     changed = replace(
         experiment,
         replications=replications,
+        first_replication=first_replication,
         scenarios=(scenario,),
         default_scenario_added=True,
         search=None,
@@ -373,12 +383,29 @@ class _Searcher:
         self.candidates: list[Candidate] = []
 
     def _run(
-        self, values: Sequence[ParameterValue], replications: int, folder: str, label: str
+        self, values: Sequence[ParameterValue], stage: Stage, folder: str, label: str
     ) -> Evaluation | None:
-        model = candidate_model(self.model, self.experiment_id, values, replications)
+        """One evaluation: the search stage runs replications 0 to ``search.replications``
+        - 1, a confirmation the experiment's ``replications`` from ``search.replications``
+        on, so it draws streams the search stage never used (#79)."""
+        replications, first = (
+            (self.search.replications, 0)
+            if stage == "search"
+            else (self.experiment.replications, self.search.replications)
+        )
+        model = candidate_model(self.model, self.experiment_id, values, replications, first)
         on_progress = self.progress.stage(float(replications), label)
         results = self.evaluate(model, self.experiment_id, self.workdir / folder, on_progress)
-        return None if results is None else self.judge.evaluation(results)
+        if results is None:
+            return None
+        record = {
+            "stage": stage,
+            "folder": f"engine/{folder}",
+            "seed": self.experiment.seed,
+            "first_replication": first,
+            "replications": replications,
+        }
+        return replace(self.judge.evaluation(results), record=record)
 
     def _drop_tables(self, evaluation: Evaluation) -> Evaluation:
         return replace(evaluation, results=None)
@@ -386,7 +413,7 @@ class _Searcher:
     def add(self, values: tuple[ParameterValue, ...]) -> Candidate | None:
         index = len(self.candidates)
         label = f"Search, candidate {index + 1}"
-        found = self._run(values, self.search.replications, f"search-{index:03d}", label)
+        found = self._run(values, "search", f"search-{index:03d}", label)
         if found is None:
             return None
         # The search stage needs only the metrics: its tables are dropped at once.
@@ -453,12 +480,7 @@ class _Searcher:
 
     def confirm(self, candidate: Candidate) -> bool:
         label = f"Confirmation, candidate {candidate.index + 1}"
-        found = self._run(
-            candidate.values,
-            self.experiment.replications,
-            f"confirm-{candidate.index:03d}",
-            label,
-        )
+        found = self._run(candidate.values, "confirmation", f"confirm-{candidate.index:03d}", label)
         if found is None:
             return False
         candidate.confirmation = found
@@ -591,14 +613,18 @@ def search_summary(
     confirmation (its one ``default`` scenario with the best candidate's ``set``, the warm-up
     check on its time series, and the experiment's ``replications``), followed by
     ``search``: ``{status, best: {set}, objective: {metric, before, after}, separated,
-    candidates: [{set, metrics, feasible, confirmed}]}``. ``before`` is the baseline's
-    confirmed mean objective and ``after`` the best's; a candidate's ``metrics`` and
-    ``feasible`` are from its confirmation when it has one, otherwise from the search
-    stage."""
+    candidates: [{set, metrics, feasible, confirmed, evaluations}]}``. ``before`` is the
+    baseline's confirmed mean objective and ``after`` the best's; a candidate's ``metrics``
+    and ``feasible`` are from its confirmation when it has one, otherwise from the search
+    stage. ``evaluations`` lists each of its runs, the search stage first, as ``{stage,
+    folder, seed, first_replication, replications}``, so every mean can be traced back to
+    its streams (#79)."""
     _, experiment, search = search_of(model, experiment_id)
     best = result.best
     assert best.confirmation is not None
-    best_model = candidate_model(model, experiment_id, best.values, experiment.replications)
+    best_model = candidate_model(
+        model, experiment_id, best.values, experiment.replications, search.replications
+    )
     summary = build_summary(best_model, experiment_id, result.best_results, warnings)
     objectives = {objective.id: objective for objective in model.objectives}
     metric = objectives[search.objective].metric
@@ -626,6 +652,11 @@ def search_summary(
                 },
                 "feasible": candidate.latest.feasible,
                 "confirmed": candidate.confirmation is not None,
+                "evaluations": [
+                    dict(item.record)
+                    for item in (candidate.search, candidate.confirmation)
+                    if item is not None
+                ],
             }
             for candidate in result.candidates
         ],
