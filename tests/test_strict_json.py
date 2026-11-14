@@ -112,3 +112,22 @@ def test_read_json_object_file_admits_only_an_object(tmp_path: Path) -> None:
             strict_json.read_json_object_file(path)
     with pytest.raises(OSError):
         strict_json.read_json_object_file(tmp_path / "missing.json")
+
+
+def test_is_whole_is_number_and_is_finite_real() -> None:
+    """The one "JSON number, not a bool" test (#99, P5; tests/test_conventions.py)."""
+    huge = 10**309  # beyond float range; must not be converted
+    for value, whole, number, finite in [
+        (3, True, True, True),
+        (huge, True, True, True),
+        (2.5, False, True, True),
+        (math.nan, False, True, False),
+        (math.inf, False, True, False),
+        (True, False, False, False),
+        (False, False, False, False),
+        ("3", False, False, False),
+        (None, False, False, False),
+    ]:
+        assert strict_json.is_whole(value) is whole, value
+        assert strict_json.is_number(value) is number, value
+        assert strict_json.is_finite_real(value) is finite, value

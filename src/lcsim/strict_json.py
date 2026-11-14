@@ -31,12 +31,15 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 
 __all__ = [
     "MAX_WHOLE",
     "UnreadableJSON",
     "encode_json",
+    "is_finite_real",
+    "is_number",
+    "is_whole",
     "json_text",
     "read_json",
     "read_json_file",
@@ -90,10 +93,28 @@ def read_json_file(path: Path) -> object:
     return read_json(path.read_bytes())
 
 
+def is_whole(value: object) -> TypeGuard[int]:
+    """Whether ``value`` is a JSON integer: an ``int`` that is not a ``bool`` (``True`` is an
+    ``int`` in Python, but not a JSON number)."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def is_number(value: object) -> TypeGuard[int | float]:
+    """Whether ``value`` is a JSON number: an ``int`` or a ``float``, not a ``bool``."""
+    return isinstance(value, int | float) and not isinstance(value, bool)
+
+
+def is_finite_real(value: object) -> TypeGuard[int | float]:
+    """Whether ``value`` is a finite JSON number. An ``int`` is always finite and is never
+    converted to a float, so a whole number above about 1.8e308 (``10**309``) is admitted
+    rather than overflowing."""
+    return is_whole(value) or (isinstance(value, float) and math.isfinite(value))
+
+
 def whole_in(value: object, minimum: int, maximum: int) -> int | None:
     """``value`` when it is a whole number (a JSON integer, not a ``bool`` or a float) from
     ``minimum`` to ``maximum``; otherwise ``None``."""
-    if isinstance(value, bool) or not isinstance(value, int):
+    if not is_whole(value):
         return None
     return value if minimum <= value <= maximum else None
 
@@ -105,7 +126,7 @@ def real_in(
     ``bool``) from ``minimum`` (excluded when ``above_minimum``) to ``maximum``; otherwise
     ``None``. The range is checked before any conversion, so a whole number too large for a
     float is refused rather than raising."""
-    if isinstance(value, bool) or not isinstance(value, int | float):
+    if not is_number(value):
         return None
     if isinstance(value, float) and not math.isfinite(value):
         return None
