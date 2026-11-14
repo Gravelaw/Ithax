@@ -2493,3 +2493,20 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** the proposal's text verbatim (would run the desktop and package tests, and do nothing where the tools live in `.venv`).
 - **Spec sections updated:** none.
 - **Dependencies added:** none.
+
+## 2026-11-14 · M12 · Retrospective PR 9: the first property tests (#99; P6)
+
+- **Decision:**
+  - `tests/properties/` holds the first Hypothesis property tests, eight in all:
+    - **The loader never raises:** the proposal's three tests, verbatim: any JSON value, the coffee shop with one hostile leaf, any bytes or text. Each gives a model or an issue.
+    - **`strict_json` round-trips what it admits:** it admits a value only when `encode_json` can write it back, refuses NaN, infinity and lone surrogates, and reads or refuses any bytes without raising.
+    - **The read-back of two files never raises:** any content of `settings.json` gives a settings body, and any content of a run's `manifest.json` gives a run or `None`.
+  - The hostile values the tests share are in `tests/properties/strategies.py`.
+  - The proposal's route and path properties, and the interface's fast-check tests, were untried in it. They are left for later rows, as its order of adoption says ("the first property tests").
+  - Profiles (`tests/properties/conftest.py`): `ci`, used when `CI` is set, is derandomized and has no deadline, so a CI failure reproduces from its log. `thorough` (2,000 examples, `HYPOTHESIS_PROFILE=thorough`) is for long runs. The profiles live in the folder's own conftest rather than the proposal's `tests/conftest.py`, which would shadow the process tests' `conftest` (row 2).
+  - `.hypothesis/` is ignored by git.
+  - Results: 8 passed at the default 100 examples (4 s), and at 2,000 (24 s). No open defect of these classes today; the value is in catching the next one.
+- **Reason:** owner decision F2; the proposal's evidence W2 (29 of the 100 Codex findings were input robustness).
+- **Alternatives considered:** route properties now (untried in the proposal, and much slower through `TestClient`).
+- **Spec sections updated:** none.
+- **Dependencies added:** hypothesis 6.170.15 (`>=6.170.15`), MPL-2.0, dev only; checked with `pip show hypothesis` (License-Expression: MPL-2.0). MPL-2.0 is file-level copyleft and compatible with AGPL-3.0 use as a test tool; nothing of it ships in the product.
