@@ -2442,6 +2442,21 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Spec sections updated:** build guide rule 5 and "Session procedure" (and `CLAUDE.md`).
 - **Dependencies added:** none.
 
+## 2026-11-14 · M12 · The package test stopped tauri-driver before the shell had closed (#135)
+
+- **Decision:**
+  - **Cause.** `test_the_installed_shell_reaches_home` asked WebKitWebDriver to close the shell's window and then at once left the `driver(...)` block, which stops tauri-driver and its WebKitWebDriver. Only after that did it wait for the shell to end. The close completes after the request returns; when the drivers were stopped first, the shell was left orphaned (parent PID 1), idle in its GTK main loop with its window never closed, and it never ended, so no wait would have helped.
+    - Reproduced here: 2 failures in 25 runs of the test with `LCSIM_PACKAGE_RUNNER=local`, the same failure as CI (#135, and PRs #62, #137 and #139).
+    - A dump at the timeout showed the orphaned shell: its main thread in `poll`, every other thread waiting.
+    - `tests/desktop/test_shell.py`, which waits inside the block, passed 40 of 40 runs here.
+  - **Fix.** The test now waits for the shell inside the `driver(...)` block, as the desktop test does. The wait (60 s) is unchanged.
+    - Verified with 60 runs after the fix (result in the PR).
+    - The product is unaffected: a user's close goes through the window, not through WebKitWebDriver, and the desktop test shows the shell ends when its window closes.
+  - **Milestone.** #135 moves from M14 to M12 at the orchestrating session's request, since `all-green` made the flake block every merge. M12's row names it; #137's M14 row, not yet merged, will drop it when #137 takes `main`.
+- **Reason:** a test that fails at random blocks every merge once `all-green` is required (#136), and #135 asked for the cause to be fixed rather than the wait lengthened.
+- **Alternatives considered:** a longer wait (an orphaned shell never ends, so it could not help); killing any leftover shell in teardown (hides the race instead of removing it).
+- **Spec sections updated:** build guide "Milestones" (M12), and `CLAUDE.md`.
+
 ## 2026-11-14 · M12 · Owner: rule 5 adds a change of target platform; P11 stays out (#99)
 
 - **Decision (owner, 2026-11-14, through the orchestrating session):**
