@@ -186,6 +186,10 @@ class Experiment:
     random; the manifest records the seed either way. ``default_scenario_added`` is true
     when the file listed no scenarios and the loader added the one ``default`` scenario
     (spec 1 "Experiments"); a ``default`` scenario the file lists itself is E112.
+    ``first_replication`` is the number of the first replication, so the run draws the
+    streams of replications ``first_replication`` to ``first_replication + replications
+    - 1`` (spec 1 "Random streams"). It is never in the file: the loader gives 0, and a
+    search's confirmation starts at ``search.replications`` (#79).
     """
 
     id: str
@@ -199,6 +203,7 @@ class Experiment:
     confidence: float
     record_interval: Quantity
     search: Search | None
+    first_replication: int = 0
 
 
 Sense: TypeAlias = Literal["minimize", "maximize"]

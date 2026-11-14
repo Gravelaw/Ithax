@@ -236,9 +236,10 @@ def search_metrics(recipe: str, values: dict[str, float], replication: int) -> d
       parameter ``staff``, wait adds (staff - 2)².
     - ``late``: utilization is 1 at replications 0 to 9 for tills 2 or more and 0 after, and
       the reverse for tills 1, so every candidate but tills 1 is feasible at a search stage
-      of 10 replications and infeasible confirmed at 30 (mean 1/3), while tills 1 is the
-      reverse (mean 2/3); tills 6 stays feasible (utilization 1) when ``rescue`` is in the
-      recipe. Wait is tills, so the larger tills look worse.
+      of 10 replications (0 to 9) and infeasible confirmed at 30 (replications 10 to 39,
+      #79: mean 0), while tills 1 is the reverse (mean 1); tills 6 stays feasible
+      (utilization 1) when ``rescue`` is in the recipe. Wait is tills, so the larger tills
+      look worse.
     - ``flat``: wait 10 + (r mod 3 - 1) x tills, utilization 1: every candidate has mean
       wait 10 over 30 replications, and two differ by a spread around 0.
     - ``nan``: wait NaN for tills 2, otherwise tills; utilization 1.
@@ -290,6 +291,7 @@ class SearchAdapter(DummyAdapter):
         document = {
             "recipe": model.meta.name,
             "replications": experiment.replications,
+            "first_replication": experiment.first_replication,
             "warmup": experiment.warmup.magnitude,
             "values": values,
         }
@@ -307,11 +309,11 @@ class SearchAdapter(DummyAdapter):
         document = json.loads((workdir / SEARCH_INPUT).read_text(encoding="utf-8"))
         recipe = document["recipe"].removesuffix(" drift")
         rows = []
-        count = document["replications"]
-        for replication in range(count):
+        count, first = document["replications"], document["first_replication"]
+        for done, replication in enumerate(range(first, first + count), start=1):
             for metric, value in search_metrics(recipe, document["values"], replication).items():
                 rows.append([replication, metric, value])
-            on_progress(Progress((replication + 1) / count, f"Replication {replication + 1}"))
+            on_progress(Progress(done / count, f"Replication {done}"))
         (workdir / SEARCH_OUTPUT).write_text(json.dumps(rows), encoding="utf-8")
 
     def collect(self, workdir: Path) -> Results:

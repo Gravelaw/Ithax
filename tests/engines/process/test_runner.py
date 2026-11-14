@@ -5,6 +5,7 @@ Results do not depend on ``workers``; ``cancel`` stops a long run quickly, also 
 workers run; progress reports a fraction and "Scenario 1 of 2, replication 12 of 30".
 """
 
+import copy
 import multiprocessing
 import re
 import threading
@@ -111,6 +112,31 @@ def test_cancel_stops_a_long_run_quickly(
     finally:
         timer.cancel()
     assert time.monotonic() - started < after + 1.0
+
+
+@pytest.mark.parametrize("workers", [1, 2])
+def test_replications_are_numbered_from_the_first_replication(
+    make_model: ModelMaker, tmp_path: Path, workers: int
+) -> None:
+    """#79: an experiment whose ``first_replication`` is 2 runs the streams of replications
+    2 to 4, so each outcome is a plain run's for that number, and the table carries the
+    numbers; progress still counts the run's own replications from 1."""
+    engine = two_scenarios(make_model, tmp_path, length="30 min")
+    plain = run_all(tmp_path, engine, lambda progress: None, threading.Event(), 1)
+    assert plain is not None
+    shifted_input = copy.deepcopy(engine)
+    shifted_input["experiment"]["first_replication"] = 2
+    shifted_input["experiment"]["replications"] = 1
+    reports: list[Progress] = []
+    shifted = run_all(tmp_path, shifted_input, reports.append, threading.Event(), workers)
+    assert shifted is not None
+    assert sorted(shifted) == [(0, 2), (1, 2)]
+    assert all(shifted[task] == plain[task] for task in shifted)
+    assert set(replications_table(shifted_input, shifted)["replication"].to_pylist()) == {2}
+    assert sorted(report.message for report in reports) == [
+        "Scenario 1 of 2, replication 1 of 1",
+        "Scenario 2 of 2, replication 1 of 1",
+    ]
 
 
 def test_workers_below_one_are_refused(make_model: ModelMaker, tmp_path: Path) -> None:

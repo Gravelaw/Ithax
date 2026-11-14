@@ -43,12 +43,13 @@ def load(document: dict[str, Any]) -> Model:
 
 def test_the_coffee_shop_input_holds_the_resolved_model_in_si_units() -> None:
     assert engine_input(load(copy.deepcopy(COFFEE_SHOP)), "base") == {
-        "input_version": 1,
+        "input_version": 2,
         "experiment": {
             "id": "base",
             "length": 720_000.0,
             "warmup": 36_000.0,
             "replications": 30,
+            "first_replication": 0,
             "seed": 12345,
             "record_interval": 3_600.0,
         },
@@ -185,7 +186,7 @@ def test_input_is_written_inside_workdir_only(tmp_path: Path) -> None:
 
 def test_an_input_of_another_layout_version_is_refused(tmp_path: Path) -> None:
     (tmp_path / INPUT_FILE).write_text(json.dumps({"input_version": 99}), encoding="utf-8")
-    with pytest.raises(ValueError, match="not a version 1 input"):
+    with pytest.raises(ValueError, match="not a version 2 input"):
         read_input(tmp_path)
 
 
