@@ -1,7 +1,8 @@
 """The process adapter's own input, ``engine/input.json`` (spec 1 "Division of labour").
 
 ``engine_input(model, experiment_id)`` builds it: the experiment's ``id``, ``length``,
-``warmup``, ``replications``, ``seed`` and ``record_interval`` (times as SI floats), the
+``warmup``, ``replications``, ``first_replication``, ``seed`` and ``record_interval``
+(times as SI floats), the
 connections as the model file writes them, and for each scenario every component's ``id``,
 ``type`` and settings, with that scenario's parameter values resolved, quantities as SI
 floats, distributions as objects of SI floats, and the catalogue's defaults filled in.
@@ -49,7 +50,7 @@ __all__ = [
 #: The engine input's file name inside ``workdir``.
 INPUT_FILE = "input.json"
 #: The layout version of the engine input.
-INPUT_VERSION = 1
+INPUT_VERSION = 2  # 2: the experiment's first_replication (#79)
 
 
 def engine_input(model: Model, experiment_id: str) -> dict[str, Any]:
@@ -106,6 +107,7 @@ def _experiment(experiment: Experiment) -> dict[str, Any]:
         "length": experiment.length.magnitude,
         "warmup": experiment.warmup.magnitude,
         "replications": experiment.replications,
+        "first_replication": experiment.first_replication,
         "seed": experiment.seed,
         "record_interval": experiment.record_interval.magnitude,
     }
