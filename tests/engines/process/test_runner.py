@@ -114,12 +114,16 @@ def test_cancel_stops_a_long_run_quickly(make_model: ModelMaker, tmp_path: Path)
 def test_cancel_stops_running_workers_within_a_second(
     make_model: ModelMaker, tmp_path: Path
 ) -> None:
-    """Workers that run replications stop within a second of the cancel (#173). The cancel
-    is set when the first pair finishes, so the workers have started: a spawned worker
-    imports the engine first, which under load takes more than a second (checks (3.13),
-    run 43612701781: 2.77 s), and the pool waits for it before it can see the stop. The
-    scenario "quick" has one arrival, so its pairs end at once; the "long" pairs would
-    take minutes."""
+    """Workers that run replications stop within a second of the cancel (#173). A spawned
+    worker imports the engine first, which under load takes more than a second (checks
+    (3.13), run 43612701781: 2.77 s), and the pool waits for it before it can see the
+    stop; so the cancel is set only once every worker has started and the "long" pairs
+    run. The pairs are queued "long", "long", "quick", "quick" (two replications each, the
+    least allowed, E170) for three workers, and a worker takes a pair only after its
+    start-up, in queue order: when a "quick" pair reports, the worker that ran it had
+    started, and both "long" pairs, taken before it, run in the two other workers, which had
+    started too (review of PR #174). "quick" has one arrival, so it ends at once; "long"
+    would take minutes."""
     components, connections = line(
         {"dist": "exponential", "mean": "2 min"}, {"dist": "exponential", "mean": "1.5 min"}
     )
@@ -129,10 +133,10 @@ def test_cancel_stops_running_workers_within_a_second(
         connections,
         length="10000 h",
         warmup="10 min",
-        replications=3,
+        replications=2,
         seed=2024,
         parameters={"items": {"value": 1_000_000_000, "type": "integer", "min": 1}},
-        scenarios=[{"id": "quick", "set": {"items": 1}}, {"id": "long", "set": {}}],
+        scenarios=[{"id": "long", "set": {}}, {"id": "quick", "set": {"items": 1}}],
     )
     write_input(model, "e", tmp_path)
     engine = read_input(tmp_path)
@@ -140,12 +144,15 @@ def test_cancel_stops_running_workers_within_a_second(
     cancelled: list[float] = []
 
     def on_progress(progress: Progress) -> None:
+        messages.append(progress.message)
         if not cancelled:
             cancelled.append(time.monotonic())
             cancel.set()
 
-    assert run_all(tmp_path, engine, on_progress, cancel, 2) is None
-    assert cancelled, "no pair finished"
+    messages: list[str] = []
+    assert run_all(tmp_path, engine, on_progress, cancel, 3) is None
+    # Only "quick" pairs finished: the cancel came while both "long" pairs ran.
+    assert messages and all(message.startswith("Scenario 2 of 2,") for message in messages)
     assert time.monotonic() - cancelled[0] < 1.0
 
 
