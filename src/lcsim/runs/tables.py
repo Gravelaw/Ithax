@@ -15,7 +15,6 @@ so a reader never sees half a file.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Callable, Mapping
 from functools import partial
 from pathlib import Path
@@ -24,6 +23,7 @@ from typing import Any
 import pyarrow.parquet as pq
 
 from lcsim.engines.adapter import Table
+from lcsim.strict_json import encode_json
 
 __all__ = ["SUMMARY_FILE", "TABLES_FOLDER", "TABLE_NAMES", "write_summary", "write_tables"]
 
@@ -63,8 +63,8 @@ def write_tables(tables: Mapping[str, Table], folder: Path) -> list[Path]:
 
 def write_summary(summary: Mapping[str, Any], folder: Path) -> Path:
     """Writes ``summary`` to ``folder/summary.json`` and returns the path."""
-    text = json.dumps(summary, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    data = encode_json(summary)
     path = folder / SUMMARY_FILE
     folder.mkdir(parents=True, exist_ok=True)
-    _replace(path, lambda partial: partial.write_text(text, encoding="utf-8"))
+    _replace(path, lambda partial: partial.write_bytes(data))
     return path

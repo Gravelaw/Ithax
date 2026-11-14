@@ -2493,3 +2493,26 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** the proposal's text verbatim (would run the desktop and package tests, and do nothing where the tools live in `.venv`).
 - **Spec sections updated:** none.
 - **Dependencies added:** none.
+
+## 2026-11-14 · M12 · Retrospective PR 8a: JSON and randomness through one helper each, enforced by ruff (#99; P5)
+
+- **Decision:**
+  - P5 is split into small PRs (P10's size rule). This one covers JSON and randomness; 8b covers whole and finite numbers with `tests/test_conventions.py`; 8c covers atomic writes and the `os.replace` ban.
+  - `lcsim.strict_json` gains two helpers:
+    - `json_text(value, *, ascii_only, compact)`: the one maker of JSON text that is not a file (a message quoting a value, a progress line, the service's response body, an MCP request or result). It refuses NaN and infinity, as `encode_json` does.
+    - `read_json_object_file(path)`: `read_json_file` that also refuses anything but an object.
+  - Sites moved:
+    - Writes through `encode_json`, with byte-identical output: the engine inputs and the solution, `summary.json` and `manifest.json`. These were the proposal's five copies.
+    - Reads through `read_json`, `read_json_file` or `read_json_object_file`: the schema, the engine inputs and the solution, `service.json`, the worker's manifest read, `manifest.json` and the WebSocket token message.
+    - Through `json_text`, with the same text as before: the error body, the progress lines, the fidelity message, the MCP client body and the MCP tool texts.
+  - ruff `TID251` bans `random`, `numpy.random.seed`, `numpy.random.default_rng`, `json.loads`, `json.load`, `json.dumps` and `json.dump`, each with a message naming the helper. A probe file trips all four kinds. `tests/**`, `scripts/**` (tools, not product code) and `strict_json.py` itself are exempt.
+  - Two sites keep `json.loads` with a `noqa` and a reason:
+    - The model loader's strict reader turns duplicate keys, digit limits and constants into coded issues that name their place.
+    - The model store's admission names the place of a value that `read_json` would refuse outright.
+
+    The proposal would move the loader's reader into `strict_json`. That would move issue-producing code for no gain in strictness, so it is not done.
+  - **Behaviour changes, each a stricter read of a file the product itself wrote.** A NaN, an infinity, a lone surrogate or a non-object in an engine input, a solution, a manifest or `service.json` is now refused with `UnreadableJSON` (a `ValueError`), where it was read before. A worker progress fraction cannot be NaN (`Progress` refuses it), so its line cannot fail.
+- **Reason:** owner decision F2; the proposal's evidence W2 (each review fix patched one hand-written copy).
+- **Alternatives considered:** banning `json` outright with `noqa` at every site (hides the helper); moving the loader's reader (above).
+- **Spec sections updated:** none.
+- **Dependencies added:** none.

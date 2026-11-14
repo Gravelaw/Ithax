@@ -198,7 +198,9 @@ class ModelStore:
     def _parse(raw: bytes) -> object:
         """``raw`` as JSON; ``ValueError`` when it is not."""
         try:
-            return json.loads(raw.decode("utf-8-sig"))
+            # The model file's own admission names the place of a value that read_json would
+            # refuse outright (see lcsim.strict_json; #99, P5).
+            return json.loads(raw.decode("utf-8-sig"))  # noqa: TID251
         except (UnicodeDecodeError, ValueError, RecursionError):
             raise ValueError("not JSON") from None
 
