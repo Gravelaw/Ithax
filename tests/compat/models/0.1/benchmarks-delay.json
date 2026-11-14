@@ -1,0 +1,58 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Delay benchmark",
+    "description": "Spec 2 benchmark delay: exponential arrivals, mean 2 min; a delay, exponential, mean 10 min; a sink."
+  },
+  "domain": "process",
+  "components": [
+    {
+      "id": "arrivals",
+      "type": "source",
+      "params": {
+        "interarrival": {
+          "dist": "exponential",
+          "mean": "2 min"
+        }
+      }
+    },
+    {
+      "id": "delay",
+      "type": "delay",
+      "params": {
+        "time": {
+          "dist": "exponential",
+          "mean": "10 min"
+        }
+      }
+    },
+    {
+      "id": "exit",
+      "type": "sink",
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": "arrivals.out",
+      "to": "delay.in"
+    },
+    {
+      "from": "delay.out",
+      "to": "exit.in"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "benchmark",
+      "length": "200 h",
+      "warmup": "10 h",
+      "replications": 100,
+      "seed": 1004
+    }
+  ],
+  "run": {
+    "target": "local",
+    "fidelity": "standard"
+  }
+}

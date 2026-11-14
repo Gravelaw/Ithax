@@ -2493,3 +2493,15 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** the proposal's text verbatim (would run the desktop and package tests, and do nothing where the tools live in `.venv`).
 - **Spec sections updated:** none.
 - **Dependencies added:** none.
+
+## 2026-11-14 · M12 · Retrospective PR 11a: the compatibility rule and the model corpus (#99; P24)
+
+- **Decision:**
+  - The guide's "Conventions" gains the proposal's **Compatibility** row, applying F2's approval of P24. It reads: a model that loads in a released version loads in every later one, through migration if older; a working `/v1` request keeps working; a `/v1` response keeps every field and its JSON type, and may add fields. A change that cannot meet this needs a new format version with a migration, or a new API version, and an owner decision record.
+  - `tests/compat/models/<format_version>/` is the model corpus, and it only grows. It starts with every model of `examples/` (3), `templates/` (10) and `benchmarks/` (17) at Phase 1's close, each copied verbatim and filed under its own `format_version`: 27 at 0.1 and 3 at 0.2.
+  - `tests/compat/test_models_load.py` loads each file with zero errors (warnings allowed), checks it is filed under its version, and fails if the corpus shrinks below its starting 30.
+  - P24's second half, the `/v1` response-shape records, follows as 11b. It needs a fixed, seeded scenario run through the service.
+- **Reason:** owner decision F2; from Phase 2, saved models, template packages and assistants calling `/v1` depend on these formats.
+- **Alternatives considered:** loading `examples/` and `templates/` in place (they change with the product; a frozen copy is what catches a regression).
+- **Spec sections updated:** build guide "Conventions" (and `CLAUDE.md`).
+- **Dependencies added:** none.

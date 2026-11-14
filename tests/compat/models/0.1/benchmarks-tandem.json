@@ -1,0 +1,74 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Tandem benchmark",
+    "description": "Spec 2 benchmark tandem: exponential arrivals, mean 2 min; server A exponential, mean 1.5 min; server B exponential, mean 1 min; unlimited queues."
+  },
+  "domain": "process",
+  "components": [
+    {
+      "id": "arrivals",
+      "type": "source",
+      "params": {
+        "interarrival": {
+          "dist": "exponential",
+          "mean": "2 min"
+        }
+      }
+    },
+    {
+      "id": "server_a",
+      "type": "server",
+      "params": {
+        "capacity": 1,
+        "service": {
+          "dist": "exponential",
+          "mean": "1.5 min"
+        }
+      }
+    },
+    {
+      "id": "server_b",
+      "type": "server",
+      "params": {
+        "capacity": 1,
+        "service": {
+          "dist": "exponential",
+          "mean": "1 min"
+        }
+      }
+    },
+    {
+      "id": "exit",
+      "type": "sink",
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": "arrivals.out",
+      "to": "server_a.in"
+    },
+    {
+      "from": "server_a.out",
+      "to": "server_b.in"
+    },
+    {
+      "from": "server_b.out",
+      "to": "exit.in"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "benchmark",
+      "length": "200 h",
+      "warmup": "10 h",
+      "replications": 100,
+      "seed": 1003
+    }
+  ],
+  "run": {
+    "target": "local",
+    "fidelity": "standard"
+  }
+}

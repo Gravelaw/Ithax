@@ -1,0 +1,37 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Warehouse",
+    "description": "Orders are picked by three pickers; one order in five goes through a 5 min inspection; every order is packed at one station. Written fresh at M1 to the spec 2 targets: throughput within 1% of 60 per hour, pack utilization 0.75 to 0.85. Orders arrive 60 per hour (exponential, mean 1 min) and no block loses items, so throughput is 60 per hour. Utilization = arrival rate x mean service time / capacity: pick 60 per hour x 2 min / 3 = 0.667; pack 60 per hour x 0.8 min = 0.80. By Burke's theorem each station sees Poisson arrivals: pick is M/M/3 with probability of waiting 4/9 (Erlang C) and mean wait 0.889 min; pack is M/M/1 with mean wait rho / (1 - rho) x 0.8 min = 3.2 min. Mean cycle time (time in each station, wait plus service, and the inspection for one order in five) pick 2.889 + inspection 0.2 x 5 + pack 4.0 = 7.889 min."
+  },
+  "domain": "process",
+  "components": [
+    {"id": "orders", "type": "source",
+     "params": {"interarrival": {"dist": "exponential", "mean": "1 min"}}},
+    {"id": "pick", "type": "server",
+     "params": {"capacity": 3,
+                "service": {"dist": "exponential", "mean": "2 min"}}},
+    {"id": "check", "type": "branch",
+     "params": {"routes": ["direct", "inspect"], "rule": "probability",
+                "weights": {"direct": 4, "inspect": 1}}},
+    {"id": "inspection", "type": "delay",
+     "params": {"time": {"dist": "constant", "value": "5 min"}}},
+    {"id": "pack", "type": "server",
+     "params": {"capacity": 1,
+                "service": {"dist": "exponential", "mean": "0.8 min"}}},
+    {"id": "dispatch", "type": "sink", "params": {}}
+  ],
+  "connections": [
+    {"from": "orders.out", "to": "pick.in"},
+    {"from": "pick.out", "to": "check.in"},
+    {"from": "check.direct", "to": "pack.in"},
+    {"from": "check.inspect", "to": "inspection.in"},
+    {"from": "inspection.out", "to": "pack.in"},
+    {"from": "pack.out", "to": "dispatch.in"}
+  ],
+  "experiments": [
+    {"id": "base", "length": "200 h", "warmup": "10 h",
+     "replications": 30, "seed": 12345}
+  ],
+  "run": {"target": "local", "fidelity": "standard"}
+}
