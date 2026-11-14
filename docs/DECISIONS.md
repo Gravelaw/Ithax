@@ -2962,4 +2962,21 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - E151. Its row and messages are about parameters.
   - A new code. It would have the same remedy as E123's ordering cases.
 - **Spec sections updated:** spec 1 "Validation issues", the E123 row (a dated line).
+
+## 2026-11-14 · M13 · W203: a failure on a server of capacity above 1 (#84; D13, M4-34)
+
+- **Decision:**
+  - **W203** (meaning pass, `failure_capacity_issues`) for a `failure` whose target server has a `capacity` above 1.
+    - It is reported at the failure's `target`, naming the failure.
+    - It is checked at each parameter's `value` and in each scenario, and names the first case that fails, like W201 and W202.
+    - The message says one failure takes one unit down at a time, so the other units keep working while it is down.
+    - The hint offers splitting the server into servers of capacity 1, each with its own failure, until one failure per unit arrives in Phase 2.
+  - **Unchanged.** The engine is the same: one failure process per block, one unit at a time (spec 2 "Failure"). W201 already counts it so in a server's mean available capacity.
+  - **Checks:**
+    - the fixture `W203_failure_on_a_server_of_capacity_2.json`;
+    - model tests at capacity 2 and 5, no warning at capacity 1, and the scenario that raises the capacity named;
+    - the warning groups' coffee-shop and fixture tests now include W203.
+- **Reason:** issue #84 (D13, M4-34): "Warn until per-unit failures arrive in Phase 2."
+- **Reading (reversible):** the warning is at the failure's `target`, not at the server, since the failure is what does not model each unit.
+- **Spec sections updated:** spec 1 "Validation issues" (the W203 row), the meaning-pass and summary warning ranges (a dated line).
 - **Dependencies added:** none.

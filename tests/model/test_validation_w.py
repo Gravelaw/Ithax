@@ -1,4 +1,4 @@
-"""The meaning-pass warnings (AKS-91): W200, W201 and W202.
+"""The meaning-pass warnings (AKS-91): W200, W201 and W202; W203 (#84).
 
 Spec 1 "Validation" (how flow rates for W201 are propagated, and where they are not),
 "Distributions" (the theoretical means of the sampling test; a `normal` is clipped at
@@ -24,6 +24,7 @@ from ithax.model.units import Dimension, Quantity
 from ithax.model.validation import (
     clipping_issues,
     distribution_mean,
+    failure_capacity_issues,
     flow_rates,
     load_issues,
     meaning_pass,
@@ -134,7 +135,12 @@ def assert_plain(issue: Issue) -> None:
 # --- the examples and the fixtures --------------------------------------------------------------
 
 
-GROUPS: list[Callable[[Model], list[Issue]]] = [unreachable_issues, load_issues, clipping_issues]
+GROUPS: list[Callable[[Model], list[Issue]]] = [
+    unreachable_issues,
+    load_issues,
+    clipping_issues,
+    failure_capacity_issues,
+]
 
 
 @pytest.mark.parametrize("group", GROUPS, ids=[group.__name__ for group in GROUPS])
@@ -142,7 +148,7 @@ def test_the_coffee_shop_raises_no_warning(group: Callable[[Model], list[Issue]]
     assert group(built(coffee())) == []
 
 
-@pytest.mark.parametrize("code", ["W200", "W201", "W202"])
+@pytest.mark.parametrize("code", ["W200", "W201", "W202", "W203"])
 def test_a_warning_fixture_loads_with_its_warning_and_no_error(code: str) -> None:
     """Spec 1 "Validation issues": warnings do not block a run, so the model loads."""
     fixtures = sorted(FIXTURES.glob(f"{code}_*.json"))
@@ -1036,3 +1042,48 @@ def test_w202_a_clipped_mean_beyond_the_range_of_a_float_is_shown_in_words() -> 
     assert issue.message.endswith("which raises its mean to a very long time.")
     assert_plain(issue)
     assert [item.code for item in load_document(document).issues] == ["W202"]
+
+
+# --- W203: a failure on a server of capacity above 1 (#84; D13, M4-34) ------------------------
+
+
+@pytest.mark.parametrize("capacity", [2, 5])
+def test_w203_a_failure_on_a_server_of_capacity_above_1(capacity: int) -> None:
+    document = coffee()
+    document["components"][1]["params"]["capacity"] = capacity
+    document["components"].append(breakdowns("8 h", "30 min"))
+    (issue,) = failure_capacity_issues(built(document))
+    assert (issue.code, issue.path, issue.component) == (
+        "W203",
+        "/components/3/params/target",
+        "breakdowns",
+    )
+    assert issue.severity == "warning"
+    assert issue.message == (
+        f"The 'target' of failure 'breakdowns' is 'till', whose 'capacity' is {capacity}: a "
+        "failure takes one unit down at a time, so the other units keep working while it is "
+        "down."
+    )
+    assert issue.hint == (
+        "To have each unit fail on its own, split 'till' into servers of capacity 1, each "
+        "with its own failure; one failure per unit is planned for Phase 2."
+    )
+    assert_plain(issue)
+
+
+def test_w203_a_failure_on_a_server_of_capacity_1_is_not_reported() -> None:
+    document = coffee()
+    document["components"].append(breakdowns("8 h", "30 min"))
+    assert failure_capacity_issues(built(document)) == []
+
+
+def test_w203_names_the_first_scenario_that_raises_the_capacity() -> None:
+    document = coffee()
+    document["components"].append(breakdowns("8 h", "30 min"))
+    document["parameters"]["tills"]["max"] = 3
+    document["experiments"][0]["scenarios"] = [
+        {"id": "one", "set": {"tills": 1}},
+        {"id": "two", "set": {"tills": 2}},
+    ]
+    (issue,) = failure_capacity_issues(built(document))
+    assert "'capacity' is 2 in scenario 'two' of experiment 'base':" in issue.message
