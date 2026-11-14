@@ -482,7 +482,8 @@ CREATE_MODEL = ToolSpec(
         "results are measured over length minus warmup. domain is 'process' (the default, "
         "simulation) or "
         "'optimization', which starts a mathematical model with no variables or "
-        "constraints instead; a model's domain cannot be changed by edits. Then read the "
+        "constraints instead (it does not run until it has a variable: E179); a model's "
+        "domain cannot be changed by edits. Then read the "
         "model with get_model and build it with edit_model; the user sees it on the canvas."
     ),
     inputs=(

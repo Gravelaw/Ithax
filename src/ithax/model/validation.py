@@ -46,6 +46,8 @@ ranges"):
   AKS-108).
 - ``bound_issues``: E123 (an ``optimization`` variable whose ``lower`` is above its
   ``upper``; #81).
+- ``decision_issues``: E179 (an ``optimization`` model with no variables, or a constraint
+  with an empty ``linear``; #80).
 
 A value that comes from a parameter is checked for every value the model gives that
 parameter: its ``value``, its ``min`` and ``max`` (the range a search explores) and each
@@ -104,6 +106,7 @@ __all__ = [
     "clipping_issues",
     "connection_issues",
     "data_issues",
+    "decision_issues",
     "distribution_issues",
     "distribution_mean",
     "engine_issues",
@@ -2497,6 +2500,43 @@ def bound_issues(model: Model) -> list[Issue]:
     return issues
 
 
+# --- E179: a plan with nothing to decide --------------------------------------------------------
+
+
+def decision_issues(model: Model) -> list[Issue]:
+    """E179 (#80; owner decision 2026-11-07, item 14; D2): an ``optimization`` model whose
+    ``variables`` is empty, at ``/variables``, and each constraint as the file declares it
+    with an empty ``linear`` and no ``terms``, at its ``linear``. Neither has an answer to
+    give: the solver would report 0 for a plan that decides nothing."""
+    declared = model.declared
+    if declared is None:
+        return []
+    issues: list[Issue] = []
+    if not declared.variables:
+        issues.append(
+            _issue(
+                "E179",
+                ("variables",),
+                "The plan has no decisions: 'variables' is empty, so there is nothing to choose.",
+                "Add a variable to 'variables', a quantity the optimizer chooses, such as how "
+                "many chairs to make.",
+            )
+        )
+    for index, constraint in enumerate(declared.constraints):
+        if constraint.linear or constraint.terms:
+            continue
+        name = _quote(constraint.id)
+        issues.append(
+            _issue(
+                "E179",
+                ("constraints", index, "linear"),
+                f"The constraint {name} has an empty 'linear', so it limits no variable.",
+                f"Give {name} at least one coefficient in 'linear', or remove the constraint.",
+            )
+        )
+    return issues
+
+
 def meaning_pass(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue]:
     """The meaning pass: part A (identifiers, settings that name things, connections),
     then part B (parameters, references, ranges, distributions, data, experiments,
@@ -2518,6 +2558,7 @@ def meaning_pass(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue
         *metric_issues(model),
         *program_issues(model),
         *bound_issues(model),
+        *decision_issues(model),
         *unreachable_issues(model),
         *load_issues(model),
         *clipping_issues(model),

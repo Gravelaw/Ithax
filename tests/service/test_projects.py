@@ -101,7 +101,8 @@ def test_the_default_process_model_is_spec_3s_and_validates(client: TestClient) 
     assert validate(text) == []
 
 
-def test_an_optimization_project_holds_a_model_that_validates(client: TestClient) -> None:
+def test_an_optimization_project_starts_empty_with_e179(client: TestClient) -> None:
+    """D2 (#80): a new plan starts empty, and validation says what is missing."""
     response = client.post("/v1/projects", json={"name": "Plan", "domain": "optimization"})
     assert response.status_code == 200
     text = (Path(response.json()["path"]) / MODEL_FILE).read_text(encoding="utf-8")
@@ -114,7 +115,7 @@ def test_an_optimization_project_holds_a_model_that_validates(client: TestClient
         "constraints": [],
         "run": {"target": "local", "fidelity": "standard"},
     }
-    assert validate(text) == []
+    assert [(issue["code"], issue["path"]) for issue in validate(text)] == [("E179", "/variables")]
 
 
 def test_domain_process_is_the_default(client: TestClient) -> None:
