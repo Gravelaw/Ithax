@@ -519,8 +519,9 @@ def test_edit_model_returns_the_model_its_revision_and_its_issues(
 def test_the_edit_model_example_applies_with_no_issues(
     client: ServiceClient, http: httpx2.Client
 ) -> None:
-    # The worked example: two servers sharing a pool, a weekly rota, a night shift split
-    # at the period end (AKS-131 note in docs/research/spec-2-prior-art.md).
+    # The worked example: two servers sharing a pool, a daily rota, a night shift split
+    # at the period end (AKS-131 note in docs/research/spec-2-prior-art.md; daily since
+    # #73, so that it loads with no W201).
     spec = tool_named("edit_model")
     arguments = dict(spec.example_arguments)
     edits = arguments["edits"]
@@ -530,9 +531,9 @@ def test_the_edit_model_example_applies_with_no_issues(
     [rota] = [e for e in edits if e.get("type") == "schedule"]
     assert len(pools) == 1 and len(pooled) == 2
     assert {e["params"]["pool"] for e in pooled} == {pools[0]["id"]}
-    assert rota["params"]["period"] == "168 h" and rota["params"]["target"] == pools[0]["id"]
+    assert rota["params"]["period"] == "24 h" and rota["params"]["target"] == pools[0]["id"]
     shifts = rota["params"]["shifts"]
-    assert {"start": "166 h", "end": "168 h", "capacity": 1} in shifts
+    assert {"start": "22 h", "end": "24 h", "capacity": 1} in shifts
     assert {"start": "0 h", "end": "6 h", "capacity": 1} in shifts
 
     async def check(mcp_client: Client) -> None:

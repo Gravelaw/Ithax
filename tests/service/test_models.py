@@ -784,12 +784,14 @@ def test_validate_runs_the_schema_and_meaning_passes_then_the_adapter(
         body = response.json()
         assert set(body) == {"revision", "issues"}
         assert body["revision"] == 1
-        # The meaning pass's warning, then the adapter's issue.
-        assert [issue["code"] for issue in body["issues"]] == ["W202", "E300"]
+        # The meaning pass's warnings, then the adapter's issue. Arrivals about every
+        # 1.08 min (the clipped normal) need 1.38 tills of the one there is, under its
+        # failure, and of the pool under its rota: W201 at both since #73.
+        assert [issue["code"] for issue in body["issues"]] == ["W201", "W201", "W202", "E300"]
         assert adapter.calls == ["Shop"]
         # A write's response carries loading's issues only, not the adapter's.
         response = edit(client, pid, {"edit": "set_label", "id": "till", "label": "X"})
-        assert [issue["code"] for issue in response.json()["issues"]] == ["W202"]
+        assert [issue["code"] for issue in response.json()["issues"]] == ["W201", "W201", "W202"]
         assert adapter.calls == ["Shop"]
 
 
