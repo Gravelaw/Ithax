@@ -7,8 +7,8 @@ Coding sessions in this repository follow `CLAUDE.md`. This file steers automate
 
 ### Scope
 
-- Review against the specs in `docs/specs/` and the build guide in `CLAUDE.md`. Do not comment
-  on formatting or style: ruff and mypy --strict gate those.
+- Review against the specs in `docs/specs/` and the build guide, `docs/specs/build-guide.md`.
+  Do not comment on formatting or style: ruff and mypy --strict gate those.
 - Do not ask for a guard against input that the spec says cannot reach that code.
 
 ### Treat as P1

@@ -1,6 +1,6 @@
 # Build Guide
 
-This tab tells a coding session how to turn the specs into software: where things go, what order to build in, and what to do when a spec is unclear. Put its content in the repository's `CLAUDE.md` so every session starts from it.
+This tab tells a coding session how to turn the specs into software: where things go, what order to build in, and what to do when a spec is unclear. The repository's `CLAUDE.md` is a short map that points here, so every session starts from it; milestone status is in `docs/STATUS.md` (retrospective P8, 2026-11-14).
 
 ## Session rules
 
@@ -50,7 +50,9 @@ A rule for all of the above: where a spec section is marked untested, proposed o
 The package name `lcsim` is a placeholder until the product is named.
 
 ```text
-CLAUDE.md               this guide
+CLAUDE.md               a map of this guide, under 120 lines (tests/test_docs.py)
+AGENTS.md               rules for automated review
+.claude/                hooks (settings.json) and skills (skills/<name>/SKILL.md)
 LICENSE                 AGPL version 3
 docs/
   specs/                the spec tabs, exported as Markdown
@@ -58,6 +60,7 @@ docs/
   design/               flows, wireframes, canvas rules, design system, accessibility
   sessions/             one summary per session
   DECISIONS.md          dated log of choices and their reasons
+  STATUS.md             milestone status
 src/lcsim/
   model/                schema, loading, units, validation, edits
   engines/              adapter interface and plugin loading
@@ -137,12 +140,12 @@ If the real adapter and the prototype's reference values disagree on a result, t
 - **Research notes.** One file per research item, `docs/research/spec-<n>-<slug>.md`, with the headings Question, Finding, Sources, Decision, Tested.
 - **Issues.** Work starts from a GitHub issue; a new issue uses a template in `.github/ISSUE_TEMPLATE/` (bug, feature, research or chore), each with the sections "Why and what", "Done when" and "Source". A session checks each issue it closed on GitHub before it ends.
 - **Questions before a milestone.** Before a milestone starts, its session lists every blocking question (rule 5) and files each as a GitHub issue titled "Owner decision: <question>", with the options, a recommended default, what it blocks, and the date on which the default applies if unanswered. Work that depends on an open blocking question is not started; the rest of the milestone proceeds (retrospective P13).
-- **Session summary.** `docs/sessions/<yyyy-mm-dd>-M<n>.md` with the headings Built, Checks passing, Decisions logged, Awaiting owner, Readings, Left. "Awaiting owner" holds only blocking questions and owner checks, at most ten, each with its recommended default and the date it applies; "Readings" lists reversible readings, one line each (retrospective P14). The session's last act updates "Current state" in `CLAUDE.md`.
+- **Session summary.** `docs/sessions/<yyyy-mm-dd>-M<n>.md` with the headings Built, Checks passing, Decisions logged, Awaiting owner, Readings, Left. "Awaiting owner" holds only blocking questions and owner checks, at most ten, each with its recommended default and the date it applies; "Readings" lists reversible readings, one line each (retrospective P14). The session's last act updates its milestone's row in `docs/STATUS.md`.
 - **Owner digest.** At the owner's decision cadence (every two days, owner decision F8) or at a milestone's close, whichever comes first, the orchestrating session sends the owner the open blocking questions, at most ten, each with a one-line recommendation and its default date, and the number of readings since the last digest with a link to them. A default that passes its date unanswered is recorded in `DECISIONS.md` as "default applied". The owner can turn any reading into a question (retrospective P14).
 - **Pull requests.** Each PR does one thing and stays under about 400 changed lines of product code (tests, fixtures and docs not counted). A PR whose work depends on another waits for it to merge, or stacks on it one level only. A milestone closes when its last PR merges (retrospective P10).
 - **Merge readiness.** Before reporting a PR ready or merging it, the orchestrating session checks on GitHub, for the PR's current head SHA: every check run succeeded (`all-green`); Codex's last review refers to that SHA and no review thread is unresolved; the base is `main` and the PR is not a draft; and no commit was pushed after these were read, or it starts again (retrospective P19).
 - **Numbers in the record.** A count or a CI result in a summary, a status line or a decision is copied from the output of a named command or API call (a CI result with its run ID and head SHA), never retyped (retrospective P15, P19).
-- **Editing this guide.** Sessions update factual and status rows freely ("Current state", the "How" column of the known gaps); changes to rules, milestones or conventions are proposed to the owner and made once approved (owner decision D18, 2026-11-13).
+- **Editing this guide.** Sessions update factual and status rows freely (`docs/STATUS.md`, the "How" column of the known gaps); changes to rules, milestones or conventions are proposed to the owner and made once approved (owner decision D18, 2026-11-13).
 - **Review findings.** Reply to each finding with *Fixed in `<sha>`*, *Fixed for the whole class in `<sha>`*, or *Not a defect: `<the spec section or invariant that makes it unreachable>`*. When a review finds a second defect of the same class in one PR, stop patching: find every site of that class in the repository, fix them through one shared helper, add a check that would have caught the next one (a lint rule, a conventions test or a property test), and say so in the reply to the second finding. A class found twice also gets a bullet in `AGENTS.md`'s "Code Review Rules" (owner decision F2, 2026-11-13; retrospective P7).
 - **Engine gaps.** A DECISIONS entry "Engine gap: <engine> lacks <feature>" with the workaround and the spec section concerned.
 - **DECISIONS entry template.** A date and milestone heading, then Decision, Reason, Alternatives considered, Spec sections updated, Dependencies added (name, version, licence, how checked). This holds through Phase 1a. From Phase 2, each decision is its own record, `docs/decisions/NNNN-<slug>.md` (adapted from MADR's minimal template: Status, Context, Decision, Consequences, Dependencies added with name, version, licence and how checked), with one line in `docs/decisions/README.md`, and `docs/DECISIONS.md` is the frozen Phase 1 log (retrospective P15).
@@ -161,5 +164,5 @@ If the real adapter and the prototype's reference values disagree on a result, t
 - [ ] All benchmarks pass.
 - [ ] New behaviour has tests.
 - [ ] Specs and `DECISIONS.md` match the code.
-- [ ] `tests/test_docs.py` passes (guide and fixtures in sync).
+- [ ] `tests/test_docs.py` passes (`CLAUDE.md`'s links and the fixtures in sync).
 - [ ] The session summary is written.

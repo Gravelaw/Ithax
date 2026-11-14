@@ -2662,3 +2662,44 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - Leaving out the folder flush. Without it, the rename itself can be lost on power failure. On Windows a folder cannot be opened, so the flush is skipped there.
 - **Spec sections updated:** none (no file format, name or `/v1` field changes; the temporary files are not part of any spec).
 - **Dependencies added:** none.
+
+## 2026-11-14 · M12 · Retrospective PR 6: `CLAUDE.md` as a map, `docs/STATUS.md`, the skills; #99 closed (#99; P8, P2 skills)
+
+- **Decision:**
+  - **The map.** `CLAUDE.md` is now a map of 93 lines, not a copy of the build guide. It has the commands, the session rules in short form, the rules the tools enforce, conventions, skills, where things are, and things the code does not show. The guide, `docs/specs/build-guide.md`, holds the rules, milestones and known gaps, and it decides wherever the map is shorter.
+  - **Departures from the proposal's text** (its 76 lines were written on 2026-11-09). Each one follows a later owner decision or the current guide:
+    - The short-form rules follow the guide as it stands. That means two or three milestones per session (F8), sorting a question as blocking or reversible (rule 5), and questions as "Owner decision" GitHub issues rather than Linear.
+    - The orchestrating session merges (C10), not the owner. P11 is not applied (owner, 2026-11-14).
+    - The summary headings include Readings.
+    - The install step is `uv sync --locked --extra dev`.
+    - Decisions stay in `docs/DECISIONS.md` until Phase 2.
+    - In the tool-enforced table, a rule whose tool has not landed reads "review", as P8 says. These are the import layers (P16, Phase 2) and the routes' half of "no input makes a code path raise".
+    - Rows were added for what has landed: `tests/compat/`, warnings as errors, and the function-length ratchet.
+  - **Status.** "Current state" moved verbatim to `docs/STATUS.md`. The guide's "Session summary" and "Editing this guide" now point there, and its layout lists `STATUS.md`, `AGENTS.md` and `.claude/`. "Known gaps" stays in the guide only.
+  - **`tests/test_docs.py`.** The check that `CLAUDE.md` holds the guide verbatim is replaced, as P8 proposes, by checks that:
+    - `CLAUDE.md` is under 120 lines;
+    - every repository path it names in a code span exists (with a probe test of what counts as a path);
+    - every skill folder is listed in it, and named in its own front matter;
+    - every row of `docs/STATUS.md` is a milestone of the guide.
+  - **Skills.** `.claude/skills/` holds the four skills of the proposal's table:
+    - `pre-push`;
+    - `review-reply`;
+    - `owner-question`, which files a GitHub "Owner decision" issue rather than Linear;
+    - `close-milestone`, with `disable-model-invocation: true`.
+  - **`scripts/check.sh`.** It now uses `.venv/bin/python` when there is one, as `scripts/fast.sh` does. In the agent container, the `mypy` first on `PATH` is another install, which failed the gate with 788 import errors before the change. CI is unchanged: `.venv/bin` is already first on its `PATH`.
+  - **Also updated:** `AGENTS.md` and `README.md`, which pointed at the guide in `CLAUDE.md`.
+- **#99 closed: every retrospective proposal accounted for.** Phase 1a covered the eleven PRs of the proposal's adoption order:
+  - rows 1 to 11 are logged above, with row 8 in three parts (8a, 8b, 8c) and row 11 in two (11a, 11b);
+  - P13, P14, P15 (the guide text), P10 and P19 went into row 5.
+
+  The proposals outside that order stand as follows:
+  - **P4 is done by the owner.** Read on 2026-11-14 with `gh api repos/Gravelaw/Ithax --jq .delete_branch_on_merge`, which gave `true`. `gh api repos/Gravelaw/Ithax/rules/branches/main` gave a ruleset requiring `all-green`, resolved review threads, no deletion and no force push. The Linear item is moot (Linear is retired).
+  - **P11 is not applied** (owner decision, 2026-11-14): the orchestrating session merges (C10).
+  - **Left for Phase 2, as the adoption order places them:** P12, P16, P17, P18, P22, P23 and P25.
+  - **P15's one file per decision** starts in Phase 2, as the guide says.
+- **Reason:** owner decision F2 ("all of the retrospective"); the proposal's P8 and its skills table.
+- **Alternatives considered:**
+  - Keeping the guide verbatim in `CLAUDE.md`. It is 24 KB, which goes against Anthropic's guidance of under 200 lines (P8 evidence).
+  - Copying the proposal's map unchanged. It predates owner decisions C10, F8 and the GitHub tracker, so it would have restated rules that no longer hold.
+- **Spec sections updated:** build guide: the opening paragraph, "Repository layout", "Session procedure" ("Session summary", "Editing this guide") and "Definition of done". These are factual and status rows (D18); no rule, milestone or convention changed.
+- **Dependencies added:** none.
