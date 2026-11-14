@@ -91,7 +91,14 @@ from ithax.model.model import (
     Term,
 )
 from ithax.model.schema import schema_pass
-from ithax.model.units import Dimension, Quantity, QuantityError, read_number, read_quantity
+from ithax.model.units import (
+    Dimension,
+    Quantity,
+    QuantityError,
+    quantity_dimension,
+    read_number,
+    read_quantity,
+)
 from ithax.model.validation import InstalledEngine, engine_issues, meaning_pass
 from ithax.strict_json import is_number
 
@@ -1192,15 +1199,17 @@ class _Builder:
         op = self.word(
             raw["op"], _METRIC_OPS, f"the 'op' of constraint '{constraint_id}'", (*at, "op")
         )
-        # A plain number, or a time quantity for a metric measured in time. Whether the kind
-        # fits the metric is a meaning-pass check.
+        # A plain number, a time quantity, or (format 0.3, #77) a rate quantity, by the unit
+        # it is written in. Whether the kind fits the metric is a meaning-pass check.
         raw_value = raw["value"]
         where = f"the 'value' of constraint '{constraint_id}'"
         value: int | float | Quantity | None
         if is_number(raw_value):
             value = self.number(raw_value, where, (*at, "value"))
         else:
-            value = self.quantity(raw_value, Dimension.TIME, where, (*at, "value"))
+            written = quantity_dimension(raw_value) if isinstance(raw_value, str) else None
+            dimension = Dimension.RATE if written is Dimension.RATE else Dimension.TIME
+            value = self.quantity(raw_value, dimension, where, (*at, "value"))
         if op is None or value is None:
             return None
         return MetricConstraint(
