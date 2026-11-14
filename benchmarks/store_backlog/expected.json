@@ -1,0 +1,23 @@
+[
+  {
+    "metric": "store.stock.mean",
+    "value": 1.25,
+    "method": "exact",
+    "source": "Cycle arithmetic, all times in minutes, with the textbook inventory position (stock on hand plus on order minus the items waiting for stock), reviewed at every demand: demands at 6k from 0; the position starts at 15 and falls by one at each demand, so the 10th demand (54) brings it to the reorder point 5 and orders 10, and so does every 10th after: orders at 54 + 60n, deliveries at 117 + 60n. Demands 15 to 19 (90 to 114) find no stock and wait; the delivery at 117 serves them and leaves 5 on hand. From then on each 60-min cycle from a delivery has 5 on hand for 3 min (117 to 120), 4, 3, 2 and 1 for 6 min each, and 0 for 33 min (144 to 177), with the five demands at 150 to 174 waiting. Deliveries fall 3 min after a demand, never at one. Over one cycle the stock on hand averages (5 x 3 + 6 x (4 + 3 + 2 + 1))/60 = 75/60 = 1.25; the observed period, 100 h to 1,000 h, is 54,000 min, exactly 900 cycles, so its time average is the cycle's whatever the phase.",
+    "milestone": "M13"
+  },
+  {
+    "metric": "store.orders",
+    "value": 0.0002777777777777778,
+    "method": "exact",
+    "source": "Cycle arithmetic, all times in minutes, with the textbook inventory position (stock on hand plus on order minus the items waiting for stock), reviewed at every demand: demands at 6k from 0; the position starts at 15 and falls by one at each demand, so the 10th demand (54) brings it to the reorder point 5 and orders 10, and so does every 10th after: orders at 54 + 60n, deliveries at 117 + 60n. Demands 15 to 19 (90 to 114) find no stock and wait; the delivery at 117 serves them and leaves 5 on hand. From then on each 60-min cycle from a delivery has 5 on hand for 3 min (117 to 120), 4, 3, 2 and 1 for 6 min each, and 0 for 33 min (144 to 177), with the five demands at 150 to 174 waiting. Deliveries fall 3 min after a demand, never at one. Orders at 54 + 60n min with n = 100 to 999 fall in the observed period [6,000, 60,000) min: 900 orders over 900 h, one per hour, 1/3,600 per second.",
+    "milestone": "M13"
+  },
+  {
+    "metric": "store.stockouts",
+    "value": 4500.0,
+    "method": "exact",
+    "source": "Cycle arithmetic, all times in minutes, with the textbook inventory position (stock on hand plus on order minus the items waiting for stock), reviewed at every demand: demands at 6k from 0; the position starts at 15 and falls by one at each demand, so the 10th demand (54) brings it to the reorder point 5 and orders 10, and so does every 10th after: orders at 54 + 60n, deliveries at 117 + 60n. Demands 15 to 19 (90 to 114) find no stock and wait; the delivery at 117 serves them and leaves 5 on hand. From then on each 60-min cycle from a delivery has 5 on hand for 3 min (117 to 120), 4, 3, 2 and 1 for 6 min each, and 0 for 33 min (144 to 177), with the five demands at 150 to 174 waiting. Deliveries fall 3 min after a demand, never at one. The stock-outs are the demands at 150 + 60n + 6j min, j = 0 to 4; with n = 98 to 997 they fall in [6,000, 60,000): 900 cycles of 5, 4,500. Without the waiting items in the position (the rule before #72) the store reviews only after a withdrawal and orders far less often.",
+    "milestone": "M13"
+  }
+]

@@ -972,10 +972,14 @@ class Store(Block):
     Each item arriving takes one unit of stock and is sent on at once; an item the next
     block refuses keeps its unit and waits in that block's ``blocked`` line. An item that
     finds the stock at zero is a stock-out, counted when it arrives, and waits, first in
-    first out, for a delivery. The store reviews its stock at time 0 (``start``) and after
-    each withdrawal: when the stock on hand plus on order is at or below
-    ``reorder_point``, it places one order of ``order_quantity``, drawing its lead time from
-    the store's own stream then; several orders may be outstanding. It always accepts.
+    first out, for a delivery. The store reviews its inventory position, the textbook one
+    (stock on hand plus on order minus the items waiting for stock; #72, owner decision
+    D12), at time 0 (``start``) and at every demand, whether the item takes a unit or
+    waits: when the position is at or below ``reorder_point``, it places one order of
+    ``order_quantity``, drawing its lead time from the store's own stream then; several
+    orders may be outstanding. A delivery leaves the position as it was (units come off
+    order, and each waiting item it serves takes one of them), so it reviews nothing. It
+    always accepts.
 
     A delivery runs as one ``Transfers`` step: it adds the units and withdraws one for each
     waiting item it can serve, in order, and their moves on are later steps, so no call
@@ -1004,20 +1008,26 @@ class Store(Block):
     def receive(self, item: Item) -> None:
         item.arrived = self.now
         if self.on_hand > 0:
-            self._withdraw(item)
+            self._take_unit()
+            self._review()
+            self.send(item, self.target("out"), _nothing)
         else:
             if self.context.window.observes(self.now):
                 self.stockouts += 1
             self.waiting.append(item)
+            self._review()
 
-    def _withdraw(self, item: Item) -> None:
+    def _take_unit(self) -> None:
         self.on_hand -= 1
         self.stock.set(self.now, self.on_hand)
-        self._review()
-        self.send(item, self.target("out"), _nothing)
+
+    def position(self) -> int:
+        """The inventory position: on hand plus on order minus the items waiting for stock
+        (#72)."""
+        return self.on_hand + self.on_order - len(self.waiting)
 
     def _review(self) -> None:
-        if self.on_hand + self.on_order > self.reorder_point:
+        if self.position() > self.reorder_point:
             return
         self.on_order += self.order_quantity
         if self.context.window.observes(self.now):
@@ -1030,7 +1040,9 @@ class Store(Block):
         self.on_hand += self.order_quantity
         self.stock.set(self.now, self.on_hand)
         while self.waiting and self.on_hand > 0:
-            self._withdraw(self.waiting.popleft())
+            item = self.waiting.popleft()
+            self._take_unit()
+            self.send(item, self.target("out"), _nothing)
 
     def metrics(self) -> dict[str, float]:
         return {
