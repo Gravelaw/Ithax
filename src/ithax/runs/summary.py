@@ -24,14 +24,14 @@ from typing import Any
 from ithax.engines.adapter import Results
 from ithax.model.issues import Issue
 from ithax.model.model import Experiment, Model, ParameterValue
-from ithax.model.units import Quantity
+from ithax.model.units import Quantity, in_unit
 from ithax.runs.statistics import across_replications, paired_differences
 from ithax.runs.warmup import warmup_check, warmup_warning
 
 __all__ = ["build_summary", "fidelity_label", "format_length"]
 
-# Phase 1 time units, largest first, in seconds (spec 1 "Quantities").
-_TIME_UNITS = (("d", 86400.0), ("h", 3600.0), ("min", 60.0))
+# Phase 1 time units above the second, largest first (their sizes: ``UNIT_SIZES``).
+_LARGER_TIME_UNITS = ("d", "h", "min")
 
 
 def _number(value: float) -> str:
@@ -42,9 +42,9 @@ def _number(value: float) -> str:
 def format_length(seconds: float) -> str:
     """A run length as a whole number in the largest Phase 1 time unit that gives one
     (``d``, ``h``, ``min``), and otherwise in seconds: 720000 s is "200 h"."""
-    for symbol, size in _TIME_UNITS:
-        count = seconds / size
-        if count >= 1 and count == int(count):
+    for symbol in _LARGER_TIME_UNITS:
+        count = in_unit(seconds, symbol)
+        if count is not None and count >= 1 and count.is_integer():
             return f"{int(count)} {symbol}"
     return f"{_number(seconds)} s"
 

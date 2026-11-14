@@ -2947,3 +2947,36 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - Numbering the table rows from 0 while drawing offset streams. A row would then not name its stream.
 - **Spec sections updated:** spec 1 "Random streams", the `replications` table, the adapter contract; spec 2 "Simulation-based optimization" ("Overlap of the two stages" becomes "Fresh random numbers for confirmation"; "Result", "Result layout"); dated lines in both.
 - **Dependencies added:** none.
+
+## 2026-11-14 · M13 · Rate units in constraints: format 0.3 (#77; M1-7)
+
+- **Decision:**
+  - **Rate units.** `1/s`, `1/min`, `1/h` and `1/d` are Phase 1 units of a new `Dimension.RATE`, with SI symbol `1/s` (`docs/research/m13-rate-units.md`).
+    - A `process` constraint's `value` is read as a time or a rate by the unit it is written in: `"30 1/h"` is 30/3600 items per second.
+    - The meaning pass's E123 takes a time for a time metric, a rate quantity or a plain number for a rate metric, and a plain number for any other. The messages name the rate in items per hour.
+    - A rate unit where a time is expected is E140.
+  - **Format 0.3.** `FORMAT_VERSION` is `"0.3"`, a minor and additive change with no migration, and new projects are written as 0.3.
+    - A rate unit in a constraint `value` of a file of 0.0 to 0.2 is E100 at that `value`. The hint says to set `format_version` or write the plain number, and gives it.
+    - The model tests that asserted the reader is 0.2 now assert 0.3.
+    - The "minor above the reader" cases (the `E101_minor_above_reader` fixture among them) use 0.4.
+  - **Unchanged.** A plain number of items per second for a rate is still valid in every version. No shipped file changes. The search compares a rate in SI units, as before.
+  - **Checks.**
+    - `tests/model/test_rate_constraints.py`: the four units, loading, E100 in 0.0 to 0.2, E123 both ways, E140, E141 spellings, and the search margin equal for `"30 1/h"` and 30/3600. They fail before the change.
+    - The interface's constraint test now commits `"30 1/h"` and expects it sent as written.
+- **Reason:** issue #77 (E1, M1-7): "30 per hour must be written 0.008333 today. Accept for example '30 1/h', additively to the format." Spec 1 "Metric names" already said a rate unit "would be an additive minor version".
+- **Reading (reversible):** the rate units are allowed only in a constraint on a rate. No setting takes a rate in Phase 1.
+- **Alternatives considered:**
+  - Accepting `"30 1/h"` without a new minor. A 0.2 reader would then fail on a file that says 0.2.
+  - Units spelt `per h` or `/h`. They are not the inverted time units pint reads, and they would add a second grammar.
+- **Review of PR #165** (two findings of one class, guide "Review findings": a quantity scaled by a unit's size overflows near 1e308).
+  - **The findings.** `"1e309 1/h"` was E141, although it is 2.8e305 per second. The E100 hint for `"1e308 1/s"` said "inf per hour is inf".
+  - **One helper.** `ithax.model.units` holds `UNIT_SIZES` (each unit's exact size in SI units) and `in_unit(si, unit)`. `in_unit` gives an exact, correctly rounded conversion, so a finite result equals the float division or product it replaces, or `None` beyond a float.
+  - **Parsing.** `parse_quantity` scales a written number beyond a float exactly (decimal). A finite written number still goes through pint, so no existing value changes.
+  - **Every site routed.** The E100 hint (now the plain number per second, with no scaling), the E123 and W201 rate texts, `_time_text` and `_duration`, `findings.display.quantity` (a rate beyond a float per hour is shown per second), `runs.summary.format_length` and `runs.targets.describe_seconds`. In the interface, `inUnit` in `results/display.ts` covers the rate text and the search chart.
+  - **`figures`.** `figures` in `findings/display.py` no longer raises for infinity, NaN or rounding up past the largest float.
+  - **The check for the next one.**
+    - `tests/test_conventions.py` flags a product, quotient or remainder with 60, 3600 or 86400, and a unit symbol paired with one, outside `units.py`. Six settings constants are marked `# unit factor:` with their reason.
+    - `tests/model/test_units.py` checks extreme magnitudes for every unit: a quantity is read exactly when its exact SI value is a finite float; `in_unit` is finite or `None`; pint agrees with `UNIT_SIZES`.
+    - AGENTS.md lists the class under "Classes that recurred".
+- **Spec sections updated:** spec 1 "Quantities", "Versioning", "Metric names" and the E100 row (a dated line).
+- **Dependencies added:** none.

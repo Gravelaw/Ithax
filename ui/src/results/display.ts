@@ -6,17 +6,32 @@
  *
  * - a time in the largest Phase 1 unit it reaches (`s`, `min`, `h`, `d`), a half-width in
  *   its mean's unit;
- * - a rate (`1/s`) per hour;
+ * - a rate (`1/s`) per hour, or per second when its hourly figure is not a finite number;
  * - a share metric (`utilization`, `availability`, `scheduled_fraction`) as a percentage;
  * - three significant figures, never an exponent, a comma between thousands.
  */
 
-/** Phase 1 time units, largest first, with their length in seconds (spec 1 "Quantities"). */
-export const TIME_UNITS: readonly (readonly [string, number])[] = [
-  ["d", 86_400],
-  ["h", 3_600],
-  ["min", 60],
-];
+/** Seconds in each Phase 1 time unit (spec 1 "Quantities"; `ithax.model.units.UNIT_SIZES`). */
+const SECONDS: Readonly<Record<string, number>> = { s: 1, min: 60, h: 3_600, d: 86_400 };
+
+/** Phase 1 time units above the second, largest first, with their length in seconds. */
+export const TIME_UNITS: readonly (readonly [string, number])[] = (["d", "h", "min"] as const).map(
+  (symbol) => [symbol, SECONDS[symbol] as number] as const,
+);
+
+/**
+ * A value in SI units in a Phase 1 unit: a time in `s`, `min`, `h` or `d`, a rate per
+ * second in `1/s`, `1/min`, `1/h` or `1/d`; `null` for another unit, or when the result
+ * is not a finite number, as 1e308 per second is per hour (review of pull request 165). Every rate
+ * shown per hour goes through here.
+ */
+export function inUnit(si: number, unit: string): number | null {
+  const rate = unit.startsWith("1/");
+  const seconds = SECONDS[rate ? unit.slice(2) : unit];
+  if (seconds === undefined) return null;
+  const shown = rate ? si * seconds : si / seconds;
+  return Number.isFinite(shown) ? shown : null;
+}
 
 const FRACTIONS = [".utilization", ".availability", ".scheduled_fraction"];
 
@@ -59,10 +74,13 @@ export function isShare(metric: string, unit: string): boolean {
  */
 export function quantity(value: number, unit: string, like?: number): string {
   if (unit === "s") {
-    const [symbol, size] = timeUnit(like ?? value);
-    return `${figures(value / size)} ${symbol}`;
+    const [symbol] = timeUnit(like ?? value);
+    return `${figures(inUnit(value, symbol) ?? value)} ${symbol}`;
   }
-  if (unit === "1/s") return `${figures(value * 3600)} per hour`;
+  if (unit === "1/s") {
+    const perHour = inUnit(value, "1/h");
+    return perHour === null ? `${figures(value)} per second` : `${figures(perHour)} per hour`;
+  }
   return figures(value);
 }
 

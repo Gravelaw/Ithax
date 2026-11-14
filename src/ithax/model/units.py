@@ -14,11 +14,14 @@ each error into an issue object with ``component`` and ``path`` filled.
 
 from __future__ import annotations
 
+import decimal
 import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from decimal import Decimal
 from enum import Enum
+from fractions import Fraction
 from functools import cache
 from types import MappingProxyType
 from typing import ClassVar
@@ -29,13 +32,16 @@ from ithax.strict_json import is_finite_real, is_number
 
 __all__ = [
     "PHASE_1_UNITS",
+    "UNIT_SIZES",
     "Dimension",
     "Quantity",
     "QuantityDimensionError",
     "QuantityError",
     "QuantityKindError",
     "QuantityParseError",
+    "in_unit",
     "parse_quantity",
+    "quantity_dimension",
     "read_number",
     "read_quantity",
     "si_symbol",
@@ -47,29 +53,61 @@ class Dimension(Enum):
     """The kind of value a setting or result holds."""
 
     TIME = "time"
+    RATE = "rate"  # items per unit of time (#77; format 0.3)
     DIMENSIONLESS = "dimensionless"
 
 
 # SI symbol per dimension, as written in the `unit` column of the results tables
 # (spec 1 "Tables for the process domain": an SI symbol or `1`).
 _SI_SYMBOL: Mapping[Dimension, str] = MappingProxyType(
-    {Dimension.TIME: "s", Dimension.DIMENSIONLESS: "1"}
+    {Dimension.TIME: "s", Dimension.RATE: "1/s", Dimension.DIMENSIONLESS: "1"}
 )
 
 # Each dimension as pint states it: base dimension to exponent. Written out rather than
 # asked of pint, because pint 0.25 cannot give the dimensionality of "dimensionless".
 _PINT_DIMENSIONALITY: Mapping[Dimension, Mapping[str, float]] = MappingProxyType(
-    {Dimension.TIME: {"[time]": 1}, Dimension.DIMENSIONLESS: {}}
+    {Dimension.TIME: {"[time]": 1}, Dimension.RATE: {"[time]": -1}, Dimension.DIMENSIONLESS: {}}
 )
 
-# Spec 1 "Quantities": the Phase 1 units, written exactly as listed; case matters.
+# Spec 1 "Quantities": the Phase 1 units, written exactly as listed; case matters. The
+# rate units arrived in format 0.3 (#77), for a constraint on a rate.
 PHASE_1_UNITS: Mapping[str, Dimension] = MappingProxyType(
-    {"s": Dimension.TIME, "min": Dimension.TIME, "h": Dimension.TIME, "d": Dimension.TIME}
+    {
+        "s": Dimension.TIME,
+        "min": Dimension.TIME,
+        "h": Dimension.TIME,
+        "d": Dimension.TIME,
+        "1/s": Dimension.RATE,
+        "1/min": Dimension.RATE,
+        "1/h": Dimension.RATE,
+        "1/d": Dimension.RATE,
+    }
+)
+
+# Each Phase 1 unit's size in SI units, exactly: a minute is 60 s, a rate per hour 1/3600
+# per second. Every conversion of a quantity to or from a unit goes through these (#77,
+# review of PR #165): a float product such as 1e308 x 3600 overflows, an exact one does
+# not, and a test checks that pint agrees with each size.
+UNIT_SIZES: Mapping[str, Fraction] = MappingProxyType(
+    {
+        "s": Fraction(1),
+        "min": Fraction(60),
+        "h": Fraction(3600),
+        "d": Fraction(86400),
+        "1/s": Fraction(1),
+        "1/min": Fraction(1, 60),
+        "1/h": Fraction(1, 3600),
+        "1/d": Fraction(1, 86400),
+    }
 )
 
 # How each dimension is named in messages and hints.
 _EXPECTED: Mapping[Dimension, str] = MappingProxyType(
-    {Dimension.TIME: "a time", Dimension.DIMENSIONLESS: "a plain number with no unit"}
+    {
+        Dimension.TIME: "a time",
+        Dimension.RATE: "a rate",
+        Dimension.DIMENSIONLESS: "a plain number with no unit",
+    }
 )
 
 # The hint given with each error, by the dimension the setting expects.
@@ -77,6 +115,8 @@ _HINT: Mapping[Dimension, str] = MappingProxyType(
     {
         Dimension.TIME: "Write a number, one space and one of the units s, min, h or d, "
         "as in '1.5 min'.",
+        Dimension.RATE: "Write a number, one space and one of the units 1/s, 1/min, 1/h or "
+        "1/d, as in '30 1/h'.",
         Dimension.DIMENSIONLESS: "Remove the unit and write the number alone, as in 3.",
     }
 )
@@ -141,29 +181,36 @@ def units_of(dimension: Dimension) -> tuple[str, ...]:
     return tuple(symbol for symbol, dim in PHASE_1_UNITS.items() if dim is dimension)
 
 
+def quantity_dimension(text: str) -> Dimension | None:
+    """The dimension of the Phase 1 unit ``text`` is written in, when ``text`` follows the
+    grammar with a Phase 1 unit (``"30 1/h"`` is a rate); ``None`` otherwise."""
+    match = _QUANTITY.fullmatch(text)
+    return None if match is None else PHASE_1_UNITS.get(match.group("unit"))
+
+
 def parse_quantity(text: str, expected: Dimension) -> Quantity:
     """Parse a quantity string such as ``"1.5 min"`` and convert it to SI.
 
-    Raises ``QuantityDimensionError`` (E140) when the grammar holds and the unit is one
-    the units library knows, but no reading of it has the ``expected`` dimension
-    (``"5 m"`` for a time). Raises ``QuantityParseError`` (E141) for any other string
-    that breaks the spec 1 grammar, including a known unit of the right dimension that is
-    not a Phase 1 unit (``"2 ms"``), and for a number whose SI value is not finite.
+    Raises ``QuantityDimensionError`` (E140) when the grammar holds and the unit is a
+    Phase 1 unit of another dimension (``"30 1/h"`` for a time), or one the units library
+    knows with no reading of the ``expected`` dimension (``"5 m"`` for a time). Raises
+    ``QuantityParseError`` (E141) for any other string that breaks the spec 1 grammar,
+    including a known unit of the right dimension that is not a Phase 1 unit (``"2 ms"``),
+    and for a number whose SI value is not finite.
     """
     match = _QUANTITY.fullmatch(text)
     if match is None:
         raise _unreadable(text, expected)
     number, unit = match.group("number"), match.group("unit")
     if PHASE_1_UNITS.get(unit) is not expected:
-        if _known_only_in_other_dimensions(unit, expected):
+        if unit in PHASE_1_UNITS or _known_only_in_other_dimensions(unit, expected):
             raise QuantityDimensionError(
                 text,
                 f"'{text}' has the wrong kind of unit: {_EXPECTED[expected]} is expected.",
                 _HINT[expected],
             )
         raise _unreadable(text, expected)
-    # SI base units: seconds for a time.
-    magnitude = float(_registry().Quantity(float(number), unit).to_base_units().magnitude)
+    magnitude = _si_magnitude(number, unit)
     if not math.isfinite(magnitude):
         raise QuantityParseError(
             text,
@@ -172,6 +219,41 @@ def parse_quantity(text: str, expected: Dimension) -> Quantity:
         )
     # "-0 s" is stored as 0.0, so that equal times compare and print the same.
     return Quantity(magnitude + 0.0, expected)
+
+
+def _si_magnitude(number: str, unit: str) -> float:
+    """The written ``number`` in ``unit`` in SI units (seconds for a time, per second for a
+    rate), possibly infinite. A number that is a finite float is converted by pint, as
+    always. One beyond a float may still have a finite SI value in a unit below 1 (``"1e309
+    1/h"`` is about 2.8e305 per second), so it is scaled exactly (review of PR #165)."""
+    written = float(number)
+    if math.isfinite(written):
+        return float(_registry().Quantity(written, unit).to_base_units().magnitude)
+    size = UNIT_SIZES[unit]
+    with decimal.localcontext() as context:
+        context.traps[decimal.Overflow] = False  # beyond the context: Infinity, then E141
+        try:
+            exact = Decimal(number) * Decimal(size.numerator) / Decimal(size.denominator)
+        except decimal.InvalidOperation:
+            # An exponent beyond decimal's own range ("1e99999999999999999999 s"): far
+            # beyond a float in any unit, so E141, never a raise (review of PR #165).
+            return math.copysign(math.inf, written)
+        return float(exact)
+
+
+def in_unit(si: float | Fraction, unit: str) -> float | None:
+    """A value in SI units expressed in the Phase 1 unit ``unit``: seconds in minutes,
+    a rate per second per hour. Exact, so a finite result is the correctly rounded one,
+    as a float division or product gives; ``None`` when ``si`` is not finite or the result
+    is beyond the range of a float (1e308 per second is 3.6e311 per hour). Every
+    conversion from SI to a unit for a message or a display goes through here (review of
+    PR #165)."""
+    if isinstance(si, float) and not math.isfinite(si):
+        return None
+    try:
+        return float(Fraction(si) / UNIT_SIZES[unit])
+    except OverflowError:
+        return None
 
 
 def read_quantity(value: object, expected: Dimension) -> Quantity:

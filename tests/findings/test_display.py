@@ -1,6 +1,8 @@
 """How findings show numbers (spec 4 "Finding rules": evidence in SI units, the text in display
 units; research note ``docs/research/spec-4-findings-wording.md``, decision 6; AKS-117)."""
 
+import math
+
 import pytest
 
 from ithax.findings.display import figures, percent, quantity, value_text
@@ -71,3 +73,29 @@ def test_a_fraction_metric_is_a_percentage_and_another_plain_number_is_a_number(
     assert value_text("till.wait.mean", 941.482, "s") == "15.7 min"
     assert value_text("till.wait.mean", 125.5, "s", like=941.482) == "2.09 min"
     assert value_text("exit.throughput", 0.00833495, "1/s") == "30 per hour"
+
+
+@pytest.mark.parametrize("value", [1e308, 1.7976931348623157e308, -1e308])
+def test_a_rate_beyond_a_float_per_hour_is_shown_per_second(value: float) -> None:
+    """Review of PR #165: 1e308 per second is beyond a float per hour, so it is shown per
+    second, never as "inf per hour"."""
+    shown = quantity(value, "1/s")
+    assert shown.endswith(" per second") and "inf" not in shown
+
+
+@pytest.mark.parametrize("value", [1.7976931348623157e308, 5e-324, math.inf, math.nan])
+def test_a_time_at_the_ends_of_the_float_range_is_shown_without_raising(value: float) -> None:
+    assert quantity(value, "s")
+
+
+@pytest.mark.parametrize(
+    ("value", "shown"),
+    [(math.inf, "beyond any number"), (-math.inf, "beyond any number"), (math.nan, "not a number")],
+)
+def test_figures_names_a_value_that_is_not_finite(value: float, shown: str) -> None:
+    assert figures(value) == shown
+
+
+def test_figures_of_the_largest_float_does_not_overflow_when_it_rounds() -> None:
+    """Review of PR #165: three figures of 1.797e308 round up past the largest float."""
+    assert figures(1.7976931348623157e308).startswith("179,769,313")

@@ -64,6 +64,7 @@ from collections import deque
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
+from types import MappingProxyType
 from typing import Literal
 
 from ithax.model.catalogue import (
@@ -91,7 +92,7 @@ from ithax.model.model import (
     Scalar,
     SettingValue,
 )
-from ithax.model.units import Dimension, Quantity
+from ithax.model.units import UNIT_SIZES, Dimension, Quantity, in_unit
 
 __all__ = [
     "IDENTIFIER_PATTERN",
@@ -1640,8 +1641,8 @@ def metric_issues(model: Model) -> list[Issue]:
     - E174: an objective's or constraint's ``metric`` that is not such a name: no dot, an
       unknown component, or a measure its type does not report.
     - E123: a constraint's ``value`` of the wrong kind: a time quantity is needed for a
-      metric measured in time, and a plain number for any other (a rate such as
-      throughput is a plain number of items per second; Phase 1 has no rate unit).
+      metric measured in time, a rate quantity (format 0.3, #77) or a plain number of items
+      per second for a rate such as throughput, and a plain number for any other.
     """
     issues: list[Issue] = []
     by_id = _first_by_id(model.components)
@@ -1663,32 +1664,58 @@ def metric_issues(model: Model) -> list[Issue]:
             )
             continue
         kind = MEASURE_KINDS[constraint.metric.partition(".")[2]]
-        is_time = isinstance(constraint.value, Quantity)
-        if is_time == (kind is MeasureKind.TIME):
+        if _value_fits(constraint.value, kind):
             continue
-        measured = {
-            MeasureKind.TIME: "is measured in time, so a time such as '5 min' is expected",
-            MeasureKind.RATE: "is a rate, written as a plain number of items per second "
-            "(Phase 1 has no rate unit)",
-            MeasureKind.NUMBER: "is a plain number, so a plain number is expected",
-        }[kind]
-        given = (
-            f"a time, {_time_text(constraint.value.magnitude)}"
-            if isinstance(constraint.value, Quantity)
-            else f"the plain number {_number_text(constraint.value)}"
-        )
         issues.append(
             _issue(
                 "E123",
                 ("constraints", index, "value"),
-                f"The 'value' of constraint {_quote(constraint.id)} is {given}, but "
-                f"{_quote(constraint.metric)} {measured}.",
-                "Write a time with its unit, as in '5 min'."
-                if kind is MeasureKind.TIME
-                else "Write a plain number with no unit.",
+                f"The 'value' of constraint {_quote(constraint.id)} is "
+                f"{_constraint_value_text(constraint.value)}, but {_quote(constraint.metric)} "
+                f"{_MEASURED[kind]}.",
+                _KIND_HINT[kind],
             )
         )
     return issues
+
+
+# What each kind of metric is measured in, and the hint for a value of another kind (#77:
+# a rate takes a rate quantity, from format 0.3, or a plain number of items per second).
+_MEASURED: Mapping[MeasureKind, str] = MappingProxyType(
+    {
+        MeasureKind.TIME: "is measured in time, so a time such as '5 min' is expected",
+        MeasureKind.RATE: "is a rate, so a rate such as '30 1/h' or a plain number of items "
+        "per second is expected",
+        MeasureKind.NUMBER: "is a plain number, so a plain number is expected",
+    }
+)
+_KIND_HINT: Mapping[MeasureKind, str] = MappingProxyType(
+    {
+        MeasureKind.TIME: "Write a time with its unit, as in '5 min'.",
+        MeasureKind.RATE: "Write a rate with its unit, as in '30 1/h', or a plain number of "
+        "items per second.",
+        MeasureKind.NUMBER: "Write a plain number with no unit.",
+    }
+)
+
+
+def _value_fits(value: int | float | Quantity, kind: MeasureKind) -> bool:
+    """A time quantity for a time, a rate quantity or a plain number for a rate, a plain
+    number for any other metric (spec 1 "Metric names")."""
+    if isinstance(value, Quantity):
+        return (value.dimension, kind) in {
+            (Dimension.TIME, MeasureKind.TIME),
+            (Dimension.RATE, MeasureKind.RATE),
+        }
+    return kind is not MeasureKind.TIME
+
+
+def _constraint_value_text(value: int | float | Quantity) -> str:
+    if not isinstance(value, Quantity):
+        return f"the plain number {_number_text(value)}"
+    if value.dimension is Dimension.RATE:
+        return f"a rate, {_rate_text(value.magnitude)}"
+    return f"a time, {_time_text(value.magnitude)}"
 
 
 def _metric_problem(metric: str, by_id: Mapping[str, Component]) -> str | None:
@@ -2258,7 +2285,7 @@ def _load_issue(
     return _issue(
         "W201",
         ("components", index),
-        f"The mean arrival rate at {name} ({_figures(rate * 3600)} per hour) times its mean "
+        f"The mean arrival rate at {name} ({_rate_text(rate)}) times its mean "
         f"service time ({_duration(mean)}) is {_figures(rate * mean)}, which is at least "
         f"{_capacity_text(graph, component, capacity[0])}, and its queue is "
         f"unlimited, so the queue will grow without limit{case.text}.",
@@ -2498,18 +2525,27 @@ def _number_text(value: int | float) -> str:
     return repr(value)
 
 
-# Phase 1 time units, largest first, with their length in seconds.
-_TIME_UNITS = (("d", 86_400), ("h", 3_600), ("min", 60))
+# Phase 1 time units above the second, largest first (their sizes: ``UNIT_SIZES``).
+_LARGER_TIME_UNITS = ("d", "h", "min")
 
 
 def _time_text(seconds: int | float) -> str:
     """A time in seconds as a message shows it, in the largest unit that holds it
     exactly: ``8 h``, ``90 s``, ``-5 min``."""
-    for unit, length in _TIME_UNITS:
-        count = seconds / length
-        if abs(seconds) >= length and float(count).is_integer():
+    for unit in _LARGER_TIME_UNITS:
+        count = in_unit(seconds, unit)
+        if abs(seconds) >= UNIT_SIZES[unit] and count is not None and count.is_integer():
             return f"{_number_text(count)} {unit}"
     return f"{_number_text(seconds)} s"
+
+
+def _rate_text(per_second: Fraction | float) -> str:
+    """A rate in items per second as a message shows it: per hour to four figures, or
+    per second when the hourly figure is beyond a float (review of PR #165)."""
+    per_hour = in_unit(per_second, "1/h")
+    if per_hour is None:
+        return f"{_figures(Fraction(per_second))} per second"
+    return f"{per_hour:.4g} per hour"
 
 
 def _figures(value: Fraction, digits: int = 4) -> str:
@@ -2529,9 +2565,10 @@ def _duration(seconds: Fraction | float, digits: int = 4) -> str:
     value = float(seconds)
     if not math.isfinite(value):
         return "a very long time"
-    for unit, length in _TIME_UNITS:
-        if abs(value) >= length:
-            return f"{value / length:.{digits}g} {unit}"
+    for unit in _LARGER_TIME_UNITS:
+        shown = in_unit(value, unit)
+        if abs(value) >= UNIT_SIZES[unit] and shown is not None:
+            return f"{shown:.{digits}g} {unit}"
     return f"{value:.{digits}g} s"
 
 

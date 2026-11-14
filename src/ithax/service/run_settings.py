@@ -33,7 +33,7 @@ _N = TypeVar("_N", int, float)
 #: The bounds of the run settings (review of PR #36, owner to confirm): at most 64 runs at
 #: once, and a time limit of at most 7 days.
 MAX_CONCURRENT_RUNS = 64
-MAX_TIME_LIMIT_S = 7 * 24 * 3600.0
+MAX_TIME_LIMIT_S = 7 * 24 * 3600.0  # unit factor: a constant
 
 _log = logging.getLogger(__name__)
 

@@ -390,8 +390,8 @@ class MeasureKind(Enum):
 
 # Spec 2 "Statistic definitions": every measure (a metric name after `<component id>.`)
 # and what it is measured in. Throughput, orders and discards are "divided by the
-# period", so they are rates; Phase 1 has no rate unit, so a constraint on one is a plain
-# number of items per second (AKS-90, owner to confirm).
+# period", so they are rates; a constraint on one is a rate quantity such as "30 1/h"
+# (format 0.3, #77) or a plain number of items per second (AKS-90).
 MEASURE_KINDS: Mapping[str, MeasureKind] = MappingProxyType(
     {
         "wait.mean": MeasureKind.TIME,

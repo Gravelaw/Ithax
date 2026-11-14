@@ -11,7 +11,7 @@
  * and Results shows it. Then:
  *
  * - the saved model (`GET .../model`) equals `examples/coffee_shop.json` except `ui` and
- *   `format_version` (a new project is written at the reader's 0.2 since AKS-123; the
+ *   `format_version` (a new project is written at the reader's 0.3 since #77; the
  *   example is 0.1);
  * - `till.wait.mean` from the run's summary is within 3 standard errors of 270 s at the
  *   example's seed, 12345, with 30 repeat runs of 200 h (spec 2's pass rule; the standard
@@ -228,9 +228,9 @@ test("the coffee shop is built, run and viewed by pointer, through documented ro
   await enter(page, "Seed", "12345");
 
   // The saved model is the example's, except `ui` and `format_version`: a new project is
-  // written at the reader's version, 0.2 since AKS-123, and the example is 0.1.
+  // written at the reader's version, 0.3 since #77, and the example is 0.1.
   const stored = (await service.api("GET", `/v1/projects/${pid}/model`)).body as { model: Model };
-  expect(stored.model.format_version).toBe("0.2");
+  expect(stored.model.format_version).toBe("0.3");
   expect(example.format_version).toBe("0.1");
   expect(withoutUi({ ...stored.model, format_version: "0.1" })).toEqual(withoutUi(example));
 

@@ -68,6 +68,7 @@ from ithax.model.data import EMPTY_DATA_INDEX, DataIndex
 from ithax.model.issues import Issue, pointer
 from ithax.model.loading import SeedSource, load_text
 from ithax.model.model import Model
+from ithax.model.units import in_unit
 from ithax.runs.ids import new_run_id
 from ithax.runs.limits import Limits, descendant_ids, limit_exceeded, process_tree_memory
 from ithax.runs.lock import LOCK_FILE, RunLock, is_held, take_lock
@@ -149,8 +150,9 @@ class RunRefused(Exception):
 
 def describe_seconds(seconds: float) -> str:
     """A time limit in words: whole minutes as "10 min", otherwise seconds."""
-    if seconds >= 60 and seconds % 60 == 0:
-        return f"{int(seconds // 60)} min"
+    minutes = in_unit(seconds, "min")
+    if minutes is not None and minutes >= 1 and minutes.is_integer():
+        return f"{int(minutes)} min"
     return f"{seconds:g} s"
 
 
