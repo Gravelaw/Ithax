@@ -7,7 +7,6 @@ broadcaster.
 """
 
 import asyncio
-import dataclasses
 import json
 import threading
 import time
@@ -31,13 +30,10 @@ LABEL = {"edits": [{"edit": "set_label", "id": "x", "label": None}]}
 
 
 @pytest.fixture
-def quick(config: ServiceConfig) -> ServiceConfig:
-    return dataclasses.replace(config, websocket_auth_timeout_s=0.5)
-
-
-@pytest.fixture
-def client(quick: ServiceConfig) -> Iterator[TestClient]:
-    with TestClient(create_app(quick), base_url=BASE_URL, headers=AUTH) as test_client:
+def client(config: ServiceConfig) -> Iterator[TestClient]:
+    # The default 5 s token wait: no test here waits it out, and a short one can end
+    # before the token message arrives under load (see quick in test_auth.py).
+    with TestClient(create_app(config), base_url=BASE_URL, headers=AUTH) as test_client:
         yield test_client
 
 
