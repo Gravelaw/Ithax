@@ -463,6 +463,11 @@
   color: var(--color-warning);
 }
 
+/* The plan's own warning (#80, D2) sits beside its heading, not on a corner. */
+.plan-head .badge {
+  position: static;
+}
+
 .badge-count {
   padding: 0 0.25rem;
   border-radius: 999px;

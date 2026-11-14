@@ -633,8 +633,49 @@ function LimitRow({
   );
 }
 
+/**
+ * The messages of the E179 issues a card warns of (#80, D2): a plan with no decisions, on
+ * every card, and for a limit its own empty `linear`.
+ */
+function nothingToDecide(issues: Issue[], own?: string): string[] {
+  return issues
+    .filter((issue) => issue.code === "E179" && (issue.path === "/variables" || issue.path === own))
+    .map((issue) => issue.message);
+}
+
+/** A warning mark, its messages as the tooltip (#80, D2). */
+function WarningMark({ messages }: { messages: string[] }) {
+  if (messages.length === 0) return null;
+  const text = messages.join("\n");
+  return (
+    <span className="badge badge-warning" role="img" aria-label={`Warning: ${text}`} title={text}>
+      <span className="badge-mark badge-triangle" aria-hidden="true">
+        !
+      </span>
+    </span>
+  );
+}
+
+/** A card's warning badge, drawn for the eye; the card's own title carries the words. */
+function CardWarning({ messages }: { messages: string[] }) {
+  if (messages.length === 0) return null;
+  return (
+    <span className="badge badge-warning" aria-hidden="true">
+      <span className="badge-mark badge-triangle">!</span>
+    </span>
+  );
+}
+
 /** The Diagram view: decision cards linked to the goal and limit cards that use them. */
-function Diagram({ model, onOpen }: { model: Model; onOpen: (path: string) => void }) {
+function Diagram({
+  model,
+  issues,
+  onOpen,
+}: {
+  model: Model;
+  issues: Issue[];
+  onOpen: (path: string) => void;
+}) {
   const layout = diagramLayout(model);
   const variables = variablesOf(model);
   const limits = new Map(constraintsOf(model).map((row) => [row.index, row.item]));
@@ -699,14 +740,20 @@ function Diagram({ model, onOpen }: { model: Model; onOpen: (path: string) => vo
       {layout.targets.map((card) => {
         const limit = limits.get(card.index);
         const goal = card.kind === "goal";
+        const warnings = nothingToDecide(
+          issues,
+          goal ? undefined : `/constraints/${card.index}/linear`,
+        );
         return (
           <button
             type="button"
             key={card.key}
             className="plan-card"
             style={{ left: card.x, top: card.y, width: CARD_WIDTH, height: CARD_HEIGHT }}
+            title={warnings.length > 0 ? warnings.join("\n") : undefined}
             onClick={() => onOpen(goal ? "/objective/sense" : `/constraints/${card.index}/id`)}
           >
+            <CardWarning messages={warnings} />
             <span className="plan-card-title">
               {goal ? (
                 <TargetIcon aria-hidden="true" size={16} />
@@ -972,7 +1019,7 @@ export function PlanScreen({
         <Limits ctx={ctx} />
       </div>
     ) : (
-      <Diagram model={model} onOpen={open} />
+      <Diagram model={model} issues={state.issues} onOpen={open} />
     );
 
   return (
@@ -1024,6 +1071,7 @@ export function PlanScreen({
                   <h2 className="title" id="plan-heading">
                     Plan: decisions, a goal and limits
                   </h2>
+                  <WarningMark messages={nothingToDecide(state.issues)} />
                   <fieldset className="view-switch">
                     <legend className="visually-hidden">View</legend>
                     <button

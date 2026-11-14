@@ -1,0 +1,13 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Plan"
+  },
+  "domain": "optimization",
+  "variables": [],
+  "objective": {
+    "sense": "maximize",
+    "linear": {}
+  },
+  "constraints": []
+}

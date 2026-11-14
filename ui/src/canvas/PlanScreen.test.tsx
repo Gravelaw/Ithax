@@ -293,6 +293,52 @@ describe("the Diagram view", () => {
   });
 });
 
+describe("a plan with nothing to decide (#80, D2)", () => {
+  const empty: Issue = {
+    code: "E179",
+    severity: "error",
+    component: null,
+    path: "/variables",
+    message: "The plan has no decisions: 'variables' is empty, so there is nothing to choose.",
+    hint: "Add a variable to 'variables', a quantity the optimizer chooses.",
+  };
+  const loose: Issue = {
+    code: "E179",
+    severity: "error",
+    component: null,
+    path: "/constraints/0/linear",
+    message: "The constraint 'wood' has an empty 'linear', so it limits no variable.",
+    hint: null,
+  };
+
+  it("warns on the plan and on its goal and limit cards, with the message as the tooltip", async () => {
+    const model = plan();
+    model.constraints = [{ id: "wood", linear: {}, op: "<=", rhs: 400 }];
+    const { toolbar, user } = renderPlan(model, () => [empty, loose]);
+    await settled(toolbar);
+    const heading = screen.getByRole("heading", { name: /^Plan: decisions, a goal and limits/ });
+    const warning = within(heading.parentElement as HTMLElement).getByRole("img", {
+      name: `Warning: ${empty.message}`,
+    });
+    expect(warning).toHaveAttribute("title", empty.message);
+    await user.click(screen.getByRole("button", { name: "Diagram" }));
+    const goal = screen.getByRole("button", { name: /^Goal/ });
+    expect(goal).toHaveAttribute("title", empty.message);
+    expect(goal.querySelector(".badge-warning")).not.toBeNull();
+    const wood = screen.getByRole("button", { name: /^wood/ });
+    expect(wood).toHaveAttribute("title", `${empty.message}\n${loose.message}`);
+  });
+
+  it("draws no warning on a plan that has decisions", async () => {
+    const { toolbar, user } = renderPlan(mix());
+    await settled(toolbar);
+    expect(screen.queryByRole("img", { name: /^Warning:/ })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Diagram" }));
+    expect(screen.getByRole("button", { name: /^Goal/ })).not.toHaveAttribute("title");
+    expect(document.querySelector(".plan-card .badge-warning")).toBeNull();
+  });
+});
+
 /** The transport plan of spec 2 "Indexed problems" (format 0.2; AKS-123), as written. */
 function transport(): Model {
   return {
