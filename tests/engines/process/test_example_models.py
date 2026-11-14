@@ -12,6 +12,10 @@ Two parts:
   stations below 0.70; the warehouse's throughput within 1% of 60 per hour with pack
   utilization from 0.75 to 0.85; and the coffee shop against M/M/1 theory. Each run takes
   about 1.5 to 3 s with 4 workers, so the gate stays in ``bash scripts/check.sh``.
+- The theory gate (#75, M13): the three-machine line and the warehouse, each at its own
+  experiment with 300 replications in place of 30, against the closed-form values in its
+  ``meta.description``, at the spec 2 benchmark pass rule (3 standard errors). Marked
+  ``benchmark``: the two runs take about 40 s with 4 workers.
 
 Each example runs through the experiment manager (``ithax.runs.manager.run_experiment``,
 AKS-102), and the across-replication mean and 95% half-width are the manager's
@@ -201,11 +205,9 @@ def test_warehouse_meets_its_spec_2_targets(
 
 # The coffee shop against M/M/1 theory (arrivals mean 2 min, service mean 1.5 min), in SI
 # units, with the spec 2 benchmark pass rule: |estimate - theory| <= 3 standard errors.
-# The other two files are compared with their theory in spec 2's table and in
-# docs/DECISIONS.md (AKS-101), but not gated on it: their targets are the gate, and of
-# their 14 such checks at 30 replications at least one falls beyond 3 standard errors in 7%
-# of runs of a correct engine (the line's paint wait does at seed 12345; seeds 1, 2 and 7
-# do not).
+# The other two files are gated on their theory at 300 replications, below (#75): at 30, of
+# their 14 such checks at least one falls beyond 3 standard errors in 7% of runs of a
+# correct engine (the line's paint wait does at seed 12345, -3.32; at 300 it is -1.19).
 COFFEE_SHOP_THEORY: dict[str, Fraction] = {
     "till.wait.mean": Fraction(270),
     "till.utilization": Fraction(3, 4),
@@ -268,3 +270,89 @@ def test_the_weld_wait_half_width_is_13_percent_of_its_mean(
     """Spec 2 records it for spec 4's ``not_enough_runs`` (10% threshold), checked at M8."""
     mean, half_width = mean_and_half_width(measured["three_machine_line.json"]["weld.wait.mean"])
     assert round(100 * half_width / mean, 1) == 13.3
+
+
+# ---------------------------------------------------------------------------------------
+# The theory gate (#75): the line and the warehouse at 300 replications
+
+THEORY_REPLICATIONS = 300
+
+# Each file's meta.description, in SI units. Every station sees Poisson arrivals (Burke's
+# theorem; a constant transfer or inspection shifts a Poisson stream and keeps it Poisson,
+# and the warehouse's two Bernoulli-split streams are independent before they merge at
+# pack), so each server is M/M/c: utilization lambda E(S) / c, and mean wait
+# rho / (1 - rho) x E(S) for one server; Erlang C 4/9 x E(S) / (c - a) = 8/9 min for pick.
+THEORY: dict[str, dict[str, Fraction]] = {
+    "three_machine_line.json": {
+        "cut.utilization": Fraction(3, 5),
+        "weld.utilization": Fraction(9, 10),
+        "paint.utilization": Fraction(1, 2),
+        "cut.wait.mean": Fraction(108),  # 1.8 min
+        "weld.wait.mean": Fraction(972),  # 16.2 min
+        "paint.wait.mean": Fraction(60),  # 1.0 min
+        "exit.cycle_time.mean": Fraction(1500),  # 3.0 + 18.0 + 2 + 2.0 min
+        "exit.throughput": Fraction(1, 120),  # 30 per hour
+    },
+    "warehouse.json": {
+        "pick.utilization": Fraction(2, 3),
+        "pack.utilization": Fraction(4, 5),
+        "pick.wait.mean": Fraction(160, 3),  # 8/9 min
+        "pack.wait.mean": Fraction(192),  # 3.2 min
+        "dispatch.cycle_time.mean": Fraction(120) + Fraction(160, 3) + 60 + 240,  # 7.889 min
+        "dispatch.throughput": Fraction(1, 60),  # 60 per hour
+    },
+}
+
+
+def run_long(name: str, workdir: Path) -> dict[str, list[float]]:
+    """The example's own first experiment with 300 replications; each metric's values."""
+    document = json.loads((EXAMPLES / name).read_text(encoding="utf-8"))
+    document["experiments"][0]["replications"] = THEORY_REPLICATIONS
+    model = load_document(document).model
+    assert model is not None
+    outcome = run_experiment(
+        ProcessAdapter(), model, model.experiments[0].id, workdir, workers=WORKERS
+    )
+    assert outcome.state == "done" and outcome.results is not None
+    values: dict[str, list[float]] = {}
+    for row in outcome.results.tables["replications"].to_pylist():
+        values.setdefault(row["metric"], []).append(row["value"])
+    return values
+
+
+@pytest.fixture(scope="module")
+def long_runs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, dict[str, list[float]]]:
+    """The line and the warehouse at 300 replications, each run once for the module."""
+    return {name: run_long(name, tmp_path_factory.mktemp(name)) for name in THEORY}
+
+
+def test_the_theory_is_the_one_each_file_states() -> None:
+    """The gate's values are the ones in each file's ``meta.description``, at the decimals
+    written there (minutes, utilizations and per-hour throughput)."""
+    for name, theory in THEORY.items():
+        text = json.loads((EXAMPLES / name).read_text(encoding="utf-8"))["meta"]["description"]
+        for metric, value in theory.items():
+            if metric.endswith(".utilization"):
+                written = f"{float(value):.3f}".rstrip("0").rstrip(".")
+            elif metric.endswith(".throughput"):
+                written = f"{float(value) * 3600:g} per hour"
+            else:
+                written = f"{float(value) / MINUTE:.3f}".rstrip("0") + " min"
+                written = written.replace(". min", ".0 min")
+            assert written in text, (name, metric, written)
+
+
+@pytest.mark.benchmark
+@pytest.mark.parametrize(
+    ("name", "metric"), [(name, metric) for name, theory in THEORY.items() for metric in theory]
+)
+def test_each_example_agrees_with_its_theory_at_300_replications(
+    name: str, metric: str, long_runs: Mapping[str, Mapping[str, Sequence[float]]]
+) -> None:
+    """Spec 2 benchmark pass rule: |mean - theory| <= 3 standard errors (#75; at seed 12345
+    every one of the 14 lies within 2, the largest the line's cut wait at +1.70)."""
+    sample = long_runs[name][metric]
+    assert len(sample) == THEORY_REPLICATIONS
+    mean = statistics.fmean(sample)
+    deviation = (mean - float(THEORY[name][metric])) / standard_error(sample)
+    assert abs(deviation) <= SE_LIMIT, (metric, mean, deviation)

@@ -2853,3 +2853,25 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Review of PR #159:** a server or pool that no item reaches (rate zero) is not checked. With the schedule's mean capacity it could be 0, and a load of 0 "at least" a capacity of 0 was reported as a queue growing without limit. A positive rate into a capacity of 0 is still reported, even with a service time of 0, since no unit ever serves the items. Tests: `test_w201_a_server_no_item_reaches_is_not_reported_at_zero_capacity` and `test_w201_a_pool_no_item_reaches_is_not_reported_at_zero_capacity`, which fail before the fix.
 - **Spec sections updated:** spec 1 "Validation" and the W201 row (a dated line).
 - **Dependencies added:** none.
+
+## 2026-11-14 · M13 · The line and the warehouse gated on their theory (#75)
+
+- **Decision:**
+  - **Measured first.** Each example's own experiment was run with 300 replications in place of 30, at seed 12345 (`docs/research/m13-example-theory.md`).
+    - All 14 theory values of the three-machine line and the warehouse lie within 2 standard errors. The largest deviation is the line's cut wait, at +1.70.
+    - The paint wait, −3.32 at 30 replications at M2, is −1.19 at 300 (59.57 s against 60 s). The M2 reading of a reroll holds, and there is no bug.
+  - **The gate.** `test_each_example_agrees_with_its_theory_at_300_replications` in `tests/engines/process/test_example_models.py` checks the 14 values against each file's `meta.description` at spec 2's benchmark pass rule, |mean − theory| ≤ 3 standard errors.
+    - It is marked `benchmark`, so `pytest -m benchmark` and `bash scripts/check.sh` both run it.
+    - The two runs take about 40 s with 4 workers.
+    - `test_the_theory_is_the_one_each_file_states` checks the gate's values against the numbers written in each description.
+  - **Unchanged.** The examples keep 30 replications. The 30-replication values pinned in spec 2 stay as they are.
+- **Reason:** issue #75 (E1, M2-7): "Run 300 replications; gate if within 2 SE, else find the bug."
+- **Reading (reversible):** "within 2 SE" is the test for deciding whether to gate, and the gate itself uses 3 standard errors.
+  - A correct change that only rerolls the random streams (a numpy or simpy upgrade) would fail one of 14 checks at 2 standard errors in about 48% of runs. At 3 standard errors that falls to about 3.7%.
+  - Every spec 2 benchmark already uses 3.
+- **Alternatives considered:**
+  - Gating at 2 standard errors. It passes today, but it would flag a correct reroll about half the time.
+  - Raising the examples' own `replications` to 300. That changes what the examples show a user, and every value pinned at 30.
+  - New `benchmarks/` cases. They would copy the two example files, which could then drift from them.
+- **Spec sections updated:** spec 2 "Reference values from the prototype", the acceptance tests (an M13 row), and a dated line.
+- **Dependencies added:** none.
