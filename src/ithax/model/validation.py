@@ -72,6 +72,7 @@ from ithax.model.catalogue import (
     MODEL_METRICS,
     PROCESS_TYPES,
     FieldKind,
+    FieldSpec,
     MeasureKind,
     SettingKind,
     SettingSpec,
@@ -1248,6 +1249,32 @@ def distribution_issues(model: Model) -> list[Issue]:
     return issues
 
 
+def _bound_issue(
+    model: Model, use: _Use, field: FieldSpec, value: Scalar, plain: set[str], named: str
+) -> list[Issue]:
+    """E160 for a field that must be above zero (``positive``) or not below it
+    (``nonnegative``, #69) and is not, in the first case that fails."""
+    if field.positive:
+        failure = _first_failure(model, [value], lambda numbers: numbers[0] > 0)
+        problem, hint = "it must be greater than zero.", f"Use a '{field.name}' above zero."
+    else:
+        failure = _first_failure(model, [value], lambda numbers: numbers[0] >= 0)
+        problem = "a time cannot be below zero, and every sample below zero would be set to 0 s."
+        hint = f"Use a '{field.name}' of 0 s or more."
+    if failure is None:
+        return []
+    shown = _shown(failure[0][0], "number" if field.name in plain else "quantity")
+    return [
+        _issue(
+            "E160",
+            (*use.at, field.name),
+            f"The '{field.name}' of {named} is {shown}{failure[1]}; {problem}",
+            hint,
+            use.component,
+        )
+    ]
+
+
 def _distribution_issues(model: Model, use: _Use) -> list[Issue]:
     distribution = use.distribution
     spec = DISTRIBUTIONS[distribution.dist]
@@ -1262,21 +1289,8 @@ def _distribution_issues(model: Model, use: _Use) -> list[Issue]:
     issues: list[Issue] = []
     for form in spec.forms:
         for field in form:
-            if not field.positive or field.name not in fields:
-                continue
-            failure = _first_failure(model, [fields[field.name]], lambda numbers: numbers[0] > 0)
-            if failure is not None:
-                shown = _shown(failure[0][0], "number" if field.name in plain else "quantity")
-                issues.append(
-                    _issue(
-                        "E160",
-                        (*use.at, field.name),
-                        f"The '{field.name}' of {named} is {shown}{failure[1]}; it must be "
-                        "greater than zero.",
-                        f"Use a '{field.name}' above zero.",
-                        use.component,
-                    )
-                )
+            if field.name in fields and (field.positive or field.nonnegative):
+                issues.extend(_bound_issue(model, use, field, fields[field.name], plain, named))
     ordered = [name for name in spec.ordered if name in fields]
     failure = _first_failure(
         model,
@@ -2147,12 +2161,17 @@ def _load_issue(
 # --- W202: a normal distribution clipped at zero ------------------------------------------------
 
 
+#: W202's bound (#69, M2-1): a ``normal`` with more than this share of its samples below
+#: zero, that is with ``mean`` below about 2.326 times ``sd``, is reported.
+CLIPPED_SHARE = 0.01
+
+
 def clipping_issues(model: Model) -> list[Issue]:
-    """W202 for a ``normal`` distribution whose ``mean`` is less than twice its ``sd``, so that
-    about 2% or more of its samples are below zero and are set to zero (spec 1
-    "Distributions"). Checked with the parameters at their ``value`` and in each
-    scenario; the first case that fails is named. A normal with an ``sd`` not above zero
-    (E160) or a reference with E150 or E152 is not checked."""
+    """W202 for a ``normal`` distribution with more than ``CLIPPED_SHARE`` (1%) of its
+    samples below zero, which are set to zero (spec 1 "Distributions"; #69). Checked with
+    the parameters at their ``value`` and in each scenario; the first case that fails is
+    named. A normal with an ``sd`` not above zero (E160) or a reference with E150 or E152
+    is not checked."""
     issues: list[Issue] = []
     cases = _run_cases(model)
     for index, component in enumerate(model.components):
@@ -2165,7 +2184,7 @@ def clipping_issues(model: Model) -> list[Issue]:
                 if fields is None:
                     break
                 mean, sd = fields["mean"], fields["sd"]
-                if sd <= 0 or mean >= 2 * sd:
+                if sd <= 0 or _normal_below_zero(float(mean), float(sd)) <= CLIPPED_SHARE:
                     continue
                 issues.append(_clipping_issue(use, float(mean), float(sd), case))
                 break
@@ -2182,11 +2201,10 @@ def _clipping_issue(use: _Use, mean: float, sd: float, case: _Case) -> Issue:
         "W202",
         use.at,
         f"The 'normal' distribution in {use.where} has a 'mean' ({_duration(mean, 3)}) "
-        f"less than twice its 'sd' ({_duration(sd, 3)}){case.text}, so about "
-        f"{share}% of its samples are below zero; they are set to zero, which raises its mean "
-        f"to {raised}.",
-        "Use a 'mean' of at least twice the 'sd', or a distribution that is never negative, "
-        "such as 'lognormal' with the same mean and sd.",
+        f"and an 'sd' ({_duration(sd, 3)}){case.text} that put about {share}% of its "
+        f"samples below zero; they are set to zero, which raises its mean to {raised}.",
+        "Use a 'mean' of at least 2.33 times the 'sd', or a distribution that is never "
+        "negative, such as 'lognormal' with the same mean and sd.",
         use.component,
     )
 
