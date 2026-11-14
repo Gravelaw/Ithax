@@ -265,9 +265,11 @@ def test_an_optimization_model_runs_without_a_body_and_has_no_tables(
     assert run["state"] == "done"
     assert run["experiment_id"] is None
     summary = client.get(f"/v1/runs/{rid}/summary").json()
-    assert summary["summary"]["objective"] == pytest.approx(2200)
+    assert summary["summary"]["objective"] == 2200.0
+    assert summary["summary"]["variables"] == {"chairs": 24.0, "tables": 14.0}  # #76
     # Spec 4 optimization_result for a mathematical optimization (AKS-117, AKS-135).
     [finding] = summary["findings"]
+    assert finding["evidence"]["variables"] == {"chairs": 24.0, "tables": 14.0}
     assert finding["rule"] == "optimization_result"
     assert finding["text"] == (
         "Best found: chairs = 24, tables = 14. The objective is 2,200, with wood and labour tight."

@@ -661,7 +661,12 @@ def test_run_model_of_an_optimization_model(client: ServiceClient, http: httpx2.
         assert (await finished(mcp_client, started["run_id"]))["state"] == "done"
         error, results = await call(mcp_client, "get_results", {"run_id": started["run_id"]})
         assert not error and results["tables"] == {}
-        assert results["summary"]["objective"] == pytest.approx(2200)
+        # Clean values (#76): HiGHS gives 24.000000000000004 chairs and a wood slack of
+        # 5.7e-14; the tools pass on what the adapter reports.
+        assert results["summary"]["objective"] == 2200.0
+        assert results["summary"]["variables"] == {"chairs": 24.0, "tables": 14.0}
+        slacks = {name: item["slack"] for name, item in results["summary"]["constraints"].items()}
+        assert slacks == {"wood": 0.0, "labour": 0.0}
         # An optimization run has no tables.
         error, body = await call(
             mcp_client, "get_results", {"run_id": started["run_id"], "tables": ["replications"]}
