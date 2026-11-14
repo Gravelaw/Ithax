@@ -15,6 +15,11 @@ interface are defined here:
 ``CancelToken`` is supplied by the run target, never by the adapter: a
 ``multiprocessing.Event`` on the local target.
 
+``RunIssue`` is what an adapter raises from ``run`` when the model itself makes the run
+impossible, such as items circling blocks that take no time (E196, #74): it carries a
+spec 1 issue, which the run fails with instead of E190 (spec 1 "Engine adapter
+interface").
+
 A component type is described by the model layer's ``BlockType`` (settings and ports),
 the same description the ``process`` catalogue uses, so that an adapter's
 ``capabilities()`` can be compared with that catalogue (spec 1 "Validation").
@@ -45,8 +50,22 @@ __all__ = [
     "ParallelMode",
     "Progress",
     "Results",
+    "RunIssue",
     "Table",
 ]
+
+
+class RunIssue(Exception):
+    """A run that the model itself stops, with the spec 1 ``issue`` it fails with (#74).
+    Picklable, so it crosses from a replication's worker process to the run target."""
+
+    def __init__(self, issue: Issue) -> None:
+        super().__init__(issue)
+        self.issue = issue
+
+    def __str__(self) -> str:
+        return f"{self.issue.code}: {self.issue.message}"
+
 
 # Spec 1 "Division of labour": a pyarrow Arrow table.
 Table: TypeAlias = pa.Table

@@ -111,6 +111,39 @@ class Stopped(Exception):
     """Raised out of a ``Transfers`` whose ``should_stop`` said yes."""
 
 
+#: Spec 2 "Zero-time loops" (#74; M2-5, M4-14): a replication stops when more than this many
+#: events and same-instant transfer steps happen at one simulated instant.
+INSTANT_STEP_LIMIT = 1_000_000
+
+
+class ZeroTimeLoop(Exception):
+    """More than ``INSTANT_STEP_LIMIT`` steps happened at the instant ``at`` (seconds)."""
+
+    def __init__(self, at: float) -> None:
+        super().__init__(at)
+        self.at = at
+
+
+class InstantCounter:
+    """Counts the steps (events run and transfer steps) at the current simulated instant,
+    from 0 each time the clock moves, and raises ``ZeroTimeLoop`` past the limit: items
+    circling blocks that take no time would otherwise run until the run's time limit."""
+
+    def __init__(self, env: simpy.Environment) -> None:
+        self._env = env
+        self._now = env.now
+        self._count = 0
+
+    def tick(self) -> None:
+        """One more step at the current instant."""
+        now = self._env.now
+        if now != self._now:
+            self._now, self._count = now, 0
+        self._count += 1
+        if self._count > INSTANT_STEP_LIMIT:
+            raise ZeroTimeLoop(float(now))
+
+
 def _never() -> bool:
     return False
 
@@ -123,8 +156,11 @@ class Transfers:
     long, or forever, within one SimPy event, so ``should_stop`` is asked every
     ``TRANSFER_CHECK_STEPS`` steps here too; when it says yes, ``Stopped`` is raised."""
 
-    def __init__(self, should_stop: Callable[[], bool] = _never) -> None:
+    def __init__(
+        self, should_stop: Callable[[], bool] = _never, counter: InstantCounter | None = None
+    ) -> None:
         self._should_stop = should_stop
+        self._counter = counter
         self._pending: deque[Callable[[], None]] = deque()
         self._running = False
         self._steps = 0
@@ -140,6 +176,8 @@ class Transfers:
                 self._steps += 1
                 if self._steps % TRANSFER_CHECK_STEPS == 0 and self._should_stop():
                     raise Stopped
+                if self._counter is not None:
+                    self._counter.tick()
                 self._pending.popleft()()
         finally:
             self._running = False
