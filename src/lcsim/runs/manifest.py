@@ -25,7 +25,6 @@ no such folder can stop the service (AKS-112).
 
 from __future__ import annotations
 
-import json
 import os
 import tempfile
 import time
@@ -37,7 +36,14 @@ from typing import Any
 import lcsim
 from lcsim.model.streams import generator_info
 from lcsim.runs.states import JOB_STATES
-from lcsim.strict_json import MAX_WHOLE, read_json_file, real_in, whole_in
+from lcsim.strict_json import (
+    MAX_WHOLE,
+    encode_json,
+    read_json_file,
+    read_json_object_file,
+    real_in,
+    whole_in,
+)
 
 __all__ = [
     "MANIFEST_FILE",
@@ -137,11 +143,11 @@ def new_manifest(
 def write_manifest(folder: Path, manifest: dict[str, Any]) -> None:
     """Writes ``folder/manifest.json`` atomically; a value JSON cannot hold (NaN) raises
     ``ValueError`` and leaves the old file as it was."""
-    text = json.dumps(manifest, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    data = encode_json(manifest)
     handle, temporary = tempfile.mkstemp(dir=folder, prefix=".manifest-", suffix=".tmp")
     try:
-        with os.fdopen(handle, "w", encoding="utf-8") as stream:
-            stream.write(text)
+        with os.fdopen(handle, "wb") as stream:
+            stream.write(data)
         os.replace(temporary, folder / MANIFEST_FILE)
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
@@ -150,8 +156,7 @@ def write_manifest(folder: Path, manifest: dict[str, Any]) -> None:
 
 def read_manifest(folder: Path) -> dict[str, Any]:
     """The manifest in ``folder``."""
-    data: dict[str, Any] = json.loads((folder / MANIFEST_FILE).read_text(encoding="utf-8"))
-    return data
+    return read_json_object_file(folder / MANIFEST_FILE)
 
 
 def read_run_manifest(folder: Path) -> dict[str, Any] | None:

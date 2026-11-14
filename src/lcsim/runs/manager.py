@@ -35,7 +35,6 @@ in its own process and ``run`` in a worker process: ``check_experiment`` (step 1
 
 from __future__ import annotations
 
-import json
 import threading
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -47,6 +46,7 @@ from lcsim.model.issues import Issue, pointer
 from lcsim.model.model import Model
 from lcsim.runs.search import run_search, search_summary
 from lcsim.runs.summary import build_summary
+from lcsim.strict_json import json_text
 
 __all__ = [
     "OFFERED_FIDELITIES",
@@ -98,14 +98,14 @@ def fidelity_issues(model: Model) -> list[Issue]:
     fidelity = model.run.fidelity
     if fidelity in OFFERED_FIDELITIES:
         return []
-    offered = " or ".join(json.dumps(item) for item in OFFERED_FIDELITIES)
+    offered = " or ".join(json_text(item, ascii_only=True) for item in OFFERED_FIDELITIES)
     return [
         Issue(
             code="E173",
             component=None,
             path=pointer("run", "fidelity"),
-            message=f"The fidelity {json.dumps(fidelity)} is not offered by this engine; "
-            f"Phase 1 engines offer {offered} only.",
+            message=f"The fidelity {json_text(fidelity, ascii_only=True)} is not offered by "
+            f"this engine; Phase 1 engines offer {offered} only.",
             hint=f"Set 'fidelity' in 'run' to {offered}.",
         )
     ]

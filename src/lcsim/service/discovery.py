@@ -14,12 +14,13 @@ configuration folder keeps the file private there.
 from __future__ import annotations
 
 import contextlib
-import json
 import os
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass
 from pathlib import Path
+
+from lcsim.strict_json import json_text, read_json_file
 
 __all__ = [
     "PROBE_TIMEOUT_S",
@@ -60,8 +61,7 @@ def write_service_file(config_dir: Path, info: ServiceInfo) -> Path:
         temporary.unlink()
     descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, _MODE)
     with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-        json.dump(asdict(info), handle)
-        handle.write("\n")
+        handle.write(json_text(asdict(info), ascii_only=True) + "\n")
     # The process's umask may have removed bits; 0600 is wanted exactly.
     os.chmod(temporary, _MODE)
     os.replace(temporary, path)
@@ -72,7 +72,7 @@ def read_service_file(config_dir: Path) -> ServiceInfo | None:
     """The ``service.json`` in ``config_dir``, or ``None`` when it is missing or does not
     hold the four fields with the right JSON types."""
     try:
-        loaded = json.loads((config_dir / SERVICE_FILE).read_text(encoding="utf-8"))
+        loaded = read_json_file(config_dir / SERVICE_FILE)
     except (OSError, ValueError):
         return None
     if not isinstance(loaded, dict) or set(loaded) != {"port", "token", "pid", "started"}:
