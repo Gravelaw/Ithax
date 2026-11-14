@@ -1,6 +1,6 @@
 # Spec 2: Core Engine for Process Simulation and Optimization
 
-> Version 1.0 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 1.1 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 Two engine adapters, both in Python: discrete-event simulation on SimPy, and optimization on HiGHS; Optuna is a search driver inside the experiment manager, not an adapter. Together with an experiment manager they make Phase 1 a complete product.
 
@@ -453,3 +453,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-14, a sampled search's result (#85, M5-23): "Result" and "Result layout" add the search's `method` and `tried`.
 - 2026-11-14, alternate optima (#176, owner option B): "Mathematical optimization in the model file" adds how the HiGHS adapter probes the optimal set with at most two more solves and reports spec 1 W211 when another plan reaches the same objective.
 - 2026-11-14, HiGHS 1.16.0 (#132): the optimization benchmarks' results say that every row passes with HiGHS 1.16.0 as well; its default tolerances are 1.15.1's (primal and dual 10⁻⁷, MIP feasibility 10⁻⁶, MIP gap 10⁻⁴).
+- 2026-11-14, M13 closed (#69, #72, #73, #74, #75, #76, #77, #79, #80, #81, #84, #85, #86, #132, #176 and the two hints of #83): no further change to this spec at the close. Version 1.1.

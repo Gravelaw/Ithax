@@ -4,7 +4,7 @@ Nov 6, 2026 · @Akshay
 
 ## What is here
 
-Seven build specs, one per tab, plus a build guide for coding sessions. Each spec carries its own version and status line under its title; spec 0 is at 0.4 after M11 closed on 2026-11-09, and specs 1 to 4 are at 1.5, 1.0, 0.9 and 0.8 after M12 closed on 2026-11-14; specs 5 to 7 are at 0.2 after the review of 2026-11-05. The repository copy is the source of truth (owner to confirm); sessions never write to the Claude Docs. Specs 1 to 4 have a binding "Detailed specification" section each. Each ends with acceptance tests that an AI coding tool can be held to. Spec 0, the product brief, is a separate doc.
+Seven build specs, one per tab, plus a build guide for coding sessions. Each spec carries its own version and status line under its title; spec 0 is at 0.4 after M11 closed on 2026-11-09, and specs 1 to 4 are at 1.6, 1.1, 1.0 and 0.9 after M13 closed on 2026-11-14; specs 5 to 7 are at 0.2 after the review of 2026-11-05. The repository copy is the source of truth (owner to confirm); sessions never write to the Claude Docs. Specs 1 to 4 have a binding "Detailed specification" section each. Each ends with acceptance tests that an AI coding tool can be held to. Spec 0, the product brief, is a separate doc.
 
 | Spec | Covers | Phase | Build after |
 | --- | --- | --- | --- |

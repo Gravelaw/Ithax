@@ -1,6 +1,6 @@
 # Spec 4: Content, Learning and AI Access
 
-> Version 0.8 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.9 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 This spec covers what makes the tool usable by non-experts: ready-made templates, lessons, findings in plain language, and an MCP server so any assistant can build and run models.
 
@@ -334,3 +334,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-14, a sampled search's result (#85, M5-23): `optimization_result` for an Optuna search says its best is the best of the settings tried, not a proven optimum (or, infeasible, how many were tried); the Results screen says "Best of N tried, not proven".
 - 2026-11-14, the coffee shop measures 200 h (#86, D9): the `coffee_shop` template row reads `length` 210 h, 200 h measured, and 6,000 arrivals; the finding checks give the 210 h run's till utilization 0.748 and wait half-width 3.4% (0.151 min). The other templates keep 200 h, 190 h measured.
 - 2026-11-14, alternate optima (#176, owner option B): `optimization_result` for a mathematical optimization adds "Other plans reach the same objective; this is one of them." and `alternate` in its evidence when the summary's warnings hold W211.
+- 2026-11-14, M13 closed (#69, #72, #73, #74, #75, #76, #77, #79, #80, #81, #84, #85, #86, #132, #176 and the two hints of #83): no further change to this spec at the close. Version 0.9.
