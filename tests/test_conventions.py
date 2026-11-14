@@ -10,6 +10,13 @@ hand-written shapes of it elsewhere in ``src``:
 Only the numeric type sets are matched, so a check of a real boolean, or of "an int or a
 string" (``lcsim.model.migration``), is not flagged. Other shapes, such as an early
 ``if isinstance(value, bool): return``, are left to review: the test is a backstop.
+
+A file is replaced in one way, ``lcsim.files.atomic_write`` (or ``atomic_write_with``).
+Ruff bans ``os.replace`` and ``os.rename``; this test finds the method form ruff cannot
+see, ``path.replace(target)`` or ``path.rename(target)``: a call of an attribute named
+``replace`` or ``rename`` with one argument and no keywords (``str.replace`` takes two,
+``dataclasses.replace`` keywords). A line marked ``# noqa: TID251`` carries its reason
+beside it and is allowed.
 """
 
 import ast
@@ -17,6 +24,7 @@ from pathlib import Path
 
 SRC = Path(__file__).resolve().parent.parent / "src" / "lcsim"
 HELPERS = {SRC / "strict_json.py"}
+FILE_HELPERS = {SRC / "files.py"}
 NUMERIC = frozenset({"int", "float"})
 
 
@@ -113,3 +121,49 @@ def test_the_check_finds_each_shape_and_only_numeric_ones() -> None:
         ]
     )
     assert number_checks(ast.parse(source)) == [1, 2, 3, 4, 5]
+
+
+def renames(source: str) -> list[int]:
+    """Lines of a ``path.replace(target)`` or ``path.rename(target)`` call not marked
+    ``# noqa: TID251``."""
+    lines = source.splitlines()
+    found = []
+    for node in ast.walk(ast.parse(source)):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in {"replace", "rename"}
+            and len(node.args) == 1
+            and not node.keywords
+            and "# noqa: TID251" not in lines[node.lineno - 1]
+        ):
+            found.append(node.lineno)
+    return sorted(found)
+
+
+def test_files_are_replaced_through_lcsim_files() -> None:
+    offenders = [
+        f"{path.relative_to(SRC)}:{line}"
+        for path in sorted(SRC.rglob("*.py"))
+        if path not in FILE_HELPERS
+        for line in renames(path.read_text(encoding="utf-8"))
+    ]
+    assert not offenders, (
+        "Replace a file with lcsim.files.atomic_write or atomic_write_with, not a "
+        "hand-written rename: " + ", ".join(offenders)
+    )
+
+
+def test_the_rename_check_finds_the_method_forms_only() -> None:
+    source = "\n".join(
+        [
+            "partial.replace(path)",  # 1
+            "temporary.rename(path)",  # 2
+            "text.replace('a', 'b')",  # 3: str.replace
+            "dataclasses.replace(value, values=values)",  # 4: keywords
+            "os.replace(a, b)  # noqa: TID251",  # 5: two arguments, and marked
+            "aside.replace(path)  # noqa: TID251",  # 6: marked
+            "value.replace(tzinfo=None)",  # 7: a keyword only
+        ]
+    )
+    assert renames(source) == [1, 2]

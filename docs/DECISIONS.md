@@ -2619,3 +2619,32 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** route properties now (untried in the proposal, and much slower through `TestClient`).
 - **Spec sections updated:** none.
 - **Dependencies added:** hypothesis 6.170.15 (`>=6.170.15`), MPL-2.0, dev only; checked with `pip show hypothesis` (License-Expression: MPL-2.0). It brings sortedcontainers 2.4.0, Apache-2.0 (`pip show sortedcontainers`: License: Apache 2.0). Both are in `uv.lock` (`uv lock`, after #143 merged), and `uv sync --locked --extra dev` was checked in a fresh environment. MPL-2.0 is file-level copyleft and compatible with AGPL-3.0 use as a test tool; nothing of either ships in the product.
+
+## 2026-11-14 · M12 · Retrospective PR 8c: one way to replace a file (#99; P5)
+
+- **Decision:**
+  - `lcsim.files` is the one way the product replaces a file. `atomic_write(path, data)` writes the bytes and `atomic_write_with(path, writer)` hands a writer the temporary path, for Parquet and SQLite.
+    - The temporary file is `.<name>.<pid>.<thread>.tmp` beside the target. It is created exclusively, flushed (`fsync`), renamed over the target, and then the folder is flushed too.
+    - A failure removes the temporary file and raises.
+    - With `mode`, the file gets exactly that mode, whatever the umask. `service.json` keeps its 0600 this way.
+  - Seven single-file sites moved onto it. Before, they used three naming schemes (`.partial`, `.manifest-*.tmp` and `.<name>.<pid>[.<thread>].tmp`), and none flushed to disk:
+    - the process adapter's tables and the optimization adapter's solution;
+    - `summary.json` and `tables/*.parquet`;
+    - `manifest.json`;
+    - the run index rebuild;
+    - `service.json`;
+    - `projects.json`, and a new project's `project.json` and `model.json`, and `settings.json` (all through `projects_store.write_json`).
+  - The multi-file commit (`lcsim.service.commit`) keeps its own ordered renames and roll-back. It now names and flushes its temporaries through `lcsim.files` (`temporary_path`, `write_synced`), and puts a file back with `atomic_write`.
+  - Two renames remain, each marked `# noqa: TID251` with its reason:
+    - the commit's ordered rename;
+    - the move of an unreadable `projects.json` aside, which moves a file and writes nothing.
+  - Enforced:
+    - Ruff's `banned-api` bans `os.replace` and `os.rename` outside `src/lcsim/files.py`.
+    - `tests/test_conventions.py` finds the method forms ruff cannot see (`path.replace(target)`, `path.rename(target)`), with a probe test of what it matches.
+  - The run index's temporary is now `.index.sqlite.<pid>.<thread>.tmp`. The export still leaves it out, since it still starts with the index's name.
+- **Reason:** owner decision F2; the proposal's P5 row "Atomic file write" (8 hand-rolled sites, 3 naming schemes).
+- **Alternatives considered:**
+  - Moving the multi-file commit onto the helper. Its renames must follow every write, so a per-file helper would break its roll-back.
+  - Leaving out the folder flush. Without it, the rename itself can be lost on power failure. On Windows a folder cannot be opened, so the flush is skipped there.
+- **Spec sections updated:** none (no file format, name or `/v1` field changes; the temporary files are not part of any spec).
+- **Dependencies added:** none.

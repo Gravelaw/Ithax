@@ -78,7 +78,7 @@ def test_summary_json_is_written_as_utf8_json(tmp_path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     assert json.loads(text) == summary
     assert "Café" in text and text.endswith("}\n")
-    assert not list(tmp_path.glob("*.partial"))
+    assert [path.name for path in tmp_path.iterdir()] == ["summary.json"]
 
 
 def test_summary_json_refuses_nan(tmp_path: Path) -> None:

@@ -16,13 +16,13 @@ from __future__ import annotations
 
 import contextlib
 import logging
-import os
 import sqlite3
 import threading
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any, TypeVar
 
+from lcsim.files import atomic_write_with
 from lcsim.runs.ids import RUN_ID_PATTERN
 from lcsim.runs.manifest import read_run_manifest
 
@@ -78,21 +78,19 @@ class RunIndex:
 
     def _rebuild(self) -> None:
         """Writes a new index from the run folders and renames it into place."""
-        partial = self.path.with_name(f".{INDEX_FILE}.{os.getpid()}.partial")
-        partial.unlink(missing_ok=True)
-        try:
-            with _connected(partial) as connection:
+        rows = [
+            (rid, manifest["created"], _text(manifest.get("experiment_id")))
+            for rid, manifest in readable_runs(self.runs_root)
+        ]
+
+        def write(temporary: Path) -> None:
+            with _connected(temporary) as connection:
                 connection.execute(_SCHEMA)
                 connection.executemany(
-                    "INSERT INTO runs (run_id, created, experiment_id) VALUES (?, ?, ?)",
-                    [
-                        (rid, manifest["created"], _text(manifest.get("experiment_id")))
-                        for rid, manifest in readable_runs(self.runs_root)
-                    ],
+                    "INSERT INTO runs (run_id, created, experiment_id) VALUES (?, ?, ?)", rows
                 )
-            os.replace(partial, self.path)
-        finally:
-            partial.unlink(missing_ok=True)
+
+        atomic_write_with(self.path, write)
 
     def _use(self, action: Callable[[sqlite3.Connection], _T]) -> _T:
         """``action`` on the index, rebuilding it once when it is missing or cannot be

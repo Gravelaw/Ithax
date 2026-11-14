@@ -24,6 +24,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
+from lcsim.files import atomic_write
 from lcsim.model.migration import FORMAT_VERSION
 from lcsim.service.errors import NOT_FOUND, PROJECT_FOLDER, ServiceError
 from lcsim.service.paths import canonical, same_folder
@@ -134,19 +135,10 @@ def read_project(folder: Path) -> ProjectRecord | None:
 
 
 def write_json(path: Path, value: object) -> None:
-    """Write ``value`` as ``encode_json`` gives it, through a temporary file and a rename,
-    so a reader never sees half a file. Nothing is written when ``value`` cannot be
-    encoded (``ValueError``). The temporary file is named for the process and thread, and
-    removed when the write fails; the ``OSError`` is raised."""
-    data = encode_json(value)
-    temporary = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
-    try:
-        temporary.write_bytes(data)
-        os.replace(temporary, path)
-    except OSError:
-        with contextlib.suppress(OSError):
-            temporary.unlink()
-        raise
+    """Write ``value`` as ``encode_json`` gives it, with ``lcsim.files.atomic_write``, so a
+    reader never sees half a file. Nothing is written when ``value`` cannot be encoded
+    (``ValueError``); an ``OSError`` is raised, with no temporary file left behind."""
+    atomic_write(path, encode_json(value))
 
 
 def _folder_error(message: str) -> ServiceError:
@@ -190,7 +182,8 @@ class ProjectRegistry:
         # Kept aside, not overwritten: the registrations may be recovered by hand.
         aside = self._file.with_name(PROJECTS_FILE + ".unreadable")
         with contextlib.suppress(OSError):
-            os.replace(self._file, aside)
+            # A move of the file as it is, not a write: nothing to flush.
+            os.replace(self._file, aside)  # noqa: TID251
         _log.warning("%s cannot be read; it is kept as %s.", self._file, aside)
         return {}
 

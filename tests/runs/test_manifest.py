@@ -113,7 +113,7 @@ def test_a_failed_rename_removes_the_temporary_file(
     def refuse(source: object, target: object) -> None:
         raise OSError("disk full")
 
-    monkeypatch.setattr("lcsim.runs.manifest.os.replace", refuse)
+    monkeypatch.setattr("lcsim.files.os.replace", refuse)
     with pytest.raises(OSError, match="disk full"):
         write_manifest(tmp_path, manifest() | {"fraction": 0.5})
     assert sorted(path.name for path in tmp_path.iterdir()) == [MANIFEST_FILE]
