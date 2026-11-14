@@ -84,7 +84,7 @@ Run the app from a checkout with `python -m lcsim.launcher` once `ui/` is built.
 
 - Product brief and build specs: [`docs/specs/`](docs/specs/), the source of truth, each with
   a version line
-- How the build proceeds, milestone by milestone: [`CLAUDE.md`](CLAUDE.md)
+- How the build proceeds, milestone by milestone: [`docs/specs/build-guide.md`](docs/specs/build-guide.md); where it stands: [`docs/STATUS.md`](docs/STATUS.md); the map for coding sessions: [`CLAUDE.md`](CLAUDE.md)
 - Decision log: [`docs/DECISIONS.md`](docs/DECISIONS.md); research notes in
   `docs/research/`, session summaries in `docs/sessions/`
 

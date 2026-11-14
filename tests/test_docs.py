@@ -1,4 +1,4 @@
-"""Sync checks between the Build guide, CLAUDE.md, spec 1 and the test tree."""
+"""Sync checks between the Build guide, CLAUDE.md, docs/STATUS.md, spec 1 and the test tree."""
 
 import re
 import tomllib
@@ -22,16 +22,66 @@ BUILTIN_MARKERS = frozenset(
 )
 
 
-def guide_part_of_claude_md() -> str:
-    """The text of CLAUDE.md between the header comment and '## Current state'."""
-    text = CLAUDE_MD.read_text(encoding="utf-8")
-    start = text.index("-->") + len("-->")
-    end = text.index("\n## Current state")
-    return text[start:end].strip()
+# CLAUDE.md is a map of the build guide, not a copy of it (retrospective P8, #99): it stays
+# short, and every path it names exists. Status is in docs/STATUS.md.
+MAX_CLAUDE_MD_LINES = 120
+CODE_SPAN = re.compile(r"`([^`\s]+)`")
+FILE_SUFFIXES = (".md", ".py", ".sh", ".json", ".toml", ".yml")
+STATUS = ROOT / "docs" / "STATUS.md"
+SKILLS = ROOT / ".claude" / "skills"
+SKILL_LINE = re.compile(r"^- `([a-z-]+)`: ", re.MULTILINE)
+MILESTONE_ROW = re.compile(r"^\| (M\d+) ", re.MULTILINE)
 
 
-def test_claude_md_holds_the_build_guide() -> None:
-    assert guide_part_of_claude_md() == BUILD_GUIDE.read_text(encoding="utf-8").strip()
+def named_paths(text: str) -> list[str]:
+    """The repository paths in ``text``'s code spans: a span with a ``/`` before its end, or
+    a file name with a known suffix. Placeholders (``<name>``), API routes (``/v1``), dotted
+    Python names and the local ``.venv`` are not paths."""
+    paths = []
+    for span in CODE_SPAN.findall(text):
+        if "<" in span or span.startswith(("/", ".venv")):
+            continue
+        if "/" in span.rstrip("/") or span.endswith(FILE_SUFFIXES):
+            paths.append(span)
+    return paths
+
+
+def test_claude_md_is_a_short_map() -> None:
+    lines = CLAUDE_MD.read_text(encoding="utf-8").splitlines()
+    assert len(lines) < MAX_CLAUDE_MD_LINES, f"CLAUDE.md has {len(lines)} lines"
+
+
+def test_every_path_claude_md_names_exists() -> None:
+    paths = named_paths(CLAUDE_MD.read_text(encoding="utf-8"))
+    assert "docs/specs/build-guide.md" in paths and "docs/STATUS.md" in paths
+    missing = [path for path in paths if not (ROOT / path).exists()]
+    assert not missing, f"CLAUDE.md names paths that do not exist: {missing}"
+
+
+def test_the_path_finder_skips_what_is_not_a_path() -> None:
+    text = (
+        "`docs/x.md` `AGENTS.md` `model/` `lcsim.files` `docs/<n>.md` `.venv/bin/python` "
+        "`/v1` `a b`"
+    )
+    assert named_paths(text) == ["docs/x.md", "AGENTS.md"]
+
+
+def test_every_skill_is_listed_and_named_as_its_folder() -> None:
+    listed = set(SKILL_LINE.findall(CLAUDE_MD.read_text(encoding="utf-8")))
+    folders = {path.name for path in SKILLS.iterdir() if path.is_dir()}
+    assert listed == folders
+    for name in folders:
+        text = (SKILLS / name / "SKILL.md").read_text(encoding="utf-8")
+        front = text.split("---\n")[1]
+        assert f"name: {name}\n" in front
+        assert "\ndescription: " in f"\n{front}"
+
+
+def test_status_rows_are_milestones_of_the_guide() -> None:
+    guide = set(MILESTONE_ROW.findall(BUILD_GUIDE.read_text(encoding="utf-8")))
+    status = MILESTONE_ROW.findall(STATUS.read_text(encoding="utf-8"))
+    assert status, "docs/STATUS.md has no milestone rows"
+    assert set(status) <= guide
 
 
 def spec_1_issue_codes() -> list[tuple[str, str]]:
