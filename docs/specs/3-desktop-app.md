@@ -1,6 +1,6 @@
 # Spec 3: Desktop Application
 
-> Version 0.8 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.9 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 The app is two programs: an engine service that does all the work, and an interface that talks to it only through an API. That split is what lets a Windows interface drive Linux engines.
 
@@ -401,3 +401,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-09, M11 closed (AKS-127), from `tests/linux_package/test_linux_package.py`: the acceptance table's Linux row names its evidence (the clean container, online and offline); the opening of "Detailed specification" names the package; the warning line says where the outside walkthrough stands. Version 0.8.
 - 2026-11-14, the package renamed (#70, owner decision C8): module paths in this spec now read `ithax` (`src/ithax/`, `python -m ithax.<module>`); nothing else changed. The distribution, command and folder names follow in the next change.
 - 2026-11-14, the names renamed (#70, owner decision C8): the distribution, the commands `ithax`, `ithax-launcher` and `ithax-mcp`, the configuration and data folders ("Discovery", which adds that a folder named `lcsim` is used while no `ithax` folder exists, for one release), `share/ithax` in the package, the archive `ithax-<version>-linux-x86_64.tar.gz`, the desktop shell `ithax-desktop` (identifier `org.ithax.desktop`) and `ITHAX_PYTHON` (`LCSIM_PYTHON` is read for one release when it is unset) are named Ithax; titles and messages say Ithax.
+- 2026-11-14, M12 closed (#100, #99, #135, #70, #78): no further change to this spec at the close. Version 0.9.
