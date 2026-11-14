@@ -691,6 +691,12 @@ function Trials({ search }: { search: Search }) {
             ? "The best is clearly better than the next best trial."
             : "The best cannot yet be told apart from the next best trial."}
       </p>
+      {search.method === "optuna" && search.tried !== null ? (
+        <p className="chart-caption">
+          Best of {search.tried} tried, not proven: the search samples settings, so a better one may
+          be untried.
+        </p>
+      ) : null}
     </>
   );
 }

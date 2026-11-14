@@ -3036,4 +3036,20 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
     - `tests/model/test_units.py` checks extreme magnitudes for every unit: a quantity is read exactly when its exact SI value is a finite float; `in_unit` is finite or `None`; pint agrees with `UNIT_SIZES`.
     - AGENTS.md lists the class under "Classes that recurred".
 - **Spec sections updated:** spec 1 "Quantities", "Versioning", "Metric names" and the E100 row (a dated line).
+
+## 2026-11-14 · M13 · A sampled search's best is "best of N tried, not proven" (#85; M5-23)
+
+- **Decision:**
+  - **Summary.** The search block of `summary.json` gains `method` (`exhaustive` or `optuna`, as the manifest's `optimizer` names it) and `tried` (the distinct settings run, the baseline included). Both are additive.
+  - **Finding.** For an Optuna search, `optimization_result` ends with "It is the best of {tried} settings tried, not a proven optimum." An infeasible one ends with "{tried} settings were tried, not every one." An exhaustive search ran every combination, so it gets neither. A summary written before #85 has no `method` and also gets neither.
+  - **Interface.** The Results screen's search section says "Best of {tried} tried, not proven: the search samples settings, so a better one may be untried." for an Optuna search.
+  - **Checks.**
+    - The runs test pins the new keys and their order.
+    - Three findings tests: Optuna feasible, Optuna infeasible, exhaustive.
+    - Two interface tests and the `searchOf` tests.
+    - They fail before the change.
+  - **Fixture.** `tests/findings/fixtures/optimization_result_fires.json` is regenerated with `make_fixtures.py`. It now holds `method` and `tried`, and its confirmed means are those of #79's fresh confirmation streams: the baseline's wait is 4.36 min, where the stale fixture had 4.46. The search tests that pin that wait are updated.
+- **Reason:** issue #85 (E1, M5-23): "Optuna TPE has no noise handling or convergence statement."
+- **Reading (reversible):** the label applies to the Optuna path. That includes an integer search whose combinations exceed `budget`, as well as every `number` or `quantity` search, which is what M5-23 names.
+- **Spec sections updated:** spec 2 "Simulation-based optimization" ("Result", "Result layout"); spec 4 "Finding rules", `optimization_result`; dated lines in both.
 - **Dependencies added:** none.

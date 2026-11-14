@@ -441,7 +441,7 @@ def _search_result(summary: Mapping[str, Any], model: Model) -> list[Finding]:
     if search["status"] == "infeasible":
         text = (
             f"No setting tried meets every constraint. With the starting values, {settings}, "
-            f"{metric} is {shown(before)}."
+            f"{metric} is {shown(before)}.{_sampled_text(search, infeasible=True)}"
         )
         return [Finding("optimization_result", "warning", None, scenario, text, evidence)]
     baseline = candidates[0]
@@ -467,16 +467,36 @@ def _search_result(summary: Mapping[str, Any], model: Model) -> list[Finding]:
             text = (
                 f"Best found: {settings}. {metric} {verb} from {shown(before)} to {shown(after)}."
             )
+    text += _runner_up_text(search, best) + _sampled_text(search, infeasible=False)
+    return [Finding("optimization_result", "info", None, scenario, text, evidence)]
+
+
+def _runner_up_text(search: Mapping[str, Any], best: Mapping[str, Any]) -> str:
+    """Whether the best is separated from the next confirmed feasible setting, when there
+    is one (spec 2: the result states whether the best is separated)."""
     runner_up = any(
         candidate["confirmed"] and candidate["feasible"] and candidate["set"] != best
-        for candidate in candidates
+        for candidate in search["candidates"]
     )
-    if runner_up:
-        if search["separated"]:
-            text += " It is clearly better than the next best setting tried."
-        else:
-            text += " The next best setting tried cannot be told apart from it yet."
-    return [Finding("optimization_result", "info", None, scenario, text, evidence)]
+    if not runner_up:
+        return ""
+    if search["separated"]:
+        return " It is clearly better than the next best setting tried."
+    return " The next best setting tried cannot be told apart from it yet."
+
+
+def _sampled_text(search: Mapping[str, Any], *, infeasible: bool) -> str:
+    """For an Optuna search, which samples settings, that its result is of those tried,
+    not proven (#85, M5-23); nothing for an exhaustive one, or a summary without
+    ``method`` (written before #85)."""
+    if search.get("method") != "optuna":
+        return ""
+    tried = int(search["tried"])
+    settings = "setting" if tried == 1 else "settings"
+    if infeasible:
+        were = "was" if tried == 1 else "were"
+        return f" {tried} {settings} {were} tried, not every one."
+    return f" It is the best of {tried} {settings} tried, not a proven optimum."
 
 
 def _program_result(summary: Mapping[str, Any], model: Model) -> list[Finding]:
