@@ -120,15 +120,19 @@ def test_a_source_feeding_a_batch_is_not_a_loss_point(make_model: ModelMaker) ->
     assert metrics_of_model(model)["arrivals.discarded"] == 0.0
 
 
-def test_a_store_stops_the_rate_because_its_orders_set_what_gets_through(
+def test_a_store_stops_the_rate_propagation(
     make_model: ModelMaker,
 ) -> None:
     """Spec 1 "Validation": W201 is skipped for every server downstream of a store (AKS-106).
     Arrivals every 60 s into an empty store with ``reorder_point`` 0 that orders one unit at
-    a time (lead time 120 s), then a server of service 90 s, 1,200 s. Passed on, the
-    source's rate would load the server at 1.5 and raise W201; but the store lets one item
-    through per delivery, at 120, 240, ..., 1,080 s, so the server keeps up: no item waits.
-    Every one of the 20 arrivals finds no stock."""
+    a time (lead time 120 s), then a server of service 90 s, 1,200 s. Since #72 the store
+    reviews its textbook position at every demand: the 0 s review and each of the 20
+    arrivals (each waits, bringing the position to 0) order one unit, 21 orders. So the
+    store passes the source's rate on, 120 s late: items 0 and 1 at 120 s (two
+    deliveries), item k at 60(k + 1) s, and the server, loaded at 1.5, falls behind. Its
+    starts are at 120 + 90j s, so 11 items finish before the end (210 + 90j s, j = 0 to 10)
+    and its queue reaches 7 (19 arrived and 12 started, at 1,140 s). W201 is still skipped
+    here, as spec 1 says; #73 revisits a store's propagation."""
     components = [
         source(),
         {
@@ -150,21 +154,21 @@ def test_a_store_stops_the_rate_because_its_orders_set_what_gets_through(
     assert rates["till"] is None and rates["exit"] is None
     assert load_issues(model) == []
     metrics = metrics_of_model(model)
-    assert metrics["shelf.orders"] == 10 / 1200  # at 0, 120, ..., 1,080 s
+    assert metrics["shelf.orders"] == 21 / 1200  # twice at 0 s, then at 60, ..., 1,140 s
     assert metrics["shelf.stockouts"] == 20.0
-    assert metrics["till.wait.mean"] == 0.0
-    assert metrics["till.queue_length.max"] == 0.0
-    assert metrics["exit.count"] == 9.0  # at 210, 330, ..., 1,170 s
+    assert metrics["till.queue_length.max"] == 7.0
+    assert metrics["exit.count"] == 11.0
 
 
-def test_a_schedule_stops_the_rate_because_its_server_serves_less(
+def test_a_schedule_is_checked_against_the_server_s_mean_capacity(
     make_model: ModelMaker,
 ) -> None:
-    """Spec 1 "Validation": a schedule stops the rate at its target, which is not checked
-    (AKS-107). Arrivals every 60 s into a server of service 40 s on shift over [0, 100) of
-    every 200 s, 1,200 s. Its nominal load is 2/3, but on shift it starts at most three
-    items a period (at 200k, 200k + 40 and 200k + 80 s; only two in the first, which has two
-    arrivals), so 17 of the 20 items leave, not the 20 a propagated rate would give."""
+    """Spec 1 "Validation" (#73, M4-40): a server under a schedule is checked against its
+    mean scheduled capacity, and its rate is passed on. Arrivals every 60 s into a server
+    of service 40 s on shift over [0, 100) of every 200 s, 1,200 s: a mean capacity of 1/2
+    against a load of 2/3, so W201. The engine agrees: on shift it starts at most three
+    items a period (at 200k, 200k + 40 and 200k + 80 s; only two in the first, which has
+    two arrivals), so 17 of the 20 items leave and the queue grows."""
     components = [
         source(),
         {"id": "till", "type": "server", "params": {"capacity": 1, "service": constant("40 s")}},
@@ -181,20 +185,21 @@ def test_a_schedule_stops_the_rate_because_its_server_serves_less(
     ]
     model = make_model(components, chain("arrivals", "till", "exit"), length="1200 s")
     rates = flow_rates(model)
-    assert rates["till"] == Fraction(1, 60)
-    assert rates["exit"] is None
-    assert load_issues(model) == []
+    assert rates["till"] == rates["exit"] == Fraction(1, 60)
+    assert [(issue.code, issue.component) for issue in load_issues(model)] == [("W201", "till")]
     metrics = metrics_of_model(model)
     assert metrics["arrivals.created"] == 20.0
     assert metrics["exit.count"] == 17.0
     assert metrics["till.queue_length.max"] >= 3.0
 
 
-def test_a_failure_stops_the_rate_at_its_server_and_one_on_a_scheduled_pool(
+def test_a_failure_and_a_scheduled_pool_are_checked_against_their_mean_capacity(
     make_model: ModelMaker,
 ) -> None:
-    """A failure stops the rate at its target, and a schedule on a pool stops it at every
-    server of that pool; neither server is checked (spec 1 "Validation")."""
+    """Spec 1 "Validation" (#73): a failure down 100 s after each 100 s leaves ``pack`` a
+    mean capacity of 1/2, and the schedule leaves the pool ``staff`` 1/2, each against a
+    load of 2/3 (one item per 60 s, 40 s each): W201 at both. The engine agrees: fewer
+    items leave than arrive, and ``pack`` is available half the time."""
     components = [
         source(),
         {
@@ -226,9 +231,11 @@ def test_a_failure_stops_the_rate_at_its_server_and_one_on_a_scheduled_pool(
     ]
     model = make_model(components, chain("arrivals", "till", "pack", "exit"), length="1200 s")
     rates = flow_rates(model)
-    assert rates["till"] == Fraction(1, 60)
-    assert rates["pack"] is None and rates["exit"] is None
-    assert load_issues(model) == []
+    assert rates["till"] == rates["pack"] == rates["exit"] == Fraction(1, 60)
+    assert [(issue.code, issue.component) for issue in load_issues(model)] == [
+        ("W201", "pack"),
+        ("W201", "staff"),
+    ]
     metrics = metrics_of_model(model)
     assert metrics["exit.count"] < metrics["arrivals.created"]
     assert metrics["pack.availability"] == 600 / 1200

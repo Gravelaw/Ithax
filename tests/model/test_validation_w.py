@@ -145,10 +145,12 @@ def test_the_coffee_shop_raises_no_warning(group: Callable[[Model], list[Issue]]
 @pytest.mark.parametrize("code", ["W200", "W201", "W202"])
 def test_a_warning_fixture_loads_with_its_warning_and_no_error(code: str) -> None:
     """Spec 1 "Validation issues": warnings do not block a run, so the model loads."""
-    (fixture,) = FIXTURES.glob(f"{code}_*.json")
-    result = load_document(json.loads(fixture.read_text(encoding="utf-8")))
-    assert result.model is not None
-    assert [issue.code for issue in result.issues] == [code]
+    fixtures = sorted(FIXTURES.glob(f"{code}_*.json"))
+    assert fixtures
+    for fixture in fixtures:
+        result = load_document(json.loads(fixture.read_text(encoding="utf-8")))
+        assert result.model is not None
+        assert [issue.code for issue in result.issues] == [code], fixture.name
 
 
 def test_the_meaning_pass_runs_the_warnings_last() -> None:
@@ -627,59 +629,183 @@ def test_w201_is_skipped_after_a_shortest_queue_branch() -> None:
     assert load_issues(model) == []
 
 
+# --- W201 under a schedule, a failure and a pool (#73; M4-39, M4-40) ---------------------------
+#
+# The coffee shop's till: one arrival per 2 min on average, capacity 1, service 1.5 min
+# (load 0.75); its experiment runs 200 h, longer than the 24 h default period.
+
+
+def rota(*shifts: tuple[str, str, int], target: str = "till", name: str = "rota") -> dict[str, Any]:
+    return block(
+        name,
+        "schedule",
+        target=target,
+        shifts=[{"start": start, "end": end, "capacity": units} for start, end, units in shifts],
+    )
+
+
+def breakdowns(up: str, down: str, name: str = "breakdowns") -> dict[str, Any]:
+    return block(
+        name,
+        "failure",
+        target="till",
+        time_to_failure=exponential(up),
+        time_to_repair=exponential(down),
+    )
+
+
 @pytest.mark.parametrize(
-    "extra",
+    ("extra", "capacity", "warned"),
     [
-        block(
-            "rota",
-            "schedule",
-            target="till",
-            shifts=[{"start": "0 h", "end": "8 h", "capacity": 1}],
-        ),
-        block(
-            "breakdowns",
-            "failure",
-            target="till",
-            time_to_failure=exponential("1 h"),
-            time_to_repair=exponential("5 min"),
-        ),
+        # On shift 12 h of 24: a mean of 1/2, below the load of 0.75.
+        ([rota(("0 h", "12 h", 1))], "0.5", True),
+        # On shift 20 h of 24: 5/6, above it.
+        ([rota(("0 h", "20 h", 1))], "0.8333", False),
+        # A shift above the nominal capacity counts as the nominal capacity: 1.
+        ([rota(("0 h", "24 h", 3))], "1", False),
+        # Down 30 min after each 1 h on average: up 2/3 of the time, below 0.75.
+        ([breakdowns("1 h", "30 min")], "0.6667", True),
+        # Down 1 h after each 9 h: up 9/10, above 0.75.
+        ([breakdowns("9 h", "1 h")], "0.9", False),
     ],
-    ids=["schedule", "failure"],
+    ids=["half-shift", "long-shift", "shift-above-nominal", "often-down", "seldom-down"],
 )
-def test_w201_is_skipped_at_and_after_a_server_with_a_schedule_or_failure(
-    extra: dict[str, Any],
+def test_w201_compares_the_load_with_the_mean_available_capacity(
+    extra: list[dict[str, Any]], capacity: str, warned: bool
 ) -> None:
-    document = with_service(exponential("5 min"))
-    document["components"][2:2] = [server("after", "5 min")]
-    document["connections"] = chain("arrivals.out", "till.out", "after.out", "exit")
-    document["components"].append(extra)
+    """#73 (M4-40): a server under a schedule or a failure is checked against its mean
+    available capacity (spec 1 "Validation"), and its rate is passed on."""
+    document = with_service(exponential("1.5 min"))
+    document["components"] += extra
     model = built(document)
-    assert flow_rates(model)["after"] is None
-    assert load_issues(model) == []
+    assert per_minute(flow_rates(model)["exit"]) == Fraction(1, 2)
+    issues = load_issues(model)
+    assert codes(issues) == ([("W201", "/components/1")] if warned else [])
+    if warned:
+        names = ", ".join(f"{item['type']} '{item['id']}'" for item in extra)
+        assert (f"is at least its mean available capacity of {capacity} (under {names})") in issues[
+            0
+        ].message
+        assert_plain(issues[0])
 
 
-def test_w201_is_skipped_at_a_server_whose_pool_has_a_schedule() -> None:
+@pytest.mark.parametrize(("service", "warned"), [("2 min", True), ("1.9 min", False)])
+def test_w201_a_schedule_and_a_failure_together_exactly(service: str, warned: bool) -> None:
+    """Capacity 2, on shift with 2 units for 12 h and 1 for the other 12, and a failure
+    down half the time: E[max(2 - D, 0)] = 3/2 and E[max(1 - D, 0)] = 1/2, a mean of 1.
+    A load of exactly 1 (one arrival per 2 min, 2 min each) is reported; 0.95 is not."""
+    document = with_service(exponential(service))
+    document["parameters"]["tills"]["value"] = 2
+    document["components"] += [
+        rota(("0 h", "12 h", 2), ("12 h", "24 h", 1)),
+        breakdowns("1 h", "1 h"),
+    ]
+    assert codes(load_issues(built(document))) == ([("W201", "/components/1")] if warned else [])
+
+
+def test_w201_two_schedules_on_one_server_are_not_checked() -> None:
+    """How two schedules on one target combine is not defined, so it is not checked."""
     document = with_service(exponential("5 min"))
-    document["components"][1]["params"]["pool"] = "staff"
+    document["components"] += [rota(("0 h", "24 h", 1)), rota(("0 h", "24 h", 1), name="other")]
+    model = built(document)
+    assert load_issues(model) == []
+    assert per_minute(flow_rates(model)["exit"]) == Fraction(1, 2)
+
+
+def test_w201_a_day_shift_in_a_run_of_one_shift_is_never_off() -> None:
+    """The schedule is averaged over the run when the longest experiment is shorter than
+    its period: an 8 h run with an 8 h shift has its full capacity throughout."""
+    document = with_service(exponential("1.5 min"))
+    document["experiments"][0]["length"] = "8 h"
+    document["experiments"][0]["warmup"] = "1 h"
+    document["components"].append(rota(("0 h", "8 h", 1)))
+    assert load_issues(built(document)) == []
+    document["experiments"][0]["length"] = "16 h"  # off for half of it: 1/2 < 0.75
+    assert codes(load_issues(built(document))) == [("W201", "/components/1")]
+
+
+@pytest.mark.parametrize(("weight_b", "warned"), [(0, False), (1, True)])
+def test_w201_a_server_no_item_reaches_is_not_reported_at_zero_capacity(
+    weight_b: int, warned: bool
+) -> None:
+    """Review of PR #159: ``serve_b`` is behind a route of weight 0 and its schedule gives
+    0 units all day. A load of 0 against a capacity of 0 is no queue; with weight 1 its
+    queue does grow (1/2 per min, no unit ever on shift)."""
+    document = branch_model({"a": 1, "b": weight_b})
+    document["components"][2]["params"]["service"] = exponential("0.5 min")
+    document["components"].append(rota(("0 h", "24 h", 0), target="serve_b"))
+    assert codes(load_issues(built(document))) == ([("W201", "/components/3")] if warned else [])
+
+
+def pooled(pool_capacity: Any = 1, **till: Any) -> dict[str, Any]:
+    """The coffee shop with two servers in a row, each of capacity 1 and service 1.2 min
+    (load 0.6 each), both using the pool ``staff``: together 1.2 of its units."""
+    document = process(
+        [
+            source("arrivals"),
+            server("till", "1.2 min", pool="staff", **till),
+            server("pack", "1.2 min", pool="staff"),
+            block("staff", "resource_pool", capacity=pool_capacity),
+            sink(),
+        ],
+        chain("arrivals.out", "till.out", "pack.out", "exit"),
+    )
+    return document
+
+
+def test_w201_a_pool_its_servers_need_more_of_than_it_has() -> None:
+    """#73 (M4-39): each server keeps up with its own unit, but together they need 1.2
+    units of a pool of 1."""
+    (issue,) = load_issues(built(pooled()))
+    assert codes([issue]) == [("W201", "/components/3")]
+    assert issue.component == "staff"
+    assert issue.message == (
+        "The servers that use the pool 'staff' ('till', 'pack') together need 1.2 of its "
+        "units on average (each server's mean arrival rate times its mean service time, "
+        "added up), which is at least its 'capacity' of 1, so their queues will grow "
+        "without limit."
+    )
+    assert_plain(issue)
+
+
+def test_w201_a_pool_large_enough_or_with_limited_queues_is_not_reported() -> None:
+    assert load_issues(built(pooled(2))) == []
+    document = pooled()
+    for component in document["components"][1:3]:
+        component["params"]["queue_capacity"] = 5
+    assert load_issues(built(document)) == []
+
+
+def test_w201_a_scheduled_pool_is_checked_against_its_mean_capacity() -> None:
+    """A pool of 2 on shift with 2 for 12 h of 24: a mean of 1, below the 1.2 needed."""
+    document = pooled(2)
+    document["components"].append(rota(("0 h", "12 h", 2), target="staff"))
+    (issue,) = load_issues(built(document))
+    assert issue.component == "staff"
+    assert "at least its mean available capacity of 1 (under schedule 'rota')" in (issue.message)
+
+
+@pytest.mark.parametrize(("weight_b", "warned"), [(0, False), (1, True)])
+def test_w201_a_pool_no_item_reaches_is_not_reported_at_zero_capacity(
+    weight_b: int, warned: bool
+) -> None:
+    """Review of PR #159: the one server of the pool ``staff`` is behind a route of weight
+    0 and the pool's schedule gives 0 units all day: no item needs a unit, so no queue."""
+    document = branch_model({"a": 1, "b": weight_b})
+    document["components"][2]["params"]["service"] = exponential("0.5 min")
+    document["components"][3]["params"]["pool"] = "staff"
     document["components"] += [
         block("staff", "resource_pool", capacity=1),
-        block(
-            "rota",
-            "schedule",
-            target="staff",
-            shifts=[{"start": "0 h", "end": "8 h", "capacity": 1}],
-        ),
+        rota(("0 h", "24 h", 0), target="staff"),
     ]
-    model = built(document)
-    assert flow_rates(model)["exit"] is None
-    assert load_issues(model) == []
+    found = [issue.component for issue in load_issues(built(document))]
+    assert found == (["staff"] if warned else [])
 
 
-def test_w201_a_pool_without_a_schedule_does_not_stop_the_rate() -> None:
-    document = with_service(exponential("5 min"))
-    document["components"][1]["params"]["pool"] = "staff"
-    document["components"].append(block("staff", "resource_pool", capacity=1))
-    assert codes(load_issues(built(document))) == [("W201", "/components/1")]
+def test_w201_a_pool_with_a_server_of_unknown_rate_is_not_checked() -> None:
+    document = pooled()
+    document["components"][0]["params"]["interarrival"] = exponential({"$param": "nothing"})
+    assert load_issues(built(document)) == []
 
 
 def test_w201_is_skipped_on_a_loop_and_after_it() -> None:
