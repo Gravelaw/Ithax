@@ -507,14 +507,16 @@ CREATE_MODEL = ToolSpec(
     calls=_create_model,
 )
 
-#: The worked example of edit_model: two servers sharing a pool of staff, on a weekly rota
+#: The worked example of edit_model: two servers sharing a pool of staff, on a daily rota
 #: whose night shift is split at the period end (``docs/research/spec-2-prior-art.md``).
+#: Their load, 20/75 + 25/75 = 0.6, is below the rota's mean of 1 over a day and of 0.75
+#: over a new project's 8 h run, so it loads with no W201 (#73).
 _EXAMPLE_EDITS: list[dict[str, Any]] = [
     {
         "edit": "add_component",
         "id": "arrivals",
         "type": "source",
-        "params": {"interarrival": {"dist": "exponential", "mean": "30 min"}},
+        "params": {"interarrival": {"dist": "exponential", "mean": "75 min"}},
     },
     {"edit": "add_component", "id": "staff", "type": "resource_pool", "params": {"capacity": 2}},
     {
@@ -543,10 +545,10 @@ _EXAMPLE_EDITS: list[dict[str, Any]] = [
         "type": "schedule",
         "params": {
             "target": "staff",
-            "period": "168 h",
+            "period": "24 h",
             "shifts": [
                 {"start": "8 h", "end": "16 h", "capacity": 2},
-                {"start": "166 h", "end": "168 h", "capacity": 1},
+                {"start": "22 h", "end": "24 h", "capacity": 1},
                 {"start": "0 h", "end": "6 h", "capacity": 1},
             ],
         },
@@ -588,9 +590,9 @@ EDIT_MODEL = ToolSpec(
         "current model and revision. Keep batches small. Randomness is set by an "
         "experiment's seed (set_experiment), never per component; each component draws "
         "from its own stream. The example builds two servers sharing a pool of two staff "
-        "on a weekly rota (period 168 h, capacity 0 outside the listed shifts): Monday's "
-        "day shift, 8 h to 16 h, and the night from Sunday 22:00 to Monday 06:00, split at "
-        "the period end into 166 h to 168 h and 0 h to 6 h, since a shift cannot cross the "
+        "on a daily rota (period 24 h, capacity 0 outside the listed shifts): the day "
+        "shift, 8 h to 16 h, with two, and the night from 22:00 to 06:00 with one, split at "
+        "the period end into 22 h to 24 h and 0 h to 6 h, since a shift cannot cross the "
         "end of its period."
     ),
     inputs=(
