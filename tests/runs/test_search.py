@@ -11,6 +11,7 @@ import copy
 import json
 import math
 import threading
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -250,7 +251,7 @@ def test_a_candidate_entry_has_its_set_metrics_feasibility_and_whether_confirmed
 ) -> None:
     found = search_of_summary(run(searching("bowl", value=3), tmp_path))
     assert [list(candidate) for candidate in found["candidates"]] == [
-        ["set", "metrics", "feasible", "confirmed"]
+        ["set", "metrics", "feasible", "confirmed", "evaluations"]
     ] * 5
     baseline, one, *_ = found["candidates"]
     # Confirmed candidates carry their confirmed metrics (30 values), others the search
@@ -324,9 +325,11 @@ def test_the_baseline_alone_feasible_on_confirmation_is_the_best(tmp_path: Path)
     # Confirmed: the baseline always; then 2, 3 and 4 (best wait first), none feasible, so
     # the next group, 5, which is not feasible either; none remain.
     assert confirmed(found) == [1, 2, 3, 4, 5]
-    assert mean(baseline, "till.utilization") == pytest.approx(2 / 3)
+    # Confirmation runs replications 10 to 39 (#79): the baseline's utilization is 1 in
+    # each, every other candidate's 0.
+    assert mean(baseline, "till.utilization") == 1.0
     assert baseline["feasible"] is True
-    assert all(mean(c, "till.utilization") == pytest.approx(1 / 3) for c in others)
+    assert all(mean(c, "till.utilization") == 0.0 for c in others)
     assert all(c["feasible"] is False for c in others)
     assert found["status"] == "feasible"
     assert found["best"] == {"set": {"tills": 1}}
@@ -391,14 +394,12 @@ def test_an_undefined_objective_mean_is_never_feasible(tmp_path: Path) -> None:
     assert found["best"] == {"set": {"tills": 1}}
 
 
-def test_confirmation_repeats_the_search_stage_replications_as_spec_2_is_written(
-    tmp_path: Path,
-) -> None:
-    """Spec 2 as written (research note, decision "Overlap of the two stages"; owner to
-    decide): confirmation replications are numbered from 0 with the experiment seed, so a
-    candidate's first `search.replications` confirmed values are its search-stage values,
-    and only the rest are new. The confirmed mean dilutes the search's selection bias but
-    does not remove it."""
+def test_confirmation_draws_replications_the_search_stage_never_used(tmp_path: Path) -> None:
+    """Owner decision 2026-11-07, item 6 (#79, AKS-133): confirmation replications are
+    numbered from `search.replications`, so they draw random numbers the search stage never
+    used, and keep common random numbers across the confirmed candidates. Here the search
+    stage runs replications 0 to 2 and the confirmation 3 to 7, with the experiment seed:
+    each confirmed value is the value of that replication number in a plain run."""
     document = searching("bowl", value=1, high=2)
     document["meta"]["name"] = "Coffee shop"
     document["experiments"][0].update(
@@ -406,17 +407,66 @@ def test_confirmation_repeats_the_search_stage_replications_as_spec_2_is_written
     )
     document["experiments"][0]["search"]["replications"] = 3
     model = load(document)
-    outcome = run_experiment(ProcessAdapter(), model, "base", tmp_path)
+    outcome = run_experiment(ProcessAdapter(), model, "base", tmp_path / "search")
     assert outcome.state == "done"
 
-    def waits(folder: str) -> list[float]:
-        table = pq.read_table(tmp_path / folder / "output" / "replications.parquet")
-        rows = table.to_pylist()
-        return [row["value"] for row in rows if row["metric"] == "till.wait.mean"]
+    def waits(folder: Path) -> dict[int, float]:
+        rows = pq.read_table(folder / "output" / "replications.parquet").to_pylist()
+        return {
+            row["replication"]: row["value"] for row in rows if row["metric"] == "till.wait.mean"
+        }
 
-    search_stage, confirmation = waits("search-000"), waits("confirm-000")
-    assert len(search_stage) == 3 and len(confirmation) == 5
-    assert confirmation[:3] == search_stage
+    search_stage = waits(tmp_path / "search" / "search-000")
+    confirmation = waits(tmp_path / "search" / "confirm-000")
+    assert list(search_stage) == [0, 1, 2]
+    assert list(confirmation) == [3, 4, 5, 6, 7]
+    # The same candidate as a plain experiment of 8 replications, with the same seed.
+    plain = copy.deepcopy(document)
+    del plain["experiments"][0]["search"]
+    plain["objectives"] = []
+    plain["constraints"] = []
+    plain["experiments"][0]["replications"] = 8
+    assert run_experiment(ProcessAdapter(), load(plain), "base", tmp_path / "plain").state == (
+        "done"
+    )
+    every = waits(tmp_path / "plain")
+    assert search_stage == {rep: every[rep] for rep in range(3)}
+    assert confirmation == {rep: every[rep] for rep in range(3, 8)}
+
+
+def test_each_evaluation_records_its_stage_folder_seed_and_replications(
+    tmp_path: Path,
+) -> None:
+    """Owner decision 2026-11-07, item 6 (#79): every confirmed mean can be traced back to
+    its random streams. Each candidate lists its evaluations, the search stage first."""
+    found = search_of_summary(run(searching("bowl", value=3, seed=7), tmp_path))
+    baseline, one, *_ = found["candidates"]
+    assert baseline["evaluations"] == [
+        {
+            "stage": "search",
+            "folder": "engine/search-000",
+            "seed": 7,
+            "first_replication": 0,
+            "replications": 10,
+        },
+        {
+            "stage": "confirmation",
+            "folder": "engine/confirm-000",
+            "seed": 7,
+            "first_replication": 10,
+            "replications": 30,
+        },
+    ]
+    assert one["confirmed"] is False
+    assert one["evaluations"] == [
+        {
+            "stage": "search",
+            "folder": "engine/search-001",
+            "seed": 7,
+            "first_replication": 0,
+            "replications": 10,
+        },
+    ]
 
 
 # --- the Optuna path ---------------------------------------------------------------------
@@ -688,14 +738,18 @@ def machine_count(budget: int) -> dict[str, Any]:
 WORKERS = 4
 
 
-def enumerated(tmp_path: Path) -> dict[int, dict[str, Any]]:
+def enumerated(tmp_path: Path, first_replication: int) -> dict[int, dict[str, Any]]:
     """Every `tills` from 1 to 5 run as a plain experiment of five scenarios with the
-    experiment's 30 replications and seed: the metrics of each."""
+    experiment's 30 replications and seed, numbered from ``first_replication`` as a
+    confirmation's are (#79): the metrics of each."""
     document = coffee_shop()
     document["experiments"][0]["scenarios"] = [
         {"id": f"tills_{tills}", "set": {"tills": tills}} for tills in range(1, 6)
     ]
-    outcome = run_experiment(ProcessAdapter(), load(document), "base", tmp_path, workers=WORKERS)
+    model = load(document)
+    experiment = replace(model.experiments[0], first_replication=first_replication)
+    model = replace(model, experiments=(experiment,))
+    outcome = run_experiment(ProcessAdapter(), model, "base", tmp_path, workers=WORKERS)
     assert outcome.summary is not None
     return {
         tills: outcome.summary["scenarios"][f"tills_{tills}"]["metrics"] for tills in range(1, 6)
@@ -718,7 +772,7 @@ def test_the_machine_count_search_finds_2_tills_equal_to_the_enumerated_best(
     assert search_method(model, search) == "exhaustive"
     outcome = run_experiment(ProcessAdapter(), model, "base", tmp_path / "search", workers=WORKERS)
     found = search_of_summary(outcome)
-    metrics = enumerated(tmp_path / "enumerated")
+    metrics = enumerated(tmp_path / "enumerated", search.replications)
     assert enumerated_best(metrics) == 2
     assert found["best"] == {"set": {"tills": 2}}
     assert found["status"] == "feasible"
