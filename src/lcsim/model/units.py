@@ -21,9 +21,11 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import cache
 from types import MappingProxyType
-from typing import ClassVar, TypeGuard
+from typing import ClassVar
 
 import pint
+
+from lcsim.strict_json import is_finite_real, is_number
 
 __all__ = [
     "PHASE_1_UNITS",
@@ -182,7 +184,7 @@ def read_quantity(value: object, expected: Dimension) -> Quantity:
     """
     if isinstance(value, str):
         return parse_quantity(value, expected)
-    if _is_json_number(value):
+    if is_number(value):
         raise QuantityKindError(
             value,
             f"{_number_text(value)} is a plain number, but {_EXPECTED[expected]} with a unit "
@@ -201,20 +203,15 @@ def read_number(value: object) -> int | float:
     quantity such as ``"2 min"``, any other string, true, false, null, an array, an
     object, or a non-finite float.
     """
-    # An int is always finite; math.isfinite would convert it to a float and overflow
-    # for an integer above about 1.8e308, such as 10**309.
-    if _is_json_number(value) and (isinstance(value, int) or math.isfinite(value)):
+    # An int is always finite: is_finite_real never converts it to a float, which would
+    # overflow for an integer above about 1.8e308, such as 10**309.
+    if is_finite_real(value):
         return value
     if isinstance(value, str):
         message = f"'{value}' is text, but a plain number with no unit is expected."
     else:
         message = f"{_json_repr(value)} is not a number; a plain number with no unit is expected."
     raise QuantityKindError(value, message, _HINT[Dimension.DIMENSIONLESS])
-
-
-def _is_json_number(value: object) -> TypeGuard[int | float]:
-    # bool is a subclass of int in Python, but true and false are not JSON numbers.
-    return isinstance(value, int | float) and not isinstance(value, bool)
 
 
 def _number_text(value: int | float) -> str:

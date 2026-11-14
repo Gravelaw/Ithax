@@ -2517,6 +2517,27 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Spec sections updated:** none.
 - **Dependencies added:** none.
 
+## 2026-11-14 · M12 · Retrospective PR 8b: "a JSON number, not a bool" written once (#99; P5)
+
+- **Decision:**
+  - `lcsim.strict_json` gains three helpers:
+    - `is_whole`: an `int` that is not a `bool`.
+    - `is_number`: an `int` or `float` that is not a `bool`.
+    - `is_finite_real`: a finite number. An `int` is never converted to a float, so `10**309` is admitted rather than overflowing.
+
+    `whole_in` and `real_in` now use them.
+  - The eight hand-written checks move onto the helpers. These are the proposal's four (`mcp/tools.py`, `model/schema.py`, `model/streams.py`, `service/discovery.py`) and four more of the int-or-float shape (`model/units.py`, `model/data_files.py`, `model/loading.py`, `findings/rules.py`). The private copies in `streams` and `tools`, and `units._is_json_number`, are removed. Behaviour is unchanged.
+  - `tests/test_conventions.py` is the proposal's test, widened:
+    - It matches both written shapes: `… and not isinstance(x, bool)`, and `isinstance(x, bool) or not …`.
+    - It matches `int`, `int | float` and `(int, float)`, and only those numeric sets, so checks such as `migration.py`'s int-or-text one are not flagged.
+    - Against the code before this PR it flags all 8 sites; after it, none. A second test pins which shapes it finds.
+  - Not moved: the float-only NaN checks in `service/run_service.py` (a NaN table cell becomes null or an empty field) and `mcp/tools.py` (a body to send). Both ask "is this float a NaN", not "is this a JSON number". Nor the statistics' NaN filters (NaN means a missing value there). The proposal counted these among "about 12" finiteness checks; none has the JSON-number shape the helper serves.
+  - Stacked on #144 (8a), since both extend `strict_json`.
+- **Reason:** owner decision F2; the proposal's evidence W2.
+- **Alternatives considered:** the proposal's test verbatim (it found only the `and not` shape, and missed the four `or not` and int-or-float sites).
+- **Spec sections updated:** none.
+- **Dependencies added:** none.
+
 ## 2026-11-14 · M12 · Retrospective PR 7: a uv lockfile for what CI runs (#99; rest of P9)
 
 - **Decision:**
