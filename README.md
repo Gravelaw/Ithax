@@ -64,11 +64,13 @@ Python 3.11 or later, Node 22, and for the desktop shell Rust with Tauri's Linux
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev]"   # or, the exact versions CI runs: uv sync --locked --extra dev
 bash scripts/check.sh   # format, lint, types, tests with the coverage gate
+bash scripts/fast.sh    # the quicker gate while working: no coverage, benchmarks or templates
 pytest -m benchmark     # benchmarks with known answers
 pytest -m template      # the ten templates against their expected results
 pytest -m perf          # performance checks, excluded from check.sh
+uv lock --upgrade       # a dependency update, in its own PR (uv.lock pins what CI runs)
 
 (cd ui && npm ci && npm run check && npm run build && npm run e2e)   # the interface
 (cd desktop && npm ci && npm run build && npm test)                  # the desktop shell

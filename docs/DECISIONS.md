@@ -2426,6 +2426,27 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Spec sections updated:** none (the guide does not describe the CI jobs).
 - **Dependencies added:** none.
 
+## 2026-11-13 · M12 · Retrospective PR 2: parallel tests, branch coverage, pydantic declared (#99; P1, part of P9)
+
+- **Decision:**
+  - `scripts/check.sh` runs pytest with `-n auto` (pytest-xdist). Coverage counts branches as well as lines (`[tool.coverage.run] branch = true`), and the gate is 99% of the two combined, in place of 90% of lines. Measured on 4 cores of the agent container: 99.92% (10,277 statements, none missed; 2,936 branches, 11 of them partial), and `check.sh` takes 3 min 16 s in place of about 8 min, with the same 3,992 tests.
+  - The endpoint-coverage test (spec 3 "Endpoints": every row has a request test) failed under xdist, since each worker records only its own requests. The fix is the one the proposal preferred, a check in the controller after every worker has finished:
+    - Each worker writes its record to a folder the controller hands it (`tests/service/conftest.py`).
+    - The coverage test hands the check over when it runs in a worker.
+    - The controller checks the union and fails the session if a row went unreached, or if a worker wrote no record (`tests/xdist_routes.py`, via `tests/service/route_check.py`).
+    - A deliberately broken worker record made `pytest -n 4 tests/service` exit 1 with the missing row named; restored afterwards.
+    - Serial runs and `-n 0` behave as before, and a partial run still uses the serial fallback, now with `-p no:xdist`.
+    - The endpoint-table parsing moved from `test_routes.py` to `tests/service/endpoint_table.py`, so that both halves share it.
+  - The controller's hooks are a plugin, `tests/xdist_routes.py`, loaded by `-p xdist_routes` with `pythonpath = ["tests"]`, not a `tests/conftest.py`. The process adapter's tests do `from conftest import …` against `tests/engines/process/conftest.py`, which a second top-level `conftest` would shadow (mypy also refuses two modules named `conftest`). The plugin imports nothing from `lcsim` until the session ends, so loading it before coverage starts costs no coverage.
+  - `pydantic` is declared (`>=2.14.3`, the installed and locked version; the proposal named 2.13.5 from 2026-11-09), since `lcsim.service` imports it directly.
+  - The guide's Tests convention now states the parallel run and the 99% line-and-branch gate. The M14 row was to add #135 at the orchestrator's request; #135 then moved to M12 and was closed by #141, so the merge with `main` leaves M14 without it. This applies F2's approval of P1 and P9.
+- **Reason:** owner decision F2; the proposal's evidence W3 (test time) and W8 (a 90% gate against a 100% nothing enforced).
+- **Alternatives considered:** `xdist_group("routes")` with `--dist loadgroup`, which puts every service test on one worker and loses the balance; keeping 90% (the proposal's argument for 99% stands).
+- **Spec sections updated:** build guide "Conventions" (Tests) and "Milestones" (M14), with `CLAUDE.md`.
+- **Dependencies added:**
+  - pytest-xdist 3.8.0, MIT, dev only. Checked with `pip show` (License-Expression: MIT). It brings execnet 2.1.2, MIT, checked the same way.
+  - pydantic 2.14.3, MIT, already installed and locked as fastapi's dependency, now declared. Checked with `pip show` and `packaging/linux/requirements.lock`.
+
 ## 2026-11-14 · M12 · Retrospective PR 5: owner questions, readings, digest, PR size, merge readiness, numbers (#99; P13, P14, P15, P10, P19)
 
 - **Decision:**
@@ -2465,4 +2486,33 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Reason:** the owner's answer to the two items listed by PR #140.
 - **Alternatives considered:** none; the owner decided.
 - **Spec sections updated:** build guide rule 5 (and `CLAUDE.md`).
+
+## 2026-11-14 · M12 · Retrospective PR 3: agent hooks and the fast gate (#99; P2)
+
+- **Decision:**
+  - `.claude/settings.json`, as proposed: after each Edit or Write, `scripts/hooks/format_edited.py` runs `ruff check --fix` and then `ruff format` on the edited Python file. The proposal formatted first, which left a blank line where a removed import had been. When a turn ends with tracked Python changes, `scripts/fast.sh --lint` (ruff and mypy) must pass, or the Stop hook exits 2.
+  - `scripts/fast.sh` is the proposal's tier-2 gate with two corrections:
+    - Its `-m` expression replaces the one in `addopts`, and the proposal's omitted `not desktop and not package`, so it would have started the shell and package tests. Both exclusions are restored, and `tests/test_hooks.py` checks that `fast.sh` repeats every exclusion of `addopts`.
+    - Both `fast.sh` and the hook use the repository's `.venv` Python when one exists. In the agent container the tools are installed there, and the hooks start with a plain `python3`, which would have made the format hook a silent no-op.
+  - Measured on 4 cores: `fast.sh` 1 min 44 s (3,963 tests). The Stop hook's command exits 0 with no Python changes and with clean ones, and 2 on a lint error. As the proposal notes, an untracked new file is seen only once it is staged, and `check.sh` still covers it.
+  - This PR is stacked on #137 (row 2), because `fast.sh` runs `-n auto` and needs the route check that works under xdist.
+  - mypy now checks `scripts/hooks`.
+  - The proposal's four skills (P2 "Skills") are in no row of its order of adoption. They read `AGENTS.md` (row 4) and `docs/STATUS.md` (row 6), so they follow row 6 as a PR of their own; `owner-question` will open a GitHub issue, not a Linear one (Linear retired, #100).
+- **Reason:** owner decision F2; the proposal's evidence W8 and W3 (lint findings left to CI; slow local feedback).
+- **Alternatives considered:** the proposal's text verbatim (would run the desktop and package tests, and do nothing where the tools live in `.venv`).
+- **Spec sections updated:** none.
 - **Dependencies added:** none.
+
+## 2026-11-14 · M12 · Retrospective PR 7: a uv lockfile for what CI runs (#99; rest of P9)
+
+- **Decision:**
+  - `uv.lock` is committed, made with `uv lock` (uv 0.11.32). It holds 75 packages, among them numpy 2.4.6 on Python 3.11 and 2.5.4 on newer versions, highspy 1.15.1 within the `<1.16` cap, pydantic 2.14.3 and pytest-xdist 3.8.0.
+  - The four CI jobs (`checks`, `interface`, `desktop`, `package`) set up uv with `astral-sh/setup-uv@v10.3.3` (the latest release, 2026-10-28, read on its releases page on 2026-11-14) and its cache. They install with `uv sync --locked --extra dev` against the Python of `actions/setup-python`, then put `.venv/bin` first on the job's `PATH`, so every later step runs in the locked environment unchanged.
+  - `--locked`, not the proposal's `--frozen`: it also fails when the lock no longer matches `pyproject.toml`, so a dependency change without `uv lock` cannot pass CI.
+  - The `>=` floors in `pyproject.toml` stay, and `pip install -e ".[dev]"` still works (README), so the package installs as a library and the owner's documented command is unchanged.
+  - Checked before the change: `check.sh` passes in a fresh environment made only from the lock (`uv sync --locked --extra dev --python 3.13`, 4,002 tests). The Linux package build is unaffected: it runs pip from the bundled Python, not from the job's environment, and ships its own `packaging/linux/requirements.lock`.
+  - The README names `uv sync`, `uv lock --upgrade` and `scripts/fast.sh`.
+- **Reason:** owner decision F2; the proposal's evidence W7: seeded results asserted to 3 or 4 decimals can change with an unpinned numpy or simpy release, as highspy 1.16 showed on 2026-11-13.
+- **Alternatives considered:** `--frozen` (does not catch a stale lock); a `uv lock --check` step in `check.sh` (would make uv a requirement of the local gate); the proposal's one-week `exclude-newer` cooldown (attrs uses it; not part of the proposal's text, and dependency updates are already deliberate PRs).
+- **Spec sections updated:** none.
+- **Dependencies added:** none to the product. uv 0.11.32 (MIT OR Apache-2.0, its PyPI metadata, read 2026-11-14) is a tool used by CI and for locking, not a dependency of lcsim; `astral-sh/setup-uv` is a CI action (MIT, its repository's licence, read 2026-11-14).

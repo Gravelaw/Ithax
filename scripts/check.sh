@@ -12,4 +12,6 @@ ruff check .
 echo "== types (mypy --strict)"
 mypy
 echo "== tests (pytest)"
-pytest --cov=lcsim --cov-report=term-missing --cov-fail-under=90
+# In parallel (pytest-xdist), with line and branch coverage gated at 99% ([tool.coverage.run]
+# branch = true); docs/retrospective/proposed-agent-setup.md, P1 and P9 (#99).
+pytest -n auto --cov=lcsim --cov-report=term-missing --cov-fail-under=99
