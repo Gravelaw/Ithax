@@ -93,10 +93,18 @@ def detach_options(platform: str) -> dict[str, Any]:
     return {"start_new_session": True}
 
 
+#: The services this process started, which are meant to outlive it (``detach_options``).
+#: Each handle is kept so that it is never collected while its service runs, which Python
+#: reports as a ``ResourceWarning`` ("subprocess ... is still running"); the service is
+#: reaped by whoever outlives this process (#99, retrospective P20).
+DETACHED: list[subprocess.Popen[bytes]] = []
+
+
 def start_service(command: Sequence[str], log: Path) -> subprocess.Popen[bytes]:
-    """Start ``command`` detached, its output appended to ``log``."""
+    """Start ``command`` detached, its output appended to ``log``; its handle is kept in
+    ``DETACHED``."""
     with log.open("ab") as output:
-        return subprocess.Popen(
+        process = subprocess.Popen(
             list(command),
             stdin=subprocess.DEVNULL,
             stdout=output,
@@ -104,6 +112,8 @@ def start_service(command: Sequence[str], log: Path) -> subprocess.Popen[bytes]:
             close_fds=True,
             **detach_options(sys.platform),
         )
+    DETACHED.append(process)
+    return process
 
 
 def wait_until_ready(
