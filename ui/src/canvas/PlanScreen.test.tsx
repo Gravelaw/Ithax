@@ -317,16 +317,34 @@ describe("a plan with nothing to decide (#80, D2)", () => {
     const { toolbar, user } = renderPlan(model, () => [empty, loose]);
     await settled(toolbar);
     const heading = screen.getByRole("heading", { name: /^Plan: decisions, a goal and limits/ });
+    // The plan's own mark lists every E179: no decisions, and the limit with no coefficient.
+    const both = `${empty.message}\n${loose.message}`;
     const warning = within(heading.parentElement as HTMLElement).getByRole("img", {
-      name: `Warning: ${empty.message}`,
+      name: `Warning: ${both}`,
     });
-    expect(warning).toHaveAttribute("title", empty.message);
+    expect(warning).toHaveAttribute("title", both);
     await user.click(screen.getByRole("button", { name: "Diagram" }));
     const goal = screen.getByRole("button", { name: /^Goal/ });
     expect(goal).toHaveAttribute("title", empty.message);
     expect(goal.querySelector(".badge-warning")).not.toBeNull();
     const wood = screen.getByRole("button", { name: /^wood/ });
     expect(wood).toHaveAttribute("title", `${empty.message}\n${loose.message}`);
+  });
+
+  it("warns on the plan when only a limit has no coefficient (review of pull request 167)", async () => {
+    const model = mix();
+    model.constraints = [{ id: "wood", linear: {}, op: "<=", rhs: 400 }];
+    const { toolbar, user } = renderPlan(model, () => [loose]);
+    await settled(toolbar);
+    const heading = screen.getByRole("heading", { name: /^Plan: decisions, a goal and limits/ });
+    expect(
+      within(heading.parentElement as HTMLElement).getByRole("img", {
+        name: `Warning: ${loose.message}`,
+      }),
+    ).toHaveAttribute("title", loose.message);
+    await user.click(screen.getByRole("button", { name: "Diagram" }));
+    expect(screen.getByRole("button", { name: /^wood/ })).toHaveAttribute("title", loose.message);
+    expect(screen.getByRole("button", { name: /^Goal/ })).not.toHaveAttribute("title");
   });
 
   it("draws no warning on a plan that has decisions", async () => {

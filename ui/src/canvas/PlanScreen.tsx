@@ -643,6 +643,12 @@ function nothingToDecide(issues: Issue[], own?: string): string[] {
     .map((issue) => issue.message);
 }
 
+/** Every E179 message, for the plan's own mark: a limit with no coefficient stops the run
+ *  as surely as a plan with no decisions (review of pull request 167). */
+function everyNothingToDecide(issues: Issue[]): string[] {
+  return issues.filter((issue) => issue.code === "E179").map((issue) => issue.message);
+}
+
 /** A warning mark, its messages as the tooltip (#80, D2). */
 function WarningMark({ messages }: { messages: string[] }) {
   if (messages.length === 0) return null;
@@ -1071,7 +1077,7 @@ export function PlanScreen({
                   <h2 className="title" id="plan-heading">
                     Plan: decisions, a goal and limits
                   </h2>
-                  <WarningMark messages={nothingToDecide(state.issues)} />
+                  <WarningMark messages={everyNothingToDecide(state.issues)} />
                   <fieldset className="view-switch">
                     <legend className="visually-hidden">View</legend>
                     <button

@@ -2942,6 +2942,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
     - New model tests and the two fixtures.
     - The service tests now expect E179 from a new plan. The MCP refusal test gives its plan the product mix before testing E184.
     - Two interface tests: the marks and their tooltips, and no mark on a plan with decisions. They fail before the change.
+- **Review of PR #167:** the heading's mark listed only the `/variables` E179, so a plan with decisions but a limit with no coefficient had no mark, though it cannot run. The mark now lists every E179. The cards keep their own: the plan's, and a limit's own `linear`. New test `warns on the plan when only a limit has no coefficient` fails before the fix; the first test's mark now holds both messages.
 - **Reason:** issue #80 (D2); owner decision 2026-11-07, item 14: "when building an optimiser, we'll need variables via the simulation or manually made by the user". Both cases "should not be answered at all".
 - **Readings (reversible):**
   - Item 14's second case, a constraint with an empty `linear`, is built here under the same code, since it is the same decision. It has no issue of its own.
