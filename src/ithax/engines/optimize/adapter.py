@@ -13,8 +13,9 @@ An optimization model has no experiments, so ``translate`` takes no experiment i
 ``run`` solves it (``ithax.engines.optimize.solver``) and writes
 ``workdir/output/solution.json``: the ``summary.json`` layout of spec 2 (``status``,
 ``objective``, ``variables``, ``constraints``), with the duals of a continuous program and
-the solver's name and version beside it. ``collect`` returns the layout as
-``Results.solution``, with no tables.
+the solver's name and version beside it, and ``alternate``: whether a probe found a
+second plan of the same objective (#176). ``collect`` returns the layout as
+``Results.solution``, with no tables, and W211 among its warnings when ``alternate``.
 
 Cancel: a HiGHS solve called through Pyomo cannot be interrupted (engine gap, recorded in
 ``docs/DECISIONS.md``), so ``run`` checks ``cancel`` before and after the solve and writes
@@ -37,12 +38,21 @@ from ithax.model.issues import Issue
 from ithax.model.model import Model
 from ithax.strict_json import encode_json, read_json_object_file
 
-__all__ = ["INPUT_FILE", "SOLUTION_FILE", "SOLUTION_KEYS", "HighsAdapter"]
+__all__ = ["ALTERNATE_OPTIMA", "INPUT_FILE", "SOLUTION_FILE", "SOLUTION_KEYS", "HighsAdapter"]
 
 #: Where ``run`` writes the solution, relative to ``workdir``.
 SOLUTION_FILE = Path("output") / "solution.json"
 #: Spec 2: the keys of an optimization ``summary.json`` that come from the adapter.
 SOLUTION_KEYS = ("status", "objective", "variables", "constraints")
+
+#: Spec 1 W211 (#176; owner option B): the plan shown is one of several optimal plans.
+ALTERNATE_OPTIMA = Issue(
+    code="W211",
+    component=None,
+    path="/objective",
+    message="Other plans reach the same objective; the plan shown is one of them.",
+    hint="To prefer one of them, add a small cost or a constraint that tells them apart.",
+)
 
 
 class HighsAdapter:
@@ -107,6 +117,7 @@ class HighsAdapter:
                 for name, slack in outcome.slacks.items()
             },
             "duals": outcome.duals,
+            "alternate": outcome.alternate,
         }
         output.parent.mkdir(parents=True, exist_ok=True)
         atomic_write(output, encode_json(document))
@@ -116,6 +127,8 @@ class HighsAdapter:
         """The solution ``run`` wrote, in the spec 2 layout, as ``Results.solution``;
         ``FileNotFoundError`` when ``run`` did not finish."""
         document = read_json_object_file(workdir / SOLUTION_FILE)
+        # A solution written before #176 has no "alternate".
+        warnings = [ALTERNATE_OPTIMA] if document.get("alternate") is True else []
         return Results(
-            tables={}, warnings=[], solution={key: document[key] for key in SOLUTION_KEYS}
+            tables={}, warnings=warnings, solution={key: document[key] for key in SOLUTION_KEYS}
         )

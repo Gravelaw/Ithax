@@ -44,7 +44,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Literal, TypeAlias
 
 import pyomo.environ as pyo
@@ -60,7 +60,9 @@ __all__ = [
     "SolverStopped",
     "Status",
     "clean",
+    "is_alternate",
     "is_tight",
+    "probe_weights",
     "solve",
     "solver_version",
 ]
@@ -117,6 +119,8 @@ class Outcome:
     values: dict[str, float]
     slacks: dict[str, float]
     duals: dict[str, float] | None
+    #: For ``optimal``: whether a probe found a second plan of the same objective (#176).
+    alternate: bool = False
 
 
 def clean(value: float, scale: float = 0.0) -> float:
@@ -277,7 +281,8 @@ def solve(program: LinearProgram, *, options: Mapping[str, object] | None = None
     objective = clean(
         float(pyo.value(built.model.objective)), _size(program.objective.linear, values)
     )
-    return Outcome("optimal", objective, values, slacks, duals)
+    found = Outcome("optimal", objective, values, slacks, duals)
+    return replace(found, alternate=_has_alternate(program, found, given))
 
 
 def _reported_values(program: LinearProgram, built: _Built) -> dict[str, float]:
@@ -303,3 +308,74 @@ def _slack(constraint: LinearConstraint, built: _Built, constant: Mapping[str, f
     if constraint.op == ">=":
         return float(data.lslack())
     return float(data.slack())
+
+
+# --- alternate optima (#176; docs/research/m13-alternate-optima.md) --------------------------
+
+
+def probe_weights(count: int) -> list[float]:
+    """The square roots of the first ``count`` square-free integers (2, 3, 5, 6, 7, 10, ...):
+    linearly independent over the rationals (Besicovitch, 1940), so no difference between
+    two plans of a model with rational data is orthogonal to them."""
+    weights: list[float] = []
+    number = 1
+    while len(weights) < count:
+        number += 1
+        if all(number % (root * root) for root in range(2, math.isqrt(number) + 1)):
+            weights.append(math.sqrt(number))
+    return weights
+
+
+def is_alternate(program: LinearProgram, outcome: Outcome, values: Mapping[str, float]) -> bool:
+    """Whether ``values`` are a second plan of ``outcome``'s objective: the objective at
+    them within ``TIGHT_TOLERANCE`` of it (relative above 1; a strictly better plan is not
+    an alternate), and some variable different, an integer or binary one by its rounded
+    value, a continuous one by more than ``TIGHT_TOLERANCE`` (relative above 1)."""
+    assert outcome.objective is not None
+    linear = program.objective.linear
+    reached = math.fsum(float(linear.get(name, 0)) * value for name, value in values.items())
+    if abs(reached - outcome.objective) > TIGHT_TOLERANCE * max(1.0, abs(outcome.objective)):
+        return False
+    for variable in program.variables:
+        mine, other = outcome.values[variable.id], values[variable.id]
+        if variable.type != "continuous":
+            if round(other) != round(mine):
+                return True
+        elif abs(other - mine) > TIGHT_TOLERANCE * max(1.0, abs(mine)):
+            return True
+    return False
+
+
+def _has_alternate(program: LinearProgram, outcome: Outcome, options: Mapping[str, object]) -> bool:
+    """Over the plans no worse than ``outcome``'s objective, minimize and then maximize
+    the probe ``probe_weights`` times the variables; a second plan of the same objective,
+    or an unbounded probe (an unbounded optimal set), is an alternate optimum. A probe
+    that ends otherwise is no evidence. At most two more HiGHS solves."""
+    assert outcome.objective is not None
+    built = _pyomo_model(program)
+    model = built.model
+    goal = pyo.quicksum(
+        float(program.objective.linear.get(name, 0)) * var for name, var in built.variables.items()
+    )
+    worst = outcome.objective
+    model.optimal = pyo.Constraint(
+        expr=goal <= worst if program.objective.sense == "minimize" else goal >= worst
+    )
+    model.objective.deactivate()
+    weights = probe_weights(len(built.variables))
+    direction = pyo.quicksum(
+        w * var for w, var in zip(weights, built.variables.values(), strict=True)
+    )
+    for sense in (pyo.minimize, pyo.maximize):
+        model.probe = pyo.Objective(expr=direction, sense=sense)
+        results = _solve_once(model, options)
+        model.del_component("probe")
+        if results.termination_condition == TerminationCondition.unbounded:
+            return True
+        if _status(results) != "optimal":
+            continue
+        results.solution_loader.load_vars()
+        values = {name: float(pyo.value(var)) for name, var in built.variables.items()}
+        if is_alternate(program, outcome, values):
+            return True
+    return False

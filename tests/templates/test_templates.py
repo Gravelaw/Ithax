@@ -101,7 +101,7 @@ FINDING_TEXTS: dict[tuple[str, Run], str] = {
     ("staff_rota", "template"): "Best found: staff[wed_sun] = 3, staff[thu_mon] = 1, "
     "staff[fri_tue] = 3, staff[sat_wed] = 1, staff[sun_thu] = 1, and 2 others at 0. The "
     "objective is 9, with cover[mon], cover[tue], cover[wed], cover[thu], cover[fri] and "
-    "cover[sat] tight.",
+    "cover[sat] tight. Other plans reach the same objective; this is one of them.",
 }
 
 

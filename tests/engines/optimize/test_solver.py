@@ -331,3 +331,121 @@ def test_the_solver_version_is_highs_own() -> None:
 
     # highspy's version is HiGHS's (1.15.1 for both).
     assert solver_version() == version("highspy")
+
+
+# --- alternate optima (#176, owner option B; docs/research/m13-alternate-optima.md) ----------
+
+DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+NEED = {"mon": 6, "tue": 5, "wed": 5, "thu": 5, "fri": 7, "sat": 8, "sun": 8}
+#: The staff rota template, expanded: pattern p works days p to p + 4 (mod 7). It has 7
+#: optimal rotas of 9 people, counted by enumeration (#176).
+STAFF_ROTA = program(
+    [(f"staff[{DAYS[p]}]", "integer", 0, None) for p in range(7)],
+    "minimize",
+    {f"staff[{DAYS[p]}]": 1 for p in range(7)},
+    [
+        (
+            f"cover[{day}]",
+            {f"staff[{DAYS[p]}]": 1 for p in range(7) if (d - p) % 7 < 5},
+            ">=",
+            NEED[day],
+        )
+        for d, day in enumerate(DAYS)
+    ],
+)
+#: max x + y on x + y <= 4: every point of the segment from (4, 0) to (0, 4) is optimal.
+SEGMENT = program(
+    [("x", "continuous", 0, None), ("y", "continuous", 0, None)],
+    "maximize",
+    {"x": 1, "y": 1},
+    [("room", {"x": 1, "y": 1}, "<=", 4)],
+)
+#: min y with x unbounded above: (x, 0) is optimal for every x >= 0.
+RAY = program(
+    [("x", "continuous", 0, None), ("y", "continuous", 0, None)],
+    "minimize",
+    {"y": 1},
+    [("floor", {"x": 1, "y": 1}, ">=", 1)],
+)
+
+
+def test_the_staff_rota_has_alternate_optima() -> None:
+    outcome = solve(STAFF_ROTA)
+    assert (outcome.status, outcome.objective) == ("optimal", 9)
+    assert outcome.alternate is True
+
+
+@pytest.mark.parametrize("case", [SEGMENT, RAY], ids=["segment", "unbounded face"])
+def test_a_linear_programme_with_an_optimal_face_has_alternate_optima(
+    case: LinearProgram,
+) -> None:
+    assert solve(case).alternate is True
+
+
+@pytest.mark.parametrize(
+    "case",
+    [PRODUCT_MIX, DIET, KNAPSACK, ASSIGNMENT],
+    ids=["product mix", "diet", "knapsack", "assignment"],
+)
+def test_a_programme_with_one_optimum_has_no_alternate(case: LinearProgram) -> None:
+    """Each has one optimal plan (the M5 benchmarks); the band of 1e-6 x |z| first tried
+    flagged the product mix, the diet and the transport plan (the research note)."""
+    assert solve(case).alternate is False
+
+
+def test_no_answer_and_no_variables_have_no_alternate() -> None:
+    assert (
+        solve(
+            program([("x", "continuous", 0, 1)], "maximize", {"x": 1}, [("c", {"x": 1}, ">=", 2)])
+        ).alternate
+        is False
+    )
+    assert solve(program([], "maximize", {})).alternate is False
+
+
+def test_a_probe_that_ends_without_an_optimum_claims_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The plan and status are the first solve's; a probe HiGHS stops is not evidence."""
+    first = solver._solve_once
+    calls: list[int] = []
+
+    def stopped_probe(model: Any, options: Mapping[str, object]) -> Any:
+        calls.append(1)
+        results = first(model, options)
+        if len(calls) > 1:
+            results.termination_condition = TerminationCondition.iterationLimit
+        return results
+
+    monkeypatch.setattr(solver, "_solve_once", stopped_probe)
+    outcome = solve(STAFF_ROTA)
+    assert (outcome.status, outcome.objective, outcome.alternate) == ("optimal", 9, False)
+    assert len(calls) == 3  # the solve, then both probes
+
+
+def test_a_probe_plan_better_than_the_optimum_is_not_an_alternate() -> None:
+    """HiGHS stops an integer programme within a relative gap of 1e-4, so a probe could
+    find a strictly better plan: that is not a second plan of the same objective."""
+    outcome = solve(STAFF_ROTA)
+    better = dict(outcome.values)
+    better["staff[mon]"] -= 1
+    assert solver.is_alternate(STAFF_ROTA, outcome, better) is False
+    other = dict(outcome.values)
+    moved = next(name for name, value in other.items() if value > 0)
+    other[moved] -= 1
+    other["staff[mon]" if moved != "staff[mon]" else "staff[tue]"] += 1
+    assert solver.is_alternate(STAFF_ROTA, outcome, other) is True
+    assert solver.is_alternate(STAFF_ROTA, outcome, dict(outcome.values)) is False
+
+
+def test_a_continuous_value_within_the_tolerance_is_the_same_plan() -> None:
+    outcome = solve(PRODUCT_MIX)
+    nudged = {name: value + 1e-7 for name, value in outcome.values.items()}
+    assert solver.is_alternate(PRODUCT_MIX, outcome, nudged) is False
+    moved = {**outcome.values, "chairs": outcome.values["chairs"] + 1e-3}
+    # a different plan, but not of the same objective: 45 x 1e-3 = 0.045 more
+    assert solver.is_alternate(PRODUCT_MIX, outcome, moved) is False
+
+
+def test_the_probe_weights_are_square_roots_of_square_free_numbers() -> None:
+    assert solver.probe_weights(8) == [math.sqrt(n) for n in (2, 3, 5, 6, 7, 10, 11, 13)]

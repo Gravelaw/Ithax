@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 from findings_support import Run, read_run
 
+from ithax.engines.optimize.adapter import ALTERNATE_OPTIMA
 from ithax.findings import (
     DEFAULT_THRESHOLDS,
     RULES,
@@ -742,6 +743,28 @@ def test_optimization_result_of_a_mathematical_optimization() -> None:
             "tight": ["wood", "labour"],
         },
     }
+
+
+def test_a_mathematical_optimization_with_alternate_optima_says_so() -> None:
+    """Owner option B on #176: the adapter's W211 in `warnings` adds a sentence and
+    `alternate` to the evidence; the rest of the finding is unchanged."""
+    run = read_run("optimization_result_program")
+    summary = run[0]
+    plain = program_finding(summary, run)
+    summary["warnings"].append(ALTERNATE_OPTIMA.as_dict())
+    found = program_finding(summary, run)
+    assert found.text == (
+        "Best found: chairs = 24, tables = 14. The objective is 2,200, with wood and labour "
+        "tight. Other plans reach the same objective; this is one of them."
+    )
+    assert found.evidence == {**plain.evidence, "alternate": True}
+    assert "alternate" not in plain.evidence
+
+
+def test_another_warning_adds_no_alternate_sentence() -> None:
+    run = read_run("optimization_result_program")
+    run[0]["warnings"].append({**ALTERNATE_OPTIMA.as_dict(), "code": "W210"})
+    assert program_finding(run[0], run).text.endswith("with wood and labour tight.")
 
 
 def test_a_mathematical_optimization_lists_only_the_variables_not_at_0() -> None:
