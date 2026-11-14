@@ -2425,3 +2425,21 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** pasting the proposal's file verbatim (would drop the `desktop` and `package` jobs); using `re-actors/alls-green` (a third-party action; the inline loop does the same).
 - **Spec sections updated:** none (the guide does not describe the CI jobs).
 - **Dependencies added:** none.
+
+## 2026-11-14 · M12 · Retrospective PR 4: review rules for Codex, and the review-findings procedure (#99; P7)
+
+- **Decision:**
+  - A root `AGENTS.md` steers Codex's review with the proposal's rules. Two corrections, both found by checking before applying, as the proposal asked:
+    - **Heading.** OpenAI's page on Codex's GitHub review ([learn.chatgpt.com/docs/third-party/github](https://learn.chatgpt.com/docs/third-party/github), read 2026-11-14; the old developers.openai.com address now redirects there) says to add "`## Code Review Rules`" to the `AGENTS.md` closest to the code, with `###` groups. The proposal's "Review guidelines" heading came from a search summary, so the file uses the page's heading and groups.
+    - **Helpers.** The proposal named a helper `lcsim.strict_json.is_finite_real`, which does not exist; `real_in` already refuses NaN and infinity. The file names only helpers that exist: `real_in`, `whole_in`, `read_json` and `lcsim.service.paths.canonical`.
+  - Claude Code reads `AGENTS.md` only when there is no `CLAUDE.md`, so sessions are unaffected (proposal P7, item 1).
+  - The guide's "Session procedure" gains "Review findings" (P7 items 2 to 4):
+    - the three reply forms;
+    - redesigning after the second finding of a class, not the third: one shared helper and a check that would catch the next;
+    - an `AGENTS.md` bullet for each class found twice.
+
+    This applies F2's approval of P7; the guide change is that approval.
+- **Reason:** owner decision F2; the proposal's evidence W2 (47 findings in recurring classes over 56 PRs; #34 redesigned after the third path finding, and #45 needed five redesigns).
+- **Alternatives considered:** the proposal's heading verbatim (the current page names another); keeping `is_finite_real` (it does not exist).
+- **Spec sections updated:** build guide "Session procedure" (and `CLAUDE.md`).
+- **Dependencies added:** none.
