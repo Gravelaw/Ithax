@@ -667,7 +667,7 @@ GET_RUN_STATUS = ToolSpec(
     example_arguments={"run_id": _EXAMPLE_RID},
     example_result=(
         f'{{"run_id": "{_EXAMPLE_RID}", "project_id": "{_EXAMPLE_PID}", "experiment_id": '
-        '"base", "engine": {"name": "simpy", "version": "0.0.0"}, "state": "running", '
+        '"base", "engine": {"name": "simpy", "version": "4.1.2"}, "state": "running", '
         '"fraction": 0.4, "message": "", "created": '
         '"2026-11-08T09:30:12.418Z", "started": "2026-11-08T09:30:12.420Z", "ended": null, '
         '"error": null}'

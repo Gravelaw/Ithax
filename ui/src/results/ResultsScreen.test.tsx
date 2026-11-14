@@ -148,7 +148,7 @@ describe("a run's results", () => {
       `Run: ${RID}`,
       "Fidelity: Standard: 30 replications of 100 h, 95% confidence",
       "Replications: 30 · Confidence: 95%",
-      "Engine: simpy 0.0.0",
+      "Engine: simpy 4.1.2",
       NO_WARRANTY,
     ]) {
       expect(footer).toHaveTextContent(item);
@@ -409,7 +409,7 @@ describe("exports", () => {
       for (const item of [
         "Model: Three-machine line",
         `Run: ${RID}`,
-        "Engine: simpy 0.0.0",
+        "Engine: simpy 4.1.2",
         NO_WARRANTY,
       ]) {
         expect(page.text).toContain(item);

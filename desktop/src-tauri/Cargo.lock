@@ -1440,6 +1440,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "791930b43c0d5973160d90a8f3894509f2b273430f5c5c73b668636d0287c5c0"
 
 [[package]]
+name = "ithax-desktop"
+version = "0.1.0-dev.0"
+dependencies = [
+ "serde_json",
+ "tauri",
+ "tauri-build",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1605,15 +1614,6 @@ checksum = "0fbe853b403ae61a04233030ae8a79d94975281ed9770a1f9e246732b534b28d"
 dependencies = [
  "bitflags 2.13.2",
  "serde",
-]
-
-[[package]]
-name = "ithax-desktop"
-version = "0.0.0"
-dependencies = [
- "serde_json",
- "tauri",
- "tauri-build",
 ]
 
 [[package]]

@@ -3,7 +3,7 @@
 # advisory GHSA-7gmj-67g7-phm9).
 [package]
 name = "ithax-desktop"
-version = "0.0.0"
+version = "0.1.0-dev.0"
 description = "The Ithax desktop shell"
 license = "AGPL-3.0-only"
 edition = "2021"

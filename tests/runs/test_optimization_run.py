@@ -16,8 +16,8 @@ from typing import Any
 import pytest
 from dummy_adapters import IterationLimitedAdapter
 
-import ithax
 from ithax.engines.optimize.adapter import HighsAdapter
+from ithax.engines.optimize.solver import solver_version
 from ithax.model.loading import load_document
 from ithax.model.model import Model
 from ithax.runs.manager import RunOutcome, run_experiment
@@ -133,7 +133,7 @@ def test_a_local_run_of_the_product_mix_writes_the_full_run_folder(tmp_path: Pat
     assert manifest["experiment_id"] is None
     assert manifest["scenario_ids"] == []
     assert manifest["seed"] is None
-    assert manifest["engine"] == {"name": "highs", "version": ithax.__version__}
+    assert manifest["engine"] == {"name": "highs", "version": solver_version()}
     assert manifest["target"] == "local" and manifest["client"] == "script"
     summary = summary_of(folder)
     assert summary["model"] == "Product mix"

@@ -15,11 +15,11 @@ have finished, nothing when cancelled; ``collect`` reads both tables into ``Resu
 from __future__ import annotations
 
 from collections.abc import Callable
+from importlib import metadata
 from pathlib import Path
 
 import pyarrow.parquet as pq
 
-import ithax
 from ithax.engines.adapter import CancelToken, Capabilities, Progress, Results
 from ithax.engines.process.runner import (
     REPLICATIONS_SCHEMA,
@@ -46,8 +46,9 @@ class ProcessAdapter:
     """The SimPy adapter for the ``process`` domain."""
 
     name: str = "simpy"
-    # The product's own adapters ship with the product, so they carry its version.
-    version: str = ithax.__version__
+    # The engine's own version, which decides the results a repeat must reproduce; the
+    # product's is the manifest's ``product_version`` (#78, spec 1 "Engine contract").
+    version: str = metadata.version("simpy")
 
     def capabilities(self) -> Capabilities:
         """The ``process`` domain, the twelve types of the model layer's catalogue, no
