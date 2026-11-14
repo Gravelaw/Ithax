@@ -1,5 +1,5 @@
 """The warm-up check and W210 (spec 2 "Statistic definitions", warm-up check; AKS-129 and
-AKS-102): ``lcsim.runs.warmup``.
+AKS-102): ``ithax.runs.warmup``.
 
 The unit tests use synthetic ``timeseries`` tables and a hand computation with
 ``scipy.stats.t.ppf``. One case runs the process adapter on the research note's "slow
@@ -19,9 +19,9 @@ import pyarrow as pa
 import pytest
 from scipy.stats import t
 
-from lcsim.engines.process.adapter import ProcessAdapter
-from lcsim.model.loading import load_document
-from lcsim.runs.warmup import Drift, warmup_check, warmup_warning
+from ithax.engines.process.adapter import ProcessAdapter
+from ithax.model.loading import load_document
+from ithax.runs.warmup import Drift, warmup_check, warmup_warning
 
 HOUR = 3600.0
 

@@ -1,5 +1,5 @@
 """Running an adapter through ``validate``, ``translate``, ``run`` and ``collect`` and
-building the summary (spec 1 "Division of labour"; AKS-102): ``lcsim.runs.manager``.
+building the summary (spec 1 "Division of labour"; AKS-102): ``ithax.runs.manager``.
 
 The run folder, manifest, job states and worker are AKS-103's; this checks only the
 manager's own path, in a given ``workdir``.
@@ -12,18 +12,18 @@ from typing import Any
 
 import pytest
 
-from lcsim.engines.adapter import Progress
-from lcsim.engines.process.adapter import ProcessAdapter
-from lcsim.model.issues import Issue
-from lcsim.model.loading import load_document
-from lcsim.model.model import Model
-from lcsim.runs.manager import (
+from ithax.engines.adapter import Progress
+from ithax.engines.process.adapter import ProcessAdapter
+from ithax.model.issues import Issue
+from ithax.model.loading import load_document
+from ithax.model.model import Model
+from ithax.runs.manager import (
     OFFERED_FIDELITIES,
     RunOutcome,
     fidelity_issues,
     run_experiment,
 )
-from lcsim.runs.summary import build_summary
+from ithax.runs.summary import build_summary
 
 EXAMPLES = Path(__file__).resolve().parents[2] / "examples"
 

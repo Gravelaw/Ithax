@@ -24,12 +24,12 @@ from conftest import (
     series_of_model,
 )
 
-from lcsim.engines.process.blocks import BLOCK_TYPES, Item, Schedule, Server, Unbatch
-from lcsim.engines.process.replication import run_replication
-from lcsim.engines.process.translate import engine_input
-from lcsim.model.catalogue import PROCESS_TYPES
-from lcsim.model.loading import load_document
-from lcsim.model.streams import generator_for
+from ithax.engines.process.blocks import BLOCK_TYPES, Item, Schedule, Server, Unbatch
+from ithax.engines.process.replication import run_replication
+from ithax.engines.process.translate import engine_input
+from ithax.model.catalogue import PROCESS_TYPES
+from ithax.model.loading import load_document
+from ithax.model.streams import generator_for
 
 
 def source(interarrival: str = "100 s", **settings: Any) -> dict[str, Any]:

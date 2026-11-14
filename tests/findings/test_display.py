@@ -3,7 +3,7 @@ units; research note ``docs/research/spec-4-findings-wording.md``, decision 6; A
 
 import pytest
 
-from lcsim.findings.display import figures, percent, quantity, value_text
+from ithax.findings.display import figures, percent, quantity, value_text
 
 
 @pytest.mark.parametrize(

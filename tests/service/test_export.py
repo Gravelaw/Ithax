@@ -16,10 +16,10 @@ from typing import Any
 import pytest
 from starlette.testclient import TestClient
 
-from lcsim.runs.index import INDEX_FILE
-from lcsim.runs.manifest import MANIFEST_FILE
-from lcsim.service import export
-from lcsim.service.run_service import _engine
+from ithax.runs.index import INDEX_FILE
+from ithax.runs.manifest import MANIFEST_FILE
+from ithax.service import export
+from ithax.service.run_service import _engine
 from service.service_support import assert_error
 from service.test_runs import (
     FINAL,

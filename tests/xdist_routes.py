@@ -15,7 +15,7 @@ conftest below ``tests/``. So this plugin:
 Without pytest-xdist, or with ``-n 0``, nothing here acts and the coverage test checks its own
 session, as before. It is a plugin rather than ``tests/conftest.py`` because the process
 adapter's tests import ``tests/engines/process/conftest.py`` as ``conftest``, which a second
-top-level ``conftest`` module would shadow (and mypy refuses two). Nothing from ``lcsim`` is
+top-level ``conftest`` module would shadow (and mypy refuses two). Nothing from ``ithax`` is
 imported until the session ends, so loading the plugin before coverage starts costs no
 coverage.
 """

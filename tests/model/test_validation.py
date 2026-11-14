@@ -12,17 +12,17 @@ from typing import Any
 
 import pytest
 
-from lcsim.model.catalogue import DOMAINS
-from lcsim.model.issues import Issue
-from lcsim.model.loading import (
+from ithax.model.catalogue import DOMAINS
+from ithax.model.issues import Issue
+from ithax.model.loading import (
     ModelLoadError,
     build_document,
     load_document,
     load_model,
     load_text,
 )
-from lcsim.model.model import Model
-from lcsim.model.validation import (
+from ithax.model.model import Model
+from ithax.model.validation import (
     IDENTIFIER_PATTERN,
     RESERVED_COMPONENT_IDS,
     RESERVED_SCENARIO_ID,
@@ -152,7 +152,7 @@ PHASE_1_ENGINES = (
 def test_every_phase_1_domain_has_an_installed_adapter() -> None:
     # Spec 1 "Top-level keys": from M5 both domains are checked against the discovered
     # adapters (pip install -e writes both entry points).
-    from lcsim.engines.registry import installed_engines
+    from ithax.engines.registry import installed_engines
 
     assert installed_engines() == PHASE_1_ENGINES
     assert set(DOMAINS) == {"process", "optimization"}

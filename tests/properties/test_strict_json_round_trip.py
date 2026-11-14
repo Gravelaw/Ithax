@@ -7,7 +7,7 @@ import math
 from hypothesis import given
 from hypothesis import strategies as st
 
-from lcsim.strict_json import UnreadableJSON, encode_json, read_json
+from ithax.strict_json import UnreadableJSON, encode_json, read_json
 from properties.strategies import JSON_VALUES
 
 

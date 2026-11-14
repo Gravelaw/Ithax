@@ -21,7 +21,7 @@ dependencies = [
     "optuna>=5.0.0",
     "pint>=0.25.3",
     "pyarrow>=26.0.1",
-    # Imported directly by lcsim.service (request bodies); it was only a transitive
+    # Imported directly by ithax.service (request bodies); it was only a transitive
     # dependency of fastapi (#99, P9). The version installed on 2026-11-13.
     "pydantic>=2.14.3",
     "pyomo>=6.10.1",
@@ -46,15 +46,15 @@ dev = [
 
 # Spec 1 "Engine contract": adapters are discovered through this group; the entry-point name
 # is the adapter's name, which run.engine refers to.
-[project.entry-points."lcsim.engines"]
-highs = "lcsim.engines.optimize.adapter:HighsAdapter"
-simpy = "lcsim.engines.process.adapter:ProcessAdapter"
+[project.entry-points."ithax.engines"]
+highs = "ithax.engines.optimize.adapter:HighsAdapter"
+simpy = "ithax.engines.process.adapter:ProcessAdapter"
 
 [tool.hatch.version]
-path = "src/lcsim/__init__.py"
+path = "src/ithax/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/lcsim"]
+packages = ["src/ithax"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -94,7 +94,7 @@ select = ["E", "F", "W", "I", "B", "UP", "ANN", "RUF", "C90", "S102", "S307", "P
 [tool.ruff.lint.mccabe]
 max-complexity = 15
 
-# tests/mcp mirrors src/lcsim/mcp; without this, isort would take the MCP SDK, `mcp`, for a
+# tests/mcp mirrors src/ithax/mcp; without this, isort would take the MCP SDK, `mcp`, for a
 # first-party package because `src` lists `tests`.
 [tool.ruff.lint.isort]
 known-third-party = ["mcp"]
@@ -102,21 +102,21 @@ known-third-party = ["mcp"]
 # House helpers (docs/retrospective/proposed-agent-setup.md, P5; #99). Each message says what
 # to use instead, so a lint failure carries its own fix.
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"random".msg = "Randomness only through the spec 1 stream scheme: lcsim.model.streams.generator_for."
-"numpy.random.seed".msg = "Randomness only through the spec 1 stream scheme: lcsim.model.streams.generator_for."
-"numpy.random.default_rng".msg = "Randomness only through the spec 1 stream scheme: lcsim.model.streams.generator_for."
-"json.loads".msg = "Read JSON with lcsim.strict_json.read_json: it rejects NaN, infinity and lone surrogates."
-"json.load".msg = "Read JSON with lcsim.strict_json.read_json_file or read_json_object_file."
-"json.dumps".msg = "Write JSON with lcsim.strict_json.encode_json (files) or json_text (messages, streams, bodies)."
-"json.dump".msg = "Write JSON with lcsim.strict_json.encode_json."
-"os.replace".msg = "Replace a file with lcsim.files.atomic_write or atomic_write_with: one helper, one naming scheme, flushed to disk."
-"os.rename".msg = "Replace a file with lcsim.files.atomic_write or atomic_write_with: one helper, one naming scheme, flushed to disk."
+"random".msg = "Randomness only through the spec 1 stream scheme: ithax.model.streams.generator_for."
+"numpy.random.seed".msg = "Randomness only through the spec 1 stream scheme: ithax.model.streams.generator_for."
+"numpy.random.default_rng".msg = "Randomness only through the spec 1 stream scheme: ithax.model.streams.generator_for."
+"json.loads".msg = "Read JSON with ithax.strict_json.read_json: it rejects NaN, infinity and lone surrogates."
+"json.load".msg = "Read JSON with ithax.strict_json.read_json_file or read_json_object_file."
+"json.dumps".msg = "Write JSON with ithax.strict_json.encode_json (files) or json_text (messages, streams, bodies)."
+"json.dump".msg = "Write JSON with ithax.strict_json.encode_json."
+"os.replace".msg = "Replace a file with ithax.files.atomic_write or atomic_write_with: one helper, one naming scheme, flushed to disk."
+"os.rename".msg = "Replace a file with ithax.files.atomic_write or atomic_write_with: one helper, one naming scheme, flushed to disk."
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["ANN", "TID251"]
 # The helpers themselves, and the repository's tools, which are not product code.
-"src/lcsim/strict_json.py" = ["TID251"]
-"src/lcsim/files.py" = ["TID251"]
+"src/ithax/strict_json.py" = ["TID251"]
+"src/ithax/files.py" = ["TID251"]
 "scripts/**" = ["TID251"]
 
 [tool.mypy]
@@ -138,13 +138,13 @@ module = ["scipy", "scipy.*"]
 ignore_missing_imports = true
 
 # openpyxl 3.1.5 ships no py.typed; types-openpyxl would be one more dev dependency for the
-# one reader lcsim.model.data_files uses, which types what it uses with a Protocol
+# one reader ithax.model.data_files uses, which types what it uses with a Protocol
 # (docs/DECISIONS.md, AKS-113).
 [[tool.mypy.overrides]]
 module = ["openpyxl", "openpyxl.*"]
 ignore_missing_imports = true
 
-# pyomo 6.10.1 ships no py.typed and has no stubs; only lcsim.engines.optimize.solver
+# pyomo 6.10.1 ships no py.typed and has no stubs; only ithax.engines.optimize.solver
 # imports it (docs/DECISIONS.md, AKS-108).
 [[tool.mypy.overrides]]
 module = ["pyomo", "pyomo.*"]
@@ -156,6 +156,6 @@ ignore_missing_imports = true
 branch = true
 
 [tool.coverage.report]
-# `python -m lcsim.runs.worker` runs its guarded line only as a script; main() itself is
+# `python -m ithax.runs.worker` runs its guarded line only as a script; main() itself is
 # tested in process, and the module is run as a real subprocess (tests/runs/test_worker.py).
 exclude_also = ['if __name__ == "__main__":']

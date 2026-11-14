@@ -12,11 +12,11 @@ from typing import Any
 
 import pytest
 
-from lcsim.model.indexed import expanded_name
-from lcsim.model.issues import Issue
-from lcsim.model.loading import load_document
-from lcsim.model.migration import FORMAT_VERSION
-from lcsim.model.model import (
+from ithax.model.indexed import expanded_name
+from ithax.model.issues import Issue
+from ithax.model.loading import load_document
+from ithax.model.migration import FORMAT_VERSION
+from ithax.model.model import (
     IndexedConstraint,
     IndexedObjective,
     IndexedVariable,
@@ -29,7 +29,7 @@ from lcsim.model.model import (
     Term,
     Variable,
 )
-from lcsim.model.schema import schema_pass
+from ithax.model.schema import schema_pass
 
 ROOT = Path(__file__).resolve().parents[2]
 TRANSPORT = ROOT / "benchmarks" / "transport" / "model.json"
@@ -325,8 +325,8 @@ def test_a_rota_expands_with_tables_over_bound_and_summed_sets() -> None:
 
 
 def test_the_rota_solves_through_the_adapter_names(tmp_path: Path) -> None:
-    from lcsim.engines.optimize.adapter import HighsAdapter
-    from lcsim.runs.manager import run_experiment
+    from ithax.engines.optimize.adapter import HighsAdapter
+    from ithax.runs.manager import run_experiment
 
     outcome = run_experiment(HighsAdapter(), model_of(rota()), None, tmp_path / "run")
     assert outcome.state == "done"

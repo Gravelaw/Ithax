@@ -19,10 +19,10 @@ from fastapi import FastAPI
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from lcsim.service.app import create_app
-from lcsim.service.config import ServiceConfig
-from lcsim.service.events import ProjectEvents
-from lcsim.service.state import ServiceState
+from ithax.service.app import create_app
+from ithax.service.config import ServiceConfig
+from ithax.service.events import ProjectEvents
+from ithax.service.state import ServiceState
 from service.service_support import AUTH, BASE_URL, TOKEN, WS_URL
 
 Json = dict[str, Any]

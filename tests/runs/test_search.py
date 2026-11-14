@@ -18,15 +18,15 @@ import pyarrow.parquet as pq
 import pytest
 from dummy_adapters import SEARCH_INPUT, SEARCH_OUTPUT, SearchAdapter, search_metrics
 
-from lcsim.engines.adapter import Progress
-from lcsim.engines.process.adapter import ProcessAdapter
-from lcsim.model.loading import load_document
-from lcsim.model.model import Model
-from lcsim.model.streams import optimizer_generator
-from lcsim.model.units import Dimension, Quantity
-from lcsim.runs import search as search_module
-from lcsim.runs.manager import RunOutcome, run_experiment
-from lcsim.runs.search import (
+from ithax.engines.adapter import Progress
+from ithax.engines.process.adapter import ProcessAdapter
+from ithax.model.loading import load_document
+from ithax.model.model import Model
+from ithax.model.streams import optimizer_generator
+from ithax.model.units import Dimension, Quantity
+from ithax.runs import search as search_module
+from ithax.runs.manager import RunOutcome, run_experiment
+from ithax.runs.search import (
     ASK_LIMIT_FACTOR,
     candidate_model,
     combination_count,

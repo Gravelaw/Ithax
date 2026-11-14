@@ -1,4 +1,4 @@
-/** The display rules of spec 4 "Finding rules", as `src/lcsim/findings/display.py` has them. */
+/** The display rules of spec 4 "Finding rules", as `src/ithax/findings/display.py` has them. */
 import { describe, expect, it } from "vitest";
 import {
   confidenceText,

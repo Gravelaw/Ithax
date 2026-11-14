@@ -24,10 +24,10 @@ These are in `docs/retrospective/phase-1-engineering-review.md`. Look for them o
 that reads input, and say whether the shared helper was bypassed:
 
 - integers beyond float range, values near 1e308 and their sums, NaN and infinity
-  (helpers: `lcsim.strict_json.real_in`, `lcsim.strict_json.whole_in`);
+  (helpers: `ithax.strict_json.real_in`, `ithax.strict_json.whole_in`);
 - lone surrogate strings, JSON `null` where an object is expected, duplicate keys, and keys
-  such as `constructor` in the interface (helper: `lcsim.strict_json.read_json`);
+  such as `constructor` in the interface (helper: `ithax.strict_json.read_json`);
 - Windows paths without a drive, symlink or junction aliases, `..` after a link
-  (helper: `lcsim.service.paths.canonical`);
+  (helper: `ithax.service.paths.canonical`);
 - loops that never check for cancellation; waits with no time limit;
 - interface state written from a stale draft or after a screen has closed.

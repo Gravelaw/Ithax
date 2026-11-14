@@ -33,10 +33,10 @@ from mcp_support import (
     spec_4_tool_rows,
 )
 
-from lcsim.mcp.client import ServiceClient
-from lcsim.mcp.limits import MAX_UNFINISHED_RUNS, RUN_LIMIT
-from lcsim.mcp.tools import MAX_DEPTH, TOOLS, check_arguments, run_tool, tool_named
-from lcsim.service.discovery import ServiceInfo
+from ithax.mcp.client import ServiceClient
+from ithax.mcp.limits import MAX_UNFINISHED_RUNS, RUN_LIMIT
+from ithax.mcp.tools import MAX_DEPTH, TOOLS, check_arguments, run_tool, tool_named
+from ithax.service.discovery import ServiceInfo
 
 FINAL = ("done", "failed", "cancelled")
 

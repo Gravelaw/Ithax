@@ -2703,3 +2703,32 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - Copying the proposal's map unchanged. It predates owner decisions C10, F8 and the GitHub tracker, so it would have restated rules that no longer hold.
 - **Spec sections updated:** build guide: the opening paragraph, "Repository layout", "Session procedure" ("Session summary", "Editing this guide") and "Definition of done". These are factual and status rows (D18); no rule, milestone or convention changed.
 - **Dependencies added:** none.
+
+## 2026-11-14 · M12 · The Python package renamed `ithax` (#70, first of two changes; owner decision C8)
+
+- **Decision:**
+  - `src/lcsim` moved to `src/ithax`. Every import, dotted module path and `python -m` command now reads `ithax`, in code, tests, scripts, packaging scripts, the shell's launcher, the interface's test harness and the specs' bodies. That includes `python -m ithax.service`, `python -m ithax.launcher`, `python -m ithax.mcp` and `python -m ithax.runs.worker`, and the entry points' targets.
+  - The engine entry-point group is now `ithax.engines`. Spec 1 already said the group is renamed with the package before the first release. The old group `lcsim.engines` is not read, since no release used it and no plugin outside the product exists.
+  - The change was made by a script with five patterns:
+    - a dotted module path;
+    - `from` or `import lcsim`;
+    - `src/lcsim`;
+    - `--cov=lcsim`;
+    - `lcsim.__version__`.
+
+    The diff was then checked by listing every added `ithax.<name>`. Three matches were not modules and were put back for the second change: the desktop entry `lcsim.desktop`, the icon `lcsim.png`, and the interface's stored-token key `lcsim.token`, which a user's browser already holds. The app identifier `org.lcsim.desktop` was put back for the same reason.
+  - **Left as historical record:** `docs/DECISIONS.md`, `docs/sessions/`, `docs/research/`, `docs/retrospective/`, and the specs' "Changes in this version" lines. Each of specs 1 to 4 has a dated line for this change.
+  - **Left for the second #70 change**, because each is a name a user or another program sees:
+    - the distribution name `lcsim` (wheel, `uv.lock`, `importlib.metadata`);
+    - the commands `lcsim`, `lcsim-launcher` and `lcsim-mcp`;
+    - the MCP server name `lcsim` (tool names `mcp__lcsim__*`);
+    - the configuration and data folders, and the installed `share/lcsim`;
+    - the `LCSIM_*` variables;
+    - the desktop shell's name and identifier;
+    - the Linux archive's name;
+    - the product name in messages and titles.
+  - **Found and fixed on the way:** `tests/test_conventions.py`, `tests/test_function_length.py` and the pint-import check in `tests/model/test_units.py` built the source folder as `src/lcsim` by hand. After the move, the two conventions checks found no files and still passed, because they listed no offenders. The function-length test failed only because its allow-list then named functions that were not found, and the pint check failed outright. All three now take the folder from the imported package, `Path(ithax.__file__).parent`, so a moved package cannot leave a scan empty.
+- **Reason:** owner decision C8 (the product is Ithax; the package and command are renamed early in Phase 1a). This change is split in two so that the mechanical module rename can be reviewed apart from the renames that change what a user sees and need fallbacks.
+- **Alternatives considered:** one change for everything. It would put a 1,200-line mechanical diff and the fallback behaviour in one review.
+- **Spec sections updated:** spec 1 "Engine contract" (the group, with a dated line); specs 2, 3 and 4, module paths only (a dated line each).
+- **Dependencies added:** none.

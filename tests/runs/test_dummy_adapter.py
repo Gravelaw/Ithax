@@ -13,8 +13,8 @@ from pathlib import Path
 
 from dummy_adapters import INPUT_FILE, OUTPUT_FILE, RUN_RECORD, DummyAdapter
 
-from lcsim.runs.manifest import read_manifest
-from lcsim.runs.targets import LocalTarget
+from ithax.runs.manifest import read_manifest
+from ithax.runs.targets import LocalTarget
 
 EXAMPLES = Path(__file__).resolve().parents[2] / "examples"
 

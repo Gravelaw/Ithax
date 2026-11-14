@@ -29,7 +29,7 @@ from typing import Any
 import pytest
 from scipy.stats import t as student_t
 
-import lcsim
+import ithax
 from desktop.test_shell import (
     HOME_HEADING,
     WAIT_S,
@@ -38,7 +38,7 @@ from desktop.test_shell import (
     driver,
     stop_service,
 )
-from lcsim.service.discovery import probe, read_service_file
+from ithax.service.discovery import probe, read_service_file
 
 pytestmark = [
     pytest.mark.package,
@@ -47,7 +47,7 @@ pytestmark = [
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
-NAME = f"lcsim-{lcsim.__version__}-linux-x86_64"
+NAME = f"lcsim-{ithax.__version__}-linux-x86_64"
 ARCHIVE = Path(os.environ.get("LCSIM_PACKAGE", ROOT / "dist" / f"{NAME}.tar.gz"))
 IMAGE = "ubuntu:24.04"
 #: Spec 3's acceptance row: under ten minutes from install to a first result.
@@ -160,9 +160,9 @@ def test_the_archive_holds_the_interface_service_engines_and_templates(archive: 
     ):
         assert f"{NAME}/{name}" in members, name
     site = f"{NAME}/python/lib/python3.13/site-packages"
-    for package in ("lcsim", "simpy", "highspy", "pyomo", "optuna", "scipy", "fastapi"):
+    for package in ("ithax", "simpy", "highspy", "pyomo", "optuna", "scipy", "fastapi"):
         assert f"{site}/{package}/__init__.py" in members, package
-    assert f"{site}/lcsim/service/__init__.py" in members
+    assert f"{site}/ithax/service/__init__.py" in members
     shipped = {
         name.split("/")[5]
         for name in members

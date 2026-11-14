@@ -25,10 +25,10 @@ from dummy_adapters import (
 )
 from test_search import searching
 
-from lcsim.engines.adapter import EngineAdapter
-from lcsim.runs import targets
-from lcsim.runs.manifest import MANIFEST_KEYS, read_manifest
-from lcsim.runs.targets import LocalRun, LocalTarget
+from ithax.engines.adapter import EngineAdapter
+from ithax.runs import targets
+from ithax.runs.manifest import MANIFEST_KEYS, read_manifest
+from ithax.runs.targets import LocalRun, LocalTarget
 
 
 def file_bytes(document: dict[str, Any]) -> bytes:

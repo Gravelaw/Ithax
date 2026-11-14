@@ -9,8 +9,8 @@ from typing import Any
 import pytest
 from starlette.testclient import TestClient
 
-from lcsim.service import hardware
-from lcsim.service.hardware import (
+from ithax.service import hardware
+from ithax.service.hardware import (
     SETTINGS_FILE,
     TIERS,
     Hardware,
@@ -239,8 +239,8 @@ def test_get_system_reports_hardware_tier_and_workers(client: TestClient) -> Non
 
 
 def test_get_system_with_unknown_graphics_and_memory(tmp_path: Path) -> None:
-    from lcsim.service.app import create_app
-    from lcsim.service.config import ServiceConfig
+    from ithax.service.app import create_app
+    from ithax.service.config import ServiceConfig
     from service.service_support import AUTH, BASE_URL, PORT, TOKEN
 
     config = ServiceConfig(

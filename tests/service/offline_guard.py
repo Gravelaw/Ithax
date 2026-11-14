@@ -15,7 +15,7 @@ and loopback addresses are allowed: the service listens on ``127.0.0.1``.
 An audit hook cannot be removed, so the guard is installed only in processes made for the
 test: ``offline_service.py`` installs it at import, before the service starts, and the run
 workers the service spawns import that file again as their main module, so they install it
-too. It is test code; nothing in ``src/lcsim`` imports it.
+too. It is test code; nothing in ``src/ithax`` imports it.
 """
 
 from __future__ import annotations

@@ -2,7 +2,7 @@
 
 import pytest
 
-from lcsim.templates.lesson import Choice, count_words, parse_lesson
+from ithax.templates.lesson import Choice, count_words, parse_lesson
 
 VALID = """# Coffee shop queue
 

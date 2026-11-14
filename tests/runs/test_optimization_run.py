@@ -16,13 +16,13 @@ from typing import Any
 import pytest
 from dummy_adapters import IterationLimitedAdapter
 
-import lcsim
-from lcsim.engines.optimize.adapter import HighsAdapter
-from lcsim.model.loading import load_document
-from lcsim.model.model import Model
-from lcsim.runs.manager import RunOutcome, run_experiment
-from lcsim.runs.manifest import MANIFEST_KEYS, read_manifest
-from lcsim.runs.targets import LocalTarget, RunRefused
+import ithax
+from ithax.engines.optimize.adapter import HighsAdapter
+from ithax.model.loading import load_document
+from ithax.model.model import Model
+from ithax.runs.manager import RunOutcome, run_experiment
+from ithax.runs.manifest import MANIFEST_KEYS, read_manifest
+from ithax.runs.targets import LocalTarget, RunRefused
 
 PRODUCT_MIX: dict[str, Any] = {
     "format_version": "0.1",
@@ -91,7 +91,7 @@ def test_the_manager_refuses_an_experiment_id_for_an_optimization_model(tmp_path
 
 
 def test_the_manager_needs_an_experiment_id_for_a_process_model(tmp_path: Path) -> None:
-    from lcsim.engines.process.adapter import ProcessAdapter
+    from ithax.engines.process.adapter import ProcessAdapter
 
     coffee = json.loads(COFFEE_SHOP.read_text(encoding="utf-8"))
     with pytest.raises(ValueError, match="none was given"):
@@ -133,7 +133,7 @@ def test_a_local_run_of_the_product_mix_writes_the_full_run_folder(tmp_path: Pat
     assert manifest["experiment_id"] is None
     assert manifest["scenario_ids"] == []
     assert manifest["seed"] is None
-    assert manifest["engine"] == {"name": "highs", "version": lcsim.__version__}
+    assert manifest["engine"] == {"name": "highs", "version": ithax.__version__}
     assert manifest["target"] == "local" and manifest["client"] == "script"
     summary = summary_of(folder)
     assert summary["model"] == "Product mix"

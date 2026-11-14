@@ -1,8 +1,8 @@
 #!/bin/sh
 # lcsim-mcp: the MCP server for an assistant, on standard input and output
-# (python -m lcsim.mcp; spec 4 and spec 3 "Packaging").
+# (python -m ithax.mcp; spec 4 and spec 3 "Packaging").
 set -eu
 root=$(dirname "$(dirname "$(readlink -f "$0")")")
 unset PYTHONHOME PYTHONPATH
 export PYTHONNOUSERSITE=1 PYTHONSAFEPATH=1
-exec "$root/python/bin/python3" -m lcsim.mcp "$@"
+exec "$root/python/bin/python3" -m ithax.mcp "$@"

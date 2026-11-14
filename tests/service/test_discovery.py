@@ -13,10 +13,10 @@ from pathlib import Path
 import pytest
 import uvicorn
 
-from lcsim.files import temporary_path
-from lcsim.service.app import create_app
-from lcsim.service.config import ServiceConfig
-from lcsim.service.discovery import (
+from ithax.files import temporary_path
+from ithax.service.app import create_app
+from ithax.service.config import ServiceConfig
+from ithax.service.discovery import (
     SERVICE_FILE,
     ServiceInfo,
     probe,
@@ -24,8 +24,8 @@ from lcsim.service.discovery import (
     remove_service_file,
     write_service_file,
 )
-from lcsim.service.hardware import Hardware
-from lcsim.service.main import bind_local
+from ithax.service.hardware import Hardware
+from ithax.service.main import bind_local
 
 INFO = ServiceInfo(port=41234, token="abc", pid=1234, started="2026-11-07T10:00:00.000Z")
 

@@ -30,8 +30,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from lcsim.runs.targets import LocalTarget
-from lcsim.strict_json import read_json_file
+from ithax.runs.targets import LocalTarget
+from ithax.strict_json import read_json_file
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = Path(__file__).resolve().parent / "fixtures"

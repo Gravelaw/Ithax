@@ -22,9 +22,9 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from lcsim.service.app import create_app
-from lcsim.service.config import ServiceConfig
-from lcsim.service.hardware import Hardware
+from ithax.service.app import create_app
+from ithax.service.config import ServiceConfig
+from ithax.service.hardware import Hardware
 from service import route_recorder
 from service.service_support import AUTH, BASE_URL, PORT, TOKEN
 

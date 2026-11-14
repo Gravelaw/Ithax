@@ -1,4 +1,4 @@
-"""``python -m lcsim.launcher`` (spec 3 "Service rules", Launcher; AKS-119).
+"""``python -m ithax.launcher`` (spec 3 "Service rules", Launcher; AKS-119).
 
 The launcher finds a running service through ``service.json``, starts one detached when none
 answers (also when the file is left from a service that has gone), waits for it, and opens
@@ -19,8 +19,8 @@ from pathlib import Path
 import httpx2
 import pytest
 
-import lcsim.launcher.launch as launcher
-from lcsim.launcher.launch import (
+import ithax.launcher.launch as launcher
+from ithax.launcher.launch import (
     LOG_FILE,
     detach_options,
     interface_url,
@@ -28,7 +28,7 @@ from lcsim.launcher.launch import (
     service_command,
     wait_until_ready,
 )
-from lcsim.service.discovery import SERVICE_FILE, ServiceInfo, read_service_file, write_service_file
+from ithax.service.discovery import SERVICE_FILE, ServiceInfo, read_service_file, write_service_file
 
 
 def stop(info: ServiceInfo, config_dir: Path) -> None:
@@ -221,7 +221,7 @@ def test_a_service_that_never_answers_is_given_up_after_the_wait(
 
 def test_the_service_command_passes_the_options_on(tmp_path: Path) -> None:
     command = service_command(tmp_path / "c", tmp_path / "d", tmp_path / "u", 5.0)
-    assert command[:3] == [sys.executable, "-m", "lcsim.service"]
+    assert command[:3] == [sys.executable, "-m", "ithax.service"]
     assert command[3:] == [
         "--config-dir",
         str(tmp_path / "c"),
@@ -266,6 +266,6 @@ def test_idle_minutes_must_be_above_zero() -> None:
 
 
 def test_the_module_entry_point_is_main() -> None:
-    import lcsim.launcher.__main__ as entry
+    import ithax.launcher.__main__ as entry
 
     assert entry.main is main

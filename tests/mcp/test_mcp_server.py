@@ -1,4 +1,4 @@
-"""``python -m lcsim.mcp``: the MCP server over stdio (spec 4 "How the server runs and
+"""``python -m ithax.mcp``: the MCP server over stdio (spec 4 "How the server runs and
 answers"; AKS-115).
 
 ``main`` and the stdio loop run in process here, so coverage sees them; one test runs the
@@ -18,12 +18,12 @@ from mcp.server import Server
 from mcp.types import TextContent
 from mcp_support import in_process_service, stop_started
 
-from lcsim import __version__
-from lcsim.mcp import __main__ as entry
-from lcsim.mcp.client import ServiceClient
-from lcsim.mcp.server import INSTRUCTIONS, SERVER_NAME, build_server, main, serve_stdio
-from lcsim.service.config import default_config_dir, default_data_dir
-from lcsim.service.discovery import probe, read_service_file
+from ithax import __version__
+from ithax.mcp import __main__ as entry
+from ithax.mcp.client import ServiceClient
+from ithax.mcp.server import INSTRUCTIONS, SERVER_NAME, build_server, main, serve_stdio
+from ithax.service.config import default_config_dir, default_data_dir
+from ithax.service.discovery import probe, read_service_file
 
 
 def test_the_module_entry_point_is_main() -> None:
@@ -39,7 +39,7 @@ def clients(monkeypatch: pytest.MonkeyPatch) -> list[ServiceClient]:
         made.append(ServiceClient(config_dir, data_dir))
         return made[-1]
 
-    monkeypatch.setattr("lcsim.mcp.server.ServiceClient", make)
+    monkeypatch.setattr("ithax.mcp.server.ServiceClient", make)
     return made
 
 
@@ -78,7 +78,7 @@ def test_main_serves_over_stdio_by_default(monkeypatch: pytest.MonkeyPatch) -> N
     async def serve(server: Server[Any]) -> None:
         served.append(server)
 
-    monkeypatch.setattr("lcsim.mcp.server.serve_stdio", serve)
+    monkeypatch.setattr("ithax.mcp.server.serve_stdio", serve)
     assert main(["--config-dir", "c", "--data-dir", "d"]) == 0
     assert len(served) == 1
 
@@ -87,7 +87,7 @@ def test_main_help_names_the_program(capsys: pytest.CaptureFixture[str]) -> None
     with pytest.raises(SystemExit) as stopped:
         main(["--help"])
     assert stopped.value.code == 0
-    assert "python -m lcsim.mcp" in capsys.readouterr().out
+    assert "python -m ithax.mcp" in capsys.readouterr().out
 
 
 class ClientStreams:
@@ -160,11 +160,11 @@ def test_serve_stdio_answers_json_rpc_lines(tmp_path: Path) -> None:
 def stdio_parameters(config_dir: Path, data_dir: Path) -> StdioServerParameters:
     return StdioServerParameters(
         command=sys.executable,
-        args=["-m", "lcsim.mcp", "--config-dir", str(config_dir), "--data-dir", str(data_dir)],
+        args=["-m", "ithax.mcp", "--config-dir", str(config_dir), "--data-dir", str(data_dir)],
     )
 
 
-def test_python_dash_m_lcsim_mcp_starts_the_service_on_demand(tmp_path: Path) -> None:
+def test_python_dash_m_ithax_mcp_starts_the_service_on_demand(tmp_path: Path) -> None:
     config_dir, data_dir = tmp_path / "config", tmp_path / "data"
     seen: dict[str, Any] = {}
 
@@ -197,7 +197,7 @@ def test_python_dash_m_lcsim_mcp_starts_the_service_on_demand(tmp_path: Path) ->
         stop_started(config_dir)
 
 
-def test_python_dash_m_lcsim_mcp_uses_a_running_service(tmp_path: Path) -> None:
+def test_python_dash_m_ithax_mcp_uses_a_running_service(tmp_path: Path) -> None:
     config_dir, data_dir = tmp_path / "config", tmp_path / "data"
     with in_process_service(config_dir, data_dir) as info:
 

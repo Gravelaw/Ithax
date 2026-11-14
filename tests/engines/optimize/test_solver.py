@@ -14,8 +14,8 @@ import pytest
 from pyomo.contrib.solver.common.results import TerminationCondition
 from pyomo.contrib.solver.common.util import NoDualsError
 
-from lcsim.engines.optimize import solver
-from lcsim.engines.optimize.solver import (
+from ithax.engines.optimize import solver
+from ithax.engines.optimize.solver import (
     TIGHT_TOLERANCE,
     Outcome,
     SolverStopped,
@@ -23,7 +23,7 @@ from lcsim.engines.optimize.solver import (
     solve,
     solver_version,
 )
-from lcsim.model.model import LinearConstraint, LinearObjective, LinearProgram, Variable
+from ithax.model.model import LinearConstraint, LinearObjective, LinearProgram, Variable
 
 
 def program(

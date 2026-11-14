@@ -1,6 +1,6 @@
 """The HiGHS adapter for the ``optimization`` domain (AKS-108).
 
-Spec 1 "Engine adapter interface": the five methods, declared through the ``lcsim.engines``
+Spec 1 "Engine adapter interface": the five methods, declared through the ``ithax.engines``
 entry point ``highs``, with HiGHS's licence (MIT) and ``in-process`` invocation. Spec 2
 "Mathematical optimization in the model file": the ``summary.json`` layout that
 ``collect`` returns as ``Results.solution``.
@@ -15,15 +15,15 @@ from typing import Any
 
 import pytest
 
-import lcsim
-from lcsim.engines.adapter import Capabilities, EngineAdapter, Progress
-from lcsim.engines.optimize import adapter as adapter_module
-from lcsim.engines.optimize.adapter import INPUT_FILE, SOLUTION_FILE, HighsAdapter
-from lcsim.engines.optimize.solver import SolverStopped, solver_version
-from lcsim.engines.optimize.translate import read_input, write_input
-from lcsim.engines.registry import installed_adapters, select_adapter
-from lcsim.model.loading import load_document
-from lcsim.model.model import Model
+import ithax
+from ithax.engines.adapter import Capabilities, EngineAdapter, Progress
+from ithax.engines.optimize import adapter as adapter_module
+from ithax.engines.optimize.adapter import INPUT_FILE, SOLUTION_FILE, HighsAdapter
+from ithax.engines.optimize.solver import SolverStopped, solver_version
+from ithax.engines.optimize.translate import read_input, write_input
+from ithax.engines.registry import installed_adapters, select_adapter
+from ithax.model.loading import load_document
+from ithax.model.model import Model
 
 PRODUCT_MIX: dict[str, Any] = {
     "format_version": "0.1",
@@ -64,7 +64,7 @@ def test_the_adapter_declares_the_optimization_domain_mit_and_in_process() -> No
     adapter = HighsAdapter()
     assert isinstance(adapter, EngineAdapter)
     assert adapter.name == "highs"
-    assert adapter.version == lcsim.__version__
+    assert adapter.version == ithax.__version__
     assert adapter.capabilities() == Capabilities(
         domains=("optimization",),
         component_types={},

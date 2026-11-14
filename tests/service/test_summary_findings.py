@@ -18,11 +18,11 @@ from typing import Any
 
 from starlette.testclient import TestClient
 
-from lcsim.findings import find
-from lcsim.model.loading import load_document
-from lcsim.service.config import ServiceConfig
-from lcsim.service.hardware import SETTINGS_FILE
-from lcsim.strict_json import read_json_file
+from ithax.findings import find
+from ithax.model.loading import load_document
+from ithax.service.config import ServiceConfig
+from ithax.service.hardware import SETTINGS_FILE
+from ithax.strict_json import read_json_file
 
 Json = dict[str, Any]
 

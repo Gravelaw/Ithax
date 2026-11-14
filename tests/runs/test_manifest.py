@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-import lcsim
-from lcsim.model.streams import generator_info
-from lcsim.runs.manifest import (
+import ithax
+from ithax.model.streams import generator_info
+from ithax.runs.manifest import (
     MANIFEST_FILE,
     MANIFEST_KEYS,
     ManifestWriter,
@@ -80,7 +80,7 @@ def test_a_new_manifest_has_every_spec_1_field_in_order() -> None:
         "client": "script",
         "engine": {"name": "simpy", "version": "0.0.0"},
         "generator": {"name": info.name, "numpy_version": info.numpy_version},
-        "product_version": lcsim.__version__,
+        "product_version": ithax.__version__,
         "format_version": "0.1",
         "seed": 12345,
         "fraction": 0.0,
@@ -113,7 +113,7 @@ def test_a_failed_rename_removes_the_temporary_file(
     def refuse(source: object, target: object) -> None:
         raise OSError("disk full")
 
-    monkeypatch.setattr("lcsim.files.os.replace", refuse)
+    monkeypatch.setattr("ithax.files.os.replace", refuse)
     with pytest.raises(OSError, match="disk full"):
         write_manifest(tmp_path, manifest() | {"fraction": 0.5})
     assert sorted(path.name for path in tmp_path.iterdir()) == [MANIFEST_FILE]

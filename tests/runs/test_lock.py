@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from lcsim.runs.lock import (
+from ithax.runs.lock import (
     LOCK_FILE,
     PosixLocker,
     WindowsLocker,
@@ -50,7 +50,7 @@ def test_the_lock_is_released_when_its_process_ends(tmp_path: Path) -> None:
     code = (
         "import sys, time\n"
         "from pathlib import Path\n"
-        "from lcsim.runs.lock import take_lock\n"
+        "from ithax.runs.lock import take_lock\n"
         "take_lock(Path(sys.argv[1]))\n"
         "print('locked', flush=True)\n"
         "time.sleep(30)\n"

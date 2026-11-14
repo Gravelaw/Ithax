@@ -1,7 +1,7 @@
 """Spec 3 acceptance, M6: "The app works with outbound network blocked" (AKS-114; spec 0
 principle 6, "Works offline").
 
-A real service process (``offline_service.py``: ``python -m lcsim.service`` with the network
+A real service process (``offline_service.py``: ``python -m ithax.service`` with the network
 guard of ``offline_guard.py``) serves on ``127.0.0.1``. The guard refuses, in the service
 and in every process the service spawns for a run, any connection, datagram or name lookup
 that is not loopback, and writes each attempt to a file. Over loopback HTTP the test then
@@ -31,7 +31,7 @@ from typing import Any
 import httpx2
 import pytest
 
-from lcsim.service.discovery import ServiceInfo, read_service_file
+from ithax.service.discovery import ServiceInfo, read_service_file
 from service.offline_guard import FOLDER_VARIABLE
 
 ROOT = Path(__file__).resolve().parents[2]

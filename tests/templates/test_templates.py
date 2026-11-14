@@ -21,14 +21,14 @@ from typing import Any
 import pytest
 from scipy.stats import poisson
 
-from lcsim.engines.registry import select_adapter
-from lcsim.findings import find
-from lcsim.model.loading import load_document
-from lcsim.model.model import Model
-from lcsim.runs.manager import run_experiment
-from lcsim.templates import TemplatePackage, judge, load_package, package_folders
-from lcsim.templates.expected import RUNS, Run, summary_estimates
-from lcsim.templates.lesson import MAX_STEP_WORDS, count_words
+from ithax.engines.registry import select_adapter
+from ithax.findings import find
+from ithax.model.loading import load_document
+from ithax.model.model import Model
+from ithax.runs.manager import run_experiment
+from ithax.templates import TemplatePackage, judge, load_package, package_folders
+from ithax.templates.expected import RUNS, Run, summary_estimates
+from ithax.templates.lesson import MAX_STEP_WORDS, count_words
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES = ROOT / "templates"

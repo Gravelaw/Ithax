@@ -1,7 +1,7 @@
 """The scripted coffee-shop case: spec 4 "Assistant acceptance case", Level 1 (AKS-116).
 
 A scripted client stands in for the assistant: the MCP SDK's own client side, over stdio,
-against ``python -m lcsim.mcp`` run as its own process, as a desktop assistant starts it.
+against ``python -m ithax.mcp`` run as its own process, as a desktop assistant starts it.
 The server is given temporary configuration and data folders (and a temporary home, so no
 per-user folder can be reached even by mistake), so it starts its own engine service on
 demand. The client makes the model the fixed description asks for with the tools alone
@@ -36,9 +36,9 @@ from mcp_support import (
     stop_started,
 )
 
-from lcsim.runs.statistics import t_quantile
-from lcsim.service.config import default_config_dir
-from lcsim.service.discovery import read_service_file
+from ithax.runs.statistics import t_quantile
+from ithax.service.config import default_config_dir
+from ithax.service.discovery import read_service_file
 
 DESCRIPTION = Path(__file__).with_name("coffee_shop_description.txt")
 
@@ -86,14 +86,14 @@ def test_the_description_file_is_spec_4_s_text() -> None:
 
 
 def server_parameters(tmp_path: Path) -> StdioServerParameters:
-    """``python -m lcsim.mcp`` with the test's folders, its own home and working folder."""
+    """``python -m ithax.mcp`` with the test's folders, its own home and working folder."""
     home = tmp_path / "home"
     home.mkdir()
     return StdioServerParameters(
         command=sys.executable,
         args=[
             "-m",
-            "lcsim.mcp",
+            "ithax.mcp",
             "--config-dir",
             str(tmp_path / "config"),
             "--data-dir",

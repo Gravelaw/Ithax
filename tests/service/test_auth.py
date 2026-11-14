@@ -11,8 +11,8 @@ from fastapi import FastAPI, Request
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
-from lcsim.service.app import create_app
-from lcsim.service.auth import (
+from ithax.service.app import create_app
+from ithax.service.auth import (
     CLIENTS,
     POLICY_VIOLATION,
     authenticate_websocket,
@@ -22,7 +22,7 @@ from lcsim.service.auth import (
     request_client,
     token_matches,
 )
-from lcsim.service.config import ServiceConfig
+from ithax.service.config import ServiceConfig
 from service.service_support import AUTH, BASE_URL, PORT, TOKEN, WS_URL, assert_error
 
 # --- HTTP: the token ----------------------------------------------------------------
@@ -414,7 +414,7 @@ def test_request_client_alone_refuses_another_value() -> None:
     """Without the middleware (a route mounted elsewhere), the helper still refuses."""
     from starlette.requests import Request as StarletteRequest
 
-    from lcsim.service.errors import ServiceError
+    from ithax.service.errors import ServiceError
 
     scope = {"type": "http", "method": "GET", "path": "/", "headers": [(b"x-client", b"robot")]}
     with pytest.raises(ServiceError) as refused:

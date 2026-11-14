@@ -1,4 +1,4 @@
-"""Saving several files as one change (``lcsim.service.commit``; AKS-111, AKS-113)."""
+"""Saving several files as one change (``ithax.service.commit``; AKS-111, AKS-113)."""
 
 import os
 from pathlib import Path
@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from lcsim.service.commit import CommitFailed, Planned, replace_in_order
+from ithax.service.commit import CommitFailed, Planned, replace_in_order
 
 
 def test_files_are_saved_in_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

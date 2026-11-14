@@ -1,5 +1,5 @@
 """Across-replication statistics and paired scenario differences (spec 2 "Statistic
-definitions"; AKS-102): ``lcsim.runs.statistics``.
+definitions"; AKS-102): ``ithax.runs.statistics``.
 
 The half-widths are checked against a hand computation with ``scipy.stats.t.ppf`` on small
 fixtures, and against published quantiles, so no t table is hard-coded in the product.
@@ -12,7 +12,7 @@ import pyarrow as pa
 import pytest
 from scipy.stats import t
 
-from lcsim.runs.statistics import (
+from ithax.runs.statistics import (
     Estimate,
     MetricEstimate,
     ScenarioDifference,

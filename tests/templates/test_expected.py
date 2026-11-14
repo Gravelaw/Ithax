@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from lcsim.templates.expected import (
+from ithax.templates.expected import (
     Estimate,
     ExpectedRow,
     four_figures,

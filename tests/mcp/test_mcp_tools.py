@@ -31,9 +31,9 @@ from mcp_support import (
     spec_4_tool_rows,
 )
 
-from lcsim.mcp.client import ServiceClient
-from lcsim.mcp.tools import TOOLS, check_arguments, run_tool, tool_named
-from lcsim.service.discovery import ServiceInfo
+from ithax.mcp.client import ServiceClient
+from ithax.mcp.tools import TOOLS, check_arguments, run_tool, tool_named
+from ithax.service.discovery import ServiceInfo
 
 COFFEE_SHOP = ROOT / "examples" / "coffee_shop.json"
 READ_TOOLS = {

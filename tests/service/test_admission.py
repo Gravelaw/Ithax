@@ -21,15 +21,15 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-import lcsim.model.edits as edits_module
-from lcsim.engines.process.adapter import ProcessAdapter
-from lcsim.model.issues import Issue
-from lcsim.model.model import Model
-from lcsim.service.app import create_app
-from lcsim.service.config import ServiceConfig
-from lcsim.service.errors import AsciiJSONResponse
-from lcsim.service.projects_store import MODEL_FILE, PROJECT_FILE, encode_json, write_json
-from lcsim.service.state import ServiceState
+import ithax.model.edits as edits_module
+from ithax.engines.process.adapter import ProcessAdapter
+from ithax.model.issues import Issue
+from ithax.model.model import Model
+from ithax.service.app import create_app
+from ithax.service.config import ServiceConfig
+from ithax.service.errors import AsciiJSONResponse
+from ithax.service.projects_store import MODEL_FILE, PROJECT_FILE, encode_json, write_json
+from ithax.service.state import ServiceState
 from service.service_support import AUTH, BASE_URL, assert_error
 
 FIXTURES = Path(__file__).resolve().parents[1] / "model" / "fixtures" / "edits"
@@ -270,7 +270,7 @@ def test_an_edit_result_that_cannot_be_written_is_refused(
         outcome.model["meta"]["description"] = "\ud800"
         return outcome
 
-    monkeypatch.setattr("lcsim.service.model_store.apply_edits", poisoned)
+    monkeypatch.setattr("ithax.service.model_store.apply_edits", poisoned)
     response = client.post(
         f"/v1/projects/{pid}/model/edits",
         json={"edits": [{"edit": "set_label", "id": "exit", "label": "Door"}]},

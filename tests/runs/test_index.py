@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from lcsim.runs.index import INDEX_FILE, RunIndex, readable_runs
-from lcsim.runs.manifest import MANIFEST_FILE, read_run_manifest, write_manifest
+from ithax.runs.index import INDEX_FILE, RunIndex, readable_runs
+from ithax.runs.manifest import MANIFEST_FILE, read_run_manifest, write_manifest
 
 
 def make_run(project: Path, rid: str, created: str, state: str = "done") -> Path:

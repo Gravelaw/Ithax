@@ -13,11 +13,11 @@ import numpy
 import pytest
 import scipy.stats
 
-from lcsim.model import fit
-from lcsim.model.distributions import sampler_from_numbers
-from lcsim.model.fit import SCORE, Candidate, fit_column
-from lcsim.model.streams import generator_for
-from lcsim.model.units import Dimension, parse_quantity
+from ithax.model import fit
+from ithax.model.distributions import sampler_from_numbers
+from ithax.model.fit import SCORE, Candidate, fit_column
+from ithax.model.streams import generator_for
+from ithax.model.units import Dimension, parse_quantity
 
 FAMILIES = ("exponential", "uniform", "triangular", "normal", "lognormal", "weibull")
 
@@ -256,7 +256,7 @@ COLUMNS = {
 def test_every_candidate_validates_when_written_into_a_model(column: str, unit: str) -> None:
     """Property: whatever the column, every candidate is a distribution the model takes as
     it is, with no E123, E140, E141 or E16x for its fields."""
-    from lcsim.model.loading import load_document
+    from ithax.model.loading import load_document
 
     for candidate in fit_column(COLUMNS[column], unit):
         document = {

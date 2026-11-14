@@ -18,14 +18,14 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from lcsim.model import data_files
-from lcsim.model.data import INDEX_FILE
-from lcsim.runs.manifest import read_manifest
-from lcsim.service import data as data_routes
-from lcsim.service.app import create_app
-from lcsim.service.config import ServiceConfig
-from lcsim.service.projects_store import PROJECT_FILE
-from lcsim.service.state import ServiceState
+from ithax.model import data_files
+from ithax.model.data import INDEX_FILE
+from ithax.runs.manifest import read_manifest
+from ithax.service import data as data_routes
+from ithax.service.app import create_app
+from ithax.service.config import ServiceConfig
+from ithax.service.projects_store import PROJECT_FILE
+from ithax.service.state import ServiceState
 from service.service_support import AUTH, BASE_URL, assert_error
 
 Json = dict[str, Any]
@@ -479,8 +479,8 @@ def test_a_delete_whose_commit_fails_changes_nothing(
 
 
 def exponential_column(count: int = 300) -> bytes:
-    from lcsim.model.distributions import sampler_from_numbers
-    from lcsim.model.streams import generator_for
+    from ithax.model.distributions import sampler_from_numbers
+    from ithax.model.streams import generator_for
 
     sampler = sampler_from_numbers("exponential", {"mean": 2.0})
     rng = generator_for(1, 0, "column")
@@ -668,7 +668,7 @@ def test_a_run_reads_the_data_while_the_project_s_writes_are_held(
     state = state_of(client)
     lock = state.models._lock_for(pid)
     held: list[bool] = []
-    from lcsim.runs import snapshots, targets
+    from ithax.runs import snapshots, targets
 
     real = snapshots.read_columns
 
@@ -720,8 +720,8 @@ def test_a_fit_whose_file_no_longer_reads_is_e189(
 ) -> None:
     """The bytes hashed as imported read as imported; were the reader to change, the fit
     is refused rather than fitting something else."""
-    from lcsim.model.data_files import UnreadableData
-    from lcsim.service import data_store
+    from ithax.model.data_files import UnreadableData
+    from ithax.service import data_store
 
     pid = project(client)
     upload(client, pid, "a.csv", b"x\n1\n2\n", {"x": "s"})
@@ -739,7 +739,7 @@ def test_validation_hashes_the_data_files_while_the_project_s_writes_are_held(
 ) -> None:
     """An import renames its file before its index; a validation between the two would see
     a changed file (E162) that is not."""
-    from lcsim.model.data import DataIndex
+    from ithax.model.data import DataIndex
 
     pid = project(client)
     upload(client, pid, "log.csv", b"up_h,down_min\n1.5,20\n", {"up_h": "h", "down_min": "min"})

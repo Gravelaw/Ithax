@@ -3,7 +3,7 @@ confirms; AKS-114), and two costs the M6 close asks for.
 
 Run with ``taskset -c 0-3 pytest -m perf`` (guide "Performance measurement protocol").
 
-- **Service ready within 5 seconds of start.** A real ``python -m lcsim.service`` process
+- **Service ready within 5 seconds of start.** A real ``python -m ithax.service`` process
   is started three times on the same folders (the first start detects the hardware and
   stores the tier; later starts read it). "Ready" is the first ``200`` from
   ``GET /v1/system``, timed from just before the process is started.
@@ -46,10 +46,10 @@ import numpy
 import pytest
 import scipy.stats
 
-from lcsim.model import fit
-from lcsim.runs.limits import process_tree_memory, system_memory
-from lcsim.runs.targets import LocalTarget
-from lcsim.service.discovery import read_service_file
+from ithax.model import fit
+from ithax.runs.limits import process_tree_memory, system_memory
+from ithax.runs.targets import LocalTarget
+from ithax.service.discovery import read_service_file
 from perf.test_three_machine_line import TreeMemorySampler, max_rss_bytes, mib, usable_cores
 
 pytestmark = pytest.mark.perf
@@ -77,7 +77,7 @@ def machine() -> dict[str, Any]:
 
 
 class Service:
-    """A ``python -m lcsim.service`` process on ``folder``, and an HTTP client for it."""
+    """A ``python -m ithax.service`` process on ``folder``, and an HTTP client for it."""
 
     def __init__(self, folder: Path) -> None:
         self.config_dir = folder / "config"
@@ -86,7 +86,7 @@ class Service:
             [
                 sys.executable,
                 "-m",
-                "lcsim.service",
+                "ithax.service",
                 "--config-dir",
                 str(self.config_dir),
                 "--data-dir",

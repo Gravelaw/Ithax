@@ -2,7 +2,7 @@
  * A template's lesson as the interface reads it (spec 4 "Template package" and "Learn and
  * Build modes"; AKS-124).
  *
- * `parseLesson` reads `lesson.md` by the rules `lcsim.templates.lesson` checks: a first
+ * `parseLesson` reads `lesson.md` by the rules `ithax.templates.lesson` checks: a first
  * line `# <title>`, one `## <heading>` section per step, each starting with
  * ``Component: `<id>` ``, and a last step whose text is the three parts `### Change`,
  * `### Prediction` (choices `- [ ] <text>` and one `- [x] <text>`) and `### Explanation`.

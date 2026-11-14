@@ -5,7 +5,7 @@ asserts the set equals this table, both ways; each row also has at least one req
 
 The table is read from ``docs/specs/3-desktop-app.md`` when the test runs, so the spec stays
 the source of truth (as ``tests/test_docs.py`` reads the guide). The application's routes
-are ``lcsim.service.app.route_table``: a WebSocket route is listed as ``GET``, as the table
+are ``ithax.service.app.route_table``: a WebSocket route is listed as ``GET``, as the table
 writes ``GET /v1/runs/{rid}/events``.
 
 "Each row also has at least one request test" is shown by the routes the session's request
@@ -25,7 +25,7 @@ import pytest
 from fastapi import FastAPI
 
 import xdist_routes
-from lcsim.service.app import route_table
+from ithax.service.app import route_table
 from service import route_recorder
 from service.conftest import COVERAGE_TEST
 from service.endpoint_table import ROOT, SPEC_3, route_problems, spec_routes, spec_table

@@ -7,9 +7,9 @@ import threading
 import pytest
 from starlette.testclient import TestClient
 
-from lcsim.service.app import create_app
-from lcsim.service.config import DEFAULT_IDLE_TIMEOUT_S, ServiceConfig
-from lcsim.service.lifetime import Lifetime, watch
+from ithax.service.app import create_app
+from ithax.service.config import DEFAULT_IDLE_TIMEOUT_S, ServiceConfig
+from ithax.service.lifetime import Lifetime, watch
 from service.service_support import AUTH, BASE_URL
 
 

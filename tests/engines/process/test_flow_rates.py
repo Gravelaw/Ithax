@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 from conftest import ModelMaker, constant, metrics_of_model
 
-from lcsim.model.validation import flow_rates, load_issues
+from ithax.model.validation import flow_rates, load_issues
 
 
 def source() -> dict[str, Any]:

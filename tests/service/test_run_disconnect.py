@@ -1,6 +1,6 @@
 """Spec 3 acceptance, M6: "A run survives a client disconnect" (AKS-112).
 
-A real service process (``gated_service.py``: ``python -m lcsim.service`` with the test
+A real service process (``gated_service.py``: ``python -m ithax.service`` with the test
 adapter ``gated`` installed) runs the coffee shop. The test starts the run over HTTP and
 watches it over the events WebSocket; the run waits for a ``GO`` file in its workdir, so it
 is certainly unfinished when the test drops both clients. The test then lets it end and,
@@ -20,8 +20,8 @@ import httpx2
 import pytest
 from websockets.sync.client import connect
 
-from lcsim.runs.manifest import read_manifest
-from lcsim.service.discovery import ServiceInfo, read_service_file
+from ithax.runs.manifest import read_manifest
+from ithax.service.discovery import ServiceInfo, read_service_file
 from service.run_adapters import GO_FILE, WAITING
 
 ROOT = Path(__file__).resolve().parents[2]

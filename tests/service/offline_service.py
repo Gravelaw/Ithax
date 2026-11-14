@@ -1,5 +1,5 @@
 """``python tests/service/offline_service.py [service options]``: the service of
-``python -m lcsim.service`` with the network guard of ``offline_guard.py`` installed when
+``python -m ithax.service`` with the network guard of ``offline_guard.py`` installed when
 ``LCSIM_TEST_OFFLINE_DIR`` is set (AKS-114, the offline test).
 
 The guard is installed at import, outside the ``__main__`` block, because a run's worker is
@@ -19,6 +19,6 @@ from service.offline_guard import install_from_environment
 install_from_environment()
 
 if __name__ == "__main__":
-    from lcsim.service.main import main
+    from ithax.service.main import main
 
     raise SystemExit(main(sys.argv[1:]))

@@ -15,19 +15,19 @@ from typing import Any
 import pytest
 from conftest import ModelMaker, constant, line, model_document
 
-from lcsim.engines.process.blocks import BLOCK_TYPES
-from lcsim.engines.process.translate import (
+from ithax.engines.process.blocks import BLOCK_TYPES
+from ithax.engines.process.translate import (
     INPUT_FILE,
     engine_input,
     read_input,
     resolve_setting,
     write_input,
 )
-from lcsim.model.catalogue import PROCESS_TYPES
-from lcsim.model.distributions import DataNotReadError
-from lcsim.model.loading import build_document, load_document
-from lcsim.model.model import Distribution, Model, ParamRef, SettingValue
-from lcsim.model.units import Dimension, Quantity
+from ithax.model.catalogue import PROCESS_TYPES
+from ithax.model.distributions import DataNotReadError
+from ithax.model.loading import build_document, load_document
+from ithax.model.model import Distribution, Model, ParamRef, SettingValue
+from ithax.model.units import Dimension, Quantity
 
 ROOT = Path(__file__).resolve().parents[3]
 COFFEE_SHOP: dict[str, Any] = json.loads(

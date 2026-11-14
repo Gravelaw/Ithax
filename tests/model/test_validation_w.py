@@ -17,11 +17,11 @@ from typing import Any
 
 import pytest
 
-from lcsim.model.issues import Issue
-from lcsim.model.loading import build_document, load_document
-from lcsim.model.model import Distribution, Model
-from lcsim.model.units import Dimension, Quantity
-from lcsim.model.validation import (
+from ithax.model.issues import Issue
+from ithax.model.loading import build_document, load_document
+from ithax.model.model import Distribution, Model
+from ithax.model.units import Dimension, Quantity
+from ithax.model.validation import (
     clipping_issues,
     distribution_mean,
     flow_rates,

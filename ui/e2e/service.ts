@@ -1,6 +1,6 @@
 /**
  * Starts a real engine service for an end-to-end test, the way a user does: through the
- * launcher (`python -m lcsim.launcher --print-url`), with temporary configuration and data
+ * launcher (`python -m ithax.launcher --print-url`), with temporary configuration and data
  * folders and the built interface (`ui/dist`), and stops it after the test with SIGTERM,
  * waiting until `service.json` is gone (spec 3 "Discovery").
  *
@@ -98,7 +98,7 @@ export async function startService(options: { requestLog?: boolean } = {}): Prom
   ];
   const requestLog = options.requestLog ? join(folder, "requests.jsonl") : undefined;
   if (requestLog) await startLogged(folder, configDir, args, requestLog);
-  const printed = execFileSync(python(), ["-m", "lcsim.launcher", ...args, "--print-url"], {
+  const printed = execFileSync(python(), ["-m", "ithax.launcher", ...args, "--print-url"], {
     encoding: "utf8",
     timeout: 60_000,
   });

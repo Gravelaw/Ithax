@@ -43,12 +43,12 @@ from typing import Any
 
 import pytest
 
-from lcsim.engines.registry import select_adapter
-from lcsim.model.catalogue import MODEL_METRICS, PROCESS_TYPES
-from lcsim.model.loading import load_document
-from lcsim.model.model import Model
-from lcsim.runs.manager import run_experiment
-from lcsim.runs.search import combination_count, combinations
+from ithax.engines.registry import select_adapter
+from ithax.model.catalogue import MODEL_METRICS, PROCESS_TYPES
+from ithax.model.loading import load_document
+from ithax.model.model import Model
+from ithax.runs.manager import run_experiment
+from ithax.runs.search import combination_count, combinations
 
 ROOT = Path(__file__).resolve().parents[2]
 BENCHMARKS = ROOT / "benchmarks"

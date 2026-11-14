@@ -15,12 +15,12 @@ from typing import Any
 
 import pytest
 
-from lcsim.model.data import DataColumn, DataFile, DataIndex
-from lcsim.model.data_files import ColumnType
-from lcsim.model.issues import Issue
-from lcsim.model.loading import ModelLoadError, build_document, load_document, load_model, load_text
-from lcsim.model.model import Model
-from lcsim.model.validation import (
+from ithax.model.data import DataColumn, DataFile, DataIndex
+from ithax.model.data_files import ColumnType
+from ithax.model.issues import Issue
+from ithax.model.loading import ModelLoadError, build_document, load_document, load_model, load_text
+from ithax.model.model import Model
+from ithax.model.validation import (
     data_issues,
     distribution_issues,
     experiment_issues,

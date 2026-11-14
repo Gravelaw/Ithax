@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from lcsim.runs import limits
-from lcsim.runs.limits import (
+from ithax.runs import limits
+from ithax.runs.limits import (
     DEFAULT_TIME_LIMIT_S,
     Limits,
     default_memory_limit,

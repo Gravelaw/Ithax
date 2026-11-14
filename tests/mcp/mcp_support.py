@@ -43,20 +43,20 @@ import uvicorn
 from mcp import Client
 from mcp.types import CallToolResult, TextContent
 
-from lcsim.mcp.client import ServiceClient
-from lcsim.mcp.server import build_server
-from lcsim.runs.statistics import t_quantile
-from lcsim.service.app import create_app
-from lcsim.service.config import ServiceConfig, default_templates_dir, new_token
-from lcsim.service.discovery import (
+from ithax.mcp.client import ServiceClient
+from ithax.mcp.server import build_server
+from ithax.runs.statistics import t_quantile
+from ithax.service.app import create_app
+from ithax.service.config import ServiceConfig, default_templates_dir, new_token
+from ithax.service.discovery import (
     ServiceInfo,
     probe,
     read_service_file,
     remove_service_file,
     write_service_file,
 )
-from lcsim.service.hardware import Hardware
-from lcsim.service.main import bind_local
+from ithax.service.hardware import Hardware
+from ithax.service.main import bind_local
 
 TIMEOUT_S = 60.0
 
@@ -116,7 +116,7 @@ def wait_until(condition: Callable[[], object], timeout_s: float = TIMEOUT_S) ->
 def in_process_service(config_dir: Path, data_dir: Path) -> Iterator[ServiceInfo]:
     """The M6 application served on a port the operating system chose, with
     ``service.json`` naming it, serving the repository's templates as
-    ``python -m lcsim.service`` does by default (AKS-122); stopped and its file removed on
+    ``python -m ithax.service`` does by default (AKS-122); stopped and its file removed on
     exit."""
     sock = bind_local()
     port = sock.getsockname()[1]
@@ -256,7 +256,7 @@ def stop_service(config_dir: Path, process: subprocess.Popen[bytes] | None) -> N
 
     It is not asserted that its ``service.json`` is gone: on SIGTERM uvicorn shuts the
     service down and then raises the signal again, which ends the process before
-    ``lcsim.service.main`` removes the file (found by AKS-115; the MCP server copes, since
+    ``ithax.service.main`` removes the file (found by AKS-115; the MCP server copes, since
     the probe of a stale file fails and a new service overwrites it)."""
     if process is None:
         return

@@ -10,7 +10,7 @@ import math
 
 import pytest
 
-from lcsim.engines.process.statistics import Tally, TimeWeighted, Window
+from ithax.engines.process.statistics import Tally, TimeWeighted, Window
 
 
 def test_a_window_is_the_period_from_warm_up_to_the_end() -> None:

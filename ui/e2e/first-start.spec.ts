@@ -43,7 +43,7 @@ test("the notice is shown once and remembered by the service", async ({
 
 test("the page without the token asks for the launcher", async ({ page, service }) => {
   await page.goto(`${service.origin}/v1/ui/`);
-  await expect(page.getByRole("alert")).toContainText("python -m lcsim.launcher");
+  await expect(page.getByRole("alert")).toContainText("python -m ithax.launcher");
 });
 
 test("the interface's files carry a policy that keeps the page to the service", async ({

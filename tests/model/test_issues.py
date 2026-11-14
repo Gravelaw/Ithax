@@ -15,9 +15,9 @@ from typing import Any
 
 import pytest
 
-from lcsim.model.issues import CodedProblem, Issue, pointer
-from lcsim.model.loading import load_document
-from lcsim.model.units import Dimension, QuantityError, parse_quantity, read_number
+from ithax.model.issues import CodedProblem, Issue, pointer
+from ithax.model.loading import load_document
+from ithax.model.units import Dimension, QuantityError, parse_quantity, read_number
 
 FIXTURES = Path(__file__).parent / "fixtures" / "issues"
 FIXTURE_FILES = sorted(FIXTURES.glob("*.json"))

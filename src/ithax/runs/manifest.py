@@ -1,0 +1,230 @@
+"""``manifest.json`` (spec 1 "Run folder and results"; AKS-103).
+
+The fields, in spec 1 order: ``run_id``, ``project_id``, ``experiment_id``,
+``scenario_ids``, ``state``, ``created``, ``started``, ``ended``, ``target``, ``host``,
+``client``, ``engine`` ``{name, version}``, ``generator`` ``{name, numpy_version}`` (from
+``ithax.model.streams.generator_info()``), ``product_version``, ``format_version``,
+``seed``, ``fraction``, ``data_files``, then ``optimizer`` ``{name, version}`` on a search
+run only (the search method and the Optuna version; AKS-109) and ``error`` on a failed run
+only.
+
+Times are ISO 8601 UTC to the millisecond, ending in ``Z``. ``fraction`` is the run's
+progress: 0 when queued, then each progress fraction, 1 at ``done``. ``data_files`` has one
+``{component, setting, file, column, sha256}`` per ``empirical`` ``data`` reference
+(AKS-113), and is empty for a model without one.
+
+The file is written with ``ithax.files.atomic_write``, so a reader sees the old manifest
+or the new one, never part of one. ``ManifestWriter`` writes on every update (a state
+change) and at most once a second on progress.
+
+``read_run_manifest`` reads a manifest that may have been changed outside the product: it
+gives ``None`` for a folder that is not a run (no manifest, one that is not JSON, or one
+without a ``run_id`` naming the folder, a ``state`` of the five and a ``created`` text), so
+no such folder can stop the service (AKS-112).
+"""
+
+from __future__ import annotations
+
+import time
+from collections.abc import Callable, Sequence
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+import ithax
+from ithax.files import atomic_write
+from ithax.model.streams import generator_info
+from ithax.runs.states import JOB_STATES
+from ithax.strict_json import (
+    MAX_WHOLE,
+    encode_json,
+    read_json_file,
+    read_json_object_file,
+    real_in,
+    whole_in,
+)
+
+__all__ = [
+    "MANIFEST_FILE",
+    "MANIFEST_KEYS",
+    "PROGRESS_INTERVAL_S",
+    "ManifestWriter",
+    "new_manifest",
+    "read_manifest",
+    "read_run_manifest",
+    "utc_text",
+    "write_manifest",
+]
+
+MANIFEST_FILE = "manifest.json"
+
+#: The fields every manifest has, in spec 1 order; ``error`` follows on a failed run.
+MANIFEST_KEYS = (
+    "run_id",
+    "project_id",
+    "experiment_id",
+    "scenario_ids",
+    "state",
+    "created",
+    "started",
+    "ended",
+    "target",
+    "host",
+    "client",
+    "engine",
+    "generator",
+    "product_version",
+    "format_version",
+    "seed",
+    "fraction",
+    "data_files",
+)
+_OPTIONAL_KEYS = ("optimizer", "error")
+
+#: The shortest time between two progress writes (spec 1: at most once a second).
+PROGRESS_INTERVAL_S = 1.0
+
+
+def utc_text(moment: datetime) -> str:
+    """``moment`` as ISO 8601 UTC to the millisecond: ``2026-11-06T18:05:09.123Z``."""
+    return moment.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def new_manifest(
+    *,
+    run_id: str,
+    project_id: str | None,
+    experiment_id: str | None,
+    scenario_ids: Sequence[str],
+    created: datetime,
+    host: str,
+    client: str,
+    engine_name: str,
+    engine_version: str,
+    format_version: str,
+    seed: int | None,
+    optimizer: dict[str, str | None] | None = None,
+    target: str = "local",
+    data_files: Sequence[dict[str, str]] = (),
+) -> dict[str, Any]:
+    """The manifest of a run just created: ``queued``, on the ``local`` target, with no
+    progress; ``data_files`` lists its ``data`` references (AKS-113). An optimization
+    run has no experiment and draws nothing, so its ``experiment_id`` and ``seed`` are
+    ``None`` and its ``scenario_ids`` empty (AKS-108). A search run adds ``optimizer``
+    (AKS-109). ``target`` is the run target the run was started on (AKS-112: the
+    request's, when it gave one)."""
+    info = generator_info()
+    manifest: dict[str, Any] = {
+        "run_id": run_id,
+        "project_id": project_id,
+        "experiment_id": experiment_id,
+        "scenario_ids": list(scenario_ids),
+        "state": "queued",
+        "created": utc_text(created),
+        "started": None,
+        "ended": None,
+        "target": target,
+        "host": host,
+        "client": client,
+        "engine": {"name": engine_name, "version": engine_version},
+        "generator": {"name": info.name, "numpy_version": info.numpy_version},
+        "product_version": ithax.__version__,
+        "format_version": format_version,
+        "seed": seed,
+        "fraction": 0.0,
+        "data_files": [dict(entry) for entry in data_files],
+    }
+    if optimizer is not None:
+        manifest["optimizer"] = dict(optimizer)
+    return manifest
+
+
+def write_manifest(folder: Path, manifest: dict[str, Any]) -> None:
+    """Writes ``folder/manifest.json`` atomically; a value JSON cannot hold (NaN) raises
+    ``ValueError`` and leaves the old file as it was."""
+    atomic_write(folder / MANIFEST_FILE, encode_json(manifest))
+
+
+def read_manifest(folder: Path) -> dict[str, Any]:
+    """The manifest in ``folder``."""
+    return read_json_object_file(folder / MANIFEST_FILE)
+
+
+def read_run_manifest(folder: Path) -> dict[str, Any] | None:
+    """The manifest in ``folder`` when it is a run's: a JSON object whose ``run_id`` is the
+    folder's name, whose ``state`` is a job state, whose ``created`` is text, whose
+    ``project_id``, ``experiment_id``, ``started`` and ``ended`` are text or ``null``, whose
+    ``fraction`` is a number from 0 to 1 and whose ``seed`` is ``null`` or a whole number
+    from 0 to ``MAX_WHOLE``, read by the
+    strict reader (``ithax.strict_json``: no ``NaN``, infinity or text that is not valid
+    Unicode, which the product never writes and no response may carry); otherwise
+    ``None``."""
+    try:
+        data = read_json_file(folder / MANIFEST_FILE)
+    except (OSError, ValueError):
+        return None
+    if (
+        isinstance(data, dict)
+        and data.get("run_id") == folder.name
+        and data.get("state") in JOB_STATES
+        and isinstance(data.get("created"), str)
+        and all(_text_or_null(data.get(key)) for key in _TEXT_OR_NULL)
+        # Typed and bounded (review of PR #36): a fraction from 0 to 1, a seed from 0.
+        and real_in(data.get("fraction"), 0.0, 1.0) is not None
+        and (data.get("seed") is None or whole_in(data["seed"], 0, MAX_WHOLE) is not None)
+    ):
+        return data
+    return None
+
+
+#: The manifest fields the run endpoints show that are text or ``null``.
+_TEXT_OR_NULL = ("project_id", "experiment_id", "started", "ended")
+
+
+def _text_or_null(value: object) -> bool:
+    return value is None or isinstance(value, str)
+
+
+class ManifestWriter:
+    """Keeps a run's manifest and writes it: on every ``update`` at once, and on
+    ``progress`` at most once every ``interval`` seconds of ``clock``."""
+
+    def __init__(
+        self,
+        folder: Path,
+        manifest: dict[str, Any],
+        *,
+        clock: Callable[[], float] = time.monotonic,
+        interval: float = PROGRESS_INTERVAL_S,
+    ) -> None:
+        self._folder = folder
+        self._data = dict(manifest)
+        self._clock = clock
+        self._interval = interval
+        self._last_progress: float | None = None
+        write_manifest(folder, self._data)
+
+    @property
+    def data(self) -> dict[str, Any]:
+        """A copy of the manifest as last set."""
+        return dict(self._data)
+
+    def update(self, **fields: object) -> None:
+        """Sets ``fields`` and writes the manifest; a field spec 1 does not list raises
+        ``KeyError``."""
+        for key in fields:
+            if key not in MANIFEST_KEYS and key not in _OPTIONAL_KEYS:
+                raise KeyError(f"manifest.json has no field {key!r}")
+        self._data.update(fields)
+        write_manifest(self._folder, self._data)
+
+    def progress(self, fraction: float) -> bool:
+        """Sets ``fraction``; writes the manifest, and returns ``True``, when no progress
+        was written in the last ``interval`` seconds."""
+        self._data["fraction"] = fraction
+        now = self._clock()
+        if self._last_progress is not None and now - self._last_progress < self._interval:
+            return False
+        self._last_progress = now
+        write_manifest(self._folder, self._data)
+        return True

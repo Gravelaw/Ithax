@@ -20,7 +20,7 @@ import numpy
 import pyarrow.parquet as pq
 import pytest
 
-from lcsim.model.data import (
+from ithax.model.data import (
     EMPTY_DATA_INDEX,
     INDEX_FILE,
     DataIndex,
@@ -28,15 +28,15 @@ from lcsim.model.data import (
     new_entry,
     read_data_index,
 )
-from lcsim.model.data_files import UnreadableData, read_table
-from lcsim.model.distributions import sampler_for
-from lcsim.model.loading import load_text
-from lcsim.model.model import Distribution
-from lcsim.model.streams import generator_for
-from lcsim.runs import snapshots
-from lcsim.runs.manifest import read_manifest
-from lcsim.runs.snapshots import DATA_FOLDER, read_snapshot, snapshot_name
-from lcsim.runs.targets import LocalTarget, RunRefused
+from ithax.model.data_files import UnreadableData, read_table
+from ithax.model.distributions import sampler_for
+from ithax.model.loading import load_text
+from ithax.model.model import Distribution
+from ithax.model.streams import generator_for
+from ithax.runs import snapshots
+from ithax.runs.manifest import read_manifest
+from ithax.runs.snapshots import DATA_FOLDER, read_snapshot, snapshot_name
+from ithax.runs.targets import LocalTarget, RunRefused
 
 ROOT = Path(__file__).resolve().parents[2]
 SAMPLES = 20_000

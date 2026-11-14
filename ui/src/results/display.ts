@@ -1,7 +1,7 @@
 /**
  * How the interface shows a result's numbers (spec 1 "Results": results are stored in SI
  * units and the interface chooses display units). The rules are spec 4's for a finding's
- * text ("Finding rules", Display units; `src/lcsim/findings/display.py`), so a key number
+ * text ("Finding rules", Display units; `src/ithax/findings/display.py`), so a key number
  * reads as the finding that names it:
  *
  * - a time in the largest Phase 1 unit it reaches (`s`, `min`, `h`, `d`), a half-width in

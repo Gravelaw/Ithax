@@ -15,14 +15,14 @@ from typing import Any
 
 import pytest
 
-from lcsim.findings import DEFAULT_THRESHOLDS, Thresholds
-from lcsim.service.finding_settings import (
+from ithax.findings import DEFAULT_THRESHOLDS, Thresholds
+from ithax.service.finding_settings import (
     FINDING_THRESHOLDS,
     SETTINGS_PROBLEM,
     FindingSettings,
     read_finding_settings,
 )
-from lcsim.service.hardware import SETTINGS_FILE
+from ithax.service.hardware import SETTINGS_FILE
 
 EXCEPTION_TEXT = re.compile(r"Traceback|Exception|Error\b|ValueError")
 

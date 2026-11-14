@@ -29,9 +29,9 @@ from typing import Any
 
 import pytest
 
-from lcsim.runs.targets import LocalTarget
-from lcsim.templates import load_package, package_folders
-from lcsim.templates.expected import RUNS, Run
+from ithax.runs.targets import LocalTarget
+from ithax.templates import load_package, package_folders
+from ithax.templates.expected import RUNS, Run
 from perf.test_service import machine
 from perf.test_three_machine_line import TreeMemorySampler, max_rss_bytes, mib, usable_cores
 

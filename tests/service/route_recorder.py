@@ -12,7 +12,7 @@ A request counts only when the router matched it to a route that has its method,
 refused by the hardening middleware (401, 403, a bad ``X-Client``), one to an unknown path
 (404) and one with another method (405) are not counted. The route's ``path`` is the full
 template (``/v1/projects/{pid}/model``), which FastAPI puts on ``scope["route"]``, written
-as the table writes it (``lcsim.service.app.table_path``: ``{path:path}`` is ``{path}``); were that
+as the table writes it (``ithax.service.app.table_path``: ``{path:path}`` is ``{path}``); were that
 to change, the recorded set would no longer equal the table and the test would fail, never
 pass by default; and were Starlette's transport to change, nothing would be recorded and
 the test would fail the same way.
@@ -40,7 +40,7 @@ from starlette import testclient
 from starlette.routing import WebSocketRoute
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from lcsim.service.app import table_path
+from ithax.service.app import table_path
 from xdist_routes import RECORD_DIR_KEY
 
 __all__ = [

@@ -6,7 +6,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from lcsim.model.units import (
+from ithax.model.units import (
     PHASE_1_UNITS,
     Dimension,
     Quantity,
@@ -330,7 +330,7 @@ def test_phase_1_units() -> None:
 
 
 def test_pint_does_not_leak_out_of_the_module() -> None:
-    import lcsim.model.units as units
+    import ithax.model.units as units
 
     public = [getattr(units, name) for name in units.__all__]
     assert all("pint" not in getattr(type(obj), "__module__", "") for obj in public)
@@ -340,7 +340,9 @@ def test_pint_does_not_leak_out_of_the_module() -> None:
 def test_only_the_units_module_imports_pint() -> None:
     from pathlib import Path
 
-    src = Path(__file__).resolve().parents[2] / "src" / "lcsim"
+    import ithax
+
+    src = Path(ithax.__file__).resolve().parent
     importers = sorted(
         str(path.relative_to(src))
         for path in src.rglob("*.py")

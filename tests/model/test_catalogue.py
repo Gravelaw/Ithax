@@ -8,7 +8,7 @@ spec 2 "Block reference" and "Statistic definitions". Each test names the rule i
 
 import pytest
 
-from lcsim.model.catalogue import (
+from ithax.model.catalogue import (
     DATA_FIELDS,
     DISTRIBUTIONS,
     DOMAINS,
@@ -22,7 +22,7 @@ from lcsim.model.catalogue import (
     SettingSpec,
     output_ports,
 )
-from lcsim.model.units import Dimension, Quantity
+from ithax.model.units import Dimension, Quantity
 
 TIME = Dimension.TIME
 

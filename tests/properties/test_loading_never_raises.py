@@ -11,7 +11,7 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from lcsim.model.loading import load_document, load_text
+from ithax.model.loading import load_document, load_text
 from properties.strategies import JSON_VALUES
 
 ROOT = Path(__file__).resolve().parents[2]

@@ -1,5 +1,5 @@
 """Building ``summary.json`` (spec 1 "Run folder and results"; AKS-102):
-``lcsim.runs.summary``."""
+``ithax.runs.summary``."""
 
 import copy
 import json
@@ -10,12 +10,12 @@ from typing import Any
 import pyarrow as pa
 import pytest
 
-from lcsim.engines.adapter import Results
-from lcsim.model.issues import Issue
-from lcsim.model.loading import load_document
-from lcsim.model.model import Model
-from lcsim.runs.statistics import across_replications, paired_differences
-from lcsim.runs.summary import build_summary, fidelity_label, format_length
+from ithax.engines.adapter import Results
+from ithax.model.issues import Issue
+from ithax.model.loading import load_document
+from ithax.model.model import Model
+from ithax.runs.statistics import across_replications, paired_differences
+from ithax.runs.summary import build_summary, fidelity_label, format_length
 
 EXAMPLES = Path(__file__).resolve().parents[2] / "examples"
 NAN = math.nan

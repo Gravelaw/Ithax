@@ -13,9 +13,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from lcsim.model.loading import load_document
-from lcsim.model.model import Model
-from lcsim.strict_json import read_json_file
+from ithax.model.loading import load_document
+from ithax.model.model import Model
+from ithax.strict_json import read_json_file
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 

@@ -13,9 +13,9 @@ Two parts:
   utilization from 0.75 to 0.85; and the coffee shop against M/M/1 theory. Each run takes
   about 1.5 to 3 s with 4 workers, so the gate stays in ``bash scripts/check.sh``.
 
-Each example runs through the experiment manager (``lcsim.runs.manager.run_experiment``,
+Each example runs through the experiment manager (``ithax.runs.manager.run_experiment``,
 AKS-102), and the across-replication mean and 95% half-width are the manager's
-(``lcsim.runs.statistics.estimate``): t(0.975, n - 1) x sample sd / sqrt(n), with t from
+(``ithax.runs.statistics.estimate``): t(0.975, n - 1) x sample sd / sqrt(n), with t from
 ``scipy.stats.t.ppf`` (spec 2 "Statistic definitions"). ``MEASURED`` pins the values written
 in spec 2's table, so the spec and the adapter cannot drift apart silently. The warm-up
 check is silent on all three (spec 2; the coffee shop is the AKS-102 acceptance case).
@@ -33,11 +33,11 @@ from typing import Any
 
 import pytest
 
-from lcsim.engines.process.adapter import ProcessAdapter
-from lcsim.model.catalogue import PROCESS_TYPES
-from lcsim.model.loading import load_document
-from lcsim.runs.manager import run_experiment
-from lcsim.runs.statistics import estimate as across
+from ithax.engines.process.adapter import ProcessAdapter
+from ithax.model.catalogue import PROCESS_TYPES
+from ithax.model.loading import load_document
+from ithax.runs.manager import run_experiment
+from ithax.runs.statistics import estimate as across
 
 EXAMPLES = Path(__file__).resolve().parents[3] / "examples"
 NAMES = ["coffee_shop.json", "three_machine_line.json", "warehouse.json"]

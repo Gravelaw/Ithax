@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from lcsim.model.loading import load_text
+from ithax.model.loading import load_text
 
 CORPUS = Path(__file__).resolve().parent / "models"
 FILES = sorted(CORPUS.glob("*/*.json"))

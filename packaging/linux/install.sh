@@ -14,7 +14,7 @@ export PYTHONNOUSERSITE=1 PYTHONSAFEPATH=1
 python="$root/python/bin/python3"
 
 echo "Checking the bundled Python, engines, interface and templates..."
-if ! "$python" -m lcsim.install_check; then
+if ! "$python" -m ithax.install_check; then
     echo "The check failed: this folder is incomplete or does not run on this machine." >&2
     exit 1
 fi

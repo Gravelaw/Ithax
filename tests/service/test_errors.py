@@ -9,10 +9,10 @@ from fastapi import FastAPI
 from starlette.exceptions import HTTPException
 from starlette.testclient import TestClient
 
-from lcsim.model.issues import Issue
-from lcsim.service.app import create_app
-from lcsim.service.config import ServiceConfig
-from lcsim.service.errors import (
+from ithax.model.issues import Issue
+from ithax.service.app import create_app
+from ithax.service.config import ServiceConfig
+from ithax.service.errors import (
     INTERNAL,
     MALFORMED,
     NOT_FOUND,
@@ -161,7 +161,7 @@ def test_an_unexpected_failure_is_500_with_e187_and_no_exception_text(
 ) -> None:
     app = app_with_test_routes(config)
     with (
-        caplog.at_level(logging.ERROR, logger="lcsim.service.errors"),
+        caplog.at_level(logging.ERROR, logger="ithax.service.errors"),
         TestClient(app, base_url=BASE_URL, headers=AUTH, raise_server_exceptions=False) as client,
     ):
         response = client.get("/v1/test/fail")

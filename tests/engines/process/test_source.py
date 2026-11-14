@@ -12,9 +12,9 @@ from typing import Any
 import pytest
 from conftest import ContextMaker, recorder
 
-from lcsim.engines.process.blocks import Context, Item, Source
-from lcsim.model.catalogue import PROCESS_TYPES
-from lcsim.model.streams import generator_for
+from ithax.engines.process.blocks import Context, Item, Source
+from ithax.model.catalogue import PROCESS_TYPES
+from ithax.model.streams import generator_for
 
 
 def source(context: Context, settings: dict[str, Any], component_id: str = "arrivals") -> Source:

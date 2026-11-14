@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from lcsim.service.run_feed import RunFeed, Snapshot
+from ithax.service.run_feed import RunFeed, Snapshot
 
 
 async def drain(listener: Any, until_final: bool = True) -> list[dict[str, Any]]:

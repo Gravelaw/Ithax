@@ -31,7 +31,7 @@ from typing import Any
 
 import pytest
 
-from lcsim.service.discovery import SERVICE_FILE, probe, read_service_file
+from ithax.service.discovery import SERVICE_FILE, probe, read_service_file
 
 pytestmark = [
     pytest.mark.desktop,

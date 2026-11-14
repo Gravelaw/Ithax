@@ -13,13 +13,13 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from lcsim.findings import DEFAULT_THRESHOLDS
-from lcsim.service.app import create_app
-from lcsim.service.config import ServiceConfig
-from lcsim.service.finding_settings import read_finding_settings
-from lcsim.service.hardware import SETTINGS_FILE, Hardware
-from lcsim.service.run_settings import read_run_settings
-from lcsim.service.settings_store import INTERFACE_DEFAULTS, SETTINGS_KEYS, recommended_undo_steps
+from ithax.findings import DEFAULT_THRESHOLDS
+from ithax.service.app import create_app
+from ithax.service.config import ServiceConfig
+from ithax.service.finding_settings import read_finding_settings
+from ithax.service.hardware import SETTINGS_FILE, Hardware
+from ithax.service.run_settings import read_run_settings
+from ithax.service.settings_store import INTERFACE_DEFAULTS, SETTINGS_KEYS, recommended_undo_steps
 from service.service_support import AUTH, BASE_URL, assert_error
 
 DEFAULT_FINDINGS = dataclasses.asdict(DEFAULT_THRESHOLDS)
