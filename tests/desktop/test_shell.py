@@ -222,6 +222,7 @@ def driver(display: str, python: str, log: Path) -> Iterator[WebDriver]:
         yield web
     finally:
         web.end()
+        web.connection.close()  # the kept-alive connection (warnings are errors, P20)
         process.terminate()
         process.wait(timeout=10)
 

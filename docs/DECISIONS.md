@@ -2569,6 +2569,20 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Spec sections updated:** none.
 - **Dependencies added:** none to the product. uv 0.11.32 (MIT OR Apache-2.0, its PyPI metadata, read 2026-11-14) is a tool used by CI and for locking, not a dependency of lcsim; `astral-sh/setup-uv` is a CI action (MIT, its repository's licence, read 2026-11-14).
 
+## 2026-11-14 · M12 · Retrospective PR 10: warnings are errors in the tests (#99; P20)
+
+- **Decision:**
+  - `pyproject.toml` sets `filterwarnings = ["error"]`. This row comes before row 9 (property tests), as it needs nothing that row 9 adds.
+  - Every warning came from a leaked resource, so each was fixed rather than ignored; no `ignore:` entry was needed. Before the fix, the fast tier with `-W error` failed 9 tests (the proposal counted 10 on 2026-11-09). With the `desktop` and `package` markers, 2 more failed. Each leak:
+    - **The launcher (product).** `main()` starts the service detached and dropped its `Popen` while the service ran on. Python reports that as "subprocess … is still running" once the handle is collected; it caused 7 of the 9. The detach is intended, so the handle is now kept in `lcsim.launcher.launch.DETACHED` for the life of the process, as the proposal recommends ("keep its `Popen` handle … rather than silence the warning"). The tests' `stop()` reaps it.
+    - **`tests/runs/test_limits.py` and `tests/runs/test_lock.py` (tests).** Each left a child's pipe open; each now uses `Popen` as a context manager.
+    - **`tests/desktop/test_shell.py` (tests).** The WebDriver helper never closed its kept-alive connection, which failed both desktop tests and the installed-shell package test; `driver()` now closes it.
+  - Checked: `check.sh` (4,002 tests, the benchmarks and templates included), `scripts/fast.sh` twice, `pytest -m desktop` (2) and `pytest -m package` (8) all pass with warnings as errors.
+- **Reason:** owner decision F2; the proposal's evidence W2 and W8 (process-lifetime leaks, which the interpreter reports but nothing gated).
+- **Alternatives considered:** `ignore::ResourceWarning` entries (would hide the class the rule exists to catch); a double fork for the launcher (more code and a Windows path, for the same result).
+- **Spec sections updated:** none.
+- **Dependencies added:** none.
+
 ## 2026-11-14 · M12 · Retrospective PR 9: the first property tests (#99; P6)
 
 - **Decision:**
