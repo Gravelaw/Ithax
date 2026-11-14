@@ -7,7 +7,7 @@
 
 import type { Estimate, TableRow } from "../api/types";
 import type { SeriesColours } from "../charts/Chart";
-import { figures, isShare, timeUnit } from "./display";
+import { figures, inUnit, isShare, timeUnit } from "./display";
 import type { Scenario, Search, Solution } from "./summary";
 
 /** Marker shapes, one per series, so no series is told apart by colour alone. */
@@ -262,15 +262,21 @@ export function trialPoints(search: Search): TrialPoints {
     trial.objective?.mean === null || trial.objective === null ? [] : [trial.objective.mean],
   );
   const share = isShare(search.metric, unit);
-  const [symbol, size] =
+  // A rate is drawn per hour, unless a mean per hour is not a finite number (review of PR
+  // #165); a time in the largest unit its means reach.
+  const hourly = [...means, search.after ?? 0].every((mean) => inUnit(mean, "1/h") !== null);
+  const [timeSymbol] = timeUnit(Math.max(0, ...means.map(Math.abs)));
+  const [symbol, shown]: readonly [string, (mean: number) => number] =
     unit === "s"
-      ? timeUnit(Math.max(0, ...means.map(Math.abs)))
+      ? [timeSymbol, (mean) => inUnit(mean, timeSymbol) ?? mean]
       : unit === "1/s"
-        ? ["per hour", 1 / 3600]
+        ? hourly
+          ? ["per hour", (mean) => inUnit(mean, "1/h") ?? mean]
+          : ["per second", (mean) => mean]
         : share
-          ? ["%", 0.01]
-          : ["", 1];
-  const point = (index: number, mean: number): [number, number] => [index, mean / size];
+          ? ["%", (mean) => mean / 0.01]
+          : ["", (mean) => mean];
+  const point = (index: number, mean: number): [number, number] => [index, shown(mean)];
   return {
     unit: symbol,
     feasible: search.trials.flatMap((trial) =>
@@ -283,7 +289,7 @@ export function trialPoints(search: Search): TrialPoints {
         ? [point(trial.index, trial.objective.mean)]
         : [],
     ),
-    best: search.after === null ? null : search.after / size,
+    best: search.after === null ? null : shown(search.after),
     count: search.trials.length,
   };
 }

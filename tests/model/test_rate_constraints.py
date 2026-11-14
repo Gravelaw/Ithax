@@ -73,7 +73,7 @@ def test_a_rate_unit_in_an_older_file_is_e100(version: str) -> None:
     )
     assert issue.hint == (
         "Set 'format_version' to \"0.3\", or write the rate as a plain number of items per "
-        "second (30 per hour is 0.008333)."
+        "second: '30 1/h' is 0.008333."
     )
 
 
@@ -140,3 +140,22 @@ def test_a_search_judges_a_rate_constraint_in_items_per_second(value: Any) -> No
     judge = search_module._Judge(model, model.experiments[0].search, 0.95)
     at = {"exit.throughput": MetricEstimate(Estimate(0.01, 0.0, 30), "1/s")}
     assert judge.margins(at) == [pytest.approx(30 / 3600 - 0.01, abs=1e-15)]
+
+
+@pytest.mark.parametrize("version", ["0.2", "0.3"])
+@pytest.mark.parametrize("text", ["1e308 1/s", "1.7976931348623157e308 1/s", "1e309 1/h"])
+def test_a_rate_near_the_float_limit_never_prints_inf(version: str, text: str) -> None:
+    """Review of PR #165: a rate whose value per second is a finite float is read, and no
+    message or hint about it says "inf" (1e308 per second is beyond a float per hour, so
+    it is shown per second)."""
+    issues = load_document(shop("till.utilization", text, version)).issues
+    assert issues, text
+    for issue in issues:
+        assert "inf" not in issue.message and "inf" not in (issue.hint or ""), issue
+    if version == "0.2":
+        (issue,) = issues
+        assert issue.code == "E100"
+        assert issue.hint is not None and f"'{text}' is " in issue.hint
+    else:
+        (issue,) = issues
+        assert issue.code == "E123" and "per second, but" in issue.message

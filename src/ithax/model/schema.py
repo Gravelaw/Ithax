@@ -201,8 +201,8 @@ def _newer_rates(document: Mapping[str, Any]) -> list[Issue]:
         if not isinstance(value, str) or quantity_dimension(value) is not Dimension.RATE:
             continue
         try:
-            per_hour = parse_quantity(value, Dimension.RATE).magnitude * 3600
-        except QuantityError:  # "1e400 1/h": E141 from the meaning pass, at any version
+            per_second = parse_quantity(value, Dimension.RATE).magnitude
+        except QuantityError:  # "1e400 1/s": E141 from the meaning pass, at any version
             continue
         issues.append(
             _issue(
@@ -212,8 +212,7 @@ def _newer_rates(document: Mapping[str, Any]) -> list[Issue]:
                 f"0.{_RATE_MINOR}, but this file is format version "
                 f"{document['format_version']}, which has none.",
                 f"Set 'format_version' to \"0.{_RATE_MINOR}\", or write the rate as a plain "
-                f"number of items per second ({per_hour:g} per hour is "
-                f"{per_hour / 3600:.4g}).",
+                f"number of items per second: '{value}' is {per_second:.4g}.",
             )
         )
     return issues

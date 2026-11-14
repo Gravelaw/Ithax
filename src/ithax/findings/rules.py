@@ -90,7 +90,7 @@ class Thresholds:
     idle_utilization: float = 0.30
     relative_half_width: float = 0.10
     min_time_s: float = 60.0
-    min_rate_per_s: float = 1 / 3600
+    min_rate_per_s: float = 1 / 3600  # unit factor: a constant, one per hour
 
     def __post_init__(self) -> None:
         for item in fields(self):

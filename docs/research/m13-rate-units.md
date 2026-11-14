@@ -50,3 +50,19 @@ The experiment manager's search compares constraint values in SI units, through
 `magnitude`, so a rate quantity is judged exactly as its plain number. The interface
 already sends text it cannot read as a number unchanged, so `"30 1/h"` reaches the service
 as written.
+
+## Review of PR #165: conversions near the float limit
+
+Two review findings showed one class. A written number beyond a float, in a unit below 1,
+was refused (`"1e309 1/h"` is 2.8e305 per second), and an hourly figure computed as
+`value * 3600` overflowed in a hint ("inf per hour").
+
+Conversions now go through `ithax.model.units`:
+
+- `UNIT_SIZES` holds each unit's exact size.
+- `in_unit` converts exactly, and gives `None` beyond a float. Python's `Fraction`
+  division and IEEE float division both round correctly, so a finite result is unchanged.
+- `parse_quantity` scales exactly only when the written number is not a finite float.
+
+A convention test bans hand-written unit factors elsewhere in `src`.
+

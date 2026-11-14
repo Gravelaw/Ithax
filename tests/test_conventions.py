@@ -17,6 +17,13 @@ see, ``path.replace(target)`` or ``path.rename(target)``: a call of an attribute
 ``replace`` or ``rename`` with one argument and no keywords (``str.replace`` takes two,
 ``dataclasses.replace`` keywords). A line marked ``# noqa: TID251`` carries its reason
 beside it and is allowed.
+
+A quantity is converted to or from a unit in one place, ``ithax.model.units`` (``UNIT_SIZES``,
+``in_unit``; review of PR #165): a hand-written ``value * 3600`` overflows near 1e308, an
+exact conversion does not. This test finds a product, quotient or remainder with 60, 3600 or
+86400, and a unit symbol paired with such a size, anywhere else in ``src``. A line marked
+``# unit factor:`` with its reason (a whole number of minutes from a setting, a constant) is
+allowed.
 """
 
 import ast
@@ -28,6 +35,9 @@ import ithax
 SRC = Path(ithax.__file__).resolve().parent
 HELPERS = {SRC / "strict_json.py"}
 FILE_HELPERS = {SRC / "files.py"}
+UNIT_HELPERS = {SRC / "model" / "units.py"}
+UNIT_FACTORS = frozenset({60, 3600, 86400})
+UNIT_SYMBOLS = frozenset({"s", "min", "h", "d", "1/s", "1/min", "1/h", "1/d"})
 NUMERIC = frozenset({"int", "float"})
 
 
@@ -170,3 +180,62 @@ def test_the_rename_check_finds_the_method_forms_only() -> None:
         ]
     )
     assert renames(source) == [1, 2]
+
+
+def _is_factor(node: ast.expr) -> bool:
+    return (
+        isinstance(node, ast.Constant)
+        and type(node.value) in (int, float)
+        and node.value in UNIT_FACTORS
+    )
+
+
+def unit_factors(source: str) -> list[int]:
+    """Lines that scale by a unit's size by hand: ``x * 3600``, ``x / 60``, ``x % 60``, or
+    a pair such as ``("h", 3600)``; a line marked ``# unit factor:`` is allowed."""
+    lines = source.splitlines()
+    found: set[int] = set()
+    for node in ast.walk(ast.parse(source)):
+        hit = (
+            isinstance(node, ast.BinOp)
+            and isinstance(node.op, (ast.Mult, ast.Div, ast.FloorDiv, ast.Mod))
+            and (_is_factor(node.left) or _is_factor(node.right))
+        ) or (
+            isinstance(node, ast.Tuple)
+            and len(node.elts) == 2
+            and isinstance(node.elts[0], ast.Constant)
+            and node.elts[0].value in UNIT_SYMBOLS
+            and _is_factor(node.elts[1])
+        )
+        if hit and "# unit factor:" not in lines[node.lineno - 1]:  # type: ignore[attr-defined]
+            found.add(node.lineno)  # type: ignore[attr-defined]
+    return sorted(found)
+
+
+def test_quantities_are_converted_through_ithax_model_units() -> None:
+    offenders = [
+        f"{path.relative_to(SRC)}:{line}"
+        for path in sorted(SRC.rglob("*.py"))
+        if path not in UNIT_HELPERS
+        for line in unit_factors(path.read_text(encoding="utf-8"))
+    ]
+    assert not offenders, (
+        "Convert a quantity with ithax.model.units.in_unit and UNIT_SIZES, not by hand: "
+        + ", ".join(offenders)
+    )
+
+
+def test_the_unit_factor_check_finds_hand_scaling_only() -> None:
+    source = "\n".join(
+        [
+            "per_hour = rate * 3600",  # 1
+            "minutes = seconds / 60",  # 2
+            'units = (("d", 86_400.0), ("h", 3_600.0))',  # 3: two pairs, one line
+            "left = seconds % 60",  # 4
+            "limit = 7 * 24 * 3600.0  # unit factor: a constant",  # 5: marked
+            "count = items * 61",  # 6: not a unit's size
+            'shown = in_unit(rate, "1/h")',  # 7: the helper
+            "flag = 60 == value",  # 8: a comparison
+        ]
+    )
+    assert unit_factors(source) == [1, 2, 3, 4]

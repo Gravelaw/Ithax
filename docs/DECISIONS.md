@@ -2946,5 +2946,15 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:**
   - Accepting `"30 1/h"` without a new minor. A 0.2 reader would then fail on a file that says 0.2.
   - Units spelt `per h` or `/h`. They are not the inverted time units pint reads, and they would add a second grammar.
+- **Review of PR #165** (two findings of one class, guide "Review findings": a quantity scaled by a unit's size overflows near 1e308).
+  - **The findings.** `"1e309 1/h"` was E141, although it is 2.8e305 per second. The E100 hint for `"1e308 1/s"` said "inf per hour is inf".
+  - **One helper.** `ithax.model.units` holds `UNIT_SIZES` (each unit's exact size in SI units) and `in_unit(si, unit)`. `in_unit` gives an exact, correctly rounded conversion, so a finite result equals the float division or product it replaces, or `None` beyond a float.
+  - **Parsing.** `parse_quantity` scales a written number beyond a float exactly (decimal). A finite written number still goes through pint, so no existing value changes.
+  - **Every site routed.** The E100 hint (now the plain number per second, with no scaling), the E123 and W201 rate texts, `_time_text` and `_duration`, `findings.display.quantity` (a rate beyond a float per hour is shown per second), `runs.summary.format_length` and `runs.targets.describe_seconds`. In the interface, `inUnit` in `results/display.ts` covers the rate text and the search chart.
+  - **`figures`.** `figures` in `findings/display.py` no longer raises for infinity, NaN or rounding up past the largest float.
+  - **The check for the next one.**
+    - `tests/test_conventions.py` flags a product, quotient or remainder with 60, 3600 or 86400, and a unit symbol paired with one, outside `units.py`. Six settings constants are marked `# unit factor:` with their reason.
+    - `tests/model/test_units.py` checks extreme magnitudes for every unit: a quantity is read exactly when its exact SI value is a finite float; `in_unit` is finite or `None`; pint agrees with `UNIT_SIZES`.
+    - AGENTS.md lists the class under "Classes that recurred".
 - **Spec sections updated:** spec 1 "Quantities", "Versioning", "Metric names" and the E100 row (a dated line).
 - **Dependencies added:** none.

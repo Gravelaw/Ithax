@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   confidenceText,
   figures,
+  inUnit,
   isShare,
   percent,
   quantity,
@@ -50,3 +51,19 @@ describe("display units", () => {
     expect(confidenceText(0.975)).toBe("97.5%");
   });
 });
+
+describe("values near the float limit (review of PR #165)", () => {
+  it("shows a rate per second when its hourly figure is not a finite number", () => {
+    expect(quantity(1e308, "1/s")).toMatch(/ per second$/);
+    expect(quantity(1e308, "1/s")).not.toMatch(/Infinity/);
+    expect(quantity(30 / 3600, "1/s")).toBe("30 per hour");
+  });
+
+  it("converts through inUnit, null where the result is not finite", () => {
+    expect(inUnit(90, "min")).toBe(1.5);
+    expect(inUnit(1 / 120, "1/h")).toBe(30);
+    expect(inUnit(1e308, "1/h")).toBeNull();
+    expect(inUnit(1, "furlong")).toBeNull();
+  });
+});
+

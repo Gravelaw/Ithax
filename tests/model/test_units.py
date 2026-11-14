@@ -1,19 +1,25 @@
 """Tests for the quantity layer (spec 1 "Units" and "Quantities"; AKS-86)."""
 
+import decimal
 import math
 import random
+import sys
 from dataclasses import FrozenInstanceError
+from decimal import Decimal
+from fractions import Fraction
 
 import pytest
 
 from ithax.model.units import (
     PHASE_1_UNITS,
+    UNIT_SIZES,
     Dimension,
     Quantity,
     QuantityDimensionError,
     QuantityError,
     QuantityKindError,
     QuantityParseError,
+    in_unit,
     parse_quantity,
     read_number,
     read_quantity,
@@ -360,3 +366,57 @@ def test_only_the_units_module_imports_pint() -> None:
         or "from pint" in path.read_text(encoding="utf-8")
     )
     assert importers == ["model/units.py"]
+
+
+# --- conversions near the ends of the float range (review of PR #165) ----------------------
+
+EXTREME_NUMBERS = [
+    "1e308",
+    "1.7976931348623157e308",
+    "1e309",
+    "1e400",
+    "1e999999999",
+    "1e-308",
+    "5e-324",
+    "1e-400",
+    "-1e309",
+]
+
+
+@pytest.mark.parametrize("unit", list(PHASE_1_UNITS))
+@pytest.mark.parametrize("number", EXTREME_NUMBERS)
+def test_a_quantity_is_read_when_and_only_when_its_si_value_is_a_finite_float(
+    number: str, unit: str
+) -> None:
+    """Spec 1 "Quantities": E141 for a number whose value in SI units is not a finite
+    float, whatever the written number does on its own: "1e309 1/h" is 2.78e305 per
+    second, finite, while "1e308 d" is not."""
+    size = UNIT_SIZES[unit]
+    with decimal.localcontext(prec=50, Emax=decimal.MAX_EMAX, Emin=decimal.MIN_EMIN):
+        exact = Decimal(number) * Decimal(size.numerator) / Decimal(size.denominator)
+        finite = abs(exact) <= Decimal(sys.float_info.max)
+    text = f"{number} {unit}"
+    if finite:
+        found = parse_quantity(text, PHASE_1_UNITS[unit])
+        assert math.isfinite(found.magnitude)
+        assert math.isclose(found.magnitude, float(exact), rel_tol=1e-12, abs_tol=1e-320)
+    else:
+        with pytest.raises(QuantityParseError):
+            parse_quantity(text, PHASE_1_UNITS[unit])
+
+
+@pytest.mark.parametrize("unit", list(PHASE_1_UNITS))
+@pytest.mark.parametrize(
+    "si", [sys.float_info.max, -sys.float_info.max, 1e308, 5e-324, 0.0, 1.0, math.inf, math.nan]
+)
+def test_in_unit_is_finite_or_none_never_infinite(si: float, unit: str) -> None:
+    shown = in_unit(si, unit)
+    assert shown is None or math.isfinite(shown)
+    if math.isfinite(si) and shown is not None:
+        assert shown == float(Fraction(si) / UNIT_SIZES[unit])
+
+
+@pytest.mark.parametrize("unit", list(PHASE_1_UNITS))
+def test_each_unit_size_is_the_one_pint_gives(unit: str) -> None:
+    """``UNIT_SIZES`` and pint agree, so a value converted either way is the same."""
+    assert parse_quantity(f"1 {unit}", PHASE_1_UNITS[unit]).magnitude == float(UNIT_SIZES[unit])
