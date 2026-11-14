@@ -18,9 +18,9 @@ second plan of the same objective (#176). ``collect`` returns the layout as
 ``Results.solution``, with no tables, and W211 among its warnings when ``alternate``.
 
 Cancel: a HiGHS solve called through Pyomo cannot be interrupted (engine gap, recorded in
-``docs/DECISIONS.md``), so ``run`` checks ``cancel`` before and after the solve and writes
-nothing when it is set; a solve longer than the cancel grace is ended by the run target,
-which terminates the worker.
+``docs/DECISIONS.md``), so ``run`` checks ``cancel`` before and after the solve, and before
+each alternate-optimum probe (review of PR #178), and writes nothing when it is set; a
+solve longer than the cancel grace is ended by the run target, which terminates the worker.
 """
 
 from __future__ import annotations
@@ -104,7 +104,7 @@ class HighsAdapter:
         if cancel.is_set():
             return
         on_progress(Progress(0.0, "Solving with HiGHS"))
-        outcome = solve(program)
+        outcome = solve(program, stop=cancel.is_set)
         if cancel.is_set():
             return
         document: dict[str, Any] = {

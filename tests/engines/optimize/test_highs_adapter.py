@@ -18,6 +18,7 @@ import pytest
 import ithax
 from ithax.engines.adapter import Capabilities, EngineAdapter, Progress
 from ithax.engines.optimize import adapter as adapter_module
+from ithax.engines.optimize import solver as solver_module
 from ithax.engines.optimize.adapter import INPUT_FILE, SOLUTION_FILE, HighsAdapter
 from ithax.engines.optimize.solver import SolverStopped, solver_version
 from ithax.engines.optimize.translate import read_input, write_input
@@ -358,3 +359,26 @@ def test_a_solution_written_before_the_probe_collects_no_warning(tmp_path: Path)
     del written["alternate"]
     path.write_text(json.dumps(written), encoding="utf-8")
     assert HighsAdapter().collect(tmp_path).warnings == []
+
+
+def test_a_cancel_during_the_solve_starts_no_probe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review of PR #178: the probes are more HiGHS solves; a cancel set during the first
+    solve is seen before each probe, so none starts, and nothing is written."""
+    adapter = HighsAdapter()
+    adapter.translate(load(json.loads(STAFF_ROTA_FILE.read_text(encoding="utf-8"))), None, tmp_path)
+    cancel = threading.Event()
+    first = solver_module._solve_once
+    calls: list[int] = []
+
+    def cancelled_during(model: Any, options: Mapping[str, object]) -> Any:
+        calls.append(1)
+        results = first(model, options)
+        cancel.set()
+        return results
+
+    monkeypatch.setattr(solver_module, "_solve_once", cancelled_during)
+    adapter.run(tmp_path, lambda progress: None, cancel, 1)
+    assert calls == [1]
+    assert not (tmp_path / SOLUTION_FILE).exists()
