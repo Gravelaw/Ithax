@@ -2426,6 +2426,37 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Spec sections updated:** none (the guide does not describe the CI jobs).
 - **Dependencies added:** none.
 
+## 2026-11-14 · M12 · Retrospective PR 5: owner questions, readings, digest, PR size, merge readiness, numbers (#99; P13, P14, P15, P10, P19)
+
+- **Decision:**
+  - The guide takes the proposal's text for P13 (questions before a milestone), P14 (rule 5 sorts questions; a "Readings" heading; an owner digest) and P15 (decision records; numbers copied from commands). P10 (PR size and stacking) and P19 (the merge-readiness check) are in no row of the proposal's order of adoption, and F2 adopts all of it, so they join this row, which is the guide-text row.
+  - Where the proposal and a later owner decision differ, the owner decision is kept:
+    - **Rule 5's "blocking" criteria.** These are the owner's of 2026-11-13 (F8, D18): a user-visible answer, the model format, the `/v1` API, a guide rule, a milestone or a convention. P14 proposed "an interface, a file format, a target platform, or more than a day of work". The two lists overlap in format and interfaces; adding "target platform" and "more than a day of work" is listed for the owner.
+    - **Digest cadence.** The owner takes decisions every two days (F8), so the digest follows that cadence or a milestone's close, not P14's weekly one.
+    - **Owner questions.** Linear is retired (#100), so they are GitHub issues titled "Owner decision: …", not Linear `owner-decision` issues. A label was not added: labels are the owner's `phase:*` and `type:*` set.
+    - **Decision records.** P15 applies "from Phase 2", as the proposal says, so `DECISIONS.md` and its template hold through Phase 1a.
+    - **Status.** P14's summary text says the last act updates `docs/STATUS.md`. That file arrives with row 6 (P8), so until then the last act still updates "Current state".
+  - **Not applied: P11** ("sessions and sub-agents never merge; the owner merges"). It conflicts with owner decision C10 (the orchestrating session merges once CI is green and review has nothing open). Listed for the owner, with P11's agent identity, which needs the owner's account work anyway.
+- **Reason:** owner decision F2; the proposal's evidence W1 (402 "Awaiting owner" items, 386 of them readings; 76 h waits on blocking questions), W4 and W6 (large stacked PRs, a merge past a running head) and W5 (wrong figures in the record).
+- **Alternatives considered:** P14's criteria verbatim (would narrow the owner's own list); adding an `owner-decision` label (a new convention, which is the owner's).
+- **Spec sections updated:** build guide rule 5 and "Session procedure" (and `CLAUDE.md`).
+- **Dependencies added:** none.
+
+## 2026-11-14 · M12 · The package test stopped tauri-driver before the shell had closed (#135)
+
+- **Decision:**
+  - **Cause.** `test_the_installed_shell_reaches_home` asked WebKitWebDriver to close the shell's window and then at once left the `driver(...)` block, which stops tauri-driver and its WebKitWebDriver. Only after that did it wait for the shell to end. The close completes after the request returns; when the drivers were stopped first, the shell was left orphaned (parent PID 1), idle in its GTK main loop with its window never closed, and it never ended, so no wait would have helped.
+    - Reproduced here: 2 failures in 25 runs of the test with `LCSIM_PACKAGE_RUNNER=local`, the same failure as CI (#135, and PRs #62, #137 and #139).
+    - A dump at the timeout showed the orphaned shell: its main thread in `poll`, every other thread waiting.
+    - `tests/desktop/test_shell.py`, which waits inside the block, passed 40 of 40 runs here.
+  - **Fix.** The test now waits for the shell inside the `driver(...)` block, as the desktop test does. The wait (60 s) is unchanged.
+    - Verified with 60 runs after the fix (result in the PR).
+    - The product is unaffected: a user's close goes through the window, not through WebKitWebDriver, and the desktop test shows the shell ends when its window closes.
+  - **Milestone.** #135 moves from M14 to M12 at the orchestrating session's request, since `all-green` made the flake block every merge. M12's row names it; #137's M14 row, not yet merged, will drop it when #137 takes `main`.
+- **Reason:** a test that fails at random blocks every merge once `all-green` is required (#136), and #135 asked for the cause to be fixed rather than the wait lengthened.
+- **Alternatives considered:** a longer wait (an orphaned shell never ends, so it could not help); killing any leftover shell in teardown (hides the race instead of removing it).
+- **Spec sections updated:** build guide "Milestones" (M12), and `CLAUDE.md`.
+
 ## 2026-11-14 · M12 · Retrospective PR 4: review rules for Codex, and the review-findings procedure (#99; P7)
 
 - **Decision:**
