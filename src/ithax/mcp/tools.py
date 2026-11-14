@@ -662,7 +662,8 @@ GET_RUN_STATUS = ToolSpec(
         "queued, running, done, failed or cancelled; fraction goes from 0 to 1; error is "
         "null unless the run failed, and then an issue with its code (E190 "
         "the engine failed, E191 the service restarted, E192 the run exceeded its time or "
-        "memory limit). Poll every few seconds until the state is done, failed or "
+        "memory limit, E196 items circle blocks that take no time). Poll every few "
+        "seconds until the state is done, failed or "
         "cancelled; results exist only for done."
     ),
     inputs=(_RUN_ID,),

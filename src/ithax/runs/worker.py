@@ -33,7 +33,7 @@ from multiprocessing.connection import Connection
 from pathlib import Path
 from typing import TextIO
 
-from ithax.engines.adapter import CancelToken, EngineAdapter, Progress
+from ithax.engines.adapter import CancelToken, EngineAdapter, Progress, RunIssue
 from ithax.engines.registry import installed_adapters
 from ithax.strict_json import json_text, read_json_object_file
 
@@ -121,6 +121,8 @@ def child_main(
 
         try:
             adapter_class().run(Path(workdir), report, WatchedToken(cancel, parent_alive), workers)
+        except RunIssue as stopped:  # the model stopped the run: its own issue (#74)
+            connection.send(("issue", stopped.issue.as_dict(), traceback.format_exc()))
         except Exception:
             connection.send(("error", traceback.format_exc()))
         else:
