@@ -30,7 +30,6 @@ absent; another value is 400 with E184).
 from __future__ import annotations
 
 import asyncio
-import json
 import secrets
 from typing import Literal, get_args
 
@@ -42,6 +41,7 @@ from starlette.websockets import WebSocket, WebSocketDisconnect
 from lcsim.model.issues import Issue
 from lcsim.service.errors import REFUSED, TOKEN, error_response, malformed
 from lcsim.service.lifetime import Lifetime
+from lcsim.strict_json import read_json
 
 __all__ = [
     "CLIENTS",
@@ -209,7 +209,7 @@ async def authenticate_websocket(websocket: WebSocket, token: str, timeout_s: fl
     given: str | None = None
     if text is not None:
         try:
-            message = json.loads(text)
+            message = read_json(text.encode("utf-8"))
         except ValueError:
             message = None
         if isinstance(message, dict) and isinstance(message.get("token"), str):

@@ -41,7 +41,7 @@ from typing import Any, ClassVar, Literal, Protocol, TypeAlias
 
 import numpy
 
-from lcsim.strict_json import real_in
+from lcsim.strict_json import is_number, real_in
 
 __all__ = [
     "COLUMN_TYPES",
@@ -226,7 +226,7 @@ class _Builder:
 def _header(cells: Sequence[object]) -> list[str]:
     names: list[str] = []
     for number, cell in enumerate(cells, start=1):
-        if isinstance(cell, int | float) and not isinstance(cell, bool):
+        if is_number(cell):
             raise _number_header(number)
         name = "" if cell is None else str(cell).strip()
         if not name:

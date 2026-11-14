@@ -36,6 +36,7 @@ dependencies = [
 dev = [
     "pytest>=9.2",
     "pytest-xdist>=3.8.0",
+    "hypothesis>=6.170.15",
     "ruff>=0.17.4",
     "mypy>=2.4.1",
     "pytest-cov>=7.1",
@@ -82,7 +83,7 @@ src = ["src", "tests"]
 extend-exclude = ["docs/specs", "CLAUDE.md"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "ANN", "RUF", "C90", "S102", "S307", "PLW0603"]
+select = ["E", "F", "W", "I", "B", "UP", "ANN", "RUF", "C90", "S102", "S307", "PLW0603", "TID251"]
 
 # Power of Ten rule 4 in spirit, and NPR 7150.2D SWE-220's cap for safety-critical code.
 # No function exceeded it on 2026-11-09 (docs/retrospective/proposed-agent-setup.md, P21).
@@ -94,8 +95,22 @@ max-complexity = 15
 [tool.ruff.lint.isort]
 known-third-party = ["mcp"]
 
+# House helpers (docs/retrospective/proposed-agent-setup.md, P5; #99). Each message says what
+# to use instead, so a lint failure carries its own fix.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"random".msg = "Randomness only through the spec 1 stream scheme: lcsim.model.streams.generator_for."
+"numpy.random.seed".msg = "Randomness only through the spec 1 stream scheme: lcsim.model.streams.generator_for."
+"numpy.random.default_rng".msg = "Randomness only through the spec 1 stream scheme: lcsim.model.streams.generator_for."
+"json.loads".msg = "Read JSON with lcsim.strict_json.read_json: it rejects NaN, infinity and lone surrogates."
+"json.load".msg = "Read JSON with lcsim.strict_json.read_json_file or read_json_object_file."
+"json.dumps".msg = "Write JSON with lcsim.strict_json.encode_json (files) or json_text (messages, streams, bodies)."
+"json.dump".msg = "Write JSON with lcsim.strict_json.encode_json."
+
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["ANN"]
+"tests/**" = ["ANN", "TID251"]
+# The helpers themselves, and the repository's tools, which are not product code.
+"src/lcsim/strict_json.py" = ["TID251"]
+"scripts/**" = ["TID251"]
 
 [tool.mypy]
 python_version = "3.11"

@@ -11,11 +11,9 @@ A whole number too large for a float (the loader accepts any JSON integer) raise
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
 
 from lcsim.model.model import (
     LinearConstraint,
@@ -24,6 +22,7 @@ from lcsim.model.model import (
     Model,
     Variable,
 )
+from lcsim.strict_json import encode_json, read_json_object_file
 
 __all__ = ["INPUT_FILE", "read_input", "write_input"]
 
@@ -71,16 +70,16 @@ def write_input(model: Model, workdir: Path) -> Path:
             for constraint in program.constraints
         ],
     }
-    text = json.dumps(document, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    data = encode_json(document)
     workdir.mkdir(parents=True, exist_ok=True)
     path = workdir / INPUT_FILE
-    path.write_text(text, encoding="utf-8")
+    path.write_bytes(data)
     return path
 
 
 def read_input(workdir: Path) -> LinearProgram:
     """The program ``write_input`` wrote to ``workdir``."""
-    document: dict[str, Any] = json.loads((workdir / INPUT_FILE).read_text(encoding="utf-8"))
+    document = read_json_object_file(workdir / INPUT_FILE)
     return LinearProgram(
         variables=tuple(
             Variable(id=item["id"], type=item["type"], lower=item["lower"], upper=item["upper"])
