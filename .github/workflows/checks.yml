@@ -1,6 +1,8 @@
 name: checks
 
-# Design and action pins: docs/DECISIONS.md, 2026-11-06 · M0, "CI workflow (AKS-73)".
+# Design and action pins: docs/DECISIONS.md, 2026-11-06 · M0, "CI workflow (AKS-73)"; revised by
+# docs/retrospective/proposed-agent-setup.md, P3 (no duplicate benchmark job, timeouts,
+# main runs never cancelled, one all-green check for branch protection; #99).
 
 on:
   # Default pull_request types (opened, synchronize, reopened). Title edits are handled by
@@ -13,14 +15,16 @@ on:
 permissions:
   contents: read
 
-# One run per ref; a newer run cancels the older one.
+# PR runs: a newer push cancels the older run. Pushes to main: one group per commit, so
+# every merge to main is tested and none is cancelled by the next merge.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -33,37 +37,9 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
       - run: python -m pip install -e ".[dev]"
-      # The single gate (guide "Test subsets"); CI runs it unchanged.
+      # The single gate (guide "Test subsets"); CI runs it unchanged. It includes the
+      # benchmarks (guide rule 8: the `benchmark` marker is not excluded) and the templates.
       - run: bash scripts/check.sh
-
-  benchmarks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Detect benchmarks
-        id: detect
-        run: |
-          shopt -s nullglob
-          models=(benchmarks/*/model.json)
-          if (( ${#models[@]} > 0 )) && [[ -f tests/benchmarks/test_benchmarks.py ]]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-            echo "Found ${#models[@]} benchmark case(s)."
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No benchmarks yet (benchmarks/*/model.json and tests/benchmarks/test_benchmarks.py arrive at M2); skipping."
-          fi
-      - if: steps.detect.outputs.present == 'true'
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: pyproject.toml
-      - if: steps.detect.outputs.present == 'true'
-        run: python -m pip install -e ".[dev]"
-      # Benchmarks are gates (guide rule 8). perf is never run in CI.
-      - if: steps.detect.outputs.present == 'true'
-        run: pytest -m benchmark
-
 
   # The interface (AKS-119; docs/DECISIONS.md, 2026-11-08 · M9). Its gate is `npm run check`
   # (type check, Biome, Vitest), then the end-to-end tests in Chromium against a real
@@ -71,6 +47,7 @@ jobs:
   # the Python gate.
   interface:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: ui
@@ -103,6 +80,7 @@ jobs:
   # scripts/check.sh leaves out).
   desktop:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Install the system packages
@@ -150,6 +128,7 @@ jobs:
   # driven to Home under Xvfb (pytest marker package, which scripts/check.sh leaves out).
   package:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Install the system packages
@@ -181,3 +160,19 @@ jobs:
             dist/lcsim-*-linux-x86_64.tar.gz
             dist/lcsim-*-linux-x86_64.tar.gz.sha256
           retention-days: 14
+
+  # The one check that branch protection requires (P4). A skipped or cancelled job counts
+  # as a failure here, so a red or missing job can never be merged past.
+  all-green:
+    if: always()
+    needs: [checks, interface, desktop, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "needs: $RESULTS"
+          for result in $RESULTS; do
+            [[ "$result" == "success" ]] || { echo "::error::a required job did not succeed"; exit 1; }
+          done

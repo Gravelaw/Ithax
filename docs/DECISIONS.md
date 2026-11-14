@@ -2413,4 +2413,15 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Reason:** owner decisions of 2026-11-13 (C10, D18, F1, F7, F8) and the orchestrating session's Phase 1a brief; Linear's free plan caps active issues at 250 (#100).
 - **Alternatives considered:** keeping a Linear key in PR titles (the tracker is retired); putting #88 (AppImage) in M14 (it is packaging, so it ships with the release).
 - **Spec sections updated:** build guide "Session rules" 2 and 5, "Conventions", "Milestones", "Session procedure" (and `CLAUDE.md` to match).
+
+## 2026-11-13 · M12 · Retrospective PR 1: CI design and code-shape rules (#99; P3, P21)
+
+- **Decision:**
+  - Owner decision F2 adopts all of `docs/retrospective/proposed-agent-setup.md`; #99 applies it in the proposal's "Order of adoption", one small PR per row. This is row 1.
+  - P3, applied to the current `.github/workflows/checks.yml` rather than pasted over it, since M11 added the `desktop` and `package` jobs after the proposal was written: the `benchmarks` job is removed (`check.sh` already runs every benchmark on both Pythons: the `benchmark` marker is not excluded in `addopts`); every job has `timeout-minutes` (20 for `checks` and `interface`, 30 for `desktop` and `package`, whose CI runs took 6 and 8.5 minutes on PR #134, 2 for `all-green`); pull-request runs still cancel older runs, while each push to `main` gets its own concurrency group and is never cancelled; a new `all-green` job needs `checks`, `interface`, `desktop` and `package` and fails unless all four succeeded.
+  - P21: ruff selects `C90` with `max-complexity = 15`, `S102` (`exec`), `S307` (`eval`) and `PLW0603` (`global`); all are at zero violations (checked: three functions are above 12, none above 15, and a probe file trips each rule). `tests/test_function_length.py` is the proposal's ratchet, its allow-list the 20 functions over 60 lines today (the same 20 the proposal listed), with `_long_functions` taking a root so that two more tests prove the visitor finds long methods, nested functions and definitions under `if`, `try`, `with` and loops (the proposal's visitor skipped the last; Codex on PR #136). The same 20 functions are found with that fix.
+  - P4 (repository settings) cannot be done from a session; it is listed for the owner: auto-delete head branches, and a ruleset on `main` requiring `all-green` once this merges. P4's Linear item is moot (Linear retired, #100).
+- **Reason:** owner decision F2; the proposal's evidence W3 and W4 (duplicate benchmark minutes, 61% of `main` runs cancelled, #49 merged with a running head).
+- **Alternatives considered:** pasting the proposal's file verbatim (would drop the `desktop` and `package` jobs); using `re-actors/alls-green` (a third-party action; the inline loop does the same).
+- **Spec sections updated:** none (the guide does not describe the CI jobs).
 - **Dependencies added:** none.
