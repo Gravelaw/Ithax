@@ -1,6 +1,6 @@
 # Spec 1: Model Format and Engine Contract
 
-> Version 1.4 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 1.5 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 A model is one JSON file that passes a published schema. Every engine is a plugin that implements the same five functions. The interface, the engines and any AI assistant all work through these two contracts.
 
@@ -576,3 +576,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-09, M11 closed (AKS-127): no further change to spec 1 at the close. Version 1.4.
 - 2026-11-14, the package renamed (#70, owner decision C8): the Python package is `ithax`, so the entry-point group is `ithax.engines`, the product's adapters are `ithax.engines.process.adapter:ProcessAdapter` and `ithax.engines.optimize.adapter:HighsAdapter`, and the worker is `python -m ithax.runs.worker`; the old group `lcsim.engines` is not read, since no release used it. The distribution, command and folder names follow in the next change.
 - 2026-11-14, real version numbers (#78): "Engine contract" says the product's adapters carry their engine's version (SimPy's, HiGHS's), not the product's, which stays in the manifest's `product_version`; the product's version is `0.1.0.dev0`, the development version of v0.1.0 (owner decision F7).
+- 2026-11-14, M12 closed (#100, #99, #135, #70, #78): no further change to this spec at the close. Version 1.5.
