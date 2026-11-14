@@ -3,8 +3,8 @@
  *
  * A Process project made on Home has the `base` experiment of a new project (8 h, 0 s, 30
  * repeat runs). Set by pointer on the Experiment screen (pickers, and typing into fields
- * that are committed by clicking elsewhere), the coffee shop's `base` experiment (200 h,
- * 10 h warm-up, 30 replications, seed 12345) is saved equal to `examples/coffee_shop.json`'s
+ * that are committed by clicking elsewhere), the coffee shop's `base` experiment (210 h,
+ * 10 h warm-up, so 200 h measured, 30 replications, seed 12345) is saved equal to `examples/coffee_shop.json`'s
  * `experiments`, through `set_experiment` edits only. A scenario is added and removed, and
  * the screen meets WCAG 2.2 AA.
  */
@@ -57,7 +57,7 @@ test("the coffee shop's base experiment set by pointer equals the example's", as
   await expect(page.getByRole("combobox", { name: "Unit of Run length" })).toHaveValue("h");
 
   const before = sent.length;
-  await enter(page, "Run length", "200");
+  await enter(page, "Run length", "210");
   await page.getByRole("combobox", { name: "Unit of Settling-in time" }).selectOption("h");
   await settled(page);
   await enter(page, "Settling-in time", "10");

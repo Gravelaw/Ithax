@@ -285,7 +285,7 @@ def test_the_summary_is_the_best_confirmation_with_the_search_object(tmp_path: P
         "search",
     ]
     assert summary["replications"] == 30
-    assert summary["fidelity_label"] == "Standard: 30 replications of 200 h, 95% confidence"
+    assert summary["fidelity_label"] == "Standard: 30 replications of 210 h, 95% confidence"
     assert list(summary["scenarios"]) == ["default"]
     assert summary["scenarios"]["default"]["set"] == {"tills": 4}
     assert summary["scenarios"]["default"]["metrics"]["till.wait.mean"]["n"] == 30
@@ -738,6 +738,8 @@ def machine_count(budget: int) -> dict[str, Any]:
     file's seed 12345, 30 replications of 200 h with 10 h of warm-up, and
     `search.replications` at its default of 10."""
     document = coffee_shop()
+    # The benchmark keeps spec 2's 200 h; #86 lengthened only the coffee shop example.
+    document["experiments"][0]["length"] = "200 h"
     document["objectives"] = [{"id": "wait", "metric": "till.wait.mean", "sense": "minimize"}]
     document["constraints"] = [
         {"id": "busy", "metric": "till.utilization", "op": ">=", "value": 0.35}
@@ -754,6 +756,7 @@ def enumerated(tmp_path: Path, first_replication: int) -> dict[int, dict[str, An
     experiment's 30 replications and seed, numbered from ``first_replication`` as a
     confirmation's are (#79): the metrics of each."""
     document = coffee_shop()
+    document["experiments"][0]["length"] = "200 h"  # the benchmark's, as machine_count sets
     document["experiments"][0]["scenarios"] = [
         {"id": f"tills_{tills}", "set": {"tills": tills}} for tills in range(1, 6)
     ]

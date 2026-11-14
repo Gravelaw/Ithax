@@ -161,7 +161,7 @@ def test_coffee_shop_experiment_in_si_with_defaults_filled() -> None:
     (experiment,) = model_of(coffee()).experiments
     assert experiment == Experiment(
         id="base",
-        length=hours(200),
+        length=hours(210),  # 200 h measured after a 10 h warm-up (#86, D9)
         warmup=hours(10),
         replications=30,
         seed=12345,
@@ -169,7 +169,7 @@ def test_coffee_shop_experiment_in_si_with_defaults_filled() -> None:
         scenarios=(Scenario(id="default", set={}),),
         default_scenario_added=True,
         confidence=0.95,
-        record_interval=hours(1),  # length / 200
+        record_interval=Quantity(3780.0, TIME),  # length / 200: 756,000 s / 200
         search=None,
     )
 

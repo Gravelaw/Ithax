@@ -49,7 +49,7 @@ A minimal example:
     {"from": "till.out", "to": "exit.in"}
   ],
   "experiments": [
-    {"id": "base", "length": "200 h", "warmup": "10 h",
+    {"id": "base", "length": "210 h", "warmup": "10 h",
      "replications": 30, "seed": 12345}
   ],
   "run": {"target": "local", "fidelity": "standard"}
@@ -404,7 +404,7 @@ Results are stored in SI units with the unit named. The interface chooses displa
 
 ```json
 {"model": "Coffee shop", "experiment": "base", "fidelity": "standard",
- "fidelity_label": "Standard: 30 replications of 200 h, 95% confidence",
+ "fidelity_label": "Standard: 30 replications of 210 h, 95% confidence",
  "replications": 30, "confidence": 0.95,
  "scenarios": {
    "default": {
@@ -592,3 +592,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-14, nothing to decide (#80; owner decision 2026-11-07, item 14; D2): "Validation issues" adds E179, an `optimization` model with no variables or a constraint with an empty `linear` and no `terms`; such a model was answered `optimal` at 0. A new optimization project still starts empty and shows E179.
 - 2026-11-14, rate units (#77; M1-7): format 0.3. "Quantities" adds the rate units `1/s`, `1/min`, `1/h` and `1/d` for a constraint on a rate, and a rate unit where a time is expected is E140; "Metric names" lets a rate constraint take `"30 1/h"` as well as a plain number of items per second; "Versioning" makes this reader 0.3, a minor and additive change with no migration, a rate unit in an older file E100, and a new project 0.3; the E100 row follows.
 - 2026-11-14, review of PR #165 (#77): "Quantities" says the SI value is the exact product of the written number and the unit's size, so `"1e309 1/h"` is read as about 2.8e305 per second, not E141.
+- 2026-11-14, the coffee shop measures 200 h (#86, D9): the minimal example's `base` experiment has `length` 210 h, since `length` includes the 10 h warm-up, and the `summary.json` example's fidelity label reads 210 h.

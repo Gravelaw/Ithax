@@ -191,18 +191,18 @@ def without_description(document: Mapping[str, Any]) -> dict[str, Any]:
 
 def test_the_coffee_shop_template_is_the_example_with_a_description() -> None:
     """The template's model is spec 1's example, so its length reading is the example's:
-    200 h including 10 h of warm-up (M7 item 25)."""
+    210 h, 200 hours measured after a 10-hour warm-up (D9, #86; M7 item 25)."""
     package = load("coffee_shop")
     example = json.loads((EXAMPLES / "coffee_shop.json").read_text(encoding="utf-8"))
     assert without_description(package.model) == example
-    assert package.model["experiments"][0]["length"] == "200 h"
+    assert package.model["experiments"][0]["length"] == "210 h"
     assert package.model["experiments"][0]["warmup"] == "10 h"
 
 
 @pytest.mark.parametrize(
     ("tid", "measured", "said"),
     [
-        ("coffee_shop", "190 h", "remaining 190 hours"),
+        ("coffee_shop", "200 h", "remaining 200 hours"),
         ("three_machine_line", "80 h", "remaining 80 hours"),
         ("machine_breakdowns", "190 h", "remaining 190 hours"),
         ("clinic_patient_flow", "190 h", "remaining 190 hours"),

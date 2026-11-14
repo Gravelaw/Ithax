@@ -946,16 +946,16 @@ def experiment(**fields: Any) -> dict[str, Any]:
     ("fields", "key", "message"),
     [
         (
-            {"warmup": "200 h"},
+            {"warmup": "210 h"},
             "warmup",
-            "The 'warmup' of experiment 'base' is 200 h, which is not less than its 'length', "
-            "200 h; no time would be observed after the warm-up.",
+            "The 'warmup' of experiment 'base' is 210 h, which is not less than its 'length', "
+            "210 h; no time would be observed after the warm-up.",
         ),
         (
             {"warmup": "9 d"},
             "warmup",
             "The 'warmup' of experiment 'base' is 9 d, which is not less than its 'length', "
-            "200 h; no time would be observed after the warm-up.",
+            "210 h; no time would be observed after the warm-up.",
         ),
         (
             {"warmup": "-1 h"},

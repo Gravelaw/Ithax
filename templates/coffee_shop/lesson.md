@@ -4,7 +4,7 @@
 
 Component: `arrivals`
 
-Customers arrive at random, on average one every 2 minutes, or 30 an hour. "At random" means the gaps follow an exponential distribution: most are short and a few are long, so customers sometimes come in bunches. The run is 200 hours long, and the first 10 hours are warm-up, so the results cover the remaining 190 hours: about 5,700 customers.
+Customers arrive at random, on average one every 2 minutes, or 30 an hour. "At random" means the gaps follow an exponential distribution: most are short and a few are long, so customers sometimes come in bunches. The run is 210 hours long: 200 hours measured after a 10-hour warm-up, so the results cover the remaining 200 hours: about 6,000 customers.
 
 ## One till serves them
 

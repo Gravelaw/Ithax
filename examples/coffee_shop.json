@@ -18,7 +18,7 @@
     {"from": "till.out", "to": "exit.in"}
   ],
   "experiments": [
-    {"id": "base", "length": "200 h", "warmup": "10 h",
+    {"id": "base", "length": "210 h", "warmup": "10 h",
      "replications": 30, "seed": 12345}
   ],
   "run": {"target": "local", "fidelity": "standard"}
