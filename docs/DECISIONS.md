@@ -3070,3 +3070,18 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** keeping 200 h and relabelling it "190 h measured". D9 chose both.
 - **Spec sections updated:** spec 1 example and `summary.json` example; spec 3 pointer-only and package rows; spec 4 template table, finding checks and M10 table; dated lines in each.
 - **Dependencies added:** none.
+
+## 2026-11-14 · M13 · Two hints that pointed the wrong way (#83; Reviewer A, findings 7 and 8)
+
+- **Decision:**
+  - **E123 where a plain number is expected** (`units.read_number`): the hint now follows what was written.
+    - "Remove the unit and write the number alone, as in 3." only for a number with a unit, such as `"2 min"`.
+    - "Write the number without quotes, as in 2." for a number written as text.
+    - "Write a plain number, as in 3." for anything else: an object, an array, true, false, null or other text.
+    - A variable's `lower` or `upper` written as a table, such as `{"$table": "available"}`, gets "Bounds are plain numbers; for a bound per member, add a constraint with 'for'." (`loading` `bound`).
+  - **E178 in the objective:** the hint no longer offers "the 'for' of the objective", which the objective does not have. It reads "Use a table over sets that the 'over' of '<variable>' names." A constraint's hint still offers its `for`.
+  - **Checks.** New tests in `tests/model/test_units.py` (the hint by value) and `tests/model/test_indexed.py` (the bound as a table, at `lower` and `upper`; the objective's E178 and a constraint's). Each fails before the change.
+- **Reason:** issue #83, Reviewer A's optimization walkthrough, findings 7 and 8 (severity C), as the orchestrating session relayed them: "Remove the unit" was given for an object, which has no unit, and the E178 hint named a 'for' the objective cannot have.
+- **Readings (reversible):** the hint for a bound is Reviewer A's suggested wording. Messages and codes are unchanged; only hints changed. The stale `service.json` part of #83 stays in M14 with #158.
+- **Spec sections updated:** none; spec 1 gives no hint text for E123 or E178.
+- **Dependencies added:** none.

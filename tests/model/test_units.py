@@ -292,6 +292,28 @@ def test_integers_up_to_64_bits_are_quoted_in_the_e123_message() -> None:
     assert caught.value.message.startswith("a very large integer is a plain number")
 
 
+@pytest.mark.parametrize(
+    ("value", "hint"),
+    [
+        ("2 min", "Remove the unit and write the number alone, as in 3."),
+        ("5 m", "Remove the unit and write the number alone, as in 3."),
+        ("2", "Write the number without quotes, as in 2."),
+        ("1.5e3", "Write the number without quotes, as in 1.5e3."),
+        ("abc", "Write a plain number, as in 3."),
+        ({"$table": "need"}, "Write a plain number, as in 3."),
+        ([3], "Write a plain number, as in 3."),
+        (None, "Write a plain number, as in 3."),
+        (True, "Write a plain number, as in 3."),
+        (float("nan"), "Write a plain number, as in 3."),
+    ],
+)
+def test_read_number_hints_follow_what_was_written(value: object, hint: str) -> None:
+    """Reviewer A (#83): "Remove the unit" only where a unit was written."""
+    with pytest.raises(QuantityKindError) as caught:
+        read_number(value)
+    assert caught.value.hint == hint
+
+
 def test_read_number_message_for_a_quantity_names_the_quantity() -> None:
     with pytest.raises(QuantityKindError) as caught:
         read_number("2 min")
