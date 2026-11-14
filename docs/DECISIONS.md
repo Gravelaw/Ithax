@@ -2926,6 +2926,26 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - Snapping only when the snapped point stays feasible. That keeps the bounds but can still change the objective.
   - Rounding to a number of significant figures. That would change answers like 98/45.
 - **Spec sections updated:** spec 2 "Values" of the optimization `summary.json` (a dated line).
+## 2026-11-14 · M13 · Fresh random numbers for search confirmation (#79; AKS-133)
+
+- **Decision:** the owner's decision of 2026-11-07 (item 6), built (`docs/research/m13-confirmation-streams.md`).
+  - **Numbering.** A confirmation runs the experiment's `replications` numbered from `search.replications`, and the search stage runs 0 to `search.replications` − 1, both with the experiment seed.
+    - `Experiment.first_replication` carries the offset. It is internal, never in the file, and the loader sets 0.
+    - The process engine input has it (input version 2), and the runner numbers pairs and table rows by it.
+    - Progress messages count the run's own replications from 1.
+  - **Audit trail.** Each candidate in `summary.json` `search.candidates` gains `evaluations`: `[{stage, folder, seed, first_replication, replications}]`, the search stage first. Each folder's `engine/input.json` holds the same seed and first replication.
+  - **Checks.**
+    - `test_confirmation_draws_replications_the_search_stage_never_used` replaces the test of the old overlap. A confirmation's replications 3 to 7 equal a plain run's replications 3 to 7.
+    - `test_each_evaluation_records_its_stage_folder_seed_and_replications`.
+    - `test_replications_are_numbered_from_the_first_replication` checks the runner with 1 and 2 workers.
+    - The machine-count test enumerates replications 10 to 39, as the confirmation runs them.
+    - The test adapter `SearchAdapter` honours the offset, and the "late" recipe's confirmed means are now 1 and 0 (were 2/3 and 1/3), with the same outcomes.
+- **Reason:** issue #79 (AKS-133); owner decision 2026-11-07, item 6: "confirmation runs use fresh random numbers - If we implement an audit module or logs, we need to trace it back."
+- **Reading (reversible):** the `replication` column of a confirmation's tables gives the stream number (10 to 39), not 0 to 29, so a row can be traced to its stream key.
+- **Alternatives considered:**
+  - A second seed for confirmation, drawn from `<seed>:0:optimizer`. That needs no engine change, but the owner chose renumbering.
+  - Numbering the table rows from 0 while drawing offset streams. A row would then not name its stream.
+- **Spec sections updated:** spec 1 "Random streams", the `replications` table, the adapter contract; spec 2 "Simulation-based optimization" ("Overlap of the two stages" becomes "Fresh random numbers for confirmation"; "Result", "Result layout"); dated lines in both.
 - **Dependencies added:** none.
 
 ## 2026-11-14 · M13 · A plan with nothing to decide: E179 (#80; item 14, D2)

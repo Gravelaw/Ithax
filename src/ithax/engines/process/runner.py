@@ -2,8 +2,10 @@
 ``replications`` and ``timeseries`` tables they make (spec 1 "Division of labour" and
 "Tables for the ``process`` domain").
 
-``run_all`` runs each (scenario, replication) pair once. With ``workers`` 1 it runs them
-one after another in this process; otherwise in up to ``workers`` separately started
+``run_all`` runs each (scenario, replication) pair once, the replications numbered by
+their streams from the experiment's ``first_replication`` (0, or ``search.replications``
+for a search's confirmation; #79), and the tables carry those numbers. With ``workers``
+1 it runs them one after another in this process; otherwise in up to ``workers`` separately started
 (``spawn``) processes, through ``concurrent.futures.ProcessPoolExecutor``. Each pair
 depends only on the engine input and its own streams, and the rows are put in scenario
 and replication order, so the table does not depend on ``workers``.
@@ -94,10 +96,12 @@ def run_task(scenario: int, replication: int) -> Outcome | None:
     return run_replication(_worker_input, scenario, replication, _worker_stop[0].is_set)
 
 
-def _message(task: Task, scenarios: int, replications: int) -> str:
+def _message(task: Task, scenarios: int, replications: int, first: int) -> str:
+    """Progress counts the run's own replications from 1, whatever their stream numbers."""
     scenario, replication = task
     return (
-        f"Scenario {scenario + 1} of {scenarios}, replication {replication + 1} of {replications}"
+        f"Scenario {scenario + 1} of {scenarios}, "
+        f"replication {replication - first + 1} of {replications}"
     )
 
 
@@ -113,13 +117,16 @@ def run_all(
         raise ValueError(f"workers {workers!r} is below 1")
     scenarios = len(engine_input["scenarios"])
     replications = int(engine_input["experiment"]["replications"])
-    tasks = [(scenario, rep) for scenario in range(scenarios) for rep in range(replications)]
+    # Replications are numbered by their streams, from first_replication (#79).
+    first = int(engine_input["experiment"]["first_replication"])
+    numbers = range(first, first + replications)
+    tasks = [(scenario, rep) for scenario in range(scenarios) for rep in numbers]
     done: dict[Task, Outcome] = {}
 
     def record(task: Task, outcome: Outcome) -> None:
         done[task] = outcome
         fraction = len(done) / len(tasks)
-        on_progress(Progress(fraction, _message(task, scenarios, replications)))
+        on_progress(Progress(fraction, _message(task, scenarios, replications, first)))
 
     if workers == 1:
         for task in tasks:
@@ -131,6 +138,19 @@ def run_all(
 
     if cancel.is_set():  # no worker is started for a run cancelled already
         return None
+    return _run_in_workers(workdir, tasks, record, cancel, workers, done)
+
+
+def _run_in_workers(
+    workdir: Path,
+    tasks: list[Task],
+    record: Callable[[Task, Outcome], None],
+    cancel: CancelToken,
+    workers: int,
+    done: dict[Task, Outcome],
+) -> dict[Task, Outcome] | None:
+    """Every pair in up to ``workers`` spawned processes, each recorded as it finishes;
+    ``done``, or ``None`` when ``cancel`` was set."""
     context = multiprocessing.get_context("spawn")
     stop = context.Event()
     with ProcessPoolExecutor(
