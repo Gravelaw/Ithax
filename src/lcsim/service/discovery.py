@@ -20,7 +20,7 @@ import urllib.request
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from lcsim.strict_json import json_text, read_json_file
+from lcsim.strict_json import is_whole, json_text, read_json_file
 
 __all__ = [
     "PROBE_TIMEOUT_S",
@@ -78,7 +78,7 @@ def read_service_file(config_dir: Path) -> ServiceInfo | None:
     if not isinstance(loaded, dict) or set(loaded) != {"port", "token", "pid", "started"}:
         return None
     port, token, pid, started = (loaded[key] for key in ("port", "token", "pid", "started"))
-    whole = all(isinstance(value, int) and not isinstance(value, bool) for value in (port, pid))
+    whole = all(is_whole(value) for value in (port, pid))
     if not (whole and isinstance(token, str) and isinstance(started, str)):
         return None
     return ServiceInfo(port=port, token=token, pid=pid, started=started)

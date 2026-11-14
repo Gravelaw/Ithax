@@ -36,7 +36,7 @@ from mcp.types import CallToolResult, TextContent, Tool
 from lcsim.mcp.client import Answer, ServiceClient, ServiceUnavailable
 from lcsim.mcp.limits import RunLimitReached, segment
 from lcsim.model.issues import Issue, pointer
-from lcsim.strict_json import json_text
+from lcsim.strict_json import is_whole, json_text
 
 __all__ = [
     "KINDS",
@@ -77,11 +77,6 @@ def _is_text(value: object) -> bool:
     return isinstance(value, str) and _valid_unicode(value)
 
 
-def _is_whole_number(value: object) -> bool:
-    """A JSON integer: an ``int`` that is not a ``bool`` (``True`` is an ``int``)."""
-    return isinstance(value, int) and not isinstance(value, bool)
-
-
 def _is_texts(value: object) -> bool:
     return isinstance(value, list) and all(_is_text(item) for item in value)
 
@@ -108,7 +103,7 @@ def _sendable(value: object) -> bool:
 #: an issue uses, and the check (spec 4 "How the server runs and answers").
 KINDS: Mapping[str, tuple[Mapping[str, Any], str, Callable[[object], bool]]] = {
     "text": ({"type": "string"}, "text", _is_text),
-    "whole number": ({"type": "integer"}, "a whole number", _is_whole_number),
+    "whole number": ({"type": "integer"}, "a whole number", is_whole),
     "texts": (
         {"type": "array", "items": {"type": "string"}},
         "an array of text",

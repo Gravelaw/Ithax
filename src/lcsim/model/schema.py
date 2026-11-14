@@ -37,7 +37,7 @@ from jsonschema import Draft202012Validator, ValidationError
 
 from lcsim.model.issues import Issue, pointer
 from lcsim.model.migration import FORMAT_VERSION, parse_version, version_issue
-from lcsim.strict_json import read_json
+from lcsim.strict_json import is_whole, read_json
 
 __all__ = ["FORMAT_VERSION", "model_schema", "schema_pass"]
 
@@ -209,11 +209,7 @@ _HUGE_INTEGER_BITS = 14_000
 
 
 def _is_huge_integer(value: object) -> bool:
-    return (
-        isinstance(value, int)
-        and not isinstance(value, bool)
-        and value.bit_length() > _HUGE_INTEGER_BITS
-    )
+    return is_whole(value) and value.bit_length() > _HUGE_INTEGER_BITS
 
 
 def _without_huge_integers(document: object) -> object:
