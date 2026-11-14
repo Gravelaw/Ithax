@@ -2477,4 +2477,19 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Reason:** a test that fails at random blocks every merge once `all-green` is required (#136), and #135 asked for the cause to be fixed rather than the wait lengthened.
 - **Alternatives considered:** a longer wait (an orphaned shell never ends, so it could not help); killing any leftover shell in teardown (hides the race instead of removing it).
 - **Spec sections updated:** build guide "Milestones" (M12), and `CLAUDE.md`.
+
+## 2026-11-14 · M12 · Retrospective PR 3: agent hooks and the fast gate (#99; P2)
+
+- **Decision:**
+  - `.claude/settings.json`, as proposed: after each Edit or Write, `scripts/hooks/format_edited.py` runs `ruff check --fix` and then `ruff format` on the edited Python file. The proposal formatted first, which left a blank line where a removed import had been. When a turn ends with tracked Python changes, `scripts/fast.sh --lint` (ruff and mypy) must pass, or the Stop hook exits 2.
+  - `scripts/fast.sh` is the proposal's tier-2 gate with two corrections:
+    - Its `-m` expression replaces the one in `addopts`, and the proposal's omitted `not desktop and not package`, so it would have started the shell and package tests. Both exclusions are restored, and `tests/test_hooks.py` checks that `fast.sh` repeats every exclusion of `addopts`.
+    - Both `fast.sh` and the hook use the repository's `.venv` Python when one exists. In the agent container the tools are installed there, and the hooks start with a plain `python3`, which would have made the format hook a silent no-op.
+  - Measured on 4 cores: `fast.sh` 1 min 44 s (3,963 tests). The Stop hook's command exits 0 with no Python changes and with clean ones, and 2 on a lint error. As the proposal notes, an untracked new file is seen only once it is staged, and `check.sh` still covers it.
+  - This PR is stacked on #137 (row 2), because `fast.sh` runs `-n auto` and needs the route check that works under xdist.
+  - mypy now checks `scripts/hooks`.
+  - The proposal's four skills (P2 "Skills") are in no row of its order of adoption. They read `AGENTS.md` (row 4) and `docs/STATUS.md` (row 6), so they follow row 6 as a PR of their own; `owner-question` will open a GitHub issue, not a Linear one (Linear retired, #100).
+- **Reason:** owner decision F2; the proposal's evidence W8 and W3 (lint findings left to CI; slow local feedback).
+- **Alternatives considered:** the proposal's text verbatim (would run the desktop and package tests, and do nothing where the tools live in `.venv`).
+- **Spec sections updated:** none.
 - **Dependencies added:** none.
