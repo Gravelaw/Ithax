@@ -3,10 +3,11 @@
 HiGHS reports an integer or binary variable to within its integrality tolerance, as -0.0
 for a variable at zero, and its floating-point arithmetic leaves continuous answers a few
 units in the last place off: 24.000000000000004 chairs, a slack of 5.7e-14, a dual of
-0.9999999999999996. ``solve`` reports an integer or binary variable rounded to its whole
-number, and any other value within ``NOISE`` (scaled by the value's size, at least 1) of
-a whole number as that number, never -0.0; the slacks and objective are read at the
-values reported.
+0.9999999999999996: one or two units in the last place (ulps) of the numbers they come
+from. ``solve`` reports an integer or binary variable rounded to its whole number, and any
+other value within ``NOISE_ULPS`` ulps of a whole number, measured at the size of the
+numbers it is computed from (a slack's ``rhs`` and terms), as that number; never -0.0. A
+fraction above that noise is kept, however large the value (review of PR #164).
 """
 
 import json
@@ -16,8 +17,9 @@ from typing import Literal
 
 import pytest
 
-from ithax.engines.optimize.solver import NOISE, Outcome, clean, solve
+from ithax.engines.optimize.solver import NOISE_ULPS, Outcome, clean, solve
 from ithax.model.loading import load_document
+from ithax.model.model import LinearObjective, LinearProgram, Variable
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -44,28 +46,59 @@ def plain(value: float) -> bool:
         (24.000000000000004, 24.0),
         (13.999999999999998, 14.0),
         (0.9999999999999996, 1.0),
-        (5.684341886080802e-14, 0.0),
         (-0.0, 0.0),
         (2200.0000000000005, 2200.0),
-        (1e12 + 0.0001, 1e12),  # within 1e-9 of its size
     ],
 )
 def test_noise_is_cleaned(raw: float, expected: float) -> None:
     assert clean(raw) == expected and plain(clean(raw))
 
 
+def test_a_slack_is_cleaned_at_the_size_of_its_constraint() -> None:
+    """The product mix's wood slack, 400 - 400.00000000000006: one ulp of 400, though 256
+    ulps of 1."""
+    assert clean(5.684341886080802e-14, 400.0) == 0.0
+    assert clean(5.684341886080802e-14) == 5.684341886080802e-14
+
+
 @pytest.mark.parametrize(
     "value",
-    [98 / 45, 16 / 9, 0.5, 1e-7, -1e-7, 1 + 1e-8, 1e6 + 1e-2, 3.0, -2.5],
+    [
+        98 / 45,
+        16 / 9,
+        0.5,
+        1e-7,
+        -1e-7,
+        1 + 1e-12,
+        1e6 + 1e-2,
+        3.0,
+        -2.5,
+        1e9 + 0.25,  # review of PR #164: a meant fraction of a large value
+        1e12 + 0.25,
+    ],
 )
 def test_a_value_that_is_not_noise_is_kept(value: float) -> None:
     assert clean(value) == value
 
 
-def test_noise_is_far_below_the_solver_s_feasibility_tolerance() -> None:
-    """1e-9: well above floating-point noise (about 1e-16 of the value per operation),
-    well below HiGHS 1.15.1's primal feasibility tolerance of 1e-7."""
-    assert NOISE == 1e-9
+def test_noise_is_a_few_units_in_the_last_place() -> None:
+    """64 ulps: the product mix's noise is 1 or 2, and 64 ulps of a value is about 1.4e-14
+    of it, far below any fraction a model means."""
+    assert NOISE_ULPS == 64
+
+
+def test_a_large_fractional_optimum_is_kept() -> None:
+    """Review of PR #164: x fixed at 1,000,000,000.25 is reported so, and so is the
+    objective, not snapped to 1,000,000,000 against its bounds."""
+    value = 1e9 + 0.25
+    program = LinearProgram(
+        variables=(Variable("x", "continuous", value, value),),
+        objective=LinearObjective("minimize", {"x": 1}),
+        constraints=(),
+    )
+    outcome = solve(program)
+    assert outcome.values == {"x": value}
+    assert outcome.objective == value
 
 
 def test_the_product_mix_reports_24_14_and_2200_exactly() -> None:

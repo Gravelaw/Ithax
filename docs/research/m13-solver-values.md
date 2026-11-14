@@ -39,10 +39,18 @@ wood slack. A variable at that size would be counted as not 0 and listed in "Bes
 - **Integer and binary variables** are reported rounded to the nearest whole number.
   HiGHS's integrality tolerance makes that the value it means.
 - **Every other number** is reported as the nearest whole number when it lies within
-  `NOISE` × max(1, |value|) of it, with `NOISE` = 1e-9. This covers a continuous value, the
-  objective, a slack and a dual. 1e-9 is about 10⁷ times the floating-point noise and 100
-  times below the feasibility tolerance. So noise is removed, and a value the solver means,
-  such as 16/9 or 1e-7, is kept.
+  `NOISE_ULPS` = 64 units in the last place (ulps) of it. This covers a continuous value,
+  the objective, a slack and a dual. The ulp is taken at the size of the numbers the value
+  was computed from: max(1, |value|, scale), where a slack's scale is its `rhs` and its
+  largest term (coefficient × value), and the objective's scale is its largest term.
+  - Measured: chairs, tables and the wood dual are 1 or 2 ulps off. The wood slack is 1 ulp
+    of 400, its constraint's size, though 256 ulps of 1.
+  - 64 ulps is about 1.4e-14 of a value, so a fraction the model means is kept however
+  large the value: 16/9, 1e-7, 1 + 1e-12, and 1,000,000,000.25.
+  - A first version used a relative tolerance of 1e-9. Review of PR #164 showed that this
+    snaps 1,000,000,000.25 to 1,000,000,000 (its tolerance there is 1), breaking a bound
+    fixed at that value. Only a rule counted in ulps keeps every value that a float can
+    tell apart from its whole number by more than rounding.
 - **No number is −0.0.** Python's `float(round(-0.0))` is 0.0.
 - **Consistency.** The rounded values are set back into the Pyomo model before the slacks
   and the objective are read. Each slack and the objective therefore agree with the values

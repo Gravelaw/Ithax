@@ -27,9 +27,10 @@ slack is within ``TIGHT_TOLERANCE`` of zero.
 Values are cleaned of solver noise (#76; ``docs/research/m13-solver-values.md``): an
 ``integer`` or ``binary`` variable is reported rounded to its whole number (HiGHS keeps it
 within its integrality tolerance of one), and every other number, a continuous value, the
-objective, a slack or a dual, within ``NOISE`` of a whole number (scaled by its size, at
-least 1) is reported as that number; no number is -0.0. The slacks and the objective are
-read at the values reported, so they agree with them.
+objective, a slack or a dual, within ``NOISE_ULPS`` units in the last place of a whole
+number is reported as that number, the units measured at the size of the numbers it is
+computed from (a slack's ``rhs`` and terms, the objective's terms); no number is -0.0. The
+slacks and the objective are read at the values reported, so they agree with them.
 
 Two cases never reach HiGHS, because Pyomo cannot express them: a constraint with no
 terms, whose left-hand side is the constant 0, is judged here (a violated one makes the
@@ -41,6 +42,7 @@ else uses (Pyomo would leave it unset).
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal, TypeAlias
@@ -52,7 +54,7 @@ from pyomo.contrib.solver.common.results import Results, TerminationCondition
 from ithax.model.model import LinearConstraint, LinearProgram
 
 __all__ = [
-    "NOISE",
+    "NOISE_ULPS",
     "TIGHT_TOLERANCE",
     "Outcome",
     "SolverStopped",
@@ -68,10 +70,11 @@ __all__ = [
 #: (1e-7) and MIP (1e-6) feasibility tolerances (rule-5 reading, owner to confirm).
 TIGHT_TOLERANCE = 1e-6
 
-#: How far from a whole number, relative to the value's size (at least 1), a number is
-#: taken as solver noise (#76): far above floating-point rounding (about 1e-16 of the
-#: value per operation), far below HiGHS 1.15.1's primal feasibility tolerance (1e-7).
-NOISE = 1e-9
+#: How many units in the last place (ulps) from a whole number a number is taken as
+#: floating-point noise (#76): HiGHS's arithmetic leaves the product mix 1 or 2 ulps off.
+#: 64 ulps is about 1.4e-14 of a value, so a fraction a model means is kept, however large
+#: the value (review of PR #164: 1,000,000,000.25 is not 1,000,000,000).
+NOISE_ULPS = 64
 
 #: The ``summary.json`` statuses of spec 2.
 Status = Literal["optimal", "infeasible", "unbounded"]
@@ -116,13 +119,21 @@ class Outcome:
     duals: dict[str, float] | None
 
 
-def clean(value: float) -> float:
-    """``value`` without solver noise: the nearest whole number when within ``NOISE``
-    times ``max(1, |value|)`` of it, otherwise ``value``; never -0.0."""
+def clean(value: float, scale: float = 0.0) -> float:
+    """``value`` without floating-point noise: the nearest whole number when within
+    ``NOISE_ULPS`` ulps of it, an ulp taken at ``max(1, |value|, |scale|)``, where
+    ``scale`` is the size of the numbers ``value`` was computed from (a slack of 5.7e-14
+    is 1 ulp of its constraint's 400); otherwise ``value``. Never -0.0."""
     whole = round(value)
-    if abs(value - whole) <= NOISE * max(1.0, abs(value)):
+    if abs(value - whole) <= NOISE_ULPS * math.ulp(max(1.0, abs(value), abs(scale))):
         return float(whole)  # float(0) is 0.0, so a -0.0 becomes 0.0
     return value
+
+
+def _size(coefficients: Mapping[str, Any], values: Mapping[str, float], *more: float) -> float:
+    """The largest magnitude among ``more`` and the terms coefficient x value."""
+    terms = [abs(float(c) * values[name]) for name, c in coefficients.items()]
+    return max([0.0, *(abs(x) for x in more), *terms])
 
 
 def is_tight(slack: float) -> bool:
@@ -234,7 +245,9 @@ def solve(program: LinearProgram, *, options: Mapping[str, object] | None = None
     continuous = all(variable.type == "continuous" for variable in program.variables)
     constant = {item.id: _constant_slack(item) for item in program.constraints if not item.linear}
     if not program.variables:
-        cleaned = {name: clean(slack) for name, slack in constant.items()}
+        cleaned = {
+            item.id: clean(constant[item.id], float(item.rhs)) for item in program.constraints
+        }
         return Outcome("optimal", 0.0, {}, cleaned, dict.fromkeys(constant, 0.0))
     built = _pyomo_model(program)
     given = dict(options or {})
@@ -249,7 +262,10 @@ def solve(program: LinearProgram, *, options: Mapping[str, object] | None = None
     loader = results.solution_loader
     loader.load_vars()
     values = _reported_values(program, built)
-    slacks = {item.id: clean(_slack(item, built, constant)) for item in program.constraints}
+    slacks = {
+        item.id: clean(_slack(item, built, constant), _size(item.linear, values, float(item.rhs)))
+        for item in program.constraints
+    }
     duals: dict[str, float] | None = None
     if continuous:
         # An integer program has none: get_duals() raises NoDualsError for it.
@@ -258,7 +274,9 @@ def solve(program: LinearProgram, *, options: Mapping[str, object] | None = None
             item.id: clean(float(found[built.constraints[item.id]])) if item.linear else 0.0
             for item in program.constraints
         }
-    objective = clean(float(pyo.value(built.model.objective)))
+    objective = clean(
+        float(pyo.value(built.model.objective)), _size(program.objective.linear, values)
+    )
     return Outcome("optimal", objective, values, slacks, duals)
 
 
