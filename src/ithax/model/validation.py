@@ -1735,9 +1735,9 @@ class _Graph:
     # first connection from a port counts (a second is E132), and only one whose two ends
     # are valid (E130, E161 otherwise).
     feeds: Mapping[tuple[str, str], str]
-    # Servers whose capacity a schedule or failure changes: the target of one, or a
-    # server whose pool is the target of a schedule.
-    stopped: frozenset[str]
+    # The ``schedule`` and the ``failure`` blocks of each target id, in file order (#73).
+    schedules: Mapping[str, tuple[Component, ...]]
+    failures: Mapping[str, tuple[Component, ...]]
 
 
 def _graph(model: Model) -> _Graph:
@@ -1761,21 +1761,18 @@ def _graph(model: Model) -> _Graph:
         end = by_id.get(destination.component)
         if end is not None and destination.port in end.input_ports:
             feeds[key] = destination.component
-    targets = {
-        name
-        for _, component in nodes
-        if component.type in ("schedule", "failure")
-        and isinstance(name := component.settings.get("target"), str)
-        and name in by_id
-    }
-    pools = {name for name in targets if by_id[name].type == "resource_pool"}
-    stopped = frozenset(
-        component.id
-        for _, component in nodes
-        if component.type == "server"
-        and (component.id in targets or component.settings.get("pool") in pools)
+    changers: dict[str, dict[str, list[Component]]] = {"schedule": {}, "failure": {}}
+    for _, component in nodes:
+        target = component.settings.get("target")
+        if component.type in changers and isinstance(target, str) and target in by_id:
+            changers[component.type].setdefault(target, []).append(component)
+    return _Graph(
+        nodes,
+        by_id,
+        feeds,
+        {name: tuple(found) for name, found in changers["schedule"].items()},
+        {name: tuple(found) for name, found in changers["failure"].items()},
     )
-    return _Graph(nodes, by_id, feeds, stopped)
 
 
 def _successors(graph: _Graph) -> dict[str, list[tuple[str, str]]]:
@@ -1970,9 +1967,9 @@ def _outputs(
 
     Spec 1 "Validation": a probability branch multiplies by weight/total, a batch divides
     by ``size``, an unbatch multiplies by it; a shortest-queue branch, a store, a batch
-    with a ``timeout``, a server with a schedule or failure, and a loss point (a
-    discarding ``queue``, a source feeding a block that can refuse an item) give a flow
-    that cannot be propagated (``None``).
+    with a ``timeout``, and a loss point (a discarding ``queue``, a source feeding a block
+    that can refuse an item) give a flow that cannot be propagated (``None``). A server
+    passes its flow on, with a schedule or failure too (#73), as it does when overloaded.
     """
     ports = component.output_ports
     settings = component.settings
@@ -1988,7 +1985,6 @@ def _outputs(
         return {port: inflow for port in ports}  # nothing known, or nothing arrives
     stops = (
         component.type == "store"
-        or (component.type == "server" and component.id in graph.stopped)
         or (component.type == "queue" and settings.get("on_full") == "discard")
         or (component.type == "batch" and "timeout" in settings)
         or (component.type == "branch" and settings.get("rule") != "probability")
@@ -2078,9 +2074,9 @@ def flow_rates(
     """The mean arrival rate, in units per second, at each component with an input port,
     with ``values`` replacing the ``value`` of the parameters they name (spec 1
     "Validation", W201). A batch counts as one unit. ``None`` where the rate cannot be
-    propagated: after a shortest-queue branch, a store, a batch with a ``timeout``, a
-    server with a schedule or failure, a loss point, on or after a loop, or after a
-    value that cannot be read. A component no source reaches has rate 0."""
+    propagated: after a shortest-queue branch, a store, a batch with a ``timeout``, a loss
+    point, on or after a loop, or after a value that cannot be read. A component no source
+    reaches has rate 0."""
     graph = _graph(model)
     inflow = _inflows(model, graph, _Case(values or {}, ""))
     return {
@@ -2092,25 +2088,137 @@ def flow_rates(
 
 def load_issues(model: Model) -> list[Issue]:
     """W201 for a server whose mean arrival rate times its mean service time is at least
-    its ``capacity`` while its queue is unlimited (no ``queue_capacity``), so the queue
-    will grow without limit (spec 1 "Validation issues").
+    its mean available capacity while its queue is unlimited (no ``queue_capacity``), so
+    the queue will grow without limit (spec 1 "Validation issues"); and for a pool whose
+    servers together need at least its mean capacity while one of them has an unlimited
+    queue (#73).
 
-    The rate is propagated by ``flow_rates``; a server whose rate cannot be propagated, or
-    whose capacity a schedule or failure changes, is not checked. Each server is checked
-    with the parameters at their ``value`` and in each scenario; the first case that
-    fails is named.
+    The rate is propagated by ``flow_rates``. The mean available capacity is the
+    ``capacity``, or under a schedule and failures its time average (``_mean_capacity``);
+    a server or pool whose rate or capacity cannot be known is not checked. Each is
+    checked with the parameters at their ``value`` and in each scenario; the first case
+    that fails is named.
     """
     graph = _graph(model)
     found: dict[int, Issue] = {}
     for case in _run_cases(model):
         inflow = _inflows(model, graph, case)
         for index, component in graph.nodes:
-            if component.type != "server" or index in found:
+            if index in found:
                 continue
-            issue = _load_issue(model, graph, index, component, inflow[component.id], case)
+            issue = None
+            if component.type == "server":
+                issue = _load_issue(model, graph, index, component, inflow[component.id], case)
+            elif component.type == "resource_pool":
+                issue = _pool_load_issue(model, graph, index, component, inflow, case)
             if issue is not None:
                 found[index] = issue
     return [found[index] for index in sorted(found)]
+
+
+def _schedule_segments(
+    model: Model, schedule: Component, nominal: Fraction, case: _Case
+) -> list[tuple[Fraction, Fraction]] | None:
+    """The scheduled capacity as (share of the time, capacity) pieces over the first
+    ``period`` of the run, or over the longest experiment when that is shorter (a day
+    shift in a run of one shift is never off): the sum of the shifts covering each
+    instant, at most ``nominal`` (spec 2 "Schedule"). ``None`` when a value cannot be read
+    or the shifts do not lie within a period above 0 s (E123 then)."""
+    period_spec = PROCESS_TYPES["schedule"].setting("period")
+    assert period_spec is not None and isinstance(period_spec.default, Quantity)
+    period = _exact(
+        model, _scalar(schedule.settings.get("period", period_spec.default)), "quantity", case
+    )
+    shifts = schedule.settings["shifts"]
+    assert isinstance(shifts, tuple)
+    spans: list[tuple[Fraction, Fraction, Fraction]] = []
+    for shift in shifts:
+        assert isinstance(shift, Mapping)
+        start = _exact(model, _scalar(shift["start"]), "quantity", case)
+        end = _exact(model, _scalar(shift["end"]), "quantity", case)
+        units = _exact(model, _scalar(shift["capacity"]), "integer", case)
+        if period is None or start is None or end is None or units is None:
+            return None
+        if not 0 <= start < end <= period or units < 0:
+            return None
+        spans.append((start, end, units))
+    if period is None or period <= 0:
+        return None
+    lengths = [Fraction(experiment.length.magnitude) for experiment in model.experiments]
+    horizon = min(period, max(lengths)) if lengths else period
+    cuts = {e for s, f, _ in spans for e in (s, f) if e < horizon}
+    edges = sorted({Fraction(0), horizon, *cuts})
+    return [
+        (
+            (high - low) / horizon,
+            min(nominal, sum((u for s, f, u in spans if s <= low < f), Fraction(0))),
+        )
+        for low, high in itertools.pairwise(edges)
+    ]
+
+
+def _down_shares(model: Model, failures: Sequence[Component], case: _Case) -> list[Fraction]:
+    """For each failure block, the share of time its one unit is down: mean repair time
+    over mean time to failure plus mean repair time, an alternating renewal process on
+    calendar time (spec 2 "Failure"). Empty when a mean cannot be known."""
+    shares: list[Fraction] = []
+    for failure in failures:
+        up, down = (failure.settings[name] for name in ("time_to_failure", "time_to_repair"))
+        assert isinstance(up, Distribution) and isinstance(down, Distribution)
+        up_mean = _mean(model, up, Dimension.TIME, case)
+        down_mean = _mean(model, down, Dimension.TIME, case)
+        if up_mean is None or down_mean is None or up_mean + down_mean <= 0:
+            return []
+        shares.append(down_mean / (up_mean + down_mean))
+    return shares
+
+
+def _mean_capacity(
+    model: Model, graph: _Graph, component: Component, case: _Case
+) -> tuple[Fraction, bool] | None:
+    """The mean available capacity of a server or pool, and whether a schedule or failure
+    reduced it from ``capacity`` (#73): the time average over the schedule's period of
+    E[max(scheduled - failed units, 0)], the failures independent of the schedule and of
+    each other, each taking one unit at a time (spec 2 "Schedule", "Failure"). ``None``
+    when it cannot be known, or when two schedules target the same block."""
+    nominal = _exact(model, _scalar(component.settings["capacity"]), "integer", case)
+    schedules = graph.schedules.get(component.id, ())
+    failures = graph.failures.get(component.id, ())
+    if nominal is None or nominal < 1 or len(schedules) > 1:
+        return None
+    segments = [(Fraction(1), nominal)]
+    if schedules:
+        found = _schedule_segments(model, schedules[0], nominal, case)
+        if found is None:
+            return None
+        segments = found
+    shares = _down_shares(model, failures, case)
+    if len(shares) != len(failures):
+        return None
+    failed = {0: Fraction(1)}  # the distribution of the number of failed units
+    for share in shares:
+        step: dict[int, Fraction] = {}
+        for count, chance in failed.items():
+            step[count] = step.get(count, Fraction(0)) + chance * (1 - share)
+            step[count + 1] = step.get(count + 1, Fraction(0)) + chance * share
+        failed = step
+    mean = sum(
+        (
+            part * chance * max(units - count, Fraction(0))
+            for part, units in segments
+            for count, chance in failed.items()
+        ),
+        Fraction(0),
+    )
+    return mean, bool(schedules or failures)
+
+
+def _capacity_text(graph: _Graph, component: Component, mean: Fraction) -> str:
+    changers = [*graph.schedules.get(component.id, ()), *graph.failures.get(component.id, ())]
+    if not changers:
+        return f"its 'capacity' of {_figures(mean)}"
+    names = ", ".join(f"{changer.type} {_quote(changer.id)}" for changer in changers)
+    return f"its mean available capacity of {_figures(mean)} (under {names})"
 
 
 def _load_issue(
@@ -2123,24 +2231,70 @@ def _load_issue(
 ) -> Issue | None:
     settings = component.settings
     rate = _total(inflow)
-    if "queue_capacity" in settings or component.id in graph.stopped or rate is None:
+    if "queue_capacity" in settings or rate is None:
         return None
-    capacity = _exact(model, _scalar(settings["capacity"]), "integer", case)
+    capacity = _mean_capacity(model, graph, component, case)
     service = settings["service"]
     assert isinstance(service, Distribution)
     mean = _mean(model, service, Dimension.TIME, case)
-    if capacity is None or capacity < 1 or mean is None or rate * mean < capacity:
+    if capacity is None or mean is None or rate * mean < capacity[0]:
         return None
     name = _quote(component.id)
     return _issue(
         "W201",
         ("components", index),
         f"The mean arrival rate at {name} ({_figures(rate * 3600)} per hour) times its mean "
-        f"service time ({_duration(mean)}) is {_figures(rate * mean)}, which is at least its "
-        f"'capacity' of {_number_text(int(capacity))}, and its queue is unlimited, so the "
-        f"queue will grow without limit{case.text}.",
+        f"service time ({_duration(mean)}) is {_figures(rate * mean)}, which is at least "
+        f"{_capacity_text(graph, component, capacity[0])}, and its queue is "
+        f"unlimited, so the queue will grow without limit{case.text}.",
         f"Raise the 'capacity' of {name}, shorten its service time, or send less work to it.",
         component.id,
+    )
+
+
+def _pool_load_issue(
+    model: Model,
+    graph: _Graph,
+    index: int,
+    pool: Component,
+    inflow: Mapping[str, _Flow | None],
+    case: _Case,
+) -> Issue | None:
+    """W201 for a pool whose servers' loads (mean arrival rate times mean service time)
+    add up to at least its mean capacity while one of them has an unlimited queue: each
+    item holds a pool unit for its service (spec 2 "Pool"; #73)."""
+    servers = [
+        component
+        for _, component in graph.nodes
+        if component.type == "server" and component.settings.get("pool") == pool.id
+    ]
+    if not servers or all("queue_capacity" in server.settings for server in servers):
+        return None
+    load = Fraction(0)
+    for server in servers:
+        rate = _total(inflow[server.id])
+        service = server.settings["service"]
+        assert isinstance(service, Distribution)
+        mean = _mean(model, service, Dimension.TIME, case)
+        if rate is None or mean is None:
+            return None
+        load += rate * mean
+    capacity = _mean_capacity(model, graph, pool, case)
+    if capacity is None or load < capacity[0]:
+        return None
+    name = _quote(pool.id)
+    users = ", ".join(_quote(server.id) for server in servers)
+    return _issue(
+        "W201",
+        ("components", index),
+        f"The servers that use the pool {name} ({users}) together need {_figures(load)} of "
+        f"its units on average (each server's mean arrival rate times its mean service "
+        f"time, added up), which is at least "
+        f"{_capacity_text(graph, pool, capacity[0])}, so their queues will grow "
+        f"without limit{case.text}.",
+        f"Raise the 'capacity' of {name}, shorten the servers' service times, or send less "
+        "work to them.",
+        pool.id,
     )
 
 

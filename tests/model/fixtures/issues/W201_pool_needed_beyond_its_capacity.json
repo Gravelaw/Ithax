@@ -1,0 +1,83 @@
+{
+  "format_version": "0.1",
+  "meta": {
+    "name": "Coffee shop, a till and a packing bench sharing one member of staff"
+  },
+  "domain": "process",
+  "parameters": {},
+  "components": [
+    {
+      "id": "arrivals",
+      "type": "source",
+      "params": {
+        "interarrival": {
+          "dist": "exponential",
+          "mean": "2 min"
+        }
+      }
+    },
+    {
+      "id": "till",
+      "type": "server",
+      "params": {
+        "capacity": 1,
+        "service": {
+          "dist": "exponential",
+          "mean": "1.2 min"
+        },
+        "pool": "staff"
+      }
+    },
+    {
+      "id": "pack",
+      "type": "server",
+      "params": {
+        "capacity": 1,
+        "service": {
+          "dist": "exponential",
+          "mean": "1.2 min"
+        },
+        "pool": "staff"
+      }
+    },
+    {
+      "id": "staff",
+      "type": "resource_pool",
+      "params": {
+        "capacity": 1
+      }
+    },
+    {
+      "id": "exit",
+      "type": "sink",
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": "arrivals.out",
+      "to": "till.in"
+    },
+    {
+      "from": "till.out",
+      "to": "pack.in"
+    },
+    {
+      "from": "pack.out",
+      "to": "exit.in"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "base",
+      "length": "200 h",
+      "warmup": "10 h",
+      "replications": 30,
+      "seed": 12345
+    }
+  ],
+  "run": {
+    "target": "local",
+    "fidelity": "standard"
+  }
+}
