@@ -2875,3 +2875,26 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - New `benchmarks/` cases. They would copy the two example files, which could then drift from them.
 - **Spec sections updated:** spec 2 "Reference values from the prototype", the acceptance tests (an M13 row), and a dated line.
 - **Dependencies added:** none.
+
+## 2026-11-14 · M13 · Rate units in constraints: format 0.3 (#77; M1-7)
+
+- **Decision:**
+  - **Rate units.** `1/s`, `1/min`, `1/h` and `1/d` are Phase 1 units of a new `Dimension.RATE`, with SI symbol `1/s` (`docs/research/m13-rate-units.md`).
+    - A `process` constraint's `value` is read as a time or a rate by the unit it is written in: `"30 1/h"` is 30/3600 items per second.
+    - The meaning pass's E123 takes a time for a time metric, a rate quantity or a plain number for a rate metric, and a plain number for any other. The messages name the rate in items per hour.
+    - A rate unit where a time is expected is E140.
+  - **Format 0.3.** `FORMAT_VERSION` is `"0.3"`, a minor and additive change with no migration, and new projects are written as 0.3.
+    - A rate unit in a constraint `value` of a file of 0.0 to 0.2 is E100 at that `value`. The hint says to set `format_version` or write the plain number, and gives it.
+    - The model tests that asserted the reader is 0.2 now assert 0.3.
+    - The "minor above the reader" cases (the `E101_minor_above_reader` fixture among them) use 0.4.
+  - **Unchanged.** A plain number of items per second for a rate is still valid in every version. No shipped file changes. The search compares a rate in SI units, as before.
+  - **Checks.**
+    - `tests/model/test_rate_constraints.py`: the four units, loading, E100 in 0.0 to 0.2, E123 both ways, E140, E141 spellings, and the search margin equal for `"30 1/h"` and 30/3600. They fail before the change.
+    - The interface's constraint test now commits `"30 1/h"` and expects it sent as written.
+- **Reason:** issue #77 (E1, M1-7): "30 per hour must be written 0.008333 today. Accept for example '30 1/h', additively to the format." Spec 1 "Metric names" already said a rate unit "would be an additive minor version".
+- **Reading (reversible):** the rate units are allowed only in a constraint on a rate. No setting takes a rate in Phase 1.
+- **Alternatives considered:**
+  - Accepting `"30 1/h"` without a new minor. A 0.2 reader would then fail on a file that says 0.2.
+  - Units spelt `per h` or `/h`. They are not the inverted time units pint reads, and they would add a second grammar.
+- **Spec sections updated:** spec 1 "Quantities", "Versioning", "Metric names" and the E100 row (a dated line).
+- **Dependencies added:** none.

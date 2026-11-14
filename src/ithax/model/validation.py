@@ -64,6 +64,7 @@ from collections import deque
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
+from types import MappingProxyType
 from typing import Literal
 
 from ithax.model.catalogue import (
@@ -1640,8 +1641,8 @@ def metric_issues(model: Model) -> list[Issue]:
     - E174: an objective's or constraint's ``metric`` that is not such a name: no dot, an
       unknown component, or a measure its type does not report.
     - E123: a constraint's ``value`` of the wrong kind: a time quantity is needed for a
-      metric measured in time, and a plain number for any other (a rate such as
-      throughput is a plain number of items per second; Phase 1 has no rate unit).
+      metric measured in time, a rate quantity (format 0.3, #77) or a plain number of items
+      per second for a rate such as throughput, and a plain number for any other.
     """
     issues: list[Issue] = []
     by_id = _first_by_id(model.components)
@@ -1663,32 +1664,58 @@ def metric_issues(model: Model) -> list[Issue]:
             )
             continue
         kind = MEASURE_KINDS[constraint.metric.partition(".")[2]]
-        is_time = isinstance(constraint.value, Quantity)
-        if is_time == (kind is MeasureKind.TIME):
+        if _value_fits(constraint.value, kind):
             continue
-        measured = {
-            MeasureKind.TIME: "is measured in time, so a time such as '5 min' is expected",
-            MeasureKind.RATE: "is a rate, written as a plain number of items per second "
-            "(Phase 1 has no rate unit)",
-            MeasureKind.NUMBER: "is a plain number, so a plain number is expected",
-        }[kind]
-        given = (
-            f"a time, {_time_text(constraint.value.magnitude)}"
-            if isinstance(constraint.value, Quantity)
-            else f"the plain number {_number_text(constraint.value)}"
-        )
         issues.append(
             _issue(
                 "E123",
                 ("constraints", index, "value"),
-                f"The 'value' of constraint {_quote(constraint.id)} is {given}, but "
-                f"{_quote(constraint.metric)} {measured}.",
-                "Write a time with its unit, as in '5 min'."
-                if kind is MeasureKind.TIME
-                else "Write a plain number with no unit.",
+                f"The 'value' of constraint {_quote(constraint.id)} is "
+                f"{_constraint_value_text(constraint.value)}, but {_quote(constraint.metric)} "
+                f"{_MEASURED[kind]}.",
+                _KIND_HINT[kind],
             )
         )
     return issues
+
+
+# What each kind of metric is measured in, and the hint for a value of another kind (#77:
+# a rate takes a rate quantity, from format 0.3, or a plain number of items per second).
+_MEASURED: Mapping[MeasureKind, str] = MappingProxyType(
+    {
+        MeasureKind.TIME: "is measured in time, so a time such as '5 min' is expected",
+        MeasureKind.RATE: "is a rate, so a rate such as '30 1/h' or a plain number of items "
+        "per second is expected",
+        MeasureKind.NUMBER: "is a plain number, so a plain number is expected",
+    }
+)
+_KIND_HINT: Mapping[MeasureKind, str] = MappingProxyType(
+    {
+        MeasureKind.TIME: "Write a time with its unit, as in '5 min'.",
+        MeasureKind.RATE: "Write a rate with its unit, as in '30 1/h', or a plain number of "
+        "items per second.",
+        MeasureKind.NUMBER: "Write a plain number with no unit.",
+    }
+)
+
+
+def _value_fits(value: int | float | Quantity, kind: MeasureKind) -> bool:
+    """A time quantity for a time, a rate quantity or a plain number for a rate, a plain
+    number for any other metric (spec 1 "Metric names")."""
+    if isinstance(value, Quantity):
+        return (value.dimension, kind) in {
+            (Dimension.TIME, MeasureKind.TIME),
+            (Dimension.RATE, MeasureKind.RATE),
+        }
+    return kind is not MeasureKind.TIME
+
+
+def _constraint_value_text(value: int | float | Quantity) -> str:
+    if not isinstance(value, Quantity):
+        return f"the plain number {_number_text(value)}"
+    if value.dimension is Dimension.RATE:
+        return f"a rate, {_figures(Fraction(value.magnitude) * 3600)} per hour"
+    return f"a time, {_time_text(value.magnitude)}"
 
 
 def _metric_problem(metric: str, by_id: Mapping[str, Component]) -> str | None:

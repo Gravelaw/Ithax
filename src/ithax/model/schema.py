@@ -18,6 +18,7 @@ to the meaning pass, so that it reports its specific codes.
   or a key that belongs to the other domain. Two rules sit beside the schema (AKS-123): an
   ``optimization`` constraint or objective needs ``linear`` or ``terms``, and a key that
   format 0.2 added (the indexed optimization keys) is an error in a file of an older minor.
+  So is a rate unit in a ``process`` constraint's ``value``, which format 0.3 added (#77).
 
 Messages are written here, in plain language, and name the key and the component; the
 validator's own messages are never shown (research note ``spec-1-schema-and-units.md``).
@@ -37,6 +38,7 @@ from jsonschema import Draft202012Validator, ValidationError
 
 from ithax.model.issues import Issue, pointer
 from ithax.model.migration import FORMAT_VERSION, parse_version, version_issue
+from ithax.model.units import Dimension, QuantityError, parse_quantity, quantity_dimension
 from ithax.strict_json import is_whole, read_json
 
 __all__ = ["FORMAT_VERSION", "model_schema", "schema_pass"]
@@ -116,7 +118,11 @@ def schema_pass(document: object) -> list[Issue]:
         issues.update(dict.fromkeys(_issues_from_error(error, document)))
     if isinstance(document, dict):
         taken = {issue.path for issue in issues}
-        for issue in [*_linear_or_terms(document), *_newer_keys(document)]:
+        for issue in [
+            *_linear_or_terms(document),
+            *_newer_keys(document),
+            *_newer_rates(document),
+        ]:
             at = issue.path.split("/")[1:]
             if issue.path in taken or any(
                 at[: len(key)] == list(map(str, key)) for key in misplaced
@@ -130,6 +136,8 @@ def schema_pass(document: object) -> list[Issue]:
 
 # The minor version that added the indexed optimization keys (spec 1 "Versioning").
 _INDEXED_MINOR = "2"
+# The minor version that added rate units in a constraint's value (#77).
+_RATE_MINOR = "3"
 
 
 def _holders(document: Mapping[str, Any]) -> list[tuple[list[Segment], Mapping[str, Any]]]:
@@ -170,12 +178,52 @@ def _linear_or_terms(document: Mapping[str, Any]) -> list[Issue]:
     return issues
 
 
+def _older_than(document: Mapping[str, Any], minor: str) -> bool:
+    """Whether the file's ``format_version`` is of major 0 with a minor below ``minor``."""
+    version = document.get("format_version")
+    parsed = parse_version(version) if isinstance(version, str) else None
+    return parsed is not None and parsed[0] == "0" and (len(parsed[1]), parsed[1]) < (1, minor)
+
+
+def _newer_rates(document: Mapping[str, Any]) -> list[Issue]:
+    """E100 for each ``process`` constraint ``value`` written with a rate unit in a file
+    whose minor is below 0.3 (#77): a reader of that minor would not read it."""
+    constraints = document.get("constraints")
+    if (
+        document.get("domain") == "optimization"
+        or not isinstance(constraints, list)
+        or not _older_than(document, _RATE_MINOR)
+    ):
+        return []
+    issues: list[Issue] = []
+    for index, item in enumerate(constraints):
+        value = item.get("value") if isinstance(item, dict) else None
+        if not isinstance(value, str) or quantity_dimension(value) is not Dimension.RATE:
+            continue
+        try:
+            per_hour = parse_quantity(value, Dimension.RATE).magnitude * 3600
+        except QuantityError:  # "1e400 1/h": E141 from the meaning pass, at any version
+            continue
+        issues.append(
+            _issue(
+                ["constraints", index, "value"],
+                document,
+                f"The rate '{value}' has a rate unit, which arrived in format version "
+                f"0.{_RATE_MINOR}, but this file is format version "
+                f"{document['format_version']}, which has none.",
+                f"Set 'format_version' to \"0.{_RATE_MINOR}\", or write the rate as a plain "
+                f"number of items per second ({per_hour:g} per hour is "
+                f"{per_hour / 3600:.4g}).",
+            )
+        )
+    return issues
+
+
 def _newer_keys(document: Mapping[str, Any]) -> list[Issue]:
     """E100 for each key of format 0.2 in a file whose minor is older (spec 1
     "Versioning"): a reader of that minor would not know it."""
     version = document.get("format_version")
-    parsed = parse_version(version) if isinstance(version, str) else None
-    if parsed is None or parsed[0] != "0" or (len(parsed[1]), parsed[1]) >= (1, _INDEXED_MINOR):
+    if not _older_than(document, _INDEXED_MINOR):
         return []
     places: list[list[Segment]] = [[key] for key in ("sets", "tables") if key in document]
     for at, holder in _holders(document):

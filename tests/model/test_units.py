@@ -324,7 +324,17 @@ def test_quantity_is_immutable_and_comparable() -> None:
 
 
 def test_phase_1_units() -> None:
-    assert dict(PHASE_1_UNITS) == {"s": TIME, "min": TIME, "h": TIME, "d": TIME}
+    rate = Dimension.RATE
+    assert dict(PHASE_1_UNITS) == {
+        "s": TIME,
+        "min": TIME,
+        "h": TIME,
+        "d": TIME,
+        "1/s": rate,
+        "1/min": rate,
+        "1/h": rate,
+        "1/d": rate,
+    }
     assert units_of(TIME) == ("s", "min", "h", "d")
     assert units_of(DIMENSIONLESS) == ()
 
