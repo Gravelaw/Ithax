@@ -1263,7 +1263,7 @@ def test_constraint_values_of_the_right_kind_pass(metric: str, value: Any) -> No
             "exit.throughput",
             "1 h",
             "The 'value' of constraint 'c' is a time, 1 h, but 'exit.throughput' is a rate, "
-            "written as a plain number of items per second (Phase 1 has no rate unit).",
+            "so a rate such as '30 1/h' or a plain number of items per second is expected.",
         ),
     ],
 )

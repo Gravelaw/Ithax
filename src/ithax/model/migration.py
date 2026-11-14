@@ -45,9 +45,10 @@ __all__ = [
 ]
 
 # The format version this reader writes and reads (spec 1 "Versioning"; 0.2 since AKS-123,
-# which added the indexed optimization keys): it opens any file
-# with the same major version and a minor version no higher than this one.
-FORMAT_VERSION = "0.2"
+# which added the indexed optimization keys, and 0.3 since #77, which added rate units in
+# a constraint's value): it opens any file with the same major version and a minor
+# version no higher than this one.
+FORMAT_VERSION = "0.3"
 
 # A migration takes a parsed model file of its "from" major (a dict it may change) and
 # returns the file rewritten in its "to" major, with ``format_version`` set to a version of

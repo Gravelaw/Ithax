@@ -110,6 +110,10 @@ export interface Trial {
 
 export interface Search {
   status: string;
+  /** How the candidates were chosen: `exhaustive` or `optuna` (#85; "" from an older run). */
+  method: string;
+  /** How many distinct settings were run (#85), or `null` from an older run. */
+  tried: number | null;
   metric: string;
   before: number | null;
   after: number | null;
@@ -159,6 +163,8 @@ export function searchOf(summary: Summary): Search | null {
   const variables = [...new Set(trials.flatMap((trial) => Object.keys(trial.set)))];
   return {
     status: typeof search.status === "string" ? search.status : "",
+    method: typeof search.method === "string" ? search.method : "",
+    tried: numberOrNull(search.tried) ?? null,
     metric,
     before: numberOrNull(search.objective.before) ?? null,
     after: numberOrNull(search.objective.after) ?? null,

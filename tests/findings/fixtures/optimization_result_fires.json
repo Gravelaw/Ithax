@@ -102,8 +102,8 @@
     },
     "metrics": {
      "arrivals.created": {
-      "mean": 5683.433333333333,
-      "half_width": 27.71522034098244,
+      "mean": 5689.9,
+      "half_width": 25.48788229157121,
       "unit": "1",
       "n": 30
      },
@@ -114,14 +114,14 @@
       "n": 30
      },
      "till.wait.mean": {
-      "mean": 14.571805443050755,
-      "half_width": 0.4727456436173149,
+      "mean": 14.62171192614758,
+      "half_width": 0.47022855531890917,
       "unit": "s",
       "n": 30
      },
      "till.utilization": {
-      "mean": 0.3743140938720918,
-      "half_width": 0.0023101178780230275,
+      "mean": 0.37418848360724843,
+      "half_width": 0.0023115855534386154,
       "unit": "1",
       "n": 30
      },
@@ -138,38 +138,38 @@
       "n": 30
      },
      "till.queue_length.mean": {
-      "mean": 0.12114765789965737,
-      "half_width": 0.00417163619293447,
+      "mean": 0.12169689493942236,
+      "half_width": 0.004142555759912473,
       "unit": "1",
       "n": 30
      },
      "till.queue_length.max": {
-      "mean": 7.266666666666667,
-      "half_width": 0.4993747981561663,
+      "mean": 7.233333333333333,
+      "half_width": 0.5159488407665472,
       "unit": "1",
       "n": 30
      },
      "exit.throughput": {
-      "mean": 0.00830930799220273,
-      "half_width": 4.051628438074701e-05,
+      "mean": 0.008318567251461987,
+      "half_width": 3.731672567607531e-05,
       "unit": "1/s",
       "n": 30
      },
      "exit.cycle_time.mean": {
-      "mean": 104.66568483255706,
-      "half_width": 0.6908572430521266,
+      "mean": 104.58127145409101,
+      "half_width": 0.6934321416360942,
       "unit": "s",
       "n": 30
      },
      "exit.count": {
-      "mean": 5683.566666666667,
-      "half_width": 27.71313851643094,
+      "mean": 5689.9,
+      "half_width": 25.524640362435484,
       "unit": "1",
       "n": 30
      },
      "model.wip.mean": {
-      "mean": 0.869775845643841,
-      "half_width": 0.007876330781379922,
+      "mean": 0.8700738621539192,
+      "half_width": 0.00784276002337788,
       "unit": "1",
       "n": 30
      }
@@ -180,6 +180,8 @@
   "warnings": [],
   "search": {
    "status": "feasible",
+   "method": "exhaustive",
+   "tried": 5,
    "best": {
     "set": {
      "tills": 2
@@ -187,8 +189,8 @@
    },
    "objective": {
     "metric": "till.wait.mean",
-    "before": 267.63124087748054,
-    "after": 14.571805443050755
+    "before": 261.5628794207744,
+    "after": 14.62171192614758
    },
    "separated": true,
    "candidates": [
@@ -198,8 +200,8 @@
      },
      "metrics": {
       "arrivals.created": {
-       "mean": 5683.433333333333,
-       "half_width": 27.71522034098244,
+       "mean": 5689.9,
+       "half_width": 25.48788229157121,
        "unit": "1",
        "n": 30
       },
@@ -210,14 +212,14 @@
        "n": 30
       },
       "till.wait.mean": {
-       "mean": 267.63124087748054,
-       "half_width": 9.785767923664459,
+       "mean": 261.5628794207744,
+       "half_width": 10.16774401114344,
        "unit": "s",
        "n": 30
       },
       "till.utilization": {
-       "mean": 0.7486614165694118,
-       "half_width": 0.004610568804396234,
+       "mean": 0.7483636951421406,
+       "half_width": 0.004596830248652145,
        "unit": "1",
        "n": 30
       },
@@ -234,44 +236,60 @@
        "n": 30
       },
       "till.queue_length.mean": {
-       "mean": 2.2252351574248244,
-       "half_width": 0.08715015126255113,
+       "mean": 2.1774300363352186,
+       "half_width": 0.09012269468611495,
        "unit": "1",
        "n": 30
       },
       "till.queue_length.max": {
-       "mean": 21.3,
-       "half_width": 1.337916378336531,
+       "mean": 20.9,
+       "half_width": 1.182238145695297,
        "unit": "1",
        "n": 30
       },
       "exit.throughput": {
-       "mean": 0.00830930799220273,
-       "half_width": 4.083185568674124e-05,
+       "mean": 0.008318567251461987,
+       "half_width": 3.7285593547812e-05,
        "unit": "1/s",
        "n": 30
       },
       "exit.cycle_time.mean": {
-       "mean": 357.72389686218696,
-       "half_width": 9.96497803125815,
+       "mean": 351.5147688826067,
+       "half_width": 10.36549818377062,
        "unit": "s",
        "n": 30
       },
       "exit.count": {
-       "mean": 5683.566666666667,
-       "half_width": 27.928989289730985,
+       "mean": 5689.9,
+       "half_width": 25.503345986703422,
        "unit": "1",
        "n": 30
       },
       "model.wip.mean": {
-       "mean": 2.973896573994237,
-       "half_width": 0.09062730831498154,
+       "mean": 2.9257937314773614,
+       "half_width": 0.09363103022770208,
        "unit": "1",
        "n": 30
       }
      },
      "feasible": true,
-     "confirmed": true
+     "confirmed": true,
+     "evaluations": [
+      {
+       "stage": "search",
+       "folder": "engine/search-000",
+       "seed": 12345,
+       "first_replication": 0,
+       "replications": 10
+      },
+      {
+       "stage": "confirmation",
+       "folder": "engine/confirm-000",
+       "seed": 12345,
+       "first_replication": 10,
+       "replications": 30
+      }
+     ]
     },
     {
      "set": {
@@ -279,8 +297,8 @@
      },
      "metrics": {
       "arrivals.created": {
-       "mean": 5683.433333333333,
-       "half_width": 27.71522034098244,
+       "mean": 5689.9,
+       "half_width": 25.48788229157121,
        "unit": "1",
        "n": 30
       },
@@ -291,14 +309,14 @@
        "n": 30
       },
       "till.wait.mean": {
-       "mean": 14.571805443050755,
-       "half_width": 0.4727456436173149,
+       "mean": 14.62171192614758,
+       "half_width": 0.47022855531890917,
        "unit": "s",
        "n": 30
       },
       "till.utilization": {
-       "mean": 0.3743140938720918,
-       "half_width": 0.0023101178780230275,
+       "mean": 0.37418848360724843,
+       "half_width": 0.0023115855534386154,
        "unit": "1",
        "n": 30
       },
@@ -315,44 +333,60 @@
        "n": 30
       },
       "till.queue_length.mean": {
-       "mean": 0.12114765789965737,
-       "half_width": 0.00417163619293447,
+       "mean": 0.12169689493942236,
+       "half_width": 0.004142555759912473,
        "unit": "1",
        "n": 30
       },
       "till.queue_length.max": {
-       "mean": 7.266666666666667,
-       "half_width": 0.4993747981561663,
+       "mean": 7.233333333333333,
+       "half_width": 0.5159488407665472,
        "unit": "1",
        "n": 30
       },
       "exit.throughput": {
-       "mean": 0.00830930799220273,
-       "half_width": 4.051628438074701e-05,
+       "mean": 0.008318567251461987,
+       "half_width": 3.731672567607531e-05,
        "unit": "1/s",
        "n": 30
       },
       "exit.cycle_time.mean": {
-       "mean": 104.66568483255706,
-       "half_width": 0.6908572430521266,
+       "mean": 104.58127145409101,
+       "half_width": 0.6934321416360942,
        "unit": "s",
        "n": 30
       },
       "exit.count": {
-       "mean": 5683.566666666667,
-       "half_width": 27.71313851643094,
+       "mean": 5689.9,
+       "half_width": 25.524640362435484,
        "unit": "1",
        "n": 30
       },
       "model.wip.mean": {
-       "mean": 0.869775845643841,
-       "half_width": 0.007876330781379922,
+       "mean": 0.8700738621539192,
+       "half_width": 0.00784276002337788,
        "unit": "1",
        "n": 30
       }
      },
      "feasible": true,
-     "confirmed": true
+     "confirmed": true,
+     "evaluations": [
+      {
+       "stage": "search",
+       "folder": "engine/search-001",
+       "seed": 12345,
+       "first_replication": 0,
+       "replications": 10
+      },
+      {
+       "stage": "confirmation",
+       "folder": "engine/confirm-001",
+       "seed": 12345,
+       "first_replication": 10,
+       "replications": 30
+      }
+     ]
     },
     {
      "set": {
@@ -433,7 +467,16 @@
       }
      },
      "feasible": false,
-     "confirmed": false
+     "confirmed": false,
+     "evaluations": [
+      {
+       "stage": "search",
+       "folder": "engine/search-002",
+       "seed": 12345,
+       "first_replication": 0,
+       "replications": 10
+      }
+     ]
     },
     {
      "set": {
@@ -514,7 +557,16 @@
       }
      },
      "feasible": false,
-     "confirmed": false
+     "confirmed": false,
+     "evaluations": [
+      {
+       "stage": "search",
+       "folder": "engine/search-003",
+       "seed": 12345,
+       "first_replication": 0,
+       "replications": 10
+      }
+     ]
     },
     {
      "set": {
@@ -595,7 +647,16 @@
       }
      },
      "feasible": false,
-     "confirmed": false
+     "confirmed": false,
+     "evaluations": [
+      {
+       "stage": "search",
+       "folder": "engine/search-004",
+       "seed": 12345,
+       "first_replication": 0,
+       "replications": 10
+      }
+     ]
     }
    ]
   }

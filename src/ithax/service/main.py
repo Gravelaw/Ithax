@@ -201,7 +201,7 @@ def main(
     try:
         # Read once the lock is taken: a second start serves nothing and needs no idle time.
         if arguments.idle_minutes is not None:
-            idle_timeout_s = arguments.idle_minutes * 60
+            idle_timeout_s = arguments.idle_minutes * 60  # unit factor: whole minutes, a setting
         else:
             idle_timeout_s = read_idle_settings(config_dir).timeout_s
         caught = _serve(config_dir, data_dir, ui_dir, templates_dir, idle_timeout_s, out)

@@ -234,6 +234,25 @@ describe("a run's results", () => {
     ).toBeTruthy();
   });
 
+  it("labels an Optuna search's best as the best of those tried, not proven (#85)", async () => {
+    const sampled = searchSummary();
+    Object.assign(sampled.search as Record<string, unknown>, { method: "optuna", tried: 12 });
+    show(service(sampled, SEARCH_FINDINGS));
+    expect(
+      await screen.findByText(
+        "Best of 12 tried, not proven: the search samples settings, so a better one may be untried.",
+      ),
+    ).toBeVisible();
+  });
+
+  it("gives an exhaustive search no such label, since every setting was run", async () => {
+    const every = searchSummary();
+    Object.assign(every.search as Record<string, unknown>, { method: "exhaustive", tried: 3 });
+    show(service(every, SEARCH_FINDINGS));
+    await screen.findByRole("table", { name: "All trials, in the order tried" });
+    expect(screen.queryByText(/not proven/)).toBeNull();
+  });
+
   it("says when a search found nothing within the limits, or cannot tell the best apart", async () => {
     const infeasible = searchSummary();
     (infeasible.search as Record<string, unknown>).status = "infeasible";
