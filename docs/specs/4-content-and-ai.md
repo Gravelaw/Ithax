@@ -1,6 +1,6 @@
 # Spec 4: Content, Learning and AI Access
 
-> Version 0.7 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 0.8 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 This spec covers what makes the tool usable by non-experts: ready-made templates, lessons, findings in plain language, and an MCP server so any assistant can build and run models.
 
@@ -330,3 +330,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-09, M10 closed (AKS-125): the warning line says the M10 assistant trials built and ran the ten templates' problems and changed two descriptions; the "Detailed specification" opening line names AKS-125; the acceptance table's M10 template row says the test also checks each run's findings. Version 0.7.
 - 2026-11-14, the package renamed (#70, owner decision C8): module paths in this spec now read `ithax` (`src/ithax/`, `python -m ithax.<module>`); nothing else changed. The distribution, command and folder names follow in the next change.
 - 2026-11-14, the names renamed (#70, owner decision C8): the MCP server is `ithax` (so an assistant's tools are `mcp__ithax__<tool>`), its command `ithax-mcp`, and its instructions and messages say Ithax.
+- 2026-11-14, M12 closed (#100, #99, #135, #70, #78): no further change to this spec at the close. Version 0.8.

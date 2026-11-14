@@ -1,6 +1,6 @@
 # Spec 2: Core Engine for Process Simulation and Optimization
 
-> Version 0.9 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 1.0 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 Two engine adapters, both in Python: discrete-event simulation on SimPy, and optimization on HiGHS; Optuna is a search driver inside the experiment manager, not an adapter. Together with an experiment manager they make Phase 1 a complete product.
 
@@ -436,3 +436,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-09, indexed optimization layout and the transport benchmark (AKS-123): "Mathematical optimization in the model file" replaces "That extension is designed when the transport template is built" with "Indexed problems": sets, tables, a variable's `over`, a constraint's `for`, `terms` and `{"$table": ...}`, the transport plan as the example, how an indexed model is expanded into the flat layout before the adapter sees it (names `ship[north,city]`, the order of the expansion, coefficients adding up), what the results report, and what the layout cannot express (a set twice in one `over`; per-member bounds). "Benchmarks" and "Benchmark definitions" give the transport case (cost 2,690) and how its file reads the table, with the LP duality certificate that proves the optimum and its uniqueness; the warning line and the acceptance row name it. Owner to confirm.
 - 2026-11-09, review of PR #53 (AKS-123): "Indexed problems" says a coefficient sum too large for a float is E123 at the term's `coefficient`. Owner to confirm.
 - 2026-11-14, the package renamed (#70, owner decision C8): module paths in this spec now read `ithax` (`src/ithax/`, `python -m ithax.<module>`); nothing else changed. The distribution, command and folder names follow in the next change.
+- 2026-11-14, M12 closed (#100, #99, #135, #70, #78): no further change to this spec at the close. Version 1.0.
