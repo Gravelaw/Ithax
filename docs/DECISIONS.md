@@ -2425,3 +2425,19 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** pasting the proposal's file verbatim (would drop the `desktop` and `package` jobs); using `re-actors/alls-green` (a third-party action; the inline loop does the same).
 - **Spec sections updated:** none (the guide does not describe the CI jobs).
 - **Dependencies added:** none.
+
+## 2026-11-14 · M12 · Retrospective PR 5: owner questions, readings, digest, PR size, merge readiness, numbers (#99; P13, P14, P15, P10, P19)
+
+- **Decision:**
+  - The guide takes the proposal's text for P13 (questions before a milestone), P14 (rule 5 sorts questions; a "Readings" heading; an owner digest) and P15 (decision records; numbers copied from commands). P10 (PR size and stacking) and P19 (the merge-readiness check) are in no row of the proposal's order of adoption, and F2 adopts all of it, so they join this row, which is the guide-text row.
+  - Where the proposal and a later owner decision differ, the owner decision is kept:
+    - **Rule 5's "blocking" criteria.** These are the owner's of 2026-11-13 (F8, D18): a user-visible answer, the model format, the `/v1` API, a guide rule, a milestone or a convention. P14 proposed "an interface, a file format, a target platform, or more than a day of work". The two lists overlap in format and interfaces; adding "target platform" and "more than a day of work" is listed for the owner.
+    - **Digest cadence.** The owner takes decisions every two days (F8), so the digest follows that cadence or a milestone's close, not P14's weekly one.
+    - **Owner questions.** Linear is retired (#100), so they are GitHub issues titled "Owner decision: …", not Linear `owner-decision` issues. A label was not added: labels are the owner's `phase:*` and `type:*` set.
+    - **Decision records.** P15 applies "from Phase 2", as the proposal says, so `DECISIONS.md` and its template hold through Phase 1a.
+    - **Status.** P14's summary text says the last act updates `docs/STATUS.md`. That file arrives with row 6 (P8), so until then the last act still updates "Current state".
+  - **Not applied: P11** ("sessions and sub-agents never merge; the owner merges"). It conflicts with owner decision C10 (the orchestrating session merges once CI is green and review has nothing open). Listed for the owner, with P11's agent identity, which needs the owner's account work anyway.
+- **Reason:** owner decision F2; the proposal's evidence W1 (402 "Awaiting owner" items, 386 of them readings; 76 h waits on blocking questions), W4 and W6 (large stacked PRs, a merge past a running head) and W5 (wrong figures in the record).
+- **Alternatives considered:** P14's criteria verbatim (would narrow the owner's own list); adding an `owner-decision` label (a new convention, which is the owner's).
+- **Spec sections updated:** build guide rule 5 and "Session procedure" (and `CLAUDE.md`).
+- **Dependencies added:** none.
