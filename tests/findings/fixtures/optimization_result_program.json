@@ -51,13 +51,13 @@
   "status": "optimal",
   "objective": 2200.0,
   "variables": {
-   "chairs": 24.000000000000004,
-   "tables": 13.999999999999998
+   "chairs": 24.0,
+   "tables": 14.0
   },
   "constraints": {
    "wood": {
     "tight": true,
-    "slack": 5.684341886080802e-14
+    "slack": 0.0
    },
    "labour": {
     "tight": true,

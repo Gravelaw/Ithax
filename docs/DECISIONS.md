@@ -2825,3 +2825,27 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** reviewing also at a delivery. The position does not change there, so reviewing would change nothing except under a policy that orders several Q at once, which spec 2 does not have.
 - **Spec sections updated:** spec 2 "Block reference" (store), "Store", the benchmark table and "Benchmark definitions" (a dated line).
 - **Dependencies added:** none.
+
+## 2026-11-14 · M13 · Clean solver values (#76; M5-12)
+
+- **Decision:**
+  - **The rule** (`docs/research/m13-solver-values.md`), applied once, in `ithax.engines.optimize.solver.solve`:
+    - An `integer` or `binary` variable is reported rounded to its whole number.
+    - Every other number (a continuous value, the objective, a slack, a dual) within `NOISE` × max(1, |value|) of a whole number is reported as that number, with `NOISE` = 1e-9. `clean` does this.
+    - No number is −0.0.
+    - The rounded values are set back into the Pyomo model before the slacks and the objective are read, so they agree.
+  - **Downstream.** `summary.json`, the findings and the MCP tools read the adapter's `solution.json`, so they inherit the clean values. The product mix now reports chairs 24, tables 14, objective 2,200, both slacks 0 and duals 1 and 4. The assignment, staff rota and transport programs no longer report −0.0.
+  - **Checks.**
+    - `tests/engines/optimize/test_clean_values.py` covers `clean` on the noisy and the meant values, the product mix exactly, and every shipped integer program: whole values, no −0.0.
+    - The service and MCP product-mix tests now assert the exact values, where the MCP test used `approx`. They fail before the change and pass after.
+    - `tests/findings/fixtures/optimization_result_program.json` is regenerated with `make_fixtures.py`, which changed its variables and wood slack.
+- **Reason:** issue #76 (E1, M5-12; Reviewer A walkthrough): results showed 24.000000000000004, 0.9999999999999997 and −0.0, and a finding showed 0.00000000000005684.
+- **Reading (reversible):** `NOISE` is 1e-9, relative to the value's size and at least 1.
+  - That is about 10⁷ times floating-point noise and 100 times below HiGHS's primal feasibility tolerance (1e-7). A value the solver means is kept: 16/9, 1e-7, 1 + 1e-8.
+  - Continuous values are snapped only to whole numbers, not to other round decimals.
+- **Alternatives considered:**
+  - Rounding only in the interface. That leaves the noise in `summary.json`, the findings and MCP, which the issue names.
+  - Snapping at `TIGHT_TOLERANCE` (1e-6). That would change values the solver means, such as 1e-7.
+  - Rounding to a number of significant figures. That would change answers like 98/45.
+- **Spec sections updated:** spec 2 "Values" of the optimization `summary.json` (a dated line).
+- **Dependencies added:** none.

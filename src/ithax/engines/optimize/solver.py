@@ -22,8 +22,14 @@ outcome raises. The termination condition decides the status:
 
 A slack is ``rhs`` minus the left-hand side for ``<=``, the left-hand side minus ``rhs``
 for ``>=``, and minus the gap between them for ``==``; a constraint is tight when the
-slack is within ``TIGHT_TOLERANCE`` of zero. Values are reported as HiGHS gives them, not
-rounded.
+slack is within ``TIGHT_TOLERANCE`` of zero.
+
+Values are cleaned of solver noise (#76; ``docs/research/m13-solver-values.md``): an
+``integer`` or ``binary`` variable is reported rounded to its whole number (HiGHS keeps it
+within its integrality tolerance of one), and every other number, a continuous value, the
+objective, a slack or a dual, within ``NOISE`` of a whole number (scaled by its size, at
+least 1) is reported as that number; no number is -0.0. The slacks and the objective are
+read at the values reported, so they agree with them.
 
 Two cases never reach HiGHS, because Pyomo cannot express them: a constraint with no
 terms, whose left-hand side is the constant 0, is judged here (a violated one makes the
@@ -46,10 +52,12 @@ from pyomo.contrib.solver.common.results import Results, TerminationCondition
 from ithax.model.model import LinearConstraint, LinearProgram
 
 __all__ = [
+    "NOISE",
     "TIGHT_TOLERANCE",
     "Outcome",
     "SolverStopped",
     "Status",
+    "clean",
     "is_tight",
     "solve",
     "solver_version",
@@ -59,6 +67,11 @@ __all__ = [
 #: slack is at most this far from 0; at least as loose as HiGHS 1.15.1's default primal
 #: (1e-7) and MIP (1e-6) feasibility tolerances (rule-5 reading, owner to confirm).
 TIGHT_TOLERANCE = 1e-6
+
+#: How far from a whole number, relative to the value's size (at least 1), a number is
+#: taken as solver noise (#76): far above floating-point rounding (about 1e-16 of the
+#: value per operation), far below HiGHS 1.15.1's primal feasibility tolerance (1e-7).
+NOISE = 1e-9
 
 #: The ``summary.json`` statuses of spec 2.
 Status = Literal["optimal", "infeasible", "unbounded"]
@@ -101,6 +114,15 @@ class Outcome:
     values: dict[str, float]
     slacks: dict[str, float]
     duals: dict[str, float] | None
+
+
+def clean(value: float) -> float:
+    """``value`` without solver noise: the nearest whole number when within ``NOISE``
+    times ``max(1, |value|)`` of it, otherwise ``value``; never -0.0."""
+    whole = round(value)
+    if abs(value - whole) <= NOISE * max(1.0, abs(value)):
+        return float(whole)  # float(0) is 0.0, so a -0.0 becomes 0.0
+    return value
 
 
 def is_tight(slack: float) -> bool:
@@ -212,7 +234,8 @@ def solve(program: LinearProgram, *, options: Mapping[str, object] | None = None
     continuous = all(variable.type == "continuous" for variable in program.variables)
     constant = {item.id: _constant_slack(item) for item in program.constraints if not item.linear}
     if not program.variables:
-        return Outcome("optimal", 0.0, {}, constant, dict.fromkeys(constant, 0.0))
+        cleaned = {name: clean(slack) for name, slack in constant.items()}
+        return Outcome("optimal", 0.0, {}, cleaned, dict.fromkeys(constant, 0.0))
     built = _pyomo_model(program)
     given = dict(options or {})
     results = _solve_once(built.model, given)
@@ -225,25 +248,40 @@ def solve(program: LinearProgram, *, options: Mapping[str, object] | None = None
         return _nothing(status)
     loader = results.solution_loader
     loader.load_vars()
-    values = {name: float(pyo.value(var)) for name, var in built.variables.items()}
-    slacks: dict[str, float] = {}
-    for constraint in program.constraints:
-        if not constraint.linear:
-            slacks[constraint.id] = constant[constraint.id]
-            continue
-        data = built.constraints[constraint.id]
-        if constraint.op == "<=":
-            slacks[constraint.id] = float(data.uslack())
-        elif constraint.op == ">=":
-            slacks[constraint.id] = float(data.lslack())
-        else:
-            slacks[constraint.id] = float(data.slack())
+    values = _reported_values(program, built)
+    slacks = {item.id: clean(_slack(item, built, constant)) for item in program.constraints}
     duals: dict[str, float] | None = None
     if continuous:
         # An integer program has none: get_duals() raises NoDualsError for it.
         found = loader.get_duals()
         duals = {
-            item.id: float(found[built.constraints[item.id]]) if item.linear else 0.0
+            item.id: clean(float(found[built.constraints[item.id]])) if item.linear else 0.0
             for item in program.constraints
         }
-    return Outcome("optimal", float(results.incumbent_objective), values, slacks, duals)
+    objective = clean(float(pyo.value(built.model.objective)))
+    return Outcome("optimal", objective, values, slacks, duals)
+
+
+def _reported_values(program: LinearProgram, built: _Built) -> dict[str, float]:
+    """Each variable's value as reported (#76): an integer or binary one rounded, any other
+    cleaned; set back into the Pyomo model, so the slacks and the objective are read at
+    the values reported."""
+    values: dict[str, float] = {}
+    for variable in program.variables:
+        var = built.variables[variable.id]
+        raw = float(pyo.value(var))
+        value = float(round(raw)) if variable.type != "continuous" else clean(raw)
+        var.set_value(value, skip_validation=True)
+        values[variable.id] = value
+    return values
+
+
+def _slack(constraint: LinearConstraint, built: _Built, constant: Mapping[str, float]) -> float:
+    if not constraint.linear:
+        return constant[constraint.id]
+    data = built.constraints[constraint.id]
+    if constraint.op == "<=":
+        return float(data.uslack())
+    if constraint.op == ">=":
+        return float(data.lslack())
+    return float(data.slack())
