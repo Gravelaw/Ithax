@@ -2948,6 +2948,63 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Spec sections updated:** spec 1 "Random streams", the `replications` table, the adapter contract; spec 2 "Simulation-based optimization" ("Overlap of the two stages" becomes "Fresh random numbers for confirmation"; "Result", "Result layout"); dated lines in both.
 - **Dependencies added:** none.
 
+## 2026-11-14 · M13 · Crossed variable bounds are E123 (#81)
+
+- **Decision:**
+  - **E123** (meaning pass, `bound_issues`) for an `optimization` variable, as the file declares it, whose `lower` is above its `upper`. It is reported at its `lower`, with the hint "Make 'lower' no larger than 'upper'."
+    - Equal bounds fix the variable and pass.
+    - An indexed variable is reported once, at its declaration.
+  - Such a model used to validate and run to `infeasible`. The solver still answers `infeasible` for crossed bounds, since its own test does not go through validation.
+  - **Checks:** the fixture `E123_variable_lower_above_upper.json` and three model tests (integers, floats and negatives; equal bounds; an indexed variable). They fail before the change.
+- **Reason:** issue #81 (Reviewer A walkthrough): "A variable with min above max passes validation. Done when it is an error with a fixture."
+- **Reading (reversible):** the code is E123, not a new one. E123 already covers ordering errors of a value against the place it sits, such as a shift that does not end after it starts. E151, a parameter's `min` above its `max`, belongs to parameters.
+- **Alternatives considered:**
+  - E151. Its row and messages are about parameters.
+  - A new code. It would have the same remedy as E123's ordering cases.
+- **Spec sections updated:** spec 1 "Validation issues", the E123 row (a dated line).
+
+## 2026-11-14 · M13 · W203: a failure on a server of capacity above 1 (#84; D13, M4-34)
+
+- **Decision:**
+  - **W203** (meaning pass, `failure_capacity_issues`) for a `failure` whose target server has a `capacity` above 1.
+    - It is reported at the failure's `target`, naming the failure.
+    - It is checked at each parameter's `value` and in each scenario, and names the first case that fails, like W201 and W202.
+    - The message says one failure takes one unit down at a time, so the other units keep working while it is down.
+    - The hint offers splitting the server into servers of capacity 1, each with its own failure, until one failure per unit arrives in Phase 2.
+  - **Unchanged.** The engine is the same: one failure process per block, one unit at a time (spec 2 "Failure"). W201 already counts it so in a server's mean available capacity.
+  - **Checks:**
+    - the fixture `W203_failure_on_a_server_of_capacity_2.json`;
+    - model tests at capacity 2 and 5, no warning at capacity 1, and the scenario that raises the capacity named;
+    - the warning groups' coffee-shop and fixture tests now include W203.
+- **Reason:** issue #84 (D13, M4-34): "Warn until per-unit failures arrive in Phase 2."
+- **Reading (reversible):** the warning is at the failure's `target`, not at the server, since the failure is what does not model each unit.
+- **Spec sections updated:** spec 1 "Validation issues" (the W203 row), the meaning-pass and summary warning ranges (a dated line).
+
+## 2026-11-14 · M13 · A plan with nothing to decide: E179 (#80; item 14, D2)
+
+- **Decision:**
+  - **E179** (meaning pass, `decision_issues`). It is reported for:
+    - an `optimization` model with no variables, at `/variables`;
+    - a constraint as declared with an empty `linear` and no `terms`, at its `linear`.
+    - Such a model was answered `optimal` at 0, with the finding "Best found: . The objective is 0."
+    - Fixtures: `E179_no_variables.json` and `E179_constraint_with_empty_linear.json`.
+  - **Default plan.** A new optimization project still starts empty (D2), so its one issue is E179 until a variable is added. The run is refused, as for any error. The MCP `create_model` description says so.
+  - **Interface.** A warning mark beside the plan's heading, and on the Diagram view's goal and limit cards, carries the E179 message as its tooltip. A limit card adds its own empty-`linear` message. The Table view already shows the issue in its Decisions section, and the problems list lists it.
+  - **Checks.**
+    - New model tests and the two fixtures.
+    - The service tests now expect E179 from a new plan. The MCP refusal test gives its plan the product mix before testing E184.
+    - Two interface tests: the marks and their tooltips, and no mark on a plan with decisions. They fail before the change.
+- **Review of PR #167:** the heading's mark listed only the `/variables` E179, so a plan with decisions but a limit with no coefficient had no mark, though it cannot run. The mark now lists every E179. The cards keep their own: the plan's, and a limit's own `linear`. New test `warns on the plan when only a limit has no coefficient` fails before the fix; the first test's mark now holds both messages.
+- **Reason:** issue #80 (D2); owner decision 2026-11-07, item 14: "when building an optimiser, we'll need variables via the simulation or manually made by the user". Both cases "should not be answered at all".
+- **Readings (reversible):**
+  - Item 14's second case, a constraint with an empty `linear`, is built here under the same code, since it is the same decision. It has no issue of its own.
+  - "The project and its blocks" are read as the plan's heading and the Diagram view's goal and limit cards.
+  - The issue is an error, as item 14 says; the mark that shows it is a warning, as D2 says.
+- **Alternatives considered:**
+  - A starter variable in the default plan. D2 chose "starts empty".
+  - Two codes. The remedy is the same, so one code says what is missing.
+- **Spec sections updated:** spec 1 "Validation issues" (E179); spec 3 "Canvas behaviour", Optimization models; dated lines in both.
+
 ## 2026-11-14 · M13 · Rate units in constraints: format 0.3 (#77; M1-7)
 
 - **Decision:**
