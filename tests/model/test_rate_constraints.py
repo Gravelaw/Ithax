@@ -159,3 +159,18 @@ def test_a_rate_near_the_float_limit_never_prints_inf(version: str, text: str) -
     else:
         (issue,) = issues
         assert issue.code == "E123" and "per second, but" in issue.message
+
+
+@pytest.mark.parametrize(
+    ("place", "text"),
+    [("service", "1e99999999999999999999 s"), ("value", "1e99999999999999999999 1/h")],
+)
+def test_an_exponent_beyond_decimal_s_range_is_e141_not_a_raise(place: str, text: str) -> None:
+    """Review of PR #165: a loader never raises (spec 1 "Issues"); such a number is far
+    beyond a float in any unit, so it is E141."""
+    document = shop("exit.throughput", 0.008)
+    if place == "service":
+        document["components"][1]["params"]["service"]["mean"] = text
+    else:
+        document["constraints"][0]["value"] = text
+    assert [issue.code for issue in load_document(document).issues] == ["E141"]

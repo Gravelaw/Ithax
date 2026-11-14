@@ -380,6 +380,9 @@ EXTREME_NUMBERS = [
     "5e-324",
     "1e-400",
     "-1e309",
+    "1e99999999999999999999",  # an exponent beyond decimal's range (review of PR #165)
+    "-1e99999999999999999999",
+    "1e" + "9" * 5000,
 ]
 
 
@@ -393,8 +396,11 @@ def test_a_quantity_is_read_when_and_only_when_its_si_value_is_a_finite_float(
     second, finite, while "1e308 d" is not."""
     size = UNIT_SIZES[unit]
     with decimal.localcontext(prec=50, Emax=decimal.MAX_EMAX, Emin=decimal.MIN_EMIN):
-        exact = Decimal(number) * Decimal(size.numerator) / Decimal(size.denominator)
-        finite = abs(exact) <= Decimal(sys.float_info.max)
+        try:
+            exact = Decimal(number) * Decimal(size.numerator) / Decimal(size.denominator)
+            finite = abs(exact) <= Decimal(sys.float_info.max)
+        except decimal.InvalidOperation:  # beyond decimal's exponent range: beyond a float
+            exact, finite = Decimal(0), False
     text = f"{number} {unit}"
     if finite:
         found = parse_quantity(text, PHASE_1_UNITS[unit])

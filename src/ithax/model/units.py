@@ -232,7 +232,12 @@ def _si_magnitude(number: str, unit: str) -> float:
     size = UNIT_SIZES[unit]
     with decimal.localcontext() as context:
         context.traps[decimal.Overflow] = False  # beyond the context: Infinity, then E141
-        exact = Decimal(number) * Decimal(size.numerator) / Decimal(size.denominator)
+        try:
+            exact = Decimal(number) * Decimal(size.numerator) / Decimal(size.denominator)
+        except decimal.InvalidOperation:
+            # An exponent beyond decimal's own range ("1e99999999999999999999 s"): far
+            # beyond a float in any unit, so E141, never a raise (review of PR #165).
+            return math.copysign(math.inf, written)
         return float(exact)
 
 
