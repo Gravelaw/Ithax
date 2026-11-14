@@ -44,6 +44,8 @@ ranges"):
   define) and E123 (a constraint ``value`` of the wrong kind for its metric).
 - ``program_issues``: E175 (an ``optimization`` coefficient that names no variable;
   AKS-108).
+- ``bound_issues``: E123 (an ``optimization`` variable whose ``lower`` is above its
+  ``upper``; #81).
 
 A value that comes from a parameter is checked for every value the model gives that
 parameter: its ``value``, its ``min`` and ``max`` (the range a search explores) and each
@@ -98,6 +100,7 @@ __all__ = [
     "RESERVED_COMPONENT_IDS",
     "RESERVED_SCENARIO_ID",
     "InstalledEngine",
+    "bound_issues",
     "clipping_issues",
     "connection_issues",
     "data_issues",
@@ -2420,6 +2423,33 @@ def program_issues(model: Model) -> list[Issue]:
     return issues
 
 
+# --- E123: crossed variable bounds --------------------------------------------------------------
+
+
+def bound_issues(model: Model) -> list[Issue]:
+    """E123 (#81) for each ``optimization`` variable, as the file declares it, whose
+    ``lower`` is above its ``upper``: no value meets both, at its ``lower``. Equal bounds
+    fix the variable and pass."""
+    declared = model.declared
+    if declared is None:
+        return []
+    issues: list[Issue] = []
+    for index, variable in enumerate(declared.variables):
+        low, high = variable.lower, variable.upper
+        if low is None or high is None or low <= high:
+            continue
+        issues.append(
+            _issue(
+                "E123",
+                ("variables", index, "lower"),
+                f"The 'lower' of variable {_quote(variable.id)} is {_number_text(low)}, which "
+                f"is above its 'upper', {_number_text(high)}, so no value can meet both.",
+                "Make 'lower' no larger than 'upper'.",
+            )
+        )
+    return issues
+
+
 def meaning_pass(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue]:
     """The meaning pass: part A (identifiers, settings that name things, connections),
     then part B (parameters, references, ranges, distributions, data, experiments,
@@ -2440,6 +2470,7 @@ def meaning_pass(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue
         *experiment_issues(model),
         *metric_issues(model),
         *program_issues(model),
+        *bound_issues(model),
         *unreachable_issues(model),
         *load_issues(model),
         *clipping_issues(model),
