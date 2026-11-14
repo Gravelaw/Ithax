@@ -100,7 +100,7 @@ known-third-party = ["mcp"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["src", "tests", "scripts/package_linux.py"]
+files = ["src", "tests", "scripts/package_linux.py", "scripts/hooks"]
 
 # pyarrow 26.0.1 ships no type information (no py.typed, no stubs); pyarrow-stubs follows
 # pyarrow 20. Its tables are typed as Any (docs/DECISIONS.md, AKS-97).
