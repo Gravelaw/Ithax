@@ -104,11 +104,12 @@ def test_every_validation_issue_code_has_a_fixture(code: str, issue_pass: str) -
     assert matches, f"no fixture for {code} ({issue_pass} pass) under {ISSUE_FIXTURES}"
 
 
-def test_spec_1_lists_the_33_schema_and_meaning_codes() -> None:
+def test_spec_1_lists_the_34_schema_and_meaning_codes() -> None:
     """AKS-91 acceptance: the fixture check covers all 29 schema and meaning codes of M1;
     AKS-108 adds E175 (a coefficient that names no variable), so there are 30; AKS-123 adds
-    E176 to E178 (sets and tables of an indexed optimization model), so there are 33."""
-    assert len(spec_1_issue_codes()) == 33
+    E176 to E178 (sets and tables of an indexed optimization model), so there are 33; #84
+    adds W203 (a failure on a server of capacity above 1), so there are 34."""
+    assert len(spec_1_issue_codes()) == 34
     assert ("E175", "meaning") in spec_1_issue_codes()
 
 

@@ -105,6 +105,7 @@ __all__ = [
     "distribution_mean",
     "engine_issues",
     "experiment_issues",
+    "failure_capacity_issues",
     "flow_rates",
     "identifier_issues",
     "load_issues",
@@ -1729,7 +1730,7 @@ def _metric_issue(
     )
 
 
-# --- the warnings: W200, W201, W202 --------------------------------------------------------------
+# --- the warnings: W200, W201, W202 (W203 below) ----------------------------------------------
 
 # A flow into a block: the mean rate, per second, of the units arriving, by what each unit
 # holds. ``()`` is one item; ``(5,)`` a batch of 5 items; ``(2, 3)`` a batch of 3 batches
@@ -2366,6 +2367,52 @@ def _clipping_issue(use: _Use, mean: float, sd: float, case: _Case) -> Issue:
     )
 
 
+# --- W203: a failure on a server of capacity above 1 ---------------------------------------------
+
+
+def failure_capacity_issues(model: Model) -> list[Issue]:
+    """W203 (#84; D13, M4-34) for a ``failure`` whose target server has a ``capacity``
+    above 1: one failure block takes one unit down at a time (spec 2 "Failure"), so the
+    other units keep working while it is down. Checked with the parameters at their
+    ``value`` and in each scenario; the first case that fails is named. A target that is
+    not a server, or a capacity that cannot be read, is not checked (an error says so)."""
+    servers = {
+        component.id: component
+        for component in reversed(model.components)
+        if component.type == "server"
+    }
+    cases = _run_cases(model)
+    issues: list[Issue] = []
+    for index, component in enumerate(model.components):
+        target = component.settings.get("target") if component.type == "failure" else None
+        server = servers.get(target) if isinstance(target, str) else None
+        if server is None:
+            continue
+        for case in cases:
+            capacity = _exact(model, _scalar(server.settings["capacity"]), "integer", case)
+            if capacity is None or capacity <= 1:
+                continue
+            issues.append(_failure_capacity_issue(index, component, server, capacity, case))
+            break
+    return issues
+
+
+def _failure_capacity_issue(
+    index: int, failure: Component, server: Component, capacity: Fraction, case: _Case
+) -> Issue:
+    name = _quote(server.id)
+    return _issue(
+        "W203",
+        ("components", index, "params", "target"),
+        f"The 'target' of failure {_quote(failure.id)} is {name}, whose 'capacity' is "
+        f"{_figures(capacity)}{case.text}: a failure takes one unit down at a time, so the "
+        "other units keep working while it is down.",
+        f"To have each unit fail on its own, split {name} into servers of capacity 1, each "
+        "with its own failure; one failure per unit is planned for Phase 2.",
+        failure.id,
+    )
+
+
 # --- the pass --------------------------------------------------------------------------------
 
 
@@ -2423,7 +2470,7 @@ def program_issues(model: Model) -> list[Issue]:
 def meaning_pass(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue]:
     """The meaning pass: part A (identifiers, settings that name things, connections),
     then part B (parameters, references, ranges, distributions, data, experiments,
-    metrics), then the warnings (W200, W201, W202). ``data`` is the project's data index
+    metrics), then the warnings (W200, W201, W202, W203). ``data`` is the project's data index
     (default: nothing imported).
 
     E102 is not here: the loader checks it before building (``engine_issues``).
@@ -2443,6 +2490,7 @@ def meaning_pass(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue
         *unreachable_issues(model),
         *load_issues(model),
         *clipping_issues(model),
+        *failure_capacity_issues(model),
     ]
 
 
