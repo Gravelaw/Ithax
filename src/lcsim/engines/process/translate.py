@@ -18,7 +18,6 @@ AKS-113); one whose column has not been read raises ``DataNotReadError`` (E162).
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -36,6 +35,7 @@ from lcsim.model.model import (
     SettingValue,
 )
 from lcsim.model.units import Quantity
+from lcsim.strict_json import encode_json, read_json_object_file
 
 __all__ = [
     "INPUT_FILE",
@@ -85,16 +85,16 @@ def engine_input(model: Model, experiment_id: str) -> dict[str, Any]:
 def write_input(model: Model, experiment_id: str, workdir: Path) -> Path:
     """Writes the engine input to ``workdir/input.json`` and returns its path."""
     document = engine_input(model, experiment_id)
-    text = json.dumps(document, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    data = encode_json(document)
     workdir.mkdir(parents=True, exist_ok=True)
     path = workdir / INPUT_FILE
-    path.write_bytes(text.encode("utf-8"))
+    path.write_bytes(data)
     return path
 
 
 def read_input(workdir: Path) -> dict[str, Any]:
     """The engine input ``write_input`` wrote in ``workdir``."""
-    document: dict[str, Any] = json.loads((workdir / INPUT_FILE).read_text(encoding="utf-8"))
+    document = read_json_object_file(workdir / INPUT_FILE)
     if document.get("input_version") != INPUT_VERSION:
         raise ValueError(f"'{workdir / INPUT_FILE}' is not a version {INPUT_VERSION} input")
     return document

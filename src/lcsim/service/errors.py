@@ -19,7 +19,6 @@ The service codes (spec 1 "Validation issues", AKS-110, owner to confirm):
 
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
@@ -30,6 +29,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
 from lcsim.model.issues import Issue, pointer
+from lcsim.strict_json import json_text
 
 __all__ = [
     "INTERNAL",
@@ -65,9 +65,7 @@ class AsciiJSONResponse(JSONResponse):
     body from being sent; JSON readers decode the escapes back."""
 
     def render(self, content: object) -> bytes:
-        return json.dumps(
-            content, ensure_ascii=True, allow_nan=False, separators=(",", ":")
-        ).encode("ascii")
+        return json_text(content, ascii_only=True, compact=True).encode("ascii")
 
 
 class ServiceError(Exception):

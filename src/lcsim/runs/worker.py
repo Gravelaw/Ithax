@@ -24,7 +24,6 @@ Two ways in, both platform-neutral (spec 3 "Architecture": no fork-only process 
 from __future__ import annotations
 
 import argparse
-import json
 import multiprocessing
 import sys
 import time
@@ -36,6 +35,7 @@ from typing import TextIO
 
 from lcsim.engines.adapter import CancelToken, EngineAdapter, Progress
 from lcsim.engines.registry import installed_adapters
+from lcsim.strict_json import json_text, read_json_object_file
 
 __all__ = [
     "CANCEL_FILE",
@@ -130,7 +130,7 @@ def child_main(
 
 
 def _engine_name(workdir: Path) -> str:
-    manifest = json.loads((workdir.parent / "manifest.json").read_text(encoding="utf-8"))
+    manifest = read_json_object_file(workdir.parent / "manifest.json")
     name = manifest["engine"]["name"]
     if not isinstance(name, str):
         raise TypeError("engine.name is not text")
@@ -175,7 +175,7 @@ def main(
 
     def report(progress: Progress) -> None:
         line = {"type": "progress", "fraction": progress.fraction, "message": progress.message}
-        print(json.dumps(line), file=out, flush=True)
+        print(json_text(line, ascii_only=True), file=out, flush=True)
 
     token = FileCancelToken(workdir / CANCEL_FILE)
     try:

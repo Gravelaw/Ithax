@@ -93,6 +93,7 @@ from lcsim.model.model import (
 from lcsim.model.schema import schema_pass
 from lcsim.model.units import Dimension, Quantity, QuantityError, read_number, read_quantity
 from lcsim.model.validation import InstalledEngine, engine_issues, meaning_pass
+from lcsim.strict_json import is_number
 
 __all__ = [
     "SEED_LIMIT",
@@ -230,7 +231,9 @@ def load_text(
         return made
 
     try:
-        document = json.loads(
+        # The model file's own strict reader: duplicate keys, digit limits and constants each
+        # become a coded issue that names their place, which read_json cannot give (#99, P5).
+        document = json.loads(  # noqa: TID251
             text,
             object_pairs_hook=make_object,
             parse_constant=_reject_constant,
@@ -1194,7 +1197,7 @@ class _Builder:
         raw_value = raw["value"]
         where = f"the 'value' of constraint '{constraint_id}'"
         value: int | float | Quantity | None
-        if isinstance(raw_value, int | float) and not isinstance(raw_value, bool):
+        if is_number(raw_value):
             value = self.number(raw_value, where, (*at, "value"))
         else:
             value = self.quantity(raw_value, Dimension.TIME, where, (*at, "value"))
