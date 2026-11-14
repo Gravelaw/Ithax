@@ -22,7 +22,7 @@ import pytest
 from scipy.stats import poisson
 
 from ithax.engines.registry import select_adapter
-from ithax.findings import find
+from ithax.findings import Finding, find
 from ithax.model.loading import load_document
 from ithax.model.model import Model
 from ithax.runs.manager import run_experiment
@@ -98,11 +98,13 @@ FINDING_TEXTS: dict[tuple[str, Run], str] = {
     "ship[north,market] = 70, ship[centre,harbour] = 200, ship[south,park] = 150, "
     "ship[south,market] = 100, and 6 others at 0. The objective is 2,690, with supply[centre], "
     "supply[south], demand[city], demand[harbour], demand[park] and demand[market] tight.",
-    ("staff_rota", "template"): "Best found: staff[wed_sun] = 3, staff[thu_mon] = 1, "
-    "staff[fri_tue] = 3, staff[sat_wed] = 1, staff[sun_thu] = 1, and 2 others at 0. The "
-    "objective is 9, with cover[mon], cover[tue], cover[wed], cover[thu], cover[fri] and "
-    "cover[sat] tight. Other plans reach the same objective; this is one of them.",
 }
+
+#: Runs with alternate optima (#176, owner option B): which optimal plan the solver shows
+#: depends on its version (HiGHS 1.15.1 and 1.16.0 show different rotas; #132), so the test
+#: checks that the plan shown is optimal and that the finding says it is one of several.
+ALTERNATE = {("staff_rota", "template")}
+SEVERAL = " Other plans reach the same objective; this is one of them."
 
 
 def test_spec_4s_ten_templates_exist() -> None:
@@ -128,6 +130,27 @@ def test_the_template_reproduces_its_expected_values(tid: str, run: Run, tmp_pat
     ]
     if (tid, run) in FINDING_TEXTS:
         assert found[0].text == FINDING_TEXTS[(tid, run)]
+    if (tid, run) in ALTERNATE:
+        assert_one_of_several(found[0], package.document(run))
+    else:
+        assert all(SEVERAL not in item.text for item in found)
+
+
+def assert_one_of_several(finding: Finding, document: Mapping[str, Any]) -> None:
+    """The staff rota's finding: a rota of 9 whole people that meets every day's need,
+    said to be one of several (the 7 optimal rotas, #176)."""
+    assert finding.text.startswith("Best found: staff[") and finding.text.endswith(SEVERAL)
+    assert finding.evidence["alternate"] is True and finding.evidence["objective"] == 9
+    variables = finding.evidence["variables"]
+    assert isinstance(variables, dict)
+    rota: dict[str, int] = {}
+    for name, value in variables.items():
+        assert isinstance(value, float) and value.is_integer() and value >= 0, (name, value)
+        rota[name[len("staff[") : -1]] = int(value)
+    assert sum(rota.values()) == 9
+    works = document["tables"]["works"]["values"]
+    need = document["tables"]["need"]["values"]
+    assert all(covered(rota, works, day) >= need[day] for day in need)
 
 
 @pytest.mark.parametrize("tid", IDS)

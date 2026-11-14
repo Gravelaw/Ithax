@@ -68,7 +68,7 @@ __all__ = [
 ]
 
 #: Spec 2 "Mathematical optimization in the model file": a constraint is tight when its
-#: slack is at most this far from 0; at least as loose as HiGHS 1.15.1's default primal
+#: slack is at most this far from 0; at least as loose as HiGHS's default primal
 #: (1e-7) and MIP (1e-6) feasibility tolerances (rule-5 reading, owner to confirm).
 TIGHT_TOLERANCE = 1e-6
 
@@ -146,7 +146,7 @@ def is_tight(slack: float) -> bool:
 
 
 def solver_version() -> str:
-    """HiGHS's version, as ``1.15.1``."""
+    """HiGHS's version, as ``1.16.0``."""
     return ".".join(str(part) for part in SolverFactory(_SOLVER).version())
 
 
