@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 import uvicorn
 
+from lcsim.files import temporary_path
 from lcsim.service.app import create_app
 from lcsim.service.config import ServiceConfig
 from lcsim.service.discovery import (
@@ -62,7 +63,7 @@ def test_the_file_holds_the_four_fields(tmp_path: Path) -> None:
 
 
 def test_a_leftover_temporary_file_is_replaced(tmp_path: Path) -> None:
-    (tmp_path / f".{SERVICE_FILE}.{os.getpid()}.tmp").write_text("x", encoding="utf-8")
+    temporary_path(tmp_path / SERVICE_FILE).write_text("x", encoding="utf-8")
     write_service_file(tmp_path, INFO)
     assert read_service_file(tmp_path) == INFO
     assert [path.name for path in tmp_path.iterdir()] == [SERVICE_FILE]

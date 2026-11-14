@@ -14,12 +14,12 @@ configuration folder keeps the file private there.
 from __future__ import annotations
 
 import contextlib
-import os
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from lcsim.files import atomic_write
 from lcsim.strict_json import is_whole, json_text, read_json_file
 
 __all__ = [
@@ -56,15 +56,8 @@ def write_service_file(config_dir: Path, info: ServiceInfo) -> Path:
     temporary file and a rename; return its path."""
     config_dir.mkdir(parents=True, exist_ok=True)
     path = config_dir / SERVICE_FILE
-    temporary = config_dir / f".{SERVICE_FILE}.{os.getpid()}.tmp"
-    with contextlib.suppress(FileNotFoundError):
-        temporary.unlink()
-    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, _MODE)
-    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-        handle.write(json_text(asdict(info), ascii_only=True) + "\n")
-    # The process's umask may have removed bits; 0600 is wanted exactly.
-    os.chmod(temporary, _MODE)
-    os.replace(temporary, path)
+    text = json_text(asdict(info), ascii_only=True) + "\n"
+    atomic_write(path, text.encode("utf-8"), mode=_MODE)
     return path
 
 

@@ -5,7 +5,7 @@ The zip holds every regular file of the project folder at its path relative to t
 names joined by ``/``, except:
 
 - the run index (``index.sqlite``) and the files kept beside it (its SQLite journal, a
-  rebuild in progress, ``.index.sqlite.<pid>.partial``): a cache, rebuilt from ``runs/``
+  rebuild in progress, ``.index.sqlite.<pid>.<thread>.tmp``): a cache, rebuilt from ``runs/``
   when the project is opened;
 - under ``runs/``, everything but the folders of runs that have ended: a run's folder is
   included when the project's run index lists it and the run endpoints show it ``done``,

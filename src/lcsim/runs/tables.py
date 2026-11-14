@@ -2,8 +2,8 @@
 results" and "Tables for the ``process`` domain"; AKS-102).
 
 The folder is the run folder ``runs/<run_id>/``, which the run target (AKS-103) chooses;
-nothing here knows about it. Each file is written through a temporary file and a rename,
-so a reader never sees half a file.
+nothing here knows about it. Each file is written with ``lcsim.files``, so a reader never
+sees half a file.
 
 - ``tables/<name>.parquet``: only the names spec 1 lists (``replications``,
   ``timeseries``; ``GET .../tables/{name}`` accepts only these). Units are a column, not
@@ -15,7 +15,7 @@ so a reader never sees half a file.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -23,6 +23,7 @@ from typing import Any
 import pyarrow.parquet as pq
 
 from lcsim.engines.adapter import Table
+from lcsim.files import atomic_write, atomic_write_with
 from lcsim.strict_json import encode_json
 
 __all__ = ["SUMMARY_FILE", "TABLES_FOLDER", "TABLE_NAMES", "write_summary", "write_tables"]
@@ -33,13 +34,6 @@ TABLE_NAMES = ("replications", "timeseries")
 TABLES_FOLDER = "tables"
 #: The summary's file name inside the run folder.
 SUMMARY_FILE = "summary.json"
-
-
-def _replace(path: Path, write: Callable[[Path], object]) -> None:
-    """Calls ``write`` with a temporary path next to ``path``, then renames it."""
-    partial = path.with_name(path.name + ".partial")
-    write(partial)
-    partial.replace(path)
 
 
 def write_tables(tables: Mapping[str, Table], folder: Path) -> list[Path]:
@@ -56,7 +50,7 @@ def write_tables(tables: Mapping[str, Table], folder: Path) -> list[Path]:
         path = folder / TABLES_FOLDER / f"{name}.parquet"
         path.parent.mkdir(parents=True, exist_ok=True)
         plain = table.replace_schema_metadata(None)
-        _replace(path, partial(pq.write_table, plain))
+        atomic_write_with(path, partial(pq.write_table, plain))
         paths.append(path)
     return paths
 
@@ -66,5 +60,5 @@ def write_summary(summary: Mapping[str, Any], folder: Path) -> Path:
     data = encode_json(summary)
     path = folder / SUMMARY_FILE
     folder.mkdir(parents=True, exist_ok=True)
-    _replace(path, lambda partial: partial.write_bytes(data))
+    atomic_write(path, data)
     return path

@@ -83,7 +83,7 @@ def test_the_export_holds_data_and_ended_runs_but_no_index_and_no_unfinished_run
     waiting(client, going)
     # Files the index keeps beside it, a stray folder and a stray file under runs/.
     (folder / f"{INDEX_FILE}-journal").write_bytes(b"journal")
-    (folder / f".{INDEX_FILE}.1.partial").write_bytes(b"partial")
+    (folder / f".{INDEX_FILE}.1.2.tmp").write_bytes(b"partial")
     (folder / "runs" / "not-a-run").mkdir()
     (folder / "runs" / "not-a-run" / "x.txt").write_text("x")
     (folder / "runs" / "loose.txt").write_text("x")
@@ -96,7 +96,7 @@ def test_the_export_holds_data_and_ended_runs_but_no_index_and_no_unfinished_run
                 name
                 for name in files_under(folder)
                 if name.split("/")[0] != "runs" or name.split("/")[1] == ended
-            } - {INDEX_FILE, f"{INDEX_FILE}-journal", f".{INDEX_FILE}.1.partial"}
+            } - {INDEX_FILE, f"{INDEX_FILE}-journal", f".{INDEX_FILE}.1.2.tmp"}
             assert names == expected
             assert "data/waits.csv" in names
             assert "data/index.json" in names

@@ -16,10 +16,11 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
-import threading
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+
+from lcsim.files import atomic_write, temporary_path, write_synced
 
 __all__ = ["CommitFailed", "Planned", "replace_in_order"]
 
@@ -41,25 +42,23 @@ class CommitFailed(Exception):
     failed too, which is logged)."""
 
 
-def _temporary(path: Path) -> Path:
-    return path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
-
-
 def replace_in_order(files: Sequence[Planned]) -> None:
     """Saves ``files`` in order, the last rename committing the change; ``CommitFailed``
     when it was not saved."""
-    temporaries = [_temporary(planned.path) for planned in files]
+    temporaries = [temporary_path(planned.path) for planned in files]
     done: list[Planned] = []
     try:
         try:
             for planned, temporary in zip(files, temporaries, strict=True):
-                temporary.write_bytes(planned.data)
+                write_synced(temporary, planned.data)
         except OSError:
             _log.warning("Writing %s failed.", files[0].path.parent, exc_info=True)
             raise CommitFailed from None
         for planned, temporary in zip(files, temporaries, strict=True):
             try:
-                os.replace(temporary, planned.path)
+                # Every temporary is written before the first rename; the order is the
+                # commit (module docstring), so this rename is not lcsim.files's.
+                os.replace(temporary, planned.path)  # noqa: TID251
             except OSError:
                 _log.warning("Saving %s failed.", planned.path, exc_info=True)
                 for earlier in reversed(done):
@@ -78,8 +77,6 @@ def _put_back(planned: Planned) -> None:
         if planned.previous is None:
             planned.path.unlink()
             return
-        temporary = _temporary(planned.path)
-        temporary.write_bytes(planned.previous)
-        os.replace(temporary, planned.path)
+        atomic_write(planned.path, planned.previous)
     except OSError:
         _log.error("The previous %s could not be put back.", planned.path, exc_info=True)

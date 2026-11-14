@@ -109,11 +109,14 @@ known-third-party = ["mcp"]
 "json.load".msg = "Read JSON with lcsim.strict_json.read_json_file or read_json_object_file."
 "json.dumps".msg = "Write JSON with lcsim.strict_json.encode_json (files) or json_text (messages, streams, bodies)."
 "json.dump".msg = "Write JSON with lcsim.strict_json.encode_json."
+"os.replace".msg = "Replace a file with lcsim.files.atomic_write or atomic_write_with: one helper, one naming scheme, flushed to disk."
+"os.rename".msg = "Replace a file with lcsim.files.atomic_write or atomic_write_with: one helper, one naming scheme, flushed to disk."
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["ANN", "TID251"]
 # The helpers themselves, and the repository's tools, which are not product code.
 "src/lcsim/strict_json.py" = ["TID251"]
+"src/lcsim/files.py" = ["TID251"]
 "scripts/**" = ["TID251"]
 
 [tool.mypy]

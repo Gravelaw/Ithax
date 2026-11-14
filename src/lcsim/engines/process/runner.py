@@ -22,6 +22,7 @@ from __future__ import annotations
 import multiprocessing
 from collections.abc import Callable, Mapping
 from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
+from functools import partial
 from multiprocessing.synchronize import Event as ProcessEvent
 from pathlib import Path
 from typing import Any, TypeAlias
@@ -32,6 +33,7 @@ import pyarrow.parquet as pq
 from lcsim.engines.adapter import CancelToken, Progress, Table
 from lcsim.engines.process.replication import Outcome, run_replication
 from lcsim.engines.process.translate import read_input
+from lcsim.files import atomic_write_with
 
 __all__ = [
     "POLL_SECONDS",
@@ -186,6 +188,4 @@ def timeseries_table(engine_input: Mapping[str, Any], done: Mapping[Task, Outcom
 def write_table(table: Table, path: Path) -> None:
     """Writes ``table`` as Parquet, through a temporary file and a rename."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    partial = path.with_name(path.name + ".partial")
-    pq.write_table(table, partial)
-    partial.replace(path)
+    atomic_write_with(path, partial(pq.write_table, table))

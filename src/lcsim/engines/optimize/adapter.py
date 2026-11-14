@@ -32,6 +32,7 @@ import lcsim
 from lcsim.engines.adapter import CancelToken, Capabilities, Progress, Results
 from lcsim.engines.optimize.solver import is_tight, solve, solver_version
 from lcsim.engines.optimize.translate import INPUT_FILE, read_input, write_input
+from lcsim.files import atomic_write
 from lcsim.model.issues import Issue
 from lcsim.model.model import Model
 from lcsim.strict_json import encode_json, read_json_object_file
@@ -107,9 +108,7 @@ class HighsAdapter:
             "duals": outcome.duals,
         }
         output.parent.mkdir(parents=True, exist_ok=True)
-        partial = output.with_name(output.name + ".partial")
-        partial.write_bytes(encode_json(document))
-        partial.replace(output)
+        atomic_write(output, encode_json(document))
         on_progress(Progress(1.0, f"Solved: {outcome.status}"))
 
     def collect(self, workdir: Path) -> Results:

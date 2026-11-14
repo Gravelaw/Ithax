@@ -13,9 +13,9 @@ progress: 0 when queued, then each progress fraction, 1 at ``done``. ``data_file
 ``{component, setting, file, column, sha256}`` per ``empirical`` ``data`` reference
 (AKS-113), and is empty for a model without one.
 
-The file is written through a temporary file in the same folder and ``os.replace``, so a
-reader sees the old manifest or the new one, never part of one. ``ManifestWriter`` writes
-on every update (a state change) and at most once a second on progress.
+The file is written with ``lcsim.files.atomic_write``, so a reader sees the old manifest
+or the new one, never part of one. ``ManifestWriter`` writes on every update (a state
+change) and at most once a second on progress.
 
 ``read_run_manifest`` reads a manifest that may have been changed outside the product: it
 gives ``None`` for a folder that is not a run (no manifest, one that is not JSON, or one
@@ -25,8 +25,6 @@ no such folder can stop the service (AKS-112).
 
 from __future__ import annotations
 
-import os
-import tempfile
 import time
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
@@ -34,6 +32,7 @@ from pathlib import Path
 from typing import Any
 
 import lcsim
+from lcsim.files import atomic_write
 from lcsim.model.streams import generator_info
 from lcsim.runs.states import JOB_STATES
 from lcsim.strict_json import (
@@ -143,15 +142,7 @@ def new_manifest(
 def write_manifest(folder: Path, manifest: dict[str, Any]) -> None:
     """Writes ``folder/manifest.json`` atomically; a value JSON cannot hold (NaN) raises
     ``ValueError`` and leaves the old file as it was."""
-    data = encode_json(manifest)
-    handle, temporary = tempfile.mkstemp(dir=folder, prefix=".manifest-", suffix=".tmp")
-    try:
-        with os.fdopen(handle, "wb") as stream:
-            stream.write(data)
-        os.replace(temporary, folder / MANIFEST_FILE)
-    except BaseException:
-        Path(temporary).unlink(missing_ok=True)
-        raise
+    atomic_write(folder / MANIFEST_FILE, encode_json(manifest))
 
 
 def read_manifest(folder: Path) -> dict[str, Any]:
