@@ -80,9 +80,11 @@ def _requirements(distribution: metadata.Distribution) -> Iterator[str]:
 
 
 def _installed(name: str) -> metadata.Distribution | None:
+    """The installed distribution ``name``, or ``None``; a name the list or an adapter gives
+    that names nothing, empty included, is ``None`` too (review of PR #203)."""
     try:
         return metadata.distribution(name)
-    except metadata.PackageNotFoundError:
+    except (metadata.PackageNotFoundError, ValueError):
         return None
 
 

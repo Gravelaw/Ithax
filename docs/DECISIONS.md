@@ -3414,6 +3414,7 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - Authors are names only: an e-mail address in the metadata is not shown.
   - The licence list's Python entry (bundled OpenSSL, SQLite and the rest) is shown only when the running Python is the package's version; in a checkout the Python's own licence is shown alone.
   - The endpoint is exempt from MCP, like `POST /v1/projects/open`: an assistant needs nothing from it to build or run a model.
+- **Review of PR #203:** a licence list with an empty distribution name made `metadata.distribution("")` raise `ValueError`, which the lookup did not catch, so the route answered 500. The lookup now takes `ValueError` as "not installed" too. `tests/service/test_licences.py` feeds the route lists of several broken shapes, and `tests/properties/test_licences_never_raise.py` any list with hostile names and values and any file; both failed without the change.
 - **Spec sections updated:** spec 3 "API", "Endpoints" (a row and its note) and "Packaging"; spec 1 "Engine adapter interface"; each with a dated line.
 - **Dependencies added:** `packaging>=26.3` in `[project] dependencies`: `ithax.service.licences` evaluates requirement markers with it. It was already installed as a dependency of optuna and is in `packaging/linux/licences.json` at 26.3 (Apache-2.0 OR BSD-2-Clause, recorded with optuna's dependencies on 2026-11-07, the M5 research entry). The lower bound is the version installed on 2026-11-15. `uv lock` was run; `packaging/linux/requirements.lock` already pins it.
 
