@@ -236,7 +236,7 @@ describe("the fit", () => {
       name: "The histogram of minutes and the fitted exponential",
     });
     expect(within(table).getAllByRole("row")).toHaveLength(3);
-    expect(within(table).getByRole("columnheader", { name: "From (min)" })).toBeVisible();
+    expect(within(table).getByRole("columnheader", { name: "From (minutes)" })).toBeVisible();
     // Choosing another candidate draws its curve.
     await user.click(screen.getByRole("radio", { name: "Choose normal" }));
     expect(screen.getByRole("img", { name: /fitted normal/ })).toBeVisible();

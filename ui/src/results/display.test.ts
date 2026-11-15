@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   confidenceText,
+  dateText,
   figures,
   inUnit,
   isShare,
@@ -10,7 +11,9 @@ import {
   rangeText,
   timeUnit,
   UNDEFINED,
+  unitWords,
   valueText,
+  whenText,
 } from "./display";
 
 describe("display units", () => {
@@ -64,5 +67,33 @@ describe("values near the float limit (review of pull request 165)", () => {
     expect(inUnit(1 / 120, "1/h")).toBe(30);
     expect(inUnit(1e308, "1/h")).toBeNull();
     expect(inUnit(1, "furlong")).toBeNull();
+  });
+});
+
+describe("readable units and times (#96)", () => {
+  it.each([
+    ["s", "seconds"],
+    ["min", "minutes"],
+    ["h", "hours"],
+    ["d", "days"],
+    ["1/s", "per second"],
+    ["1/min", "per minute"],
+    ["1/h", "per hour"],
+    ["1/d", "per day"],
+    ["1", "no unit"],
+    ["kg", "kg"],
+  ])("names the unit %s in words: %s", (symbol, words) => {
+    expect(unitWords(symbol)).toBe(words);
+  });
+
+  it("gives a moment as a day, a short month, a year and a time, in local time", () => {
+    const moment = new Date(2026, 10, 8, 10, 15, 2);
+    expect(whenText(moment.toISOString())).toBe("8 Nov 2026, 10:15");
+    expect(dateText(moment.toISOString())).toBe("8 Nov 2026");
+  });
+
+  it("gives text that is not a moment as it is", () => {
+    expect(whenText("soon")).toBe("soon");
+    expect(dateText("")).toBe("");
   });
 });
