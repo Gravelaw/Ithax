@@ -12,6 +12,7 @@ import sys
 import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -127,12 +128,12 @@ def staged_with_service(tmp_path: Path) -> Path:
     """A package folder whose launcher starts a "service" that runs from the folder until
     the file ``stop`` appears beside it, and returns once the service runs, as the real
     launcher returns once the service answers. The service writes ``ended`` as it ends, at
-    ``stop`` or on TERM."""
+    ``stop`` or on TERM or HUP."""
     folder = stage(tmp_path)
     (folder / "python").mkdir()
     shutil.copy2(shutil.which("sh") or "/bin/sh", folder / "python" / "service")
     service = (
-        f'trap "touch {tmp_path}/ended; exit 0" TERM; echo $$ > "{tmp_path}/started"; '
+        f'trap "touch {tmp_path}/ended; exit 0" TERM HUP; echo $$ > "{tmp_path}/started"; '
         f'while [ ! -e "{tmp_path}/stop" ]; do sleep 0.05; done; touch "{tmp_path}/ended"'
     )
     launcher = folder / "bin" / "ithax-launcher"
@@ -245,40 +246,6 @@ def test_apprun_returns_the_commands_status(tmp_path: Path) -> None:
     assert subprocess.run(["sh", str(folder / "AppRun"), "mcp"]).returncode == 3
 
 
-@pytest.mark.parametrize("signal_number", [signal.SIGTERM, signal.SIGINT, signal.SIGHUP])
-def test_a_signal_to_apprun_reaches_the_command_and_apprun_waits_for_it(
-    tmp_path: Path, signal_number: int
-) -> None:
-    # Review of pull request 211: a caller stopping AppRun by its PID stops the command too,
-    # as the exec of bin/ithax-mcp did before AppRun.
-    folder = stage(tmp_path)
-    pid_file = tmp_path / "command.pid"
-    (folder / "bin" / "ithax-mcp").write_text(
-        f'#!/bin/sh\necho $$ > "{pid_file}"\nexec sleep 60\n', "ascii"
-    )
-    build.make_appdir(folder, APPIMAGE / "AppRun")
-    apprun = subprocess.Popen(
-        ["sh", str(folder / "AppRun"), "mcp"],
-        env={"PATH": os.environ["PATH"], "ITHAX_APPRUN_POLL_S": "0.2"},
-    )
-    deadline = time.monotonic() + 10
-    while not pid_file.exists() or not pid_file.read_text().strip():
-        assert time.monotonic() < deadline, "the command did not start"
-        time.sleep(0.05)
-    command = int(pid_file.read_text())
-    try:
-        apprun.send_signal(signal_number)
-        assert apprun.wait(timeout=10) != 0
-        with pytest.raises(ProcessLookupError):
-            os.kill(command, 0)
-    finally:
-        with contextlib.suppress(ProcessLookupError):
-            os.kill(command, signal.SIGKILL)
-        if apprun.poll() is None:
-            apprun.kill()
-            apprun.wait()
-
-
 def test_apprun_passes_its_standard_input_to_the_command(tmp_path: Path) -> None:
     # The MCP server speaks over standard input and output.
     folder = stage(tmp_path)
@@ -316,38 +283,6 @@ def waiter_pids(folder: Path) -> list[int]:
     return sorted(
         pid for pid, parent in parents.items() if parent is not None and parent not in apprun
     )
-
-
-@pytest.mark.parametrize("phase", ["foreground wait", "background waiter"])
-def test_a_signal_at_any_phase_stops_what_runs_from_the_appimage_before_apprun_ends(
-    tmp_path: Path, phase: str
-) -> None:
-    # Reviews of pull request 211 (twice, the class "a process left behind after a stop"):
-    # whichever of AppRun's processes is stopped, and whenever, nothing it started is left
-    # running from the AppImage's files, and AppRun ends only after it has. While the
-    # command runs, see test_a_signal_to_apprun_reaches_the_command_and_apprun_waits_for_it.
-    folder = staged_with_service(tmp_path)
-    with service_stopped_at_the_end(tmp_path, folder):
-        extracted = phase == "foreground wait"
-        environment = {"APPIMAGE_EXTRACT_AND_RUN": "1"} if extracted else {}
-        with start_apprun(folder, environment) as apprun:
-            assert apprun.stdout is not None
-            # The command has returned: AppRun closes the caller's output then, either way.
-            assert apprun.stdout.read() == "http://127.0.0.1:1/v1/ui/#token=t\n"
-            if extracted:
-                target = apprun.pid
-            else:
-                assert apprun.wait(timeout=30) == 0
-                [target] = waiter_pids(folder)
-            assert service_running(folder)
-            os.kill(target, signal.SIGTERM)
-            if extracted:
-                assert apprun.wait(timeout=30) == 143
-            else:
-                wait_until(lambda: not Path(f"/proc/{target}").exists(), "the waiter did not end")
-        # The service was stopped, and had ended, by the time AppRun's process ended.
-        assert (tmp_path / "ended").exists()
-        assert not service_running(folder)
 
 
 @pytest.mark.parametrize("number", [3, 4, 9])
@@ -403,27 +338,133 @@ def staged_with_service_and_command(tmp_path: Path) -> Path:
     return folder
 
 
-@pytest.mark.parametrize("extracted", [True, False], ids=["extracted", "mounted"])
-def test_a_signal_while_the_command_runs_also_stops_the_service_it_started(
-    tmp_path: Path, extracted: bool
+PHASES = ("before the command", "command", "foreground stay", "background waiter")
+SIGNALS: dict[int, int] = {signal.SIGTERM: 143, signal.SIGINT: 143, signal.SIGHUP: 129}
+
+
+def signal_cases() -> list[Any]:
+    """Every phase of AppRun against every signal, with and without a service the command
+    has started (detached), mounted and extracted where the phase is in both. Not every
+    combination exists: before the command nothing is started yet; AppRun stays only while a
+    service runs, in the foreground when extracted and as the background waiter when
+    mounted."""
+    cases = []
+    for number in SIGNALS:
+        name = signal.Signals(number).name
+        cases.append(pytest.param("before the command", number, False, False, id=f"before-{name}"))
+        for detached in (False, True):
+            for extracted in (False, True):
+                cases.append(
+                    pytest.param(
+                        "command",
+                        number,
+                        detached,
+                        extracted,
+                        id=f"command-{name}-{'service' if detached else 'alone'}-"
+                        f"{'extracted' if extracted else 'mounted'}",
+                    )
+                )
+        cases.append(pytest.param("foreground stay", number, True, True, id=f"foreground-{name}"))
+        cases.append(pytest.param("background waiter", number, True, False, id=f"waiter-{name}"))
+    return cases
+
+
+def staged_for(tmp_path: Path, phase: str, detached: bool) -> tuple[Path, list[str]]:
+    """The package folder for a case and AppRun's arguments. The command writes its PID to
+    ``command.pid``; with ``detached`` it first starts the service through the launcher."""
+    folder = staged_with_service(tmp_path)
+    if phase in ("foreground stay", "background waiter"):
+        return folder, ["launcher", "--print-url"]
+    start = '"$here/ithax-launcher" > /dev/null\n' if detached else ""
+    (folder / "bin" / "ithax-mcp").write_text(
+        '#!/bin/sh\nhere=$(dirname "$(readlink -f "$0")")\n'
+        f'{start}echo $$ > "{tmp_path}/command.pid"\nexec sleep 60\n',
+        "ascii",
+    )
+    return folder, ["mcp"]
+
+
+def reach(phase: str, apprun: subprocess.Popen[str], tmp_path: Path, folder: Path) -> int:
+    """Wait until AppRun is in ``phase``; the PID to send the signal to."""
+    if phase == "before the command":
+        hold = tmp_path / "hold"
+        wait_until(lambda: hold.exists() and hold.read_text().strip() == "held", "no hold")
+        return apprun.pid
+    if phase == "command":
+        pid_file = tmp_path / "command.pid"
+        wait_until(lambda: pid_file.exists() and bool(pid_file.read_text().strip()), "no command")
+        return apprun.pid
+    assert apprun.stdout is not None
+    # The command has returned once AppRun closes the caller's output, in both modes.
+    assert apprun.stdout.read() == "http://127.0.0.1:1/v1/ui/#token=t\n"
+    if phase == "foreground stay":
+        return apprun.pid
+    assert apprun.wait(timeout=30) == 0
+    [waiter] = waiter_pids(folder)
+    return waiter
+
+
+def from_the_appimage(folder: Path, tmp_path: Path) -> list[str]:
+    """What still runs from the AppImage: its processes, AppRun's waiters, the command."""
+    left = [f"waiter {pid}" for pid in waiter_pids(folder)]
+    left += ["a process from the folder"] if service_running(folder) else []
+    pid_file = tmp_path / "command.pid"
+    if pid_file.exists() and pid_file.read_text().strip():
+        if Path(f"/proc/{int(pid_file.read_text())}").exists():
+            left.append("the command")
+    return left
+
+
+@pytest.mark.parametrize(("phase", "number", "detached", "extracted"), signal_cases())
+def test_a_signal_in_any_phase_stops_everything_from_the_appimage_before_apprun_ends(
+    tmp_path: Path, phase: str, number: int, detached: bool, extracted: bool
 ) -> None:
-    # Review of pull request 211 (the third of its class): a stop while the command runs
-    # carries on to what the command started, instead of AppRun staying as usual.
-    folder = staged_with_service_and_command(tmp_path)
+    # Reviews of pull request 211 (three findings of the class "a process left behind after
+    # a stop"): whatever phase AppRun is in, a TERM, INT or HUP stops everything it started
+    # that runs from the AppImage, and AppRun (or its waiter) ends only after all of it has,
+    # with 143 for TERM and INT and 129 for HUP.
+    folder, arguments = staged_for(tmp_path, phase, detached)
     environment = {"PATH": os.environ["PATH"], "ITHAX_APPRUN_POLL_S": "0.1"}
     if extracted:
         environment["APPIMAGE_EXTRACT_AND_RUN"] = "1"
+    if phase == "before the command":
+        environment["ITHAX_APPRUN_HOLD"] = str(tmp_path / "hold")
+        (tmp_path / "hold").touch()
     with service_stopped_at_the_end(tmp_path, folder):
-        apprun = subprocess.Popen(["sh", str(folder / "AppRun"), "mcp"], env=environment)
-        try:
-            wait_until(lambda: (tmp_path / "started").exists(), "the service did not start")
-            apprun.send_signal(signal.SIGTERM)
-            assert apprun.wait(timeout=10) == 143
-        finally:
-            if apprun.poll() is None:
-                apprun.kill()
-                apprun.wait()
-        # AppRun ended only after the service had, and no waiter is left behind.
-        assert (tmp_path / "ended").exists()
-        assert not service_running(folder)
-        assert not waiter_pids(folder)
+        apprun = subprocess.Popen(
+            ["sh", str(folder / "AppRun"), *arguments],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            env=environment,
+        )
+        with apprun:
+            try:
+                target = reach(phase, apprun, tmp_path, folder)
+                if phase == "background waiter" and number == signal.SIGINT:
+                    # dash starts a background process with INT ignored, past undoing, so
+                    # the waiter cannot take INT; it holds on, and the service its files.
+                    os.kill(target, number)
+                    time.sleep(1)
+                    assert Path(f"/proc/{target}").exists()
+                    assert service_running(folder)
+                    number = signal.SIGTERM
+                os.kill(target, number)
+                if target == apprun.pid:
+                    assert apprun.wait(timeout=30) == SIGNALS[number]
+                else:
+                    wait_until(lambda: not Path(f"/proc/{target}").exists(), "waiter lives")
+                # Ended only after everything from the AppImage had: nothing is left, and
+                # the service, if there was one, saw the signal and ended.
+                assert from_the_appimage(folder, tmp_path) == []
+                assert (tmp_path / "ended").exists() == detached
+                if phase == "before the command":
+                    assert not (tmp_path / "command.pid").exists()
+            finally:
+                if apprun.poll() is None:
+                    apprun.kill()
+                    apprun.wait()
+                pid_file = tmp_path / "command.pid"
+                if pid_file.exists() and pid_file.read_text().strip():
+                    with contextlib.suppress(ProcessLookupError, ValueError):
+                        os.kill(int(pid_file.read_text()), signal.SIGKILL)

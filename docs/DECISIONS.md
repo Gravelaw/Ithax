@@ -3533,6 +3533,14 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - AppRun now remembers the stop. Once the command has ended, the same signal goes to everything still running from the AppImage, and AppRun keeps the files until that has ended, then exits 143 or 129.
   - Test: `test_a_signal_while_the_command_runs_also_stops_the_service_it_started`, mounted and extracted.
   - The waiter subshell starts with its traps reset, so AppRun ignores the signals across the fork until the waiter sets the handler. This closes a window found by running the tests 25 times.
+- **The check for the class:** one table-driven test, `test_a_signal_in_any_phase_stops_everything_from_the_appimage_before_apprun_ends`, replaces the three per-phase signal tests. It runs 21 cases.
+  - The phases are: before the command, the command alone, the command after it has started the service (each mounted and extracted), the foreground stay and the background waiter. Each runs against TERM, INT and HUP.
+  - In each case nothing from the AppImage is left, the service saw the signal and ended, and AppRun ends only after that, with 143 for TERM and INT or 129 for HUP.
+  - Two deliberate breaks of AppRun failed it: without the remembered stop, 6 cases failed; with no handler in the waiter, 3 failed.
+- **Readings (reversible):**
+  - The background waiter cannot take INT. dash starts a background process with INT ignored, past undoing, and without a terminal there is no job control to avoid it. So the waiter ignores INT, and the service keeps its files; the table asserts exactly that. Only an explicit `kill` reaches the waiter: it has no terminal, and Ctrl+C goes to AppRun, which is in the foreground.
+  - The phase before the command lasts microseconds, so for the tests `ITHAX_APPRUN_HOLD`, when it names a file, holds AppRun there, after the handler is set, until the file is removed. It changes nothing when unset.
+  - The orchestrating session also proposed a bounded wait followed by KILL. It did not ask for it when it accepted the remembered stop. The service stops on TERM within a bound already: spec 3 "One service per user", a 5 s bounded stop.
 - **CI run 43761150645 (head `1de13f2`):** the mounted test failed with "Transport endpoint is not connected". The first signal fix had saved standard input as `exec 3<&0`, and 3 was the runtime's keepalive pipe, which holds the mount.
   - AppRun now copies standard input into a descriptor that is not open (9 down to 5), and closes nothing it inherits.
   - Test: `test_apprun_keeps_every_descriptor_it_inherits` checks 3, 4 and 9. It failed for 3 before the fix.

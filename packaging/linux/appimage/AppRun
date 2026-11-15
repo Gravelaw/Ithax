@@ -96,6 +96,15 @@ handle_signals() {
 # the mount, is among them, often as 3 (CI run 43761150645). The handler is set before the
 # command starts, so a signal arriving as it starts is not lost.
 handle_signals
+# For the tests only: with ITHAX_APPRUN_HOLD naming a file, AppRun writes "held" to it and
+# waits, before the command starts, until the file is gone, so a signal can be sent in this
+# phase (tests/linux_package/test_appimage_build.py).
+if [ -n "${ITHAX_APPRUN_HOLD:-}" ]; then
+    echo held > "$ITHAX_APPRUN_HOLD"
+    while [ -e "$ITHAX_APPRUN_HOLD" ]; do
+        sleep 0.05
+    done
+fi
 spare=
 for fd in 9 8 7 6 5; do
     if [ ! -e "/proc/$$/fd/$fd" ]; then
@@ -134,6 +143,7 @@ else
     # A subshell starts with its traps reset but keeps what is ignored: the signals are
     # ignored across the fork, so none ends the waiter before it sets the handler again.
     trap '' TERM INT HUP
-    (handle_signals && exec </dev/null >/dev/null 2>&1 && stay) &
+    # It cannot take INT: dash starts a background process with INT ignored, past undoing.
+    (handle_signals && exec </dev/null >/dev/null 2>&1 && stay && exit "$status") &
 fi
 exit "$status"
