@@ -80,7 +80,10 @@ that reads input, and say whether the shared helper was bypassed:
   every later-phase reading and every open spec marker to a row (check:
   `tests/test_phase_1_review.py` fails on any item of `docs/DECISIONS.md` or the session
   summaries, or any spec line saying "owner question", "deferred" or "Phase 1 review", that
-  `docs/research/phase-1-review.md` "Coverage" does not name; PR #208, two findings).
+  `docs/research/phase-1-review.md` "Coverage" does not name; PR #208, two findings). The
+  same holds for a plan built from the checklist: name each item in a row, not through a
+  catch-all (check: `tests/test_phase_2_milestones.py` fails on any "Phase 2 table" row that
+  no row of `docs/research/phase-2-milestones.md` names; PR #214).
 - a wrapper or entry point that runs a command as its child (not by `exec`), or stays after
   it, and does not stop what it started when it is stopped itself: a signal that leaves the
   child, or a service it outlives, running, or lets go of files they still use (helper: the
