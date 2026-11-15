@@ -173,7 +173,8 @@ def change_project(pid: str, body: ChangeProject, state: State) -> dict[str, Any
     state.projects.folder(pid)  # 404 with E185 for an unknown project, before any change
     if body.name is not None:
         state.models.rename(pid, body.name)
-    notes = {key: getattr(body, key) for key in ("opened", "lesson_step") if key in given}
+    fields: tuple[str, ...] = ("opened", "lesson_step")
+    notes: dict[str, Any] = {key: getattr(body, key) for key in fields if key in given}
     if notes:
         state.projects.note(pid, notes)
     return state.projects.entry(pid)
