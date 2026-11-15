@@ -769,8 +769,22 @@ function Plan({ solution }: { solution: Solution }) {
   );
 }
 
+/**
+ * A repeat run's cell. `value` is in display units, by its row's metric and SI unit, as the
+ * key numbers show it, so the `unit` column is not shown; the CSV keeps SI units (#96).
+ */
+function cellText(row: TableRow, column: string): string {
+  const value = row[column];
+  if (value === null || value === undefined) return "";
+  if (column === "value" && typeof value === "number" && typeof row.unit === "string") {
+    return valueText(String(row.metric), value, row.unit);
+  }
+  if (typeof value === "number" && !Number.isInteger(value)) return figures(value);
+  return String(value);
+}
+
 function Replications({ rows }: { rows: readonly TableRow[] }) {
-  const columns = rows[0] === undefined ? [] : Object.keys(rows[0]);
+  const columns = rows[0] === undefined ? [] : Object.keys(rows[0]).filter((key) => key !== "unit");
   return (
     <section
       className="table-wrap replications"
@@ -780,7 +794,7 @@ function Replications({ rows }: { rows: readonly TableRow[] }) {
     >
       <table className="data-table">
         <caption className="visually-hidden">
-          Every repeat run's value of every metric, in SI units
+          Every repeat run's value of every metric, in the units the key numbers use
         </caption>
         <thead>
           <tr>
@@ -795,17 +809,14 @@ function Replications({ rows }: { rows: readonly TableRow[] }) {
           {rows.map((row, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: rows are in the table's order
             <tr key={index}>
-              {columns.map((column) => {
-                const value = row[column];
-                return (
-                  <td
-                    key={column}
-                    className={column === "metric" || column === "scenario" ? "mono" : undefined}
-                  >
-                    {value === null ? "" : String(value)}
-                  </td>
-                );
-              })}
+              {columns.map((column) => (
+                <td
+                  key={column}
+                  className={column === "metric" || column === "scenario" ? "mono" : undefined}
+                >
+                  {cellText(row, column)}
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>

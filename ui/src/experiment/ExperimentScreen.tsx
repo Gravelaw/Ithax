@@ -22,6 +22,7 @@ import { ModelScreen, type ModelWrites, useDraft, useSchema } from "../canvas/Mo
 import { shown, splitQuantity, TIME_UNITS } from "../canvas/model";
 import { own } from "../canvas/own";
 import { CommitInput, FieldIssues } from "../canvas/SettingFields";
+import { unitWords } from "../results/display";
 import {
   addScenarioPlan,
   appendPlan,
@@ -404,11 +405,11 @@ function QuantityInput({
         }}
       >
         {TIME_UNITS.includes(unit as (typeof TIME_UNITS)[number]) ? null : (
-          <option value={unit}>{unit}</option>
+          <option value={unit}>{unitWords(unit)}</option>
         )}
         {TIME_UNITS.map((name) => (
           <option key={name} value={name}>
-            {name}
+            {unitWords(name)}
           </option>
         ))}
       </select>

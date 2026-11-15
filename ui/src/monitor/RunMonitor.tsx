@@ -18,6 +18,7 @@ import { FINAL_STATES, type Project, type Run, type RunState } from "../api/type
 import type { Route } from "../app/router";
 import { IssueList, LOST_CONTACT, ServiceProblem } from "../components/ServiceProblem";
 import { usePendingRequest } from "../components/usePendingRequest";
+import { whenText } from "../results/display";
 import "../results/results.css";
 
 /** Said in place of live key numbers (AKS-138, logged fallback). */
@@ -178,7 +179,7 @@ function Monitor({
                     </th>
                     <td>{STATE_WORDS[run.state] ?? run.state}</td>
                     <td className="mono">{run.experiment_id ?? "none"}</td>
-                    <td>{run.created}</td>
+                    <td>{whenText(run.created)}</td>
                     <td className="row-actions">
                       {run.run_id !== shown ? (
                         <button
@@ -308,7 +309,7 @@ function RunView({
         </span>
         {run !== null ? (
           <span className="muted">
-            Experiment {run.experiment_id ?? "none"} · accepted {run.created}
+            Experiment {run.experiment_id ?? "none"} · accepted {whenText(run.created)}
           </span>
         ) : null}
       </p>

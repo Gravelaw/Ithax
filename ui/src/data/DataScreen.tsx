@@ -44,6 +44,7 @@ import { fieldsText, histogramData, histogramOption, rounded } from "../charts/h
 import { Dialog } from "../components/Dialog";
 import { ServiceProblem } from "../components/ServiceProblem";
 import { usePendingRequest } from "../components/usePendingRequest";
+import { unitWords } from "../results/display";
 
 /** The settings that are a service or process time: the question of flows B7b is asked. */
 export const WORK_TIMES: readonly (readonly [string, string])[] = [
@@ -524,7 +525,7 @@ function Columns({
                       <option value="">No unit (plain numbers)</option>
                       {TIME_UNITS.map((unit) => (
                         <option key={unit} value={unit}>
-                          {unit}
+                          {unitWords(unit)}
                         </option>
                       ))}
                     </select>
@@ -582,12 +583,12 @@ function FitResult({
     [data, fit.column, fit.unit, name, colours],
   );
   const group = useId();
-  const unit = fit.unit === null ? "" : ` (${fit.unit})`;
+  const unit = fit.unit === null ? "" : ` (${unitWords(fit.unit)})`;
   return (
     <>
       <p className="hint">
         {fit.values.toLocaleString("en")} values
-        {fit.unit === null ? ", no unit" : `, in ${fit.unit}`}.
+        {fit.unit === null ? ", no unit" : `, in ${unitWords(fit.unit)}`}.
       </p>
       {fit.candidates.length === 0 ? (
         <p className="muted">No distribution fits this column.</p>

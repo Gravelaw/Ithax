@@ -10,6 +10,7 @@
  */
 import type { FitBody } from "../api/types";
 import { own } from "../canvas/own";
+import { unitWords } from "../results/display";
 
 /** A field of a fitted distribution as a number in the column's unit: `"2.0 min"` → 2. */
 export function fieldNumber(value: unknown): number {
@@ -184,7 +185,7 @@ export function histogramOption(
       min: data.low,
       max: data.high,
       scale: true,
-      name: axis.unit === null ? axis.column : `${axis.column} (${axis.unit})`,
+      name: axis.unit === null ? axis.column : `${axis.column} (${unitWords(axis.unit)})`,
       nameLocation: "middle",
       nameGap: 28,
       nameTextStyle: label,

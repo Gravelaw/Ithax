@@ -3261,3 +3261,17 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Readings (reversible):** "Exit lesson" stays a link under the buttons, as built, not on their row as the wireframe draws it.
 - **Spec sections updated:** none; the layout now matches the design.
 - **Dependencies added:** none.
+
+## 2026-11-15 · M15 · Readable numbers, units and times (#96; Reviewer B finding 9)
+
+- **Decision:**
+  - **Replications table.** Each `value` is shown in the key numbers' display units, by its row's metric and SI unit (`valueText`), so 912.4123456789012 with `s` reads "15.2 min" and a share reads as a percentage. The `unit` column is not shown; other fractional numbers get three significant figures. The table's CSV, `GET .../tables/replications?format=csv`, is unchanged: SI units, full precision.
+  - **Times.** `whenText` gives a moment as "8 Nov 2026, 10:15" in local time, and `dateText` as "8 Nov 2026" (`ui/src/results/display.ts`). The Run monitor's "accepted" and its runs table use the first, Home's "Created" the second; both had their own code, or none.
+  - **Units in words.** `unitWords` names `s`, `min`, `h` and `d` as "seconds" to "days", `1/…` as "per …", and `1` as "no unit". The Experiment screen's and the Data screen's unit pickers, the Data screen's fit hint and table headings, and the histogram's axis use it; the values sent stay the symbols.
+- **Reason:** issue #96: "17-digit values, units 1 and 1/s, ISO timestamps, bytes". Tests first: the replications table shows "15.2 min", not "912.41" or a `unit` heading; the Run monitor shows no ISO moment; `display.test.ts` covers the three helpers. Each failed before the change.
+- **Readings (reversible):**
+  - Spec 3's "the tables stay in SI units" means the tables the service stores and serves; the table on the screen follows the key numbers' display units.
+  - Moments are shown in local time, the day before the month ("8 Nov 2026"), as Home already showed dates.
+  - "Bytes" (the Settings memory limit, typed in bytes) is left to #87, whose idle timeout needs the same entry in a chosen unit; the field already shows the size in words beside it ("= 8.59 GB").
+- **Spec sections updated:** spec 3 "Run monitor, Results and Settings" (Results), with a dated line.
+- **Dependencies added:** none.
