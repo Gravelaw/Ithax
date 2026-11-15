@@ -7,6 +7,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Project, SettingsBody } from "../api/types";
 import { CanvasScreen } from "../canvas/CanvasScreen";
+import { oneAtATime } from "../components/oneAtATime";
 import { ServiceProblem } from "../components/ServiceProblem";
 import { useCurrent } from "../components/useCurrent";
 import { DataScreen } from "../data/DataScreen";
@@ -201,10 +202,10 @@ function useLessonStep(
   // one before, so the service keeps the latest step or the clearing on exit, never an
   // older step that arrived late (review of pull request 201).
   const last = useRef<string | null>(null);
-  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const queue = useRef(oneAtATime());
   useEffect(() => {
     const send = (pid: string, value: number | null) => {
-      queue.current = queue.current.then(() => client.changeProject(pid, { lesson_step: value }));
+      void queue.current(() => client.changeProject(pid, { lesson_step: value }));
     };
     if (projectId !== null && step !== null) {
       send(projectId, step);

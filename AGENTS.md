@@ -65,9 +65,11 @@ that reads input, and say whether the shared helper was bypassed:
   `changeProject` or `removeProject` itself; PR #201, three findings).
 - an answer that arrives after other requests or actions, acted on against the state known
   when its request was sent: a read sent before or during a write that puts back the old
-  value, a completion that ends what a newer action started (helpers: `AnswerOrder` in
-  `ui/src/components/answerOrder.ts` for reads and writes of one shared value, `useCurrent`
-  in `ui/src/components/useCurrent.ts` or a functional state update for a completion that
-  reads state after an await; a test per
-  site holds a slower request back while a newer one or a newer action completes; PR #200
-  and its stack, two findings).
+  value, overlapping writes answered out of order, a completion that ends what a newer
+  action started (helpers: `oneAtATime` in `ui/src/components/oneAtATime.ts`, one queue per
+  shared value, so one request is in flight and each answer is the value at its turn: the
+  settings provider and the lesson step send every request through one; `useCurrent` in
+  `ui/src/components/useCurrent.ts`, or a functional state update, for a completion that
+  reads state after an await, as App's project actions do; a test per site lets a slower
+  request finish after a newer one or a newer action; PR #200 and its stack, four
+  findings).
