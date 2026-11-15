@@ -3137,3 +3137,21 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Licences checked** (not legal advice): highspy 1.16.0 is MIT (`LICENSE.txt`, "Copyright (c) 2026 HiGHS"). `THIRD_PARTY_NOTICES.md` lists the same components as 1.15.1: AMD BSD-3, CLI11 BSD-3, METIS Apache-2.0, pdqsort zlib, RCM MIT, zstr MIT.
 - **Spec sections updated:** spec 2's two optimization benchmark results, with a dated line.
 - **Dependencies added:** none; highspy upgraded from 1.15.1 to 1.16.0 (MIT, unchanged).
+
+## 2026-11-15 · M14 · A stop that no request can hold up (#158)
+
+- **Decision:**
+  - **The bound.** `ithax.service.main` runs uvicorn with `timeout_graceful_shutdown` `GRACEFUL_SHUTDOWN_S` = 5. After SIGTERM or SIGINT, uvicorn waits at most 5 s for open connections and requests, then cancels them and logs "Cancel N running task(s), timeout graceful shutdown exceeded". The lifespan's `RunService.stop`, bounded at 30 s, follows as before.
+  - **The dump.** `SignalServer.handle_exit` arms `faulthandler.dump_traceback_later(DUMP_AFTER_S = 20)` on the first stop signal. A service still running then writes every thread's traceback to standard error, which the launcher keeps in `service.log`. `_serve` cancels the dump once `service.json` is removed.
+  - **The e2e fixture** (`ui/e2e/service.ts`). A stop whose `service.json` is still there after 30 s prints `service.log` (and the logged service's log) before the folder is deleted.
+  - **Checks.**
+    - `tests/service/stuck_service.py` wraps the service so that `/test/stuck` is never answered. The new test holds such a request open and sends SIGTERM. The service ends by SIGTERM within the bound, with `service.json` removed and the cancel logged.
+    - On the old code the same run was still going 30 s after SIGTERM, with `service.json` left: shown by a direct run, recorded in the PR. With the change it exits after 5.2 s.
+    - Two unit tests: the uvicorn config holds the bound, and the first stop signal arms one dump of 20 s.
+- **Reason:** issue #158 (CI run 43583917879, attempt 1): the e2e fixture's service did not exit within 30 s of SIGTERM. The one wait without limit was uvicorn's graceful shutdown.
+- **Readings (reversible):**
+  - 5 s, as the issue proposed.
+  - 20 s for the dump: past the graceful shutdown, and before the 30 s a stopping test waits.
+  - The dump is armed on the signal, not at start, so a running service writes nothing.
+- **Spec sections updated:** spec 3 "One service per user", with a dated line.
+- **Dependencies added:** none.
