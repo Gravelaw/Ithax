@@ -3254,6 +3254,13 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** none; the guide's milestone table is changed when Phase 2's grouping is agreed.
 - **Dependencies added:** none.
 
+## 2026-11-15 · M15 · The step card keeps its buttons in view (#90; Reviewer B finding 1)
+
+- **Decision:** the step card is two parts. Its text, the change and the choices scroll in `.step-body`; Back, Next or "Run the exercise", the run's reason and "Exit lesson" sit below it in `.step-actions`, which never scrolls away. The card keeps its cap of 60% of the Canvas's side column, so the side panel keeps its room; on the plan views the column scrolls, as before.
+- **Reason:** issue #90: at 1,280 × 800 the buttons followed a long step inside a card capped at 60% of the column, so they were below the card's fold. The wireframe `01b-canvas-learn.svg` draws them in view, and design-system.md "Layout" designs at 1,280 × 800. `ui/e2e/learn-layout.spec.ts` walks every step of every template's lesson at that size and checks each control is wholly in the window and inside the card; it failed before the change, at "Exit lesson".
+- **Readings (reversible):** "Exit lesson" stays a link under the buttons, as built, not on their row as the wireframe draws it.
+- **Spec sections updated:** none; the layout now matches the design.
+
 ## 2026-11-15 · M14 · Large optimization results kept small (#82; owner decision #181)
 
 - **Decision:** the owner chose option A on #181 (2026-11-15, relayed by the orchestrating session and posted on #181). There is no `/v1` change, and `summary.json` and `GET /v1/runs/{rid}/summary` stay complete, so the interface and the export keep every value.
