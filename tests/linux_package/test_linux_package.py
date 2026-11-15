@@ -93,6 +93,16 @@ def runner() -> str:
     return chosen
 
 
+def local_isolation(offline: bool) -> list[str]:
+    """The prefix that runs a local check offline: ``unshare -rn``, a new network namespace
+    holding only loopback, set up since it starts down and the service needs it. Every local
+    offline run goes through here (review of pull request 211: the AppImage's did not)."""
+    if not offline:
+        return []
+    up = ["sh", "-c", '"$0" -I -c "$1" && shift && exec "$@"', sys.executable, LOOPBACK_UP]
+    return ["unshare", "-rn", *up]
+
+
 def clean_install(archive: Path, offline: bool, tmp_path: Path) -> tuple[float, dict[str, Any]]:
     """Run ``clean_install.sh`` in a clean environment; the wall time from before the
     environment starts until the first result, and the result."""
@@ -106,9 +116,7 @@ def clean_install(archive: Path, offline: bool, tmp_path: Path) -> tuple[float, 
     else:
         home = tmp_path / "home"
         home.mkdir()
-        # A new network namespace starts with loopback down; the service needs it up.
-        up = ["sh", "-c", '"$0" -I -c "$1" && shift && exec "$@"', sys.executable, LOOPBACK_UP]
-        command = ["unshare", "-rn", *up] if offline else []
+        command = local_isolation(offline)
         command += ["sh", str(HERE / "clean_install.sh"), str(archive.parent), archive.name]
         command += extra
         environment = {"HOME": str(home), "PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"}
@@ -431,7 +439,8 @@ def clean_appimage(
         if not mounted:
             environment["APPIMAGE_EXTRACT_AND_RUN"] = "1"
         (tmp_path / "home").mkdir()
-        command = ["sh", str(HERE / "clean_appimage.sh"), str(appimage.parent), appimage.name]
+        command = local_isolation(offline)
+        command += ["sh", str(HERE / "clean_appimage.sh"), str(appimage.parent), appimage.name]
         command += [sys.executable, *extra]
     started = time.monotonic()
     done = subprocess.run(

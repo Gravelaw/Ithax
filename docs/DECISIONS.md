@@ -3529,6 +3529,7 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
     - while the command runs, the signal goes to it;
     - while AppRun stays, the signal goes to every process running from the AppImage, and AppRun ends only after they have, with status 143 or 129.
   - The check is `test_a_signal_at_any_phase_stops_what_runs_from_the_appimage_before_apprun_ends`, for the foreground wait and the background waiter, beside the command-phase test. `AGENTS.md` names the class.
+- **Review of PR #211, third finding:** with no Docker (`ITHAX_PACKAGE_RUNNER=local`), the AppImage's offline check ran with the network open: only the archive's check put its run in `unshare -rn`. Both now take their prefix from one helper, `local_isolation` in `tests/linux_package/test_linux_package.py`. It was checked here: an outbound connection fails through it and succeeds without it.
 - **Tests:** `tests/linux_package/test_appimage_build.py` covers the AppDir, the AppRun commands and its staying, mounted and extracted, and the appimagetool call. Under the marker `package`, `tests/linux_package/test_linux_package.py` checks:
   - the checksum, and the type 2 magic;
   - the extracted tree against the archive's;
