@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { Project } from "../api/types";
 import { errorBody, FakeService } from "../test/fakes";
+import { runIn } from "../test/projects";
 import {
   ANSWERS,
   BUILD_TEMPLATES,
@@ -51,7 +52,15 @@ function setup(served: string[] = Object.keys(TITLES)) {
     }));
   const onCreated = vi.fn();
   const onBack = vi.fn();
-  render(<BuildForm client={fake.client()} onCreated={onCreated} onBack={onBack} />);
+  const client = fake.client();
+  render(
+    <BuildForm
+      client={client}
+      run={runIn(client)}
+      onCreated={async (_api, project, data) => onCreated(project, data)}
+      onBack={onBack}
+    />,
+  );
   return { fake, onCreated, onBack, user: userEvent.setup() };
 }
 
@@ -210,7 +219,12 @@ describe("the Build form", () => {
       .answer("POST /v1/projects", made("Coffee shop queue"));
     const onCreated = vi.fn();
     const shown = render(
-      <BuildForm client={fake.client()} onCreated={onCreated} onBack={() => {}} />,
+      <BuildForm
+        client={fake.client()}
+        run={runIn(fake.client())}
+        onCreated={async (_api, project, data) => onCreated(project, data)}
+        onBack={() => {}}
+      />,
     );
     const user = userEvent.setup();
     await user.click(await screen.findByRole("radio", { name: /How long will people/ }));
@@ -238,7 +252,14 @@ describe("the Build form", () => {
   it("shows the service's problem when the templates cannot be listed, and goes back", async () => {
     const fake = new FakeService().on("GET /v1/templates", () => "unreachable");
     const onBack = vi.fn();
-    render(<BuildForm client={fake.client()} onCreated={() => {}} onBack={onBack} />);
+    render(
+      <BuildForm
+        client={fake.client()}
+        run={runIn(fake.client())}
+        onCreated={async () => {}}
+        onBack={onBack}
+      />,
+    );
     expect(await screen.findByText("Lost contact with the engine service.")).toBeVisible();
     // Without the list, no answer is called not installed: the service judges the template.
     expect(screen.queryByText(NOT_INSTALLED)).toBeNull();

@@ -41,6 +41,17 @@ export interface Project {
   model_revision: number | null;
   path: string;
   available: boolean;
+  /** The interface's notes (#97): when last opened, the template, the lesson's step. */
+  opened?: string | null;
+  template?: string | null;
+  lesson_step?: number | null;
+}
+
+/** `PATCH /v1/projects/{pid}` (#97). */
+export interface ChangeProject {
+  name?: string;
+  opened?: true;
+  lesson_step?: number | null;
 }
 
 /** `POST /v1/projects`. */

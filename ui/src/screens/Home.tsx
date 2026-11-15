@@ -15,17 +15,23 @@ import { FolderOpenIcon, GraduationCapIcon, HammerIcon, PlusIcon } from "@phosph
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Project, Template } from "../api/types";
+import type { ProjectActions } from "../app/projectActions";
 import { ServiceProblem } from "../components/ServiceProblem";
 import { useMounted } from "../components/useMounted";
-import { type Lesson, parseLesson } from "../learn/lesson";
-import { dateText } from "../results/display";
+import { parseLesson } from "../learn/lesson";
 import { BUILD_TEMPLATES } from "./BuildForm";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { OpenProjectDialog } from "./OpenProjectDialog";
+import { RecentProjects, recentOrder } from "./RecentProjects";
 
 export const EMPTY_GALLERY = "No templates are installed yet.";
+export { REMOVED_KEEPS_FILES } from "./RecentProjects";
 export const NO_PROJECTS = "No projects yet. Create one, or open a project folder.";
 export const BUILD_UNAVAILABLE = "The Build form needs the templates, and none are installed yet.";
+/** Said while a project action is pending; the actions that conflict wait (review of pull request 201). */
+export const PROJECTS_BUSY =
+  "Saving your projects… Opening, renaming and removing wait until it is done.";
+
 /** Said when a served template's lesson does not read (the service serves only those that do). */
 export const LESSON_UNREADABLE = "This template's lesson cannot be read.";
 
@@ -36,26 +42,25 @@ function audienceRank(template: Template): number {
   return at < 0 ? AUDIENCE_ORDER.length : at;
 }
 
-function created(project: Project): string {
-  if (project.created === null) return "";
-  const date = dateText(project.created);
-  return date === project.created ? "" : `Created ${date}`;
-}
-
 type Loaded<T> = ApiResult<T> | null;
+
+/** The newest available project made from `template`, whose lesson is resumed (#97). */
+function lessonProjectIn(projects: readonly Project[], template: Template): Project | undefined {
+  return recentOrder(projects).find(
+    (project) => project.available && project.template === template.id,
+  );
+}
 
 export function Home({
   client,
-  onOpen,
+  projects: actions,
   onBuild = () => undefined,
-  onLesson = () => undefined,
 }: {
   client: ApiClient;
-  onOpen: (project: Project) => void;
+  /** Every change to a project goes through the application (review of pull request 201). */
+  projects: ProjectActions;
   /** Opens the Build form. */
   onBuild?: () => void;
-  /** A project made from `template`, to open with its lesson. */
-  onLesson?: (project: Project, template: Template, lesson: Lesson) => void;
 }) {
   const [projects, setProjects] = useState<Loaded<Project[]>>(null);
   // The lesson being started (one at a time), and why the last one did not start.
@@ -70,10 +75,20 @@ export function Home({
   const gallery = useRef<HTMLHeadingElement>(null);
 
   const load = useCallback(async () => {
-    const [listed, gallery] = await Promise.all([client.listProjects(), client.listTemplates()]);
-    setProjects(listed);
-    setTemplates(gallery);
-  }, [client]);
+    // The list is read in App's queue, after any action already queued (reviews of pull
+    // request 201: a list read during a removal or a step's write showed an older one). The
+    // gallery holds no project state and is shown as soon as it arrives.
+    await Promise.all([
+      client.listTemplates().then((gallery) => {
+        if (mounted.current) setTemplates(gallery);
+      }),
+      actions
+        .run((api) => api.list())
+        .then((listed) => {
+          if (mounted.current) setProjects(listed);
+        }),
+    ]);
+  }, [client, actions.run, mounted]);
 
   useEffect(() => {
     void load();
@@ -83,36 +98,60 @@ export function Home({
   if (lessonsFirst) shown.sort((a, b) => audienceRank(a) - audienceRank(b));
   const buildable = shown.some((template) => BUILD_TEMPLATES.includes(template.id));
 
-  /** Reads the template and its lesson, then makes the project; one at a time. */
+  /** The newest available project made from `template` as listed now, if any. */
+  const lessonProject = (template: Template): Project | undefined =>
+    projects?.kind === "ok" ? lessonProjectIn(projects.data, template) : undefined;
+
+  /**
+   * Reads the template and its lesson, then resumes it in the project already made from
+   * the template, at its step, or makes the project (#97: one project per lesson, not a new
+   * one at each start); one at a time.
+   */
   const startLesson = async (template: Template) => {
-    if (starting !== null) return;
+    // Not while another project action is pending, which it would conflict with.
+    if (starting !== null || actions.busy) return;
     setStarting(template.id);
     setStartProblem(null);
     setUnreadable(false);
-    const read = await client.getTemplate(template.id);
-    if (!mounted.current) return;
-    if (read.kind !== "ok") {
-      setStarting(null);
-      setStartProblem(read);
-      return;
-    }
-    const lesson = parseLesson(read.data.lesson);
-    if (lesson === null) {
-      setStarting(null);
-      setUnreadable(true);
-      return;
-    }
-    const made = await client.createProject({
-      name: read.data.template.title,
-      template: template.id,
+    // One action of App's queue, from the template's read to the project opened: no removal,
+    // rename or step's write runs in between, and the project and its step are read as they
+    // are when it starts (reviews of pull request 201).
+    await actions.run(async (api) => {
+      const read = await api.template(template.id);
+      if (!mounted.current) return;
+      if (read.kind !== "ok") {
+        setStartProblem(read);
+        return;
+      }
+      const lesson = parseLesson(read.data.lesson);
+      if (lesson === null) {
+        setUnreadable(true);
+        return;
+      }
+      const listed = await api.list();
+      if (!mounted.current) return;
+      // A project is made only once the list shows none for this lesson: a list that cannot
+      // be read is shown, never taken as empty (review of pull request 201).
+      if (listed.kind !== "ok") {
+        setStartProblem(listed);
+        return;
+      }
+      setProjects(listed);
+      const earlier = lessonProjectIn(listed.data, template);
+      if (earlier !== undefined) {
+        const step = Math.min(earlier.lesson_step ?? 0, lesson.steps.length);
+        await actions.lesson(api, earlier, read.data.template, lesson, step);
+        return;
+      }
+      const made = await api.create({ name: read.data.template.title, template: template.id });
+      if (!mounted.current) return;
+      if (made.kind !== "ok") {
+        setStartProblem(made);
+        return;
+      }
+      await actions.lesson(api, made.data, read.data.template, lesson, 0);
     });
-    if (!mounted.current) return;
-    setStarting(null);
-    if (made.kind !== "ok") {
-      setStartProblem(made);
-      return;
-    }
-    onLesson(made.data, read.data.template, lesson);
+    if (mounted.current) setStarting(null);
   };
 
   return (
@@ -186,11 +225,11 @@ export function Home({
                 <button
                   type="button"
                   className="secondary"
-                  aria-label={`Start the lesson ${template.title}`}
-                  aria-disabled={starting !== null || undefined}
+                  aria-label={`${lessonProject(template) ? "Resume" : "Start"} the lesson ${template.title}`}
+                  aria-disabled={starting !== null || actions.busy || undefined}
                   onClick={() => void startLesson(template)}
                 >
-                  Start the lesson
+                  {lessonProject(template) ? "Resume the lesson" : "Start the lesson"}
                 </button>
                 {starting === template.id ? (
                   <p className="muted small" role="status">
@@ -209,6 +248,11 @@ export function Home({
         <h2 id="recent-heading" className="heading">
           Recent projects
         </h2>
+        {actions.busy && projects !== null ? (
+          <p className="muted small" role="status">
+            {PROJECTS_BUSY}
+          </p>
+        ) : null}
         {projects === null ? (
           <p className="muted">Loading…</p>
         ) : projects.kind !== "ok" ? (
@@ -221,26 +265,11 @@ export function Home({
         ) : projects.data.length === 0 ? (
           <p className="empty">{NO_PROJECTS}</p>
         ) : (
-          <ul className="projects">
-            {[...projects.data].reverse().map((project) => (
-              <li key={project.id}>
-                <button
-                  type="button"
-                  className="project"
-                  aria-disabled={project.available ? undefined : "true"}
-                  onClick={() => {
-                    if (project.available) onOpen(project);
-                  }}
-                >
-                  <span className="subheading">{project.name ?? project.path}</span>
-                  <span className="muted small">
-                    {project.available ? created(project) : "Not available"}
-                  </span>
-                  <span className="mono small muted">{project.path}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <RecentProjects
+            projects={projects.data}
+            actions={actions}
+            onChanged={() => void load()}
+          />
         )}
         <div className="links">
           <button type="button" className="link" onClick={() => setDialog("new")}>
@@ -255,10 +284,18 @@ export function Home({
       </section>
 
       {dialog === "new" ? (
-        <NewProjectDialog client={client} onCreated={onOpen} onCancel={() => setDialog(null)} />
+        <NewProjectDialog
+          projects={actions.run}
+          onCreated={actions.open}
+          onCancel={() => setDialog(null)}
+        />
       ) : null}
       {dialog === "open" ? (
-        <OpenProjectDialog client={client} onOpened={onOpen} onCancel={() => setDialog(null)} />
+        <OpenProjectDialog
+          projects={actions.run}
+          onOpened={actions.open}
+          onCancel={() => setDialog(null)}
+        />
       ) : null}
     </div>
   );

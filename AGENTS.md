@@ -58,10 +58,19 @@ that reads input, and say whether the shared helper was bypassed:
   and inert, so the action does nothing (helper: `useSheet`'s `reveal` in
   `ui/src/canvas/SideSheet.tsx`, which opens it first; `SideSheet.test.ts` fails when
   `CanvasScreen.tsx` looks up an element by id itself; PR #192, two findings).
+- a project read or changed outside App's one queue of actions (Home, a dialog, the Build
+  form or App itself calling a project request directly), so a removed project reopens, an
+  older name, list or lesson step is shown, or the open project is kept after removal
+  (helper: `run` and `ProjectApi` in `ui/src/app/projectActions.ts`, with App's actions
+  taking the `api`; `projectActions.test.ts` fails when code in `app/` or `screens/` other
+  than `projectApi` calls a project request; while an action is pending Home disables the
+  actions that conflict and says so; PR #201, seven findings).
 - an answer that arrives after other requests or actions, acted on against the state known
   when its request was sent: a read sent before or during a write that puts back the old
   value, overlapping writes answered out of order, a completion that ends what a newer
-  action started (helper: `oneAtATime` in `ui/src/components/oneAtATime.ts`, one queue per
-  shared value, so one request is in flight and each answer is the value at its turn; the
-  settings provider sends every read and write through one; a test per site lets a fake
-  service answer what is in flight in any order; PR #200 and its stack, three findings).
+  action started. Serialize the reads and writes of shared state in one queue; do not
+  reconcile answers by their order (helper: `oneAtATime` in `ui/src/components/oneAtATime.ts`:
+  the settings provider sends every settings read and write through one, and App's project
+  actions run in one; `useCurrent` in `ui/src/components/useCurrent.ts` for an action that
+  reads state when it runs, not when it was queued; a test per site lets a slower request
+  finish after a newer action; PR #200 and its stack, four findings).

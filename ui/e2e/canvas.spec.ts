@@ -151,7 +151,7 @@ test("a coffee shop built by pointer equals the example except ui", async ({
     sent.map(
       (request) =>
         `${request.method} ${request.path
-          .replace(/\/projects\/[0-9a-f-]{36}\//, "/projects/{pid}/")
+          .replace(/\/projects\/[0-9a-f-]{36}(?=\/|$)/, "/projects/{pid}")
           .replace(/\/schema\/components\/[a-z_]+$/, "/schema/components/{type}")}`,
     ),
   );
@@ -159,6 +159,8 @@ test("a coffee shop built by pointer equals the example except ui", async ({
     new Set([
       "GET /v1/settings",
       "GET /v1/projects",
+      // Opening a project from Recent projects notes the time (#97).
+      "PATCH /v1/projects/{pid}",
       "GET /v1/templates",
       "GET /v1/schema",
       "GET /v1/schema/components/{type}",

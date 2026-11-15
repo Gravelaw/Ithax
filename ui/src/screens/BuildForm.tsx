@@ -13,6 +13,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Project, Template } from "../api/types";
+import type { ProjectApi, RunProjects } from "../app/projectActions";
 import { ServiceProblem } from "../components/ServiceProblem";
 import { useMounted } from "../components/useMounted";
 
@@ -54,12 +55,16 @@ export const NEED_NAME = "Give the project a name.";
 
 export function BuildForm({
   client,
+  run,
   onCreated,
   onBack,
 }: {
   client: ApiClient;
   /** The project made; `data` when the user chose "Yes, import a file". */
-  onCreated: (project: Project, data: boolean) => void;
+  /** App's queue of project actions; the project is made inside one (review of pull request 201). */
+  run: RunProjects;
+  /** Opens the project it made, inside the same action. */
+  onCreated: (api: ProjectApi, project: Project, data: boolean) => Promise<void>;
   onBack: () => void;
 }) {
   const [templates, setTemplates] = useState<ApiResult<Template[]> | null>(null);
@@ -116,11 +121,13 @@ export function BuildForm({
     if (missing !== null || sending || template === undefined) return;
     setSending(true);
     setRefusal(null);
-    const result = await client.createProject({ name: shownName, template });
-    if (!mounted.current) return;
-    setSending(false);
-    if (result.kind === "ok") onCreated(result.data, data === true);
-    else setRefusal(result);
+    await run(async (api) => {
+      const result = await api.create({ name: shownName, template });
+      if (!mounted.current) return;
+      setSending(false);
+      if (result.kind === "ok") await onCreated(api, result.data, data === true);
+      else setRefusal(result);
+    });
   };
 
   const option = (item: Answer, group: string, checked: boolean, pick: () => void) => {
