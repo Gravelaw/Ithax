@@ -40,7 +40,7 @@ function slowReads() {
   const release = () => {
     for (const go of held.splice(0)) go();
   };
-  return { wrapper, elsewhere, release };
+  return { wrapper, elsewhere, release, holdWrites: () => fake.holdWrites() };
 }
 
 describe("the settings held by the interface", () => {
@@ -74,4 +74,38 @@ describe("the settings held by the interface", () => {
     });
     expect(result.current.settings.idle_timeout_minutes).toBe(0);
   });
+
+  it.each([
+    ["the write's answer first", true],
+    ["the read's answer first", false],
+  ])(
+    "do not take a read sent while a write awaits its answer: %s (review of pull request 200)",
+    async (_name, writeFirst) => {
+      const { wrapper, release, holdWrites } = slowReads();
+      const { result } = renderHook(() => useSettings(), { wrapper });
+      const letWrite = holdWrites();
+      let write: Promise<unknown> = Promise.resolve();
+      let read: Promise<unknown> = Promise.resolve();
+      await act(async () => {
+        write = result.current.save({ idle_timeout_minutes: 0 });
+        // The service reads the settings before it has applied the write.
+        read = result.current.refresh();
+        await Promise.resolve();
+      });
+      await act(async () => {
+        if (writeFirst) {
+          letWrite();
+          await write;
+          release();
+          await read;
+        } else {
+          release();
+          await read;
+          letWrite();
+          await write;
+        }
+      });
+      expect(result.current.settings.idle_timeout_minutes).toBe(0);
+    },
+  );
 });
