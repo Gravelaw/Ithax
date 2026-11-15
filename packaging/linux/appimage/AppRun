@@ -42,8 +42,28 @@ stay() {
     done
 }
 
+# The command runs as a child, so AppRun can stay after it; a signal that stops AppRun
+# (TERM, INT or HUP, as a caller stopping it by its PID sends) is passed on to the command,
+# and AppRun waits for it to end (review of pull request 211). A command started in the
+# background reads /dev/null unless given its standard input explicitly, so it gets a copy
+# taken first: the MCP server speaks over it.
+# The traps come first, so a signal arriving as the command starts is not lost. The shell
+# starts a background command with INT ignored, which it cannot undo, so INT (Ctrl+C) is
+# passed on as TERM, on which every command stops.
+child=
+trap 'if [ -n "$child" ]; then kill -TERM "$child" 2>/dev/null || true; else exit 143; fi' TERM INT
+trap 'if [ -n "$child" ]; then kill -HUP "$child" 2>/dev/null || true; else exit 129; fi' HUP
+exec 3<&0
+"$command" "$@" <&3 3<&- &
+child=$!
+exec 3<&-
 status=0
-"$command" "$@" || status=$?
+wait "$child" || status=$?
+# A trapped signal ends the wait early; wait again until the command has ended.
+while kill -0 "$child" 2>/dev/null; do
+    wait "$child" || status=$?
+done
+trap - TERM INT HUP
 if [ -n "${APPIMAGE_EXTRACT_AND_RUN:-}" ] && [ -z "${NO_CLEANUP:-}" ]; then
     # Nothing more is written to the caller; it sees the end of the output now.
     exec </dev/null >/dev/null 2>&1

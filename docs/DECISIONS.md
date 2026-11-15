@@ -3520,6 +3520,9 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The runtime is listed in `THIRD-PARTY-LICENSES.txt` of the AppImage, not on the Help page's licences list. It is the AppImage's container format, not a part of the app that `GET /v1/licences` describes.
   - AppRun checks every 2 s whether a process still runs from the AppImage, through `/proc/<pid>/exe`.
   - The archive stays, for an installed menu entry and commands, and for machines that have no FUSE.
+- **Review of PR #211:** AppRun ran its command as a child but did not pass signals on, so stopping AppRun by its PID left `mcp` or the shell running. `bin/ithax-mcp` had used `exec`, so nothing was left behind there.
+  - Now the command runs in the background with AppRun's standard input. TERM and HUP are passed on, and INT is passed on as TERM: dash starts a background command with INT ignored and cannot undo it. AppRun waits for the command to end. The traps are set before the command starts.
+  - Tests: each of the three signals, and standard input reaching the command.
 - **Tests:** `tests/linux_package/test_appimage_build.py` covers the AppDir, the AppRun commands and its staying, mounted and extracted, and the appimagetool call. Under the marker `package`, `tests/linux_package/test_linux_package.py` checks:
   - the checksum, and the type 2 magic;
   - the extracted tree against the archive's;
