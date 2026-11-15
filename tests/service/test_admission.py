@@ -297,19 +297,22 @@ def test_a_project_name_that_cannot_be_written_is_e184(client: TestClient) -> No
 # --- the save --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("failing", [1, 2, 3])
-def test_a_save_that_fails_at_any_rename_changes_nothing(
+@pytest.mark.parametrize(("failing", "saved"), [(1, False), (2, True), (3, True)])
+def test_a_save_that_fails_at_a_rename_is_refused_then_old_or_finished(
     client: TestClient,
     events: list[tuple[str, int, str]],
     monkeypatch: pytest.MonkeyPatch,
     failing: int,
+    saved: bool,
 ) -> None:
     """The first rename puts the commit record in place (#71), the second the new model,
-    the third ``project.json``; a failure at the third puts the old model back, and any
-    failure removes the record."""
+    the third ``project.json``. A failure at the record saves nothing. A failure after it
+    leaves the change recorded (redo only, review of PR #182): the write is refused, and the
+    next use of the project finishes it, so the model and the revision always agree."""
     pid, where = project(client)
     events.clear()
     before = snapshot(where)
+    old = client.get(f"/v1/projects/{pid}/model").json()
     real = os.replace
     calls: list[str] = []
 
@@ -326,18 +329,19 @@ def test_a_save_that_fails_at_any_rename_changes_nothing(
     )
     monkeypatch.undo()
     coded_refusal(response, "E186")
+    body = response.json()
     assert "denied" not in response.text
-    # At the third rename the old model is renamed back into place.
-    assert (
-        calls
-        == [
-            [RECORD],
-            [RECORD, MODEL_FILE],
-            [RECORD, MODEL_FILE, PROJECT_FILE, MODEL_FILE],
-        ][failing - 1]
-    )
-    assert snapshot(where) == before
+    assert calls == [RECORD, MODEL_FILE, PROJECT_FILE][:failing]
     assert events == []
+    if not saved:
+        assert "not saved" in body["error"]["message"]
+        assert snapshot(where) == before
+        return
+    assert "recorded" in body["error"]["message"]
+    now = client.get(f"/v1/projects/{pid}/model").json()
+    assert now["revision"] == old["revision"] + 1
+    assert now["model"]["components"][-1]["label"] == "Door"
+    assert not (where / RECORD).exists()
 
 
 def test_a_save_commits_with_project_json_last_then_publishes(
@@ -412,14 +416,12 @@ def test_put_writes_a_model_json_that_was_missing(client: TestClient) -> None:
     assert json.loads((where / MODEL_FILE).read_text(encoding="utf-8")) == shop()
 
 
-def test_a_failed_commit_with_no_previous_model_leaves_none(
-    client: TestClient, events: list[tuple[str, int, str]], monkeypatch: pytest.MonkeyPatch
+def test_a_save_over_no_model_that_fails_after_its_record_is_finished_on_next_use(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pid, where = project(client)
     (where / MODEL_FILE).unlink()
-    events.clear()
-    before = sorted(path.name for path in where.iterdir())
-    record = (where / PROJECT_FILE).read_bytes()
+    revision = json.loads((where / PROJECT_FILE).read_text())["model_revision"]
     real = os.replace
 
     def replace(source: Any, target: Any) -> None:
@@ -431,17 +433,17 @@ def test_a_failed_commit_with_no_previous_model_leaves_none(
     response = client.put(f"/v1/projects/{pid}/model", content=json.dumps(shop()))
     monkeypatch.undo()
     coded_refusal(response, "E186")
-    assert sorted(path.name for path in where.iterdir()) == before
-    assert (where / PROJECT_FILE).read_bytes() == record
-    assert events == []
+    now = client.get(f"/v1/projects/{pid}/model").json()
+    assert now["revision"] == revision + 1 and now["model"] == shop()
 
 
-def test_a_put_back_that_fails_is_logged_and_still_refused(
+def test_a_recorded_save_that_still_cannot_be_finished_refuses_the_project_until_it_can(
     client: TestClient,
     events: list[tuple[str, int, str]],
     monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
+    """Review of PR #182: a replay that fails does not admit the folder; each use refuses
+    with E186 and tries again, and once the folder can be written the save is finished."""
     pid, where = project(client)
     events.clear()
     real = os.replace
@@ -449,8 +451,7 @@ def test_a_put_back_that_fails_is_logged_and_still_refused(
 
     def replace(source: Any, target: Any) -> None:
         calls.append(Path(target).name)
-        # The record (#71) and the model are renamed; project.json and the put back fail.
-        if len(calls) >= 3:
+        if Path(target).name == PROJECT_FILE:
             raise PermissionError("denied")
         real(source, target)
 
@@ -459,11 +460,17 @@ def test_a_put_back_that_fails_is_logged_and_still_refused(
         f"/v1/projects/{pid}/model/edits",
         json={"edits": [{"edit": "set_label", "id": "exit", "label": "Door"}]},
     )
-    monkeypatch.undo()
     coded_refusal(response, "E186")
-    assert "could not be put back" in caplog.text
-    # The revision did not move and nothing was published; no temporary file is left.
-    assert json.loads((where / PROJECT_FILE).read_text())["model_revision"] == 1
+    for _ in range(2):
+        refused = client.get(f"/v1/projects/{pid}/model")
+        assert refused.status_code == 400
+        assert refused.json()["error"]["code"] == "E186"
+        assert RECORD in refused.json()["error"]["message"]
+    [listed] = [item for item in client.get("/v1/projects").json() if item["id"] == pid]
+    assert listed["available"] is False
+    monkeypatch.undo()
+    now = client.get(f"/v1/projects/{pid}/model").json()
+    assert now["revision"] == 2 and now["model"]["components"][-1]["label"] == "Door"
     assert sorted(path.name for path in where.iterdir()) == [
         "data",
         "model.json",
@@ -501,8 +508,8 @@ def replace(source, target):
     real(source, target)
 os.replace = replace
 replace_in_order([
-    Planned(folder / "model.json", Path(model).read_bytes(), None),
-    Planned(folder / "project.json", Path(record).read_bytes(), None),
+    Planned(folder / "model.json", Path(model).read_bytes()),
+    Planned(folder / "project.json", Path(record).read_bytes()),
 ])
 """
 

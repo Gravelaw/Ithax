@@ -335,13 +335,14 @@ def test_an_unknown_project_is_404_and_an_unreadable_one_e186(client: TestClient
     refusal(client.get(f"/v1/projects/{pid}/data"), 400, "E186")
 
 
-def test_a_failed_commit_puts_the_previous_file_back(
+def test_an_import_that_fails_after_its_record_is_finished_on_next_use(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Redo only (#71, review of PR #182): the file and the index never disagree; the
+    import is refused, and the next use of the project finishes it."""
     pid = project(client)
     upload(client, pid, "a.csv", b"x\n1\n")
     folder = folder_of(client, pid)
-    before = {name: (folder / "data" / name).read_bytes() for name in data_listing(folder)}
     real = os.replace
 
     def replace(source: Any, target: Any) -> None:
@@ -354,8 +355,10 @@ def test_a_failed_commit_puts_the_previous_file_back(
     monkeypatch.undo()
     body = refusal(response, 400, "E186")
     assert "denied" not in json.dumps(body)
-    after = {name: (folder / "data" / name).read_bytes() for name in data_listing(folder)}
-    assert after == before
+    assert "recorded" in body["error"]["message"]
+    listed = client.get(f"/v1/projects/{pid}/data").json()
+    assert [entry["name"] for entry in listed] == ["a.csv"]
+    assert (folder / "data" / "a.csv").read_bytes() == b"x\n9\n"
 
 
 def test_an_import_is_saved_while_the_project_s_writes_are_held(

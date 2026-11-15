@@ -7,7 +7,8 @@ and notes, and "Project folder"; AKS-113).
   reads the bytes (``read_table``: E189 for content that cannot be used), checks the
   declared units against the columns read (E184), and saves the file unchanged and its
   entry in ``data/index.json`` together (``ithax.service.commit``: the file, then the index,
-  which commits; a failure puts the previous file back, E186). A name already in the index
+  as one change: a failure before its commit record changes nothing, and one after it is
+  finished on the next use of the project, E186 either way; #71). A name already in the index
   is imported again in its place; one that differs from an indexed name only in letter
   case is E184, since Windows takes the two as one file. The save holds the project's
   write lock (``ModelStore.locked``), so no model write or run creation meets half an
@@ -175,7 +176,7 @@ class DataStore:
             files[name] = entry  # in place when it was imported before
             self._save(
                 folder,
-                [Planned(folder / name, raw, _previous(folder / name, name in current.files))],
+                [Planned(folder / name, raw)],
                 files.values(),
                 "imported",
             )
@@ -184,16 +185,19 @@ class DataStore:
     def _save(
         self, folder: Path, planned: list[Planned], files: Iterable[DataFile], what: str
     ) -> None:
-        """Saves ``planned`` and then the index listing ``files`` (the commit); E186 when
-        the folder cannot be written, with the folder as it was."""
+        """Saves ``planned`` and then the index listing ``files`` as one change; E186 when
+        the folder cannot be written."""
         index = folder / INDEX_FILE
         try:
-            previous = index.read_bytes() if index.exists() else None
-        except OSError:
-            previous = None
-        try:
-            replace_in_order([*planned, Planned(index, index_bytes(files), previous)])
-        except CommitFailed:
+            replace_in_order([*planned, Planned(index, index_bytes(files))])
+        except CommitFailed as failed:
+            if failed.pending:
+                raise ServiceError(
+                    400,
+                    PROJECT_FOLDER,
+                    f"The data folder '{folder}' could not be written to the end. The change "
+                    "is recorded, and it is finished the next time the project is used.",
+                ) from None
             raise ServiceError(
                 400,
                 PROJECT_FOLDER,
@@ -271,17 +275,6 @@ class DataStore:
             "candidates": [candidate.as_dict() for candidate in candidates],
             "histogram": histogram(values),
         }
-
-
-def _previous(path: Path, indexed: bool) -> bytes | None:
-    """The bytes a save replaces at ``path``, put back if it fails; a file there that the
-    index does not list is not part of the project and is not kept."""
-    if not indexed:
-        return None
-    try:
-        return path.read_bytes()
-    except OSError:
-        return None
 
 
 def _check_units(table: Table, units: Mapping[str, str | None]) -> None:

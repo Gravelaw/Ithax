@@ -10,10 +10,12 @@ projects were registered.
 ``ServiceError`` (E184, E185, E186) and never with exception text. It is safe to call from
 several threads (FastAPI runs plain routes in a thread pool).
 
-The first time this process uses a project folder (listed, found or opened), it finishes a
-save that a stopped process left half done there, in the folder and in its ``data/``
-(``ithax.service.commit.replay``; #71). No save of that folder can be under way then: a save
-finds the folder through ``folder`` first.
+Each time a project folder is used (listed, found or opened), the store first finishes a
+save that a stopped process, or a failed rename, left recorded there, in the folder and in
+its ``data/`` (``ithax.service.commit.replay``; #71). A save this process is making there
+at that moment is left to finish itself. A recorded save that cannot be finished refuses
+the project with E186, and the next use tries again; a listing shows such a project as not
+available.
 """
 
 from __future__ import annotations
@@ -31,7 +33,7 @@ from typing import Any, Literal
 
 from ithax.files import atomic_write
 from ithax.model.migration import FORMAT_VERSION
-from ithax.service.commit import replay
+from ithax.service.commit import RECORD, CommitFailed, replay
 from ithax.service.errors import NOT_FOUND, PROJECT_FOLDER, ServiceError
 from ithax.service.paths import canonical, same_folder
 from ithax.strict_json import MAX_WHOLE, encode_json, read_json_file, whole_in
@@ -167,8 +169,6 @@ class ProjectRegistry:
         self.data_dir = canonical(data_dir)
         self._new_id = new_id
         self._lock = threading.Lock()
-        self._settling = threading.Lock()
-        self._settled: set[str] = set()
 
     # --- projects.json --------------------------------------------------------------
 
@@ -199,15 +199,28 @@ class ProjectRegistry:
         self.config_dir.mkdir(parents=True, exist_ok=True)
         write_json(self._file, projects)
 
-    def _settle(self, folder: Path) -> Path:
-        """``folder``, with a save a stopped process left half done there finished, the
-        first time this process uses it (module docstring)."""
-        with self._settling:
-            if str(folder) not in self._settled:
-                replay(folder)
-                replay(folder / "data")
-                self._settled.add(str(folder))
+    @staticmethod
+    def _settle(folder: Path) -> Path:
+        """``folder``, with a recorded save there finished (module docstring); E186 when
+        one cannot be."""
+        try:
+            replay(folder)
+            replay(folder / "data")
+        except CommitFailed:
+            raise _folder_error(
+                f"The project folder '{folder}' holds a save that could not be finished, so "
+                "the project cannot be used until it can be written. If the folder was "
+                f"changed by hand, remove '{RECORD}' from it."
+            ) from None
         return folder
+
+    def _settled(self, folder: Path) -> ProjectRecord | None:
+        """``folder``'s record, read once a recorded save there is finished; ``None``
+        when it cannot be read or the save cannot be finished (a listing's not available)."""
+        try:
+            return read_project(self._settle(folder))
+        except ServiceError:
+            return None
 
     # --- reading --------------------------------------------------------------------
 
@@ -225,8 +238,7 @@ class ProjectRegistry:
         with self._lock:
             projects = self._load()
         return [
-            self.view(pid, Path(path), read_project(self._settle(Path(path))))
-            for pid, path in projects.items()
+            self.view(pid, Path(path), self._settled(Path(path))) for pid, path in projects.items()
         ]
 
     def folder(self, pid: str) -> Path:

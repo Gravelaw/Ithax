@@ -3141,23 +3141,34 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 ## 2026-11-15 · M14 · An atomic model save (#71; D3, M6-34)
 
 - **Decision:**
-  - **The commit record** (`ithax.service.commit`). `replace_in_order` writes every file's bytes to synced temporary files. Then it writes `.ithax-commit.json`, `{"renames": [[temporary, target], ...]}`, beside them with `atomic_write`: that write is the commit. Then it renames the temporaries in order, syncs the folder and removes the record.
-    - A failure before the record removes the temporaries.
-    - A rename that fails puts the earlier files back, as before, and removes the record.
-    - Every file of one commit sits in one folder.
-  - **The replay** (`replay(folder)`). It renames each temporary still present onto its target, in the record's order, syncs the folder and removes the record.
-    - A record that cannot be read (not JSON, not pairs of plain file names) is left and logged, and nothing changes.
-  - **When.** The projects store replays a folder and its `data/` the first time this process uses it: listed (the start, through the run service), found (`folder(pid)`, before every model, data or run use) or opened.
+  - **The commit record** (`ithax.service.commit`). `replace_in_order` refuses a target that is a folder, then writes every file's bytes to synced temporary files. It then writes `.ithax-commit.json`, `{"renames": [[temporary, target], ...]}`, beside them with `atomic_write`: that write is the commit. Last, it renames the temporaries in order, syncs the folder and removes the record. Every file of one commit sits in one folder.
+  - **Redo only** (review of PR #182). Nothing is put back after the record, and `Planned` no longer carries the bytes it replaces.
+    - A failure before the record removes the temporaries: `CommitFailed(pending=False)`, E186 "not saved".
+    - A rename that fails after it keeps the record and the temporaries: `CommitFailed(pending=True)`, E186 "the save is recorded, and it is finished the next time the project is used".
+  - **The replay** (`replay(folder)`). It renames each temporary still present onto its target, in order, syncs the folder and removes the record; it can stop and run again.
+    - It skips a folder this process is committing at the moment (a set kept by `replace_in_order`).
+    - A record that cannot be read, or renames that fail, raise `CommitFailed(pending=True)`. Unreadable means not JSON, not a non-empty list of pairs, or a name that is empty, `.`, `..` or holds `/`, `\` or NUL.
+  - **When.** The projects store replays a folder and its `data/` on every use: listing, `folder(pid)` (before every model, data or run use) and opening.
+    - A replay that fails refuses the project with E186 (naming `.ithax-commit.json` for a folder changed by hand); the next use tries again.
+    - A listing shows the project as not available.
   - **Checks.** Each fails before the change.
-    - `tests/service/test_commit.py`: a child process ends with `os._exit` at the record's rename, at the first file's or between the two files. Replay gives the old files in the first case and the new ones in the others.
-    - Also there: a failed commit leaves no record; an unreadable record changes nothing; one folder per commit.
-    - `tests/service/test_admission.py`: the same three stops on a real project, read back by a new service through `GET` model and `GET /v1/projects`, and a folder opened mid-save.
-    - On the old code the same stop left the new model at the old revision, for a new service: shown by a direct run, recorded in the PR.
+    - `tests/service/test_commit.py`: a child process is stopped with `os._exit` at every `os.replace` and `os.fsync` of a save. Wherever a record was left, a second child replays and is stopped at every step of the replay. The folder always reads as the old two files or the new two.
+    - Also there: a failed rename leaves the change for replay; ten unreadable records (NUL, separators, `..` and so on) refuse and change nothing; a folder being committed is left alone; a folder as a target saves nothing.
+    - `tests/service/test_admission.py`: the same stops on a real project, read by a new service and by an opened folder; a failure at each rename; a recorded save that cannot be finished refuses `GET` model and is finished once it can.
+    - `tests/service/test_data.py`: an import that fails after its record is finished on the next use.
+    - On the old code a stop between the renames left the new model at the old revision for a new service: shown by a direct run, recorded in the PR.
+- **Review of PR #182** (three P1s):
+  - (1) A stop during the roll-back could pair the old model with the new revision.
+  - (2) A replay that failed still admitted the folder.
+  - (3) A NUL in a recorded name raised `ValueError` past `except OSError`.
+  - (1) and (2) are one class: a recovery that combines one revision with another's model. Redo only removes the class: there is no roll-back left, and an unfinished record refuses the folder. `AGENTS.md` lists the class.
+  - (3) is fixed by validating names and catching `ValueError`.
 - **Reason:** issue #71 (D3, M6-34): "Done when an interrupted save leaves either the old or the new model and revision, with a test."
 - **Readings (reversible):**
-  - **A redo record, not a checksum** (`docs/research/m14-atomic-save.md`). A checksum would detect the mismatch but could not repair it, since the old model is gone.
-  - **Replay only on first use, not on every read**, so it never races a save in another thread.
+  - **A redo record, not a checksum or one combined file** (`docs/research/m14-atomic-save.md`). A checksum detects but cannot repair; one file holding model and revision would change the project layout.
+  - **Replay on every use**, skipped for a folder this process is committing, so it never races a save in another thread.
+  - **A failed save after its record is answered E186, not 200**, though the save is decided. Its listeners are not told until a later write: a replay sends no event.
   - **Temporaries left by a stop before the record are kept.** They are named for the process and thread, so they never meet a later save.
   - **`files.sync_folder` is now public** for the commit.
-- **Spec sections updated:** spec 3 "Revision", with a dated line.
+- **Spec sections updated:** spec 3 "Revision", with dated lines.
 - **Dependencies added:** none.

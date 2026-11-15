@@ -10,13 +10,13 @@
   ``PUT`` body (E100), the result of an edit batch (E180) and ``validate`` (its E100 is
   the only issue reported). An edit's own fields are checked as the request's shape first
   (E184, ``ithax.model.edits.check_edits``).
-- **Saving.** ``_commit`` makes both files' final bytes first, writes each to a temporary
-  file in the project folder, then renames ``model.json`` into place and ``project.json``
-  (the new revision) last: that last rename is the commit (``ithax.service.commit``, which
-  a data import also uses). A failure before it removes the
-  temporary files, and a failure at it also puts the previous model back, so the revision,
-  the model and the events are unchanged; the project's listeners are told only after the
-  commit. Every write of one project holds that project's lock, so two writes that state
+- **Saving.** ``_commit`` saves ``model.json`` and then ``project.json`` (the new revision)
+  as one change through ``ithax.service.commit``, which a data import also uses: both
+  files' bytes first, then the commit record, then the renames (#71). A failure before the
+  record changes nothing (E186, "not saved"). A failure after it leaves the change recorded,
+  to be finished on the next use of the project (E186, "recorded"), so the folder never
+  pairs one revision with another's model. The project's listeners are told only once the
+  change is in place. Every write of one project holds that project's lock, so two writes that state
   the same ``base_revision`` cannot both pass the check. The lock is re-entrant and public
   (``locked``): a data import holds it while it saves a file and its column index, and a
   run while it reads the model and its data, so neither sees half of the other (AKS-113).
@@ -303,12 +303,9 @@ class ModelStore:
         folder: Path,
         record: ProjectRecord,
         data: bytes,
-        previous: bytes | None,
         client: str,
     ) -> int:
-        """Save the admitted model bytes ``data`` as the next revision; ``previous`` is the
-        ``model.json`` it replaces (``None`` when there was none), put back when the
-        commit fails."""
+        """Save the admitted model bytes ``data`` as the next revision."""
         revision = record.model_revision + 1
         if revision > MAX_WHOLE:
             raise _folder_error(
@@ -319,13 +316,14 @@ class ModelStore:
         project_data = encode_json(asdict(replace(record, model_revision=revision)))
         try:
             replace_in_order(
-                [
-                    Planned(folder / MODEL_FILE, data, previous),
-                    # The commit; it is never put back, being last.
-                    Planned(folder / PROJECT_FILE, project_data, None),
-                ]
+                [Planned(folder / MODEL_FILE, data), Planned(folder / PROJECT_FILE, project_data)]
             )
-        except CommitFailed:
+        except CommitFailed as failed:
+            if failed.pending:
+                raise _folder_error(
+                    f"The project folder '{folder}' could not be written to the end. The "
+                    "save is recorded, and it is finished the next time the project is used."
+                ) from None
             raise _folder_error(
                 f"The project folder '{folder}' cannot be written, so the model was not saved."
             ) from None
@@ -356,11 +354,7 @@ class ModelStore:
         with self.locked(pid):
             folder, record = self._record(pid)
             self._check_revision(folder, record, base_revision)
-            try:
-                previous: bytes | None = (folder / MODEL_FILE).read_bytes()
-            except OSError:
-                previous = None
-            revision = self._commit(pid, folder, record, admitted, previous, client)
+            revision = self._commit(pid, folder, record, admitted, client)
         return Written(model, revision, loaded.issues)
 
     def _component_types(self, domain: object) -> dict[str, BlockType]:
@@ -408,7 +402,7 @@ class ModelStore:
                     hint=admitted.hint,
                 )
                 raise ServiceError(400, EDIT_REJECTED, issue.message, [issue])
-            revision = self._commit(pid, folder, record, admitted, stored.data, client)
+            revision = self._commit(pid, folder, record, admitted, client)
         return Written(outcome.model, revision, self._load(pid, folder, None, outcome.model).issues)
 
 

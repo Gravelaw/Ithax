@@ -40,17 +40,17 @@ the same gap.
   `{"renames": [[temporary, target], ...]}`, with names relative to that folder. It is written
   with `ithax.files.atomic_write` (synced, renamed, folder synced). Every file of one commit
   sits in that folder; a change across folders is refused as a programming error.
-- **When it is replayed.** The first time this service process uses a project folder:
-  - when the service starts, through the project list the run service reads;
-  - when a project is opened;
-  - on the first `folder(pid)` of a project that could not be read at start.
-
-  A live commit cannot be under way then, because a commit needs `folder(pid)` first, and
-  `folder(pid)` replays first, under the projects store's lock. Replaying on every read would
-  race a commit in another thread.
-- **A rename that fails** (`OSError`) puts the earlier files back, as now, and then removes
-  the record. The change is undone, not finished, which is the caller's contract (E186,
-  "not saved").
+- **When it is replayed.** On every use of a project folder: the project list, `folder(pid)`
+  before every model, data or run use, and opening. It was first planned for the first use
+  only; the review of PR #182 changed that, so a replay that fails is tried again rather than
+  the folder admitted. A replay skips a folder this process is committing at that moment,
+  since `replace_in_order` keeps a set of them, so it never races a save in another thread.
+- **A rename that fails** (`OSError`) after the record puts nothing back (review of PR
+  #182). A roll-back has its own unsafe step: a stop part-way through it pairs the old model
+  with the new revision. The record and the temporaries stay, the write is answered E186
+  ("recorded"), and the next use finishes it. A replay that fails refuses the project with
+  E186 until it can be finished. A target that is a folder, which no rename can replace, is
+  refused before the record.
 - **Left behind by a crash before the record.** The temporary files stay. They are named for
   the process and thread (`.<name>.<pid>.<thread>.tmp`), so they never collide with a later
   save, and they are not part of the model. Removing them on replay is not needed for
