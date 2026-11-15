@@ -530,6 +530,25 @@ button {
   cursor: pointer;
 }
 
+/* A recent project with its rename and remove buttons beside it (#97). */
+.project-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.project-row > .project,
+.project-rename {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.project-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 .project:hover {
   background: var(--color-surface-alt);
 }

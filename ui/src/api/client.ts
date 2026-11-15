@@ -14,6 +14,7 @@
  *   not its JSON), which the interface reports as lost contact.
  */
 import type {
+  ChangeProject,
   ComponentType,
   CreateProject,
   DataFile,
@@ -47,7 +48,7 @@ export type ApiResult<T> =
   | { kind: "refused"; status: number; error: ErrorBody["error"]; issues: Issue[] }
   | { kind: "failed"; status: number; reason: "unreachable" | "not-json" };
 
-export type Method = "GET" | "POST" | "PUT" | "DELETE";
+export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 /** A file the service sent (a table as CSV, the project zip), with its media type. */
 export interface Download {
@@ -257,6 +258,16 @@ export class ApiClient {
 
   createProject(project: CreateProject): Promise<ApiResult<Project>> {
     return this.request("POST", "/v1/projects", project);
+  }
+
+  /** Rename a project, note it opened, or keep its lesson's step (#97). */
+  changeProject(pid: string, change: ChangeProject): Promise<ApiResult<Project>> {
+    return this.request("PATCH", `/v1/projects/${encodeURIComponent(pid)}`, change);
+  }
+
+  /** Take a project off the list; its folder is kept (#97). */
+  removeProject(pid: string): Promise<ApiResult<{ id: string; path: string }>> {
+    return this.request("POST", `/v1/projects/${encodeURIComponent(pid)}/remove`);
   }
 
   openProject(path: string): Promise<ApiResult<Project>> {

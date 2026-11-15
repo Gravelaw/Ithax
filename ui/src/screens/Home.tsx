@@ -18,12 +18,13 @@ import type { Project, Template } from "../api/types";
 import { ServiceProblem } from "../components/ServiceProblem";
 import { useMounted } from "../components/useMounted";
 import { type Lesson, parseLesson } from "../learn/lesson";
-import { dateText } from "../results/display";
 import { BUILD_TEMPLATES } from "./BuildForm";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { OpenProjectDialog } from "./OpenProjectDialog";
+import { RecentProjects, recentOrder } from "./RecentProjects";
 
 export const EMPTY_GALLERY = "No templates are installed yet.";
+export { REMOVED_KEEPS_FILES } from "./RecentProjects";
 export const NO_PROJECTS = "No projects yet. Create one, or open a project folder.";
 export const BUILD_UNAVAILABLE = "The Build form needs the templates, and none are installed yet.";
 /** Said when a served template's lesson does not read (the service serves only those that do). */
@@ -34,12 +35,6 @@ const AUDIENCE_ORDER = ["Students", "Both", "Business"];
 function audienceRank(template: Template): number {
   const at = AUDIENCE_ORDER.indexOf(String(template.audience ?? ""));
   return at < 0 ? AUDIENCE_ORDER.length : at;
-}
-
-function created(project: Project): string {
-  if (project.created === null) return "";
-  const date = dateText(project.created);
-  return date === project.created ? "" : `Created ${date}`;
 }
 
 type Loaded<T> = ApiResult<T> | null;
@@ -54,8 +49,8 @@ export function Home({
   onOpen: (project: Project) => void;
   /** Opens the Build form. */
   onBuild?: () => void;
-  /** A project made from `template`, to open with its lesson. */
-  onLesson?: (project: Project, template: Template, lesson: Lesson) => void;
+  /** A project made from `template`, to open with its lesson at `step` (0 for a new one). */
+  onLesson?: (project: Project, template: Template, lesson: Lesson, step: number) => void;
 }) {
   const [projects, setProjects] = useState<Loaded<Project[]>>(null);
   // The lesson being started (one at a time), and why the last one did not start.
@@ -83,7 +78,25 @@ export function Home({
   if (lessonsFirst) shown.sort((a, b) => audienceRank(a) - audienceRank(b));
   const buildable = shown.some((template) => BUILD_TEMPLATES.includes(template.id));
 
-  /** Reads the template and its lesson, then makes the project; one at a time. */
+  /** Opens a project and notes the time, so it leads the recent list (#97). */
+  const openProject = (project: Project) => {
+    void client.changeProject(project.id, { opened: true });
+    onOpen(project);
+  };
+
+  /** The newest available project made from `template`, whose lesson is resumed (#97). */
+  const lessonProject = (template: Template): Project | undefined =>
+    projects?.kind === "ok"
+      ? recentOrder(projects.data).find(
+          (project) => project.available && project.template === template.id,
+        )
+      : undefined;
+
+  /**
+   * Reads the template and its lesson, then resumes it in the project already made from
+   * the template, at its step, or makes the project (#97: one project per lesson, not a new
+   * one at each start); one at a time.
+   */
   const startLesson = async (template: Template) => {
     if (starting !== null) return;
     setStarting(template.id);
@@ -102,6 +115,14 @@ export function Home({
       setUnreadable(true);
       return;
     }
+    const earlier = lessonProject(template);
+    if (earlier !== undefined) {
+      setStarting(null);
+      void client.changeProject(earlier.id, { opened: true });
+      const step = Math.min(earlier.lesson_step ?? 0, lesson.steps.length);
+      onLesson(earlier, read.data.template, lesson, step);
+      return;
+    }
     const made = await client.createProject({
       name: read.data.template.title,
       template: template.id,
@@ -112,7 +133,7 @@ export function Home({
       setStartProblem(made);
       return;
     }
-    onLesson(made.data, read.data.template, lesson);
+    onLesson(made.data, read.data.template, lesson, 0);
   };
 
   return (
@@ -186,11 +207,11 @@ export function Home({
                 <button
                   type="button"
                   className="secondary"
-                  aria-label={`Start the lesson ${template.title}`}
+                  aria-label={`${lessonProject(template) ? "Resume" : "Start"} the lesson ${template.title}`}
                   aria-disabled={starting !== null || undefined}
                   onClick={() => void startLesson(template)}
                 >
-                  Start the lesson
+                  {lessonProject(template) ? "Resume the lesson" : "Start the lesson"}
                 </button>
                 {starting === template.id ? (
                   <p className="muted small" role="status">
@@ -221,26 +242,12 @@ export function Home({
         ) : projects.data.length === 0 ? (
           <p className="empty">{NO_PROJECTS}</p>
         ) : (
-          <ul className="projects">
-            {[...projects.data].reverse().map((project) => (
-              <li key={project.id}>
-                <button
-                  type="button"
-                  className="project"
-                  aria-disabled={project.available ? undefined : "true"}
-                  onClick={() => {
-                    if (project.available) onOpen(project);
-                  }}
-                >
-                  <span className="subheading">{project.name ?? project.path}</span>
-                  <span className="muted small">
-                    {project.available ? created(project) : "Not available"}
-                  </span>
-                  <span className="mono small muted">{project.path}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <RecentProjects
+            client={client}
+            projects={projects.data}
+            onOpen={openProject}
+            onChanged={() => void load()}
+          />
         )}
         <div className="links">
           <button type="button" className="link" onClick={() => setDialog("new")}>

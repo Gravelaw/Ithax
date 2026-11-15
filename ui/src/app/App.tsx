@@ -30,7 +30,8 @@ function screenTitle(route: Route): string {
 export function App({ client }: { client: ApiClient }) {
   const [route, go] = useRoute();
   const { settings, save } = useSettings();
-  const { start: startLesson, exit: exitLesson } = useLearning();
+  const { start: startLesson, exit: exitLesson, learning } = useLearning();
+  useLessonStep(client, learning?.projectId ?? null, learning?.step ?? null);
   const [noticeOpen, setNoticeOpen] = useState(!settings.interface.first_start_seen);
   const [saveProblem, setSaveProblem] = useState<ApiResult<SettingsBody> | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -111,8 +112,8 @@ export function App({ client }: { client: ApiClient }) {
               open(opened);
             }}
             onBuild={() => go({ screen: "build", projectId: null })}
-            onLesson={(made, template, lesson) => {
-              startLesson(newLearning(made.id, template, lesson));
+            onLesson={(made, template, lesson, step) => {
+              startLesson({ ...newLearning(made.id, template, lesson), step });
               open(made);
             }}
           />
@@ -147,4 +148,21 @@ export function App({ client }: { client: ApiClient }) {
       {noticeOpen ? <FirstStartNotice onContinue={() => void continueFromNotice()} /> : null}
     </div>
   );
+}
+
+/**
+ * Keeps the step a lesson reached with its project (`lesson_step`, #97), so Home can resume
+ * it after a reload; leaving the lesson clears it.
+ */
+function useLessonStep(client: ApiClient, projectId: string | null, step: number | null) {
+  const [last, setLast] = useState<string | null>(null);
+  useEffect(() => {
+    if (projectId !== null && step !== null) {
+      void client.changeProject(projectId, { lesson_step: step });
+      setLast(projectId);
+    } else if (last !== null) {
+      void client.changeProject(last, { lesson_step: null });
+      setLast(null);
+    }
+  }, [client, projectId, step, last]);
 }

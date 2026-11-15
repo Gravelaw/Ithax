@@ -4,7 +4,14 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiClient } from "../api/client";
 import type { Project } from "../api/types";
 import { errorBody, FakeService, issue, ORIGIN, TOKEN } from "../test/fakes";
-import { BUILD_UNAVAILABLE, EMPTY_GALLERY, Home, LESSON_UNREADABLE, NO_PROJECTS } from "./Home";
+import {
+  BUILD_UNAVAILABLE,
+  EMPTY_GALLERY,
+  Home,
+  LESSON_UNREADABLE,
+  NO_PROJECTS,
+  REMOVED_KEEPS_FILES,
+} from "./Home";
 
 function project(id: string, name: string, available = true): Project {
   return {
@@ -96,6 +103,85 @@ describe("Home", () => {
     expect(screen.queryByText(BUILD_UNAVAILABLE)).toBeNull();
     await userEvent.click(build);
     expect(onBuild).toHaveBeenCalledTimes(1);
+  });
+
+  it("orders by last opened, and says when each was opened (#97)", async () => {
+    const opened = (id: string, name: string, at: string | null): Project => ({
+      ...project(id, name),
+      opened: at,
+    });
+    const fake = service([
+      opened("a", "Old", "2026-11-09T10:00:00Z"),
+      opened("b", "Never opened", null),
+      opened("c", "Newest", "2026-11-12T10:00:00Z"),
+    ]);
+    render(<Home client={fake.client()} onOpen={() => {}} />);
+    const recent = await screen.findByRole("region", { name: "Recent projects" });
+    await within(recent).findByText("Newest");
+    const names = [...recent.querySelectorAll(".project .subheading")].map((n) => n.textContent);
+    expect(names).toEqual(["Newest", "Old", "Never opened"]);
+    expect(within(recent).getByText(/^Last opened 12 Nov 2026/)).toBeVisible();
+  });
+
+  it("notes the open when a project is opened (#97)", async () => {
+    const onOpen = vi.fn();
+    const fake = service([project("a", "Shop")]).answer(
+      "PATCH /v1/projects/a",
+      project("a", "Shop"),
+    );
+    render(<Home client={fake.client()} onOpen={onOpen} />);
+    await userEvent.click(await screen.findByText("Shop"));
+    expect(onOpen).toHaveBeenCalled();
+    await waitFor(() =>
+      expect(fake.requested("PATCH", "/v1/projects/a")[0]?.body).toEqual({ opened: true }),
+    );
+  });
+
+  it("renames a project and takes one off the list, keeping its files (#97)", async () => {
+    const fake = service([project("a", "Shop"), project("b", "Spare")])
+      .answer("PATCH /v1/projects/a", { ...project("a", "Corner café") })
+      .answer("POST /v1/projects/b/remove", { id: "b", path: "/data/projects/b" });
+    render(<Home client={fake.client()} onOpen={() => {}} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Rename Shop" }));
+    const box = screen.getByRole("textbox", { name: "New name for Shop" });
+    await user.clear(box);
+    await user.type(box, "Corner café{Enter}");
+    await waitFor(() =>
+      expect(fake.requested("PATCH", "/v1/projects/a")[0]?.body).toEqual({ name: "Corner café" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Remove Spare from the list" }));
+    await waitFor(() => expect(fake.requested("POST", "/v1/projects/b/remove")).toHaveLength(1));
+    expect(await screen.findByText(REMOVED_KEEPS_FILES)).toBeVisible();
+  });
+
+  it("starts a lesson in the project already made from its template, at its step (#97)", async () => {
+    const onLesson = vi.fn();
+    const shop = { id: "coffee_shop", title: "Coffee shop queue", summary: "Customers wait." };
+    const lesson =
+      "# Coffee shop queue\n\n## Arrive\n\nComponent: `arrivals`\n\nThey arrive.\n\n" +
+      "## Exercise: two tills\n\nComponent: `till`\n\n### Change\n\nSet it.\n\n" +
+      "### Prediction\n\n- [x] Less.\n- [ ] More.\n\n### Explanation\n\nBecause.\n";
+    const earlier: Project = {
+      ...project("made", "Coffee shop queue"),
+      template: "coffee_shop",
+      lesson_step: 1,
+    };
+    const fake = service([earlier], [shop])
+      .answer("GET /v1/templates/coffee_shop", { template: shop, lesson, expected: [] })
+      .answer("PATCH /v1/projects/made", earlier);
+    render(<Home client={fake.client()} onOpen={() => {}} onLesson={onLesson} />);
+    // The card offers to resume, in place of starting a new project (#97).
+    const resume = await screen.findByRole("button", {
+      name: "Resume the lesson Coffee shop queue",
+    });
+    expect(screen.queryByRole("button", { name: "Start the lesson Coffee shop queue" })).toBeNull();
+    await userEvent.click(resume);
+    await waitFor(() => expect(onLesson).toHaveBeenCalledTimes(1));
+    const [made, , , step] = onLesson.mock.calls[0] ?? [];
+    expect(made).toEqual(earlier);
+    expect(step).toBe(1);
+    expect(fake.requested("POST", "/v1/projects")).toHaveLength(0);
   });
 
   it("starts a lesson: the template first, then a project named after it", async () => {

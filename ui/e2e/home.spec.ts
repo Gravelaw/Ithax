@@ -84,13 +84,15 @@ test("Home creates Process and Plan projects and lists them", async ({
     new Set(
       sent.map(
         (request) =>
-          `${request.method} ${request.path.replace(/\/projects\/[0-9a-f-]{36}\//, "/projects/{pid}/")}`,
+          `${request.method} ${request.path.replace(/\/projects\/[0-9a-f-]{36}(?=\/|$)/, "/projects/{pid}")}`,
       ),
     ),
   ).toEqual(
     new Set([
       "GET /v1/settings",
       "GET /v1/projects",
+      // Opening a project from Recent projects notes the time (#97).
+      "PATCH /v1/projects/{pid}",
       "GET /v1/templates",
       "POST /v1/projects",
       // The Canvas opens each project: its model, the component types, a validation.

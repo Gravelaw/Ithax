@@ -3400,3 +3400,16 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - All three changes are additive to `/v1` (F7).
 - **Spec sections updated:** spec 3 "Endpoints" (two rows and `GET /v1/projects`), spec 4 "MCP tools" (`list_projects`); a dated line in each.
 - **Dependencies added:** none.
+
+## 2026-11-15 · M15 · Recent projects, part 2: Home and resuming lessons (#97; Reviewer B finding 10)
+
+- **Decision:**
+  - **Recent projects** (`ui/src/screens/RecentProjects.tsx`) lists the newest opened first, then those never opened, newest registered first; each shows "Last opened <date, time>" or "Created <date>", a rename in place (Enter saves, Escape cancels) and "Remove from the list", which says the folder is kept. Opening a project from the list notes the time.
+  - **Lessons.** While a lesson is played, its step is kept with the project (`lesson_step`), and "Exit lesson" clears it (`useLessonStep` in `App.tsx`). Home's card says "Resume the lesson" when an available project was made from the template, and opens the newest such project at its step; otherwise "Start the lesson" makes one, as before. So one session no longer leaves a project per start.
+- **Reason:** issue #97: "Twelve identical entries after one session"; rename, remove, last opened and resuming lessons. Tests first: `Home.test.tsx` (the order, the open noted, rename and remove, resuming at the step) and `e2e/recent.spec.ts` (a lesson resumed after a reload in the same project; a project renamed, removed and opened again from its folder against a real service); each failed before the change.
+- **Readings (reversible):**
+  - "Resume" replaces "Start" on the card rather than sitting beside it, so a press never makes a second copy; a fresh copy is still one "New empty project" or a removed entry away.
+  - Removing asks no question: nothing is deleted, and "Open a project folder" undoes it.
+  - Home sends the documented `PATCH /v1/projects/{pid}`; the end-to-end lists of documented routes include it.
+- **Spec sections updated:** spec 3 "Screens" (Home) and spec 4 "Learn and Build modes" (Where the lesson lives), with dated lines.
+- **Dependencies added:** none.
