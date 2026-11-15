@@ -525,7 +525,6 @@ function ProcessCanvas({
     }
   }, [model, types, state.issues, locked, state.renamed, marked, learn]);
 
-
   // A block just added or renamed takes the keyboard focus once it is drawn.
   // React Flow shows a node only once it is measured, so focusing is tried for a few frames.
   useEffect(() => {
