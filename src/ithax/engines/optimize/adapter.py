@@ -73,6 +73,7 @@ class HighsAdapter:
             parallel_modes=(),
             licence="MIT",
             invocation="in-process",
+            distribution="highspy",
         )
 
     def validate(self, model: Model) -> list[Issue]:

@@ -54,6 +54,7 @@ AKS_119_ROUTES = {
     ("GET", "/v1/ui/{path}"),
 }
 AKS_138_ROUTES = {("GET", "/v1/projects/{pid}/export")}
+ISSUE_89_ROUTES = {("GET", "/v1/licences")}
 
 
 def test_the_app_has_the_aks_110_to_aks_113_aks_119_and_aks_138_routes_and_nothing_else(
@@ -66,6 +67,7 @@ def test_the_app_has_the_aks_110_to_aks_113_aks_119_and_aks_138_routes_and_nothi
         | AKS_113_ROUTES
         | AKS_119_ROUTES
         | AKS_138_ROUTES
+        | ISSUE_89_ROUTES
     )
 
 
@@ -77,6 +79,7 @@ def test_there_is_one_router_per_area() -> None:
     assert [router.prefix for router in ROUTERS] == [
         "/v1",
         "/v1/settings",
+        "/v1",
         "/v1",
         "/v1/templates",
         "/v1/projects",

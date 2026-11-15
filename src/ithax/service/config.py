@@ -31,6 +31,7 @@ __all__ = [
     "ServiceConfig",
     "default_config_dir",
     "default_data_dir",
+    "default_licences_file",
     "default_templates_dir",
     "default_ui_dir",
     "installed_share_dir",
@@ -166,6 +167,19 @@ def default_templates_dir(checkout: Path | None = None, prefix: str | None = Non
     return _first_folder(root / "templates", installed_share_dir(prefix) / "templates")
 
 
+def default_licences_file(checkout: Path | None = None, prefix: str | None = None) -> Path:
+    """The package's licence list that ``GET /v1/licences`` reads (#89):
+    ``packaging/linux/licences.json`` of the source checkout, or else ``licences.json`` in
+    ``share/ithax`` under the Python prefix, where the Linux package puts it with the desktop
+    shell's crates. The arguments are as for ``default_ui_dir``."""
+    root = _CHECKOUT if checkout is None else checkout
+    candidates = (
+        root / "packaging" / "linux" / "licences.json",
+        installed_share_dir(prefix) / "licences.json",
+    )
+    return next((candidate for candidate in candidates if candidate.is_file()), candidates[0])
+
+
 @dataclass(frozen=True)
 class ServiceConfig:
     """What one service instance needs; ``config_dir`` and ``data_dir`` are made
@@ -174,7 +188,8 @@ class ServiceConfig:
     ``port`` is the port the service listens on, for the ``Host`` check; ``token`` the
     bearer token. ``ui_dir`` is the built interface served at ``/v1/ui/`` (``None``: none).
     ``templates_dir`` holds the template packages served at ``/v1/templates`` (``None``:
-    none; AKS-122).
+    none; AKS-122). ``licences_file`` is the licence list of ``GET /v1/licences``
+    (``None``: ``default_licences_file``; #89).
     ``allowed_origins`` are WebSocket ``Origin`` values let through besides the
     interface's own, ``http://127.0.0.1:<port>`` and ``http://localhost:<port>`` (AKS-119;
     the desktop shell's is added at M11). ``idle_timeout_s`` is the lifetime's
@@ -189,6 +204,7 @@ class ServiceConfig:
     token: str
     ui_dir: Path | None = None
     templates_dir: Path | None = None
+    licences_file: Path | None = None
     allowed_origins: frozenset[str] = frozenset()
     idle_timeout_s: float = DEFAULT_IDLE_TIMEOUT_S
     idle_check_s: float = 10.0
