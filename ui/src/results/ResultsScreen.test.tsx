@@ -133,13 +133,15 @@ describe("a run's results", () => {
       screen.getByRole("rowheader", { name: "weld: busy share" }).closest("tr"),
     ).toHaveTextContent("90.1%± 1.1%30");
     expect(
-      screen.getByRole("rowheader", { name: "whole model: average items in the system" }).closest("tr"),
+      screen
+        .getByRole("rowheader", { name: "whole model: average items in the system" })
+        .closest("tr"),
     ).toHaveTextContent("12.4not defined30");
     expect(screen.getByRole("img", { name: /^Busy share by component/ })).toHaveAttribute(
       "data-series",
       "Busy share by component, with the likely range,Likely range",
     );
-    expect(screen.getByRole("img", { name: /^Over time: weld: average queue length|^Over time: weld: queue length/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /^Over time: weld: queue length/ })).toBeInTheDocument();
     // Each value in display units, as the key numbers show it, not 17 digits and "s" (#96).
     const repeats = screen.getByRole("region", { name: "Every repeat run's values" });
     expect(repeats).toHaveTextContent("15.2 min");
