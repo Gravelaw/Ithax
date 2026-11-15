@@ -3289,6 +3289,7 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - **"The model's order" is the summary's order.** The adapter writes values and slacks in the program's order, and the MCP server does not read the model.
 - **Spec sections updated:** spec 4 "Results" and "Finding rules", with a dated line.
 - **Also in this PR: lost dependency lines restored.** Merges that resolved conflicts in this file since M12 had dropped the closing `- **Dependencies added:** none.` of 13 entries: 12 from M12 and M13, and #90's in this PR's merge of main. Each line was restored from the entry's own history on main; every one was "none", so no licence record was lost. The diff against main showed no deletion, because git pairs a lost line with the same line closing the next entry. The entry for retrospective PR 11a (#148) never had the line; that PR changed no dependency file, so it now says none. `tests/test_docs.py::test_every_milestone_decision_records_its_dependencies` checks each milestone entry from 2026-11-13 on, and the pre-push skill compares heading and dependency-line counts with main's.
+- **Dependencies added:** none.
 
 ## 2026-11-15 · M15 · Readable numbers, units and times (#96; Reviewer B finding 9)
 
