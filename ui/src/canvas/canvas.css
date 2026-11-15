@@ -1371,3 +1371,23 @@
   outline: 3px solid var(--color-learn);
   outline-offset: 4px;
 }
+
+/* The blank canvas's guide (#95): over the canvas, letting drops and clicks through. */
+.canvas-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 4;
+  max-width: 24rem;
+  padding: var(--space-4);
+  transform: translate(-50%, -50%);
+  border-radius: 14px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+  color: var(--color-text);
+  pointer-events: none;
+}
+
+.canvas-empty p {
+  margin: 0 0 var(--space-2);
+}

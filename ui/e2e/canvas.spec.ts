@@ -38,7 +38,9 @@ async function openCanvas(page: Page, service: Service, name: string): Promise<s
   await page.goto(service.url);
   await page.getByRole("region", { name: "Recent projects" }).getByText(name).click();
   await expect(page.locator(".save-state")).toHaveText("Saved");
-  await expect(page.locator(".problems [role=status]")).toHaveText("No problems");
+  // A new project has no blocks: W204 and the blank canvas's guide (#95).
+  await expect(page.locator(".problems [role=status]")).toHaveText("1 warning");
+  await expect(page.getByRole("note", { name: "An empty model" })).toBeVisible();
   return pid;
 }
 

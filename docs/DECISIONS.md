@@ -3348,6 +3348,33 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** design-system.md "Type" (Mono). Spec 3 and spec 4 name no display form for metrics.
 - **Dependencies added:** none.
 
+## 2026-11-15 · M15 · A process model with no blocks: W204, and the Canvas holds Run back (#95; owner decision #188, option A)
+
+- **Decision:**
+  - **The owner's answer.** #188, answered by the owner on 2026-11-15 through the orchestrating session: option A, a warning, and the Canvas disables Run. A follow-up the same day: the run response should one day carry validation warnings such as W204; that is deferred to Phase 3 with the API review for the physics engines (#191, under epic #66), and `POST .../runs` is not changed here. W204 is not in the run response; carrying warnings there is deferred to #191 (Phase 3).
+  - **W204** (`empty_model_issues`, last in the meaning pass) at `/components` for a `process` model with no components: "The model has no blocks: 'components' is empty, so a run has nothing to simulate." It is a warning, so `/validate` gains one entry and a `/v1` run of an empty model still runs (F7); it is in the summary's `warnings` with the other load-time warnings.
+  - **The Canvas.** `runBlocked` holds Run back while the last validation gives W204, with the reason "Add a block to run the model." (after any errors, which are named first). The rule is the service's, so the interface does not count blocks itself. The blank canvas shows a guide over its centre ("An empty model": drag a block from the palette, the smallest model that runs, or a template on Home) that lets drops and clicks through.
+- **Reason:** issue #95 (Reviewer B finding 6): Run was enabled on an empty model and the run completed as Done. Tests first: the W204 fixture (`tests/model/fixtures/issues/`), `test_validation_w.py` (W204, and none for a model with a block or a plan), the default project's validation in `test_projects.py` and `test_models.py`, the spec 1 code count in `test_docs.py`, and the Canvas tests (the reason and the guide); each failed before the change.
+- **Readings (reversible):**
+  - The guide is drawn here, not in a wireframe: the design has no blank-canvas state.
+  - An optimization model keeps E179 for "nothing to decide" (D2); W204 is for `process` only.
+- **Spec sections updated:** spec 1 "Validation issues" (W204, the warning ranges); spec 3 "Endpoints" (the new process project) and "Canvas behaviour" (Run); a dated line in each.
+- **Dependencies added:** none.
+
+## 2026-11-15 · M15 · The idle timeout in minutes, hours or days, or never; no setting in bytes (#87; owner decision D8; #96)
+
+- **Decision:**
+  - **"Never" is 0.** `idle_timeout_minutes` accepts 0 in `settings.json` and in `PUT /v1/settings`, and `--idle-minutes 0` in the service and the launcher; each gives an infinite idle timeout, which `Lifetime` never reaches (`IDLE_NEVER`, `IdleSettings.timeout_s`, `main.idle_timeout_s`). The range stays 1 to 10,080 minutes otherwise; the refusal's words add "or 0 for never".
+  - **Units in the interface.** `UnitField` (`ui/src/settings/UnitField.tsx`) takes the idle timeout in minutes, hours or days with a "Never" box, the run time limit in seconds, minutes or hours, and the memory limit in MB or GB. It shows a saved value in the largest unit that shows it whole, writes the typed number times the unit's size (whole when within a float's noise, so 0.1 h is 6 minutes), and a new unit re-reads the number shown, as the Experiment screen's unit pickers do. The sizes come from `TIME_UNITS`.
+- **Reason:** issue #87 and owner decision D8: "entered in minutes, hours or days; up to 7 days, or never". Issue #96's "bytes": the memory limit was typed in bytes. Tests first: `test_idle_settings.py`, `test_settings.py`, `test_main.py`, `test_lifetime.py` and `test_launch.py` (0 is never; -1 and NaN are refused), `UnitField.test.tsx`, the Settings tests and `e2e/settings.spec.ts` (hours, the refusal of 200 hours, and Never kept as 0 by a real service); each failed before the change.
+- **Readings (reversible):**
+  - "Never" is the number 0, not `null` or a word: `null` in `PUT` already means "use the default", and the compatibility test pins the field as a number, so 0 keeps every `/v1` request and response working (F7). 0 was refused before, so no stored value changes meaning.
+  - `--idle-minutes 0` is "never" too, so the desktop shell and scripts can ask for it.
+  - Unticking "Never" restores the default, 30 minutes.
+- **Review of PR #196:** two findings at one site of one class, a typed value sent as something it does not mean (1e308 GB overflowed to `Infinity`, sent as `null`, the default; 0.0000000001 minutes rounded to 0, "never"). Fixed for the class: `typedInBase` (`ui/src/results/display.ts`) sends a result past a finite number as typed and never turns a non-zero entry into 0, so the service answers E184; `inSize` shows a value in a unit. `UnitField`, `bytesText` and the charts' time scaling go through them. A typed 0 where "Never" has its own box is not sent, and the field says to tick "Never". `units.test.ts` checks 0, tiny, huge, negative and NaN in every unit size and fails when other interface code multiplies or divides by a unit's size; AGENTS.md lists the class.
+- **Spec sections updated:** spec 3 "Lifetime" and "Run monitor, Results and Settings", with a dated line.
+- **Dependencies added:** none.
+
 ## 2026-11-15 · M15 · Every error at once (#92; Reviewer B finding 3)
 
 - **Decision:** when a `process` model has build errors (E122 and the other conversion codes), the builder keeps the model of the components that built and each one's index in the file (`_Partial`), and `load_document` runs `value_issues` on it: parameters (E151), setting ranges (E123), distribution fields (E160) and clipping (W202). Each issue's `/components/<i>` is mapped back to the component's index in the file. The checks across the model (identifiers, references, connections, reachability, loads, experiments, metrics) still run only on a model that builds. The model is still refused while any error remains, so nothing that ran before runs now.

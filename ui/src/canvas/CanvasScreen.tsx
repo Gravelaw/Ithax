@@ -1176,6 +1176,7 @@ function ProcessCanvas({
                 onDragOver={onDragOver}
                 onDrop={onDrop}
               >
+                {components(model).length === 0 ? <BlankCanvas /> : null}
                 <ReactFlow
                   nodes={nodes}
                   edges={edges}
@@ -1258,5 +1259,22 @@ function ProcessCanvas({
         </ReviewContext.Provider>
       </RevisionContext.Provider>
     </BusyContext.Provider>
+  );
+}
+
+/**
+ * The blank canvas's guide (#95; owner decision 188, option A): what to do first, over the
+ * empty canvas, without taking a drop or a click from it.
+ */
+function BlankCanvas() {
+  return (
+    <div className="canvas-empty" role="note" aria-label="An empty model">
+      <p className="subheading">An empty model</p>
+      <p>
+        Drag a block from the palette onto the canvas, or choose one and click here. A source, a
+        server and a sink, connected in a line, are the smallest model that runs.
+      </p>
+      <p className="muted small">Or start from a template on Home.</p>
+    </div>
   );
 }
