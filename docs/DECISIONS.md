@@ -3149,6 +3149,12 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
     - On the old code the same run was still going 30 s after SIGTERM, with `service.json` left: shown by a direct run, recorded in the PR. With the change it exits after 5.2 s.
     - Two unit tests: the uvicorn config holds the bound, and the first stop signal arms one dump of 20 s.
 - **Reason:** issue #158 (CI run 43583917879, attempt 1): the e2e fixture's service did not exit within 30 s of SIGTERM. The one wait without limit was uvicorn's graceful shutdown.
+- **#83, the stale `service.json`** (Reviewer A item 12: "if still open; the M9 entry describes a fix through SignalServer; I did not re-test it"), covered in three parts:
+  1. **SIGTERM and SIGINT remove the file, and the exit status still names the signal:** `tests/service/test_main.py::test_a_service_stopped_by_a_signal_removes_its_file` (M9, AKS-119), still passing.
+  2. **A stop held up by a request:** the bound above.
+  3. **A file left by SIGKILL or a crash,** which no handler can remove. The next start probes it, gets no answer and serves in its place.
+     - New: `test_a_service_killed_outright_leaves_a_file_the_next_start_replaces` kills a real service and starts another.
+     - The launcher and the MCP client do the same: `tests/launcher/test_launch.py::test_a_stale_service_json_starts_a_new_service` and `tests/mcp/test_mcp_client.py::test_a_service_json_whose_service_is_gone_starts_a_new_one`.
 - **Readings (reversible):**
   - 5 s, as the issue proposed.
   - 20 s for the dump: past the graceful shutdown, and before the 30 s a stopping test waits.

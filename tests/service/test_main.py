@@ -518,3 +518,49 @@ def test_a_stop_signal_arms_a_traceback_dump(monkeypatch: pytest.MonkeyPatch) ->
     server.handle_exit(signal.SIGTERM, None)
     assert armed == [(DUMP_AFTER_S, False)]
     assert DUMP_AFTER_S > GRACEFUL_SHUTDOWN_S
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows has no SIGKILL to send to a process")
+def test_a_service_killed_outright_leaves_a_file_the_next_start_replaces(tmp_path: Path) -> None:
+    """#83 (Reviewer A item 12): no handler runs on SIGKILL, so ``service.json`` stays.
+    The next start probes it, gets no answer, and serves in its place. The launcher
+    (``tests/launcher/test_launch.py::test_a_stale_service_json_starts_a_new_service``) and
+    the MCP client (``tests/mcp/test_mcp_client.py::
+    test_a_service_json_whose_service_is_gone_starts_a_new_one``) do the same."""
+    config_dir = tmp_path / "config"
+    folders = ["--config-dir", str(config_dir), "--data-dir", str(tmp_path / "data")]
+    killed = subprocess.Popen(
+        [sys.executable, "-m", "ithax.service", *folders],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        wait_for(lambda: read_service_file(config_dir) is not None or killed.poll() is not None)
+        gone = read_service_file(config_dir)
+        assert gone is not None and gone.pid == killed.pid
+    finally:
+        killed.kill()
+        killed.wait(timeout=30)
+    assert read_service_file(config_dir) == gone  # left behind
+    second = subprocess.Popen(
+        [sys.executable, "-m", "ithax.service", *folders, "--idle-minutes", "0.02"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        wait_for(
+            lambda: (
+                ((info := read_service_file(config_dir)) is not None and info != gone)
+                or second.poll() is not None
+            )
+        )
+        info = read_service_file(config_dir)
+        assert info is not None and info != gone and info.pid == second.pid, second.communicate()
+        assert get_system(info).status_code == 200
+        second.communicate(timeout=60)
+    finally:
+        if second.poll() is None:  # pragma: no cover - only when the test fails
+            second.kill()
+    assert second.returncode == 0
+    assert not (config_dir / SERVICE_FILE).exists()
