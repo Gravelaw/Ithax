@@ -5,6 +5,7 @@ The checklist of #101, surveyed on 2026-11-15 at `main` c864cb9. This is the dra
 Sources:
 - **Explicit deferrals** found with `grep -n "Phase 1 review"` and `grep -n "AKS-130"` over specs 0 to 4 and overview.md: spec 0 lines 60 and 188; spec 3 lines 7, 23, 73, 148 (AKS-130), 318 and 332; overview line 40. Specs 1, 2 and 4 have none. DECISIONS.md 2026-11-09 adds four more deferrals that are not in the spec text: B2 (draft-and-approve step), B3 (block defaults wording in spec 2; walkthrough timing), B4 (Windows phase), and "B7 items 2, 4 and 5; B8; Parts C, D and E stay open for the Phase 1 review" (line 1978).
 - **Decisions** in DECISIONS.md "2026-11-13 · Owner decisions on the Phase 1 decision list (Parts B to F)" (line 2316), B1 to F8, plus the 2026-11-15 owner decisions (line 3257), item 3 on Windows (#106).
+- **The full sweep** (review of pull request 208, which found two decisions whose later-phase part was missing): every DECISIONS entry through 2026-11-15, every session summary's "Awaiting owner" list, and every line of specs 0 to 4 and the overview that says "owner question", "deferred", "Phase 1 review", "later phase", "stays open" or names Phase 2, 3 or 4. Each one found is in "Coverage" at the end, which `tests/test_phase_1_review.py` checks.
 - The 2026-11-13 entry says: "Spec sections are not edited here: the Phase 1 review (AKS-130) drafts them, as decided on 2026-11-09 (B2)." So every "change needed" row is drafted for owner approval, not written straight to the specs (2026-11-09 B2; C10).
 
 Status words: **already in spec** (built in M12 to M15 and the spec text updated; do not redo); **change needed** (the decision is settled, the text is not); **needs owner** (cannot be written without a number or choice; listed again at the end).
@@ -67,22 +68,25 @@ Count: 14 rows: 6 change needed (one of them folded into another), 8 already in 
 | --- | --- | --- | --- |
 | 2026-11-09 B2 | 3: "(source of truth, owner to confirm)" | Drop "owner to confirm". | change needed |
 | Deferred to review: 2026-11-09 B3 ("Spec 2's 'proposed' wording for the block defaults changes at the Phase 1 review") | 122: "The council's proposed defaults above are built as written ...; all remain owner to confirm (AKS-76)." Also 101, 107 "Proposed default (AKS-99), owner to confirm" | Block defaults are confirmed for Phase 1 (B3), to be tested again in the agent walkthroughs that are a gate every phase (C1) and reworked if needed. | change needed |
-| B1 | 44-51: Optimization table "Mathematical ... HiGHS through Pyomo"; "Simulation-based ... Optuna" | Add the Phase 2 objective types: nonlinear and MINLP after an engine trial (Ipopt or SCIP through Pyomo), black-box via metaheuristics or surrogates; weighted sum, ε-constraint, Pareto (NSGA-II preferred on simulations) with a trade-off-front view; more methods in Phase 4. | change needed |
-| D1 | 347: "no ranking-and-selection procedure replaces it in Phase 1 (KN with common random numbers and Batur and Kim's feasibility check are the Phase 2 candidate, owner to confirm)" | Phase 2, early, with fresh-random-number confirmation; the method is chosen by a transparent rule from the problem's features (D1). | change needed |
+| B1 | 44-51: Optimization table "Mathematical ... HiGHS through Pyomo"; "Simulation-based ... Optuna"; 276: "Phase 1 supports linear objectives and constraints only." | Add the Phase 2 objective types: nonlinear and MINLP after an engine trial (Ipopt or SCIP through Pyomo), black-box via metaheuristics or surrogates; weighted sum, ε-constraint, Pareto (NSGA-II preferred on simulations) with a trade-off-front view; more methods in Phase 4. | change needed |
+| D1; 2026-11-07 item 7 | 347: "no ranking-and-selection procedure replaces it in Phase 1 (KN with common random numbers and Batur and Kim's feasibility check are the Phase 2 candidate, owner to confirm)" | Phase 2, early, with fresh-random-number confirmation; the method is chosen by a transparent rule from the problem's features (D1), which settles item 7's "score or vote" as a rule. | change needed |
 | E1 M3-2 | 155: "Warm-up check (kept over MSER-5 ...; the 99% level and the 5% threshold are proposed defaults, owner to confirm)" | Kept for 0.x; a Phase 2 research item compares it with MSER-5 on the templates. | change needed |
 | E1 M5-1, M5-10 | 329: "Any other ending ... has no `status` of the three, so the run fails with E190" | Phase 2: a `feasible` status with the gap, and `time_limit` and `mip_gap` settings, instead of E190 for a solve stopped with a good solution. | change needed |
 | E1 M5-15 | 334: "**Duals.** `summary.json` holds no duals." | Duals are served as the first Phase 2 optimization item. | change needed |
 | D10, D11 | 95: "Item attributes, the `attribute` rule and priority disciplines are deferred to Phase 2 (see spec 1)." | Add: time-varying arrivals (D10), leaving the queue, assembly, periodic stock policies and partial availability (D11) in Phase 2; probabilistic calendars and multitasking in Phase 3; each after research. | change needed |
 | D13 | 110: "**Failure.** One `failure` block is one alternating process on its target ... So at most one unit of the target is failed at a time" | Cross-reference W203 (spec 1 line 343) and say one failure process per unit is Phase 2. | change needed |
-| B3 / C1 / research | 367-376: research list holds M2 to M5 items only | Add the Phase 2 research items: D10, D11, MSER-5 (M3-2), the B1 engine trial, the D1 method rule. | change needed |
+| B3 / C1 / research | 367-376: research list holds M2 to M5 items only | Add the Phase 2 research items: D10, D11, MSER-5 (M3-2), the B1 engine trial, the D1 method rule, the noise-aware search method (M5-23). | change needed |
 | B6 | 41: "Scenarios: named sets of parameter values"; 42: "Parallel runs: replications use all available processor cores." | "No cap" can be said here (B6); parallel to the core count is already line 42. The run-count, time-estimate and search-suggestion parts belong to spec 3. | change needed (one clause) |
 | D12, E1 M4-17 | 89: "When the inventory position (stock on hand plus on order minus the items waiting for stock) falls to `reorder_point`" | Done M13. | already in spec |
 | E1 M2-5, M4-14 | 103: "stops the run with E196 (spec 1) when more than 1,000,000 happen at one instant" | Done M13. | already in spec |
 | E1 M2-7 | 249: "both files are gated on that theory: ... 300 replications ... within 2 standard errors ... holds them to ... 3 standard errors"; 385 acceptance row (M13) | Done M13 (#75). | already in spec |
 | E1 M5-12 | 330: "an `integer` or `binary` variable is reported rounded to its whole number, and any other number within 64 units in the last place..." | Done M13 (#76). | already in spec |
-| E1 M5-23 | 358: "An Optuna search's best is the best of those tried, not a proven optimum, and the findings and the Results screen say so (#85, M5-23)" | Done M13. | already in spec |
+| E1 M5-23, first part | 358: "An Optuna search's best is the best of those tried, not a proven optimum, and the findings and the Results screen say so (#85, M5-23)" | The label: done M13 (#85). | already in spec |
+| E1 M5-23, second part | 358 (as above); nothing in spec 2 names a noise-aware method | Add that a noise-aware method for a `number` or `quantity` search, which handles the simulation's noise, is Phase 2 (E1 M5-23); until then the label stands. Listed with the research items too. | change needed |
+| 2026-11-09 B7 item 1 | 365: "Phase 1 accepts `standard` only; `summary.json` carries `fidelity_label`. A `sketch` preview level is an owner question." | Answered: a `sketch` preview fidelity for process runs is Phase 2 (B7 item 1); Phase 1 accepts `standard` only. | change needed |
+| D10; E1 (M4-1) | 18: "\| Source \| Arrivals, by distribution or from a schedule \|" | The block reference gives a source no schedule, so the summary is wrong for Phase 1 (M4 item 1): "Arrivals by distribution; time-varying arrivals (a source schedule) in Phase 2 (D10)". | change needed |
 
-Count: 16 rows: 11 change needed, 5 already in spec. One explicit deferral, from DECISIONS (B3), none in the spec text.
+Count: 19 rows: 14 change needed, 5 already in spec. One explicit deferral, from DECISIONS (B3). The spec text holds one open owner question (365, `sketch`, answered by B7 item 1) and one "Phase 2 candidate" (347, D1).
 
 ## Spec 3 (desktop app, version 1.0)
 
@@ -112,9 +116,10 @@ Count: 16 rows: 11 change needed, 5 already in spec. One explicit deferral, from
 | B4, C7, F4 | 50: Help "holds 'Open source licences' ... generated from the package's licence list ... (#89; owner decisions B4, C7 and F4, 2026-11-13)"; 108 and 143: `GET /v1/licences`, "(Ithax, AGPL-3.0-only, its repository)" | Done M15 (#89). | already in spec |
 | C8 | 69: "`ithax-<version>-linux-x86_64/`"; 71: "`ithax` starts the app ... `ithax-mcp` is the MCP server"; 84: `lcsim` folders read while no `ithax` one exists | Done M12 (#70). | already in spec |
 | D17 | 164: "`GET .../summary`: `{summary, findings, issues}`" | Keep (D17). | already in spec |
+| Deferred with Windows (B4), line 87 | 87: "built and tested on Linux (the Windows build is deferred with the Windows version, owner decision B4)" | The shell's Windows build (WebView2) is Phase 2 with the Windows version (F5). | change needed |
 | Incidental (no decision) | 325: "a new project is written at the reader's version, 0.2 since AKS-123" | Format is 0.3 since #77 (spec 1 line 130). Fix while editing. | change needed (stale fact) |
 
-Count: 25 rows: 17 change needed (two of them also need an owner choice or number), 1 needs owner choice only (318), 6 already in spec, 1 stale fact. Six explicit Phase 1 review deferrals plus one AKS-130.
+Count: 26 rows: 18 change needed (two of them also need an owner choice or number), 1 needs owner choice only (318), 6 already in spec, 1 stale fact. Six explicit Phase 1 review deferrals, one AKS-130, and the shell's Windows build deferred with Windows (87).
 
 ## Spec 4 (content and AI, version 0.9)
 
@@ -151,6 +156,66 @@ Count: 6 rows: 6 change needed (one also needs an owner choice).
 
 B3 and F6 are only noted (rows above). C10, D18, F2 and F8 are governance and working mode for the build guide, CLAUDE.md and AGENTS.md, not specs 0 to 4. F3 is for specs 5 to 7 and the overview row. D5, D16 and D17 are "keep", already in spec. E1's dropped items (M4-23, M4-38, M9-5, M9-37, M9-38, M11-26, M11-40) need no spec text; check that none of them was written into a spec as planned work. F9 to F19 are not decided and are skipped.
 
+## Later-phase parts of accepted readings (E1)
+
+E1 accepts the build's readings "with their suggested phases". The later-phase part of a reading, where it has one, goes to the Phase 2 milestone table that the orchestrating session drafts (2026-11-15 item 1), not into spec text. The specs name a later phase only where an owner decision does (reading 6 below). Each one, by its session item and the DECISIONS reading it came from:
+
+| Session item | DECISIONS reading | Later-phase part | Goes to |
+| --- | --- | --- | --- |
+| M4-1 | AKS-131 (Awaiting owner 1) | Time-varying arrivals (a source schedule) | Spec 2 rows "D10; E1 (M4-1)" and "D10, D11" |
+| M4-2 | AKS-131 (Awaiting owner 2) | Reneging, assembly, order-up-to, partial availability; probabilistic calendars and multitasking | Spec 2 row "D10, D11" (D11) |
+| M4-15 | AKS-106 | Ordering in multiples (s, nQ) | Phase 2 table |
+| M4-17 | AKS-106 | Subtracting waiting items from the position | Done M13 (D12; spec 2 row "D12, E1 M4-17") |
+| M4-20 | AKS-106 | A `<store>.queue_length` metric | Phase 2 table |
+| M4-29 | AKS-107 | Overlapping shifts as an error | Phase 2 table |
+| M4-34 | AKS-107 | One failure process per unit | Spec 2 row "D13" |
+| M5-7 | AKS-132; 2026-11-07 item 7 | Ranking and selection | Spec 2 row "D1; 2026-11-07 item 7" |
+| M5-15 | AKS-108 reading 8 | Duals in `summary.json` | Spec 2 row "E1 M5-15" |
+| M5-21 | AKS-109 reading 2 | Searching within each scenario (E171 now) | Phase 2 table |
+| (M5 "Left") | AKS-108 "Left" | A whole number too large for a float: a validation code | Phase 2 table |
+| M6-7 | AKS-110 reading 7 | Graphics detection on Windows and macOS | Spec 3 row "D7" (Phase 4, D7 replaces the suggested Phase 2) |
+| M6-28 | AKS-111 reading 11 | An edit that removes a field | Phase 2 table |
+| M6-48 | AKS-112 | Live `metrics` events | Spec 3 row "D4" |
+| M6-53 | AKS-113 | A units edit without importing again | Phase 2 table (with M9-61) |
+| M6-54 | AKS-113 | Non-ASCII file names | Phase 2 table |
+| M6-55 | AKS-113 | Other encodings, delimiters and a sheet choice | Phase 2 table (with D6, spec 3 row "D6") |
+| M7-1 | AKS-115 | Streamable HTTP for the MCP server | Phase 2 table |
+| M7-13 | AKS-134 | A `target` input to `run_model` | Phase 2 table, with the remote target (A1) |
+| M7-19 | AKS-134 | A data import tool for assistants | Spec 4 row "D15" |
+| M8-5 | AKS-117 | Pools judged as idle capacity | Phase 2 table (with M10-67) |
+| M9-14 | AKS-119 reading 9 | A last-edited time on Home | Phase 2 table; #97 (M15) added the last-opened time, not this |
+| M9-24 | AKS-136 reading 4 | A `remove_setting` edit | Phase 2 table |
+| M9-35 | AKS-136 reading 15 | Find block, the context menu, Ctrl+Space, "Move to…" | Spec 3 row "C5" (new keyboard work deferred) |
+| M9-44 | AKS-137 reading 4 | A rename shown as one change | Phase 2 table |
+| M9-56 | AKS-137 reading 16 | Editing in the Diagram view | Phase 2 table; for indexed models, spec 3 row "D14" |
+| M9-61 | AKS-120 reading 3 | A route that changes a column's unit | Phase 2 table |
+| M9-65 | AKS-120 reading 7 | A data event on the project's events | Phase 2 table |
+| M9-66 | AKS-120 reading 8 | One session per project, shared by its screens | Phase 2 table |
+| M9-71 | AKS-120 reading 13 | The "{n} combinations" line | Phase 2 table, with B6's run count (spec 3 row "B6") |
+| M9-74 | AKS-120 reading 16 | Code splitting (charts) | Phase 2 table |
+| M9-79 | AKS-138 reading 3 | Live key numbers | Spec 3 row "D4" |
+| M9-80 | AKS-138 reading 4 | A search's candidate event | Phase 2 table (with D4) |
+| M9-81 | AKS-138 reading 5 | Sorting, filtering and "Use" in the trials table | Phase 2 table |
+| M9-84 | AKS-138 reading 8 | Dot strip, interval-shrinkage chart, canvas overlay | Phase 2 table |
+| M9-88 | AKS-138 reading 12 | Embedded fonts and charts in the PDF | Phase 2 table |
+| M9-95 | AKS-138 reading 19 | Code splitting (bundle size) | Phase 2 table |
+| M9-105 | AKS-121 reading 10 | Code splitting (Phase 1a if the low tier is slow) | Phase 2 table |
+| M10-30 | AKS-123 reading 2 | Set aliases | Already in spec 2 (313: "waits for aliases (Phase 2)") |
+| M10-31 | AKS-123 reading 3 | Per-member bounds and tables of more than numbers | Phase 2 table (spec 2 313 states the limit) |
+| M10-38 | AKS-123 reading 10 | Editing sets, tables and terms in the views | Spec 3 row "D14" |
+| M10-50 | AKS-124 reading 2 | A lesson's progress across reloads | Done M15 (#97, `lesson_step`; spec 4 "Where the lesson lives") |
+| M10-53 | AKS-124 reading 5 | Plain words for an edit's paths | Phase 2 table |
+| M10-67 | AKS-125 reading 6 | A finding rule for a resource pool | Phase 2 table |
+| M11-32 | AKS-142 reading 6 | Capabilities, plugins and a folder picker for the shell | Phase 2 table |
+
+Other later-phase items from the DECISIONS sweep, with no session item:
+
+- 2026-11-06 M9 owner design review, choice 12: palette filters and sorting "in later phases". Goes to the Phase 2 table.
+- 2026-11-08 M9 "Engine gap: Tauri": the Windows shell with WebView2. Goes to spec 3 row "Deferred with Windows (B4), line 87".
+- 2026-11-14 M13 zero-time loops: carrying the issue across SSH. Goes to the Phase 2 table, with the remote target (A1).
+- 2026-11-14 M12 retrospective: P12, P15, P16, P17, P18, P22, P23 and P25 from Phase 2. These go to the build guide, not specs 0 to 4.
+- 2026-11-05 spec review council, question 6 (people, machine elements, reliability): settled in the detailing of specs 5 to 7 (2026-11-09 B9). Goes to the overview row "2026-11-09 B9, F3".
+
 ## Needs the owner
 
 Filed as owner-decision issues (rule 5), each with its default and the date it applies:
@@ -167,3 +232,191 @@ These are reversible readings (rule 5). Each is written as the default, and the 
 3. **2026-11-09 B8** is taken as replaced by the 2026-11-13 list. Its content is not in the repository.
 4. **D2:** the empty optimization model keeps error E179, shown with a warning mark, which is the tooltip D2 asks for. A model with nothing to decide gives no meaningful answer.
 5. **The draft-and-approve step** (2026-11-09 B2) is this file, approved by the owner. After that comes one spec PR per spec, which the orchestrating session merges (C10).
+6. **Where a later-phase part goes.** A later phase is written into spec text only where an owner decision names it (the 2026-11-07, 2026-11-09, 2026-11-13 and 2026-11-15 entries, E1's own table included). The later-phase part of a reading that E1 accepted "with its suggested phase" goes to the Phase 2 milestone table (section "Later-phase parts of accepted readings"), so the specs do not list a backlog.
+
+## Coverage
+
+`tests/test_phase_1_review.py` reads this section. Every owner-decision item, every DECISIONS reading whose bucket is a later phase, every session item that names a later phase, and every spec line that leaves something open must have a line here, or the test fails and names it. A spec's quotes are checked while the spec is at the version surveyed above.
+
+Surveyed through: 2026-11-15.
+
+### Owner decisions
+
+- 2026-11-07 Item 5: engine licence rule; answered by F4 (spec 0 and spec 1 rows "F4").
+- 2026-11-07 Item 6: fresh random numbers for confirmation; done (#79, spec 2 "Fresh random numbers for confirmation").
+- 2026-11-07 Item 7: ranking and selection with a selection rule; spec 2 row "D1; 2026-11-07 item 7".
+- 2026-11-07 Item 14: no variables is an error; done M13 (#80, E179; spec 1 row "D2", spec 3 row "AKS-130, line 148; D2").
+- 2026-11-09 A1: remote Phase 2, cluster Phase 4; already in spec (spec 1 row "A1"; spec 0 line 43).
+- 2026-11-09 B1: the example files; no spec text (closed a known gap).
+- 2026-11-09 B2: the repository is the source of truth; the "2026-11-09 B2" rows of every spec; this file (reading 5).
+- 2026-11-09 B3: block defaults kept; spec 2 row "Deferred to review: 2026-11-09 B3".
+- 2026-11-09 B4: Linux first; the Windows rows of spec 0, spec 3 and the overview.
+- 2026-11-09 B5: the idle timeout setting; done M11 and M15 (spec 3 row "D8").
+- 2026-11-09 B6: the owner-only fallback; spec 3 row "C1, C2" and spec 4 row "C1, C2".
+- 2026-11-09 B7: item 1 sketch: spec 2 row "2026-11-09 B7 item 1"; item 3: spec 4 row "2026-11-09 B7 item 3"; items 2, 4, 5: spec 1 row "2026-11-09 B7 item 2", spec 0 row "2026-11-09 B7 item 4", B3.
+- 2026-11-09 B9: specs 5 to 7 after Phase 1; overview row "2026-11-09 B9, F3".
+- 2026-11-13 B1: objective types; spec 1 row "B1", spec 2 row "B1", spec 0 phases row.
+- 2026-11-13 B2: six success measures; spec 0 rows "B2"; #206.
+- 2026-11-13 B3: hardware table after Phase 3; spec 0 row "B3, F6", spec 3 row "B3, F6".
+- 2026-11-13 B4: AGPL-3.0-only and the licences page; spec 0 rows "B4 and C7", spec 1 row "F4, B4/C7", spec 3 row "B4, C7, F4".
+- 2026-11-13 C7: as B4.
+- 2026-11-13 B5: AppImage and Windows installer; spec 3 rows "B5" and line 73; spec 0 row "B5, 2026-11-15 item 3".
+- 2026-11-13 B6: scenario count; spec 2 row "B6", spec 3 row "B6".
+- 2026-11-13 C1: agent walkthroughs; spec 0 row "C3, C1", spec 3 row "C1, C2", spec 4 row "C1, C2".
+- 2026-11-13 C2: as C1.
+- 2026-11-13 C3: three testers in Phase 3; spec 0 row "C3, C1".
+- 2026-11-13 C4: Phase 3a; spec 0 phases row, spec 3 row "C4, F6", overview row "C4".
+- 2026-11-13 C5: mouse-first; spec 3 row "C5".
+- 2026-11-13 C6: MCP parity; spec 0 row "C6", spec 4 rows "C6".
+- 2026-11-13 C8: Ithax; spec 0 rows "C8"; spec 1, 3 and 4 rows "C8" (done M12).
+- 2026-11-13 C9: no outside contributors until Phase 4; spec 0 row "C9, C10".
+- 2026-11-13 C10: merging; spec 0 row "C9, C10"; the build guide.
+- 2026-11-13 D1: spec 2 row "D1; 2026-11-07 item 7".
+- 2026-11-13 D2: spec 1 row "D2" (reading 4).
+- 2026-11-13 D3: spec 3 row "D3, E1 M6-34" (done M14).
+- 2026-11-13 D4: spec 3 row "D4".
+- 2026-11-13 D5: spec 3 row "D5" (keep).
+- 2026-11-13 D6: spec 3 row "D6".
+- 2026-11-13 D7: spec 3 row "D7".
+- 2026-11-13 D8: spec 3 row "D8" (done M15).
+- 2026-11-13 D9: spec 4 row "D9" (done M13).
+- 2026-11-13 D10: spec 2 rows "D10, D11" and "D10; E1 (M4-1)".
+- 2026-11-13 D11: spec 2 row "D10, D11".
+- 2026-11-13 D12: spec 2 row "D12, E1 M4-17" (done M13).
+- 2026-11-13 D13: spec 1 row "D13, E1 M4-34", spec 2 row "D13".
+- 2026-11-13 D14: spec 3 row "D14".
+- 2026-11-13 D15: spec 4 row "D15".
+- 2026-11-13 D16: spec 4 row "D16" (keep).
+- 2026-11-13 D17: spec 3 row "D17" (keep).
+- 2026-11-13 D18: the build guide (section "Decisions with no spec 0 to 4 target").
+- 2026-11-13 E1: the E1 rows of specs 1 and 2, and "Later-phase parts of accepted readings".
+- 2026-11-13 M1-7: spec 1 row "E1 M1-7" (done M13).
+- 2026-11-13 M1-9: spec 1 row "E1 M2-1, M1-9" (done M13).
+- 2026-11-13 M2-1: as M1-9.
+- 2026-11-13 M2-5: spec 1 and spec 2 rows "E1 M2-5, M4-14" (done M13).
+- 2026-11-13 M4-14: as M2-5.
+- 2026-11-13 M2-7: spec 2 row "E1 M2-7" (done M13).
+- 2026-11-13 M3-2: spec 2 row "E1 M3-2" and the research row.
+- 2026-11-13 M4-17: spec 2 row "D12, E1 M4-17" (done M13).
+- 2026-11-13 M4-34: spec 1 row "D13, E1 M4-34", spec 2 row "D13".
+- 2026-11-13 M4-39: spec 1 row "E1 M4-39, M4-40" (done M13).
+- 2026-11-13 M4-40: as M4-39.
+- 2026-11-13 M5-1: spec 1 row "E1 M5-1, M5-10", spec 2 row "E1 M5-1, M5-10".
+- 2026-11-13 M5-10: as M5-1.
+- 2026-11-13 M5-12: spec 2 row "E1 M5-12" (done M13).
+- 2026-11-13 M5-15: spec 2 row "E1 M5-15".
+- 2026-11-13 M5-23: spec 2 rows "E1 M5-23, first part" (done) and "E1 M5-23, second part" (the Phase 2 method), spec 4 row "E1 M5-23".
+- 2026-11-13 M6-34: spec 3 row "D3, E1 M6-34" (done M14).
+- 2026-11-13 M11-51: spec 1 row "F7, C8, M11-51" (done M12).
+- 2026-11-13 F1: spec 0 phases row and row "F1, F7"; overview row "F1, C4, F3".
+- 2026-11-13 F2: the build guide (retrospective adopted at M12).
+- 2026-11-13 F3: overview rows "F1, C4, F3" and "2026-11-09 B9, F3".
+- 2026-11-13 F4: spec 0 row "F4", spec 1 row "F4, B4/C7", spec 3 row "B4, C7, F4".
+- 2026-11-13 F5: the Windows rows of spec 0, spec 3 and the overview.
+- 2026-11-13 F6: spec 0 rows "F6" and "B3, F6", spec 3 row "C4, F6".
+- 2026-11-13 F7: spec 0 rows "F1, F7" and "F7 (absent)", spec 1 row "F7, E1", spec 3 row "F7 (absent)".
+- 2026-11-13 F8: the build guide (working mode).
+- 2026-11-13 F9 to F19: not decided; for the council of specs 5 to 7 (F3).
+- 2026-11-15 item 1: the Phase 2 milestone table, drafted by the orchestrating session; no spec text.
+- 2026-11-15 item 2: spec 0 row "F1, F7" (the owner tags v0.1.0); #103.
+- 2026-11-15 item 3: spec 0 rows "B5, 2026-11-15 item 3" and "Deferred with Windows (B4), line 82", spec 3 line 73 row.
+- 2026-11-15 item 4: working mode; no spec text.
+
+### Later-phase readings in DECISIONS
+
+- DECISIONS AKS-108 reading 8: session item M5-15 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-108 Left: session item (M5 "Left") in "Later-phase parts of accepted readings".
+- DECISIONS AKS-109 reading 2: session item M5-21 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-110 reading 7: session item M6-7 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-111 reading 11: session item M6-28 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-120 reading 3: session item M9-61 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-120 reading 7: session item M9-65 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-120 reading 8: session item M9-66 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-120 reading 13: session item M9-71 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-120 reading 16: session item M9-74 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-121 reading 10: session item M9-105 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-123 reading 2: session item M10-30 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-123 reading 3: session item M10-31 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-123 reading 10: session item M10-38 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-124 reading 2: session item M10-50 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-124 reading 5: session item M10-53 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-125 reading 6: session item M10-67 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-137 reading 4: session item M9-44 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-137 reading 16: session item M9-56 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-138 reading 3: session item M9-79 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-138 reading 5: session item M9-81 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-138 reading 8: session item M9-84 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-138 reading 12: session item M9-88 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-138 reading 19: session item M9-95 in "Later-phase parts of accepted readings".
+- DECISIONS AKS-142 reading 6: session item M11-32 in "Later-phase parts of accepted readings".
+- DECISIONS Item 7 entry: session item M5-7 in "Later-phase parts of accepted readings".
+
+### Later-phase session items
+
+- M4-1: "Later-phase parts of accepted readings".
+- M4-2: "Later-phase parts of accepted readings".
+- M4-15: "Later-phase parts of accepted readings".
+- M4-17: "Later-phase parts of accepted readings".
+- M4-20: "Later-phase parts of accepted readings".
+- M4-29: "Later-phase parts of accepted readings".
+- M4-34: "Later-phase parts of accepted readings".
+- M5-7: "Later-phase parts of accepted readings".
+- M5-15: "Later-phase parts of accepted readings".
+- M5-21: "Later-phase parts of accepted readings".
+- M6-7: "Later-phase parts of accepted readings".
+- M6-28: "Later-phase parts of accepted readings".
+- M6-48: "Later-phase parts of accepted readings".
+- M6-53: "Later-phase parts of accepted readings".
+- M6-54: "Later-phase parts of accepted readings".
+- M6-55: "Later-phase parts of accepted readings".
+- M7-1: "Later-phase parts of accepted readings".
+- M7-13: "Later-phase parts of accepted readings".
+- M7-19: "Later-phase parts of accepted readings".
+- M8-5: "Later-phase parts of accepted readings".
+- M9-14: "Later-phase parts of accepted readings".
+- M9-24: "Later-phase parts of accepted readings".
+- M9-35: "Later-phase parts of accepted readings".
+- M9-44: "Later-phase parts of accepted readings".
+- M9-56: "Later-phase parts of accepted readings".
+- M9-61: "Later-phase parts of accepted readings".
+- M9-65: "Later-phase parts of accepted readings".
+- M9-66: "Later-phase parts of accepted readings".
+- M9-71: "Later-phase parts of accepted readings".
+- M9-74: "Later-phase parts of accepted readings".
+- M9-79: "Later-phase parts of accepted readings".
+- M9-80: "Later-phase parts of accepted readings".
+- M9-81: "Later-phase parts of accepted readings".
+- M9-84: "Later-phase parts of accepted readings".
+- M9-88: "Later-phase parts of accepted readings".
+- M9-95: "Later-phase parts of accepted readings".
+- M9-105: "Later-phase parts of accepted readings".
+- M10-30: "Later-phase parts of accepted readings".
+- M10-31: "Later-phase parts of accepted readings".
+- M10-38: "Later-phase parts of accepted readings".
+- M10-50: "Later-phase parts of accepted readings".
+- M10-53: "Later-phase parts of accepted readings".
+- M10-67: "Later-phase parts of accepted readings".
+- M11-32: "Later-phase parts of accepted readings".
+
+### Open markers in the specs
+
+- overview: "WSL deferred to Phase 3": overview row "Deferred to review, line 40".
+- overview: "the Windows version is deferred, its phase set at the Phase 1 review": overview row "Deferred to review, line 40".
+- spec 0: "The working title is not yet chosen.": spec 0 row "C8" (line 13).
+- spec 0: "A Windows version follows, deferred until the Phase 1 review sets its phase": spec 0 row "Deferred to review, line 60".
+- spec 0: "a Windows version is deferred (B4)": spec 0 row "F5" (line 65).
+- spec 0: "Deferred with the Windows version (owner decision B4, 2026-11-09)": spec 0 row "Deferred with Windows (B4), line 82".
+- spec 0: "Later phases add one engine at a time.": no change: a risk's mitigation, consistent with F1 and F3.
+- spec 1: "deferred to Phase 2 until a block that sets attributes": already in spec (2026-11-05 council C5); D11 adds the rest in spec 2.
+- spec 1: "carrying warnings there is deferred to #191 (Phase 3)": already in spec (owner decision #188, 2026-11-15).
+- spec 2: "priority disciplines are deferred to Phase 2": already in spec; spec 2 row "D10, D11" extends the sentence.
+- spec 2: "are the Phase 2 candidate, owner to confirm": spec 2 row "D1; 2026-11-07 item 7".
+- spec 2: "A `sketch` preview level is an owner question.": spec 2 row "2026-11-09 B7 item 1".
+- spec 3: "the Windows installer is deferred (owner decision B4, 2026-11-09), its phase set at the Phase 1 review": spec 3 row "Deferred to review, line 7".
+- spec 3: "the Windows version is deferred, and the Phase 1 review sets its phase": spec 3 row "Deferred to review, line 23".
+- spec 3: "**Windows:** deferred (owner decision B4, 2026-11-09); the Phase 1 review sets its phase": spec 3 row "Deferred to review, line 73; B5; 2026-11-15 item 3".
+- spec 3: "the Windows build is deferred with the Windows version, owner decision B4": spec 3 row "Deferred with Windows (B4), line 87".
+- spec 3: "is Phase 1a, AKS-130": spec 3 row "AKS-130, line 148; D2".
+- spec 3: "carrying warnings there is deferred to #191 (Phase 3)": already in spec (owner decision #188, 2026-11-15).
+- spec 3: "**Deferred with Windows (owner decision B4, 2026-11-09), only if the owner keeps WSL": spec 3 row "Deferred to review, line 318".
+- spec 3: "Deferred (owner decision B4, 2026-11-09); the Phase 1 review sets its phase": spec 3 row "Deferred to review, line 332".
