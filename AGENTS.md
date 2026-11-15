@@ -81,3 +81,10 @@ that reads input, and say whether the shared helper was bypassed:
   `tests/test_phase_1_review.py` fails on any item of `docs/DECISIONS.md` or the session
   summaries, or any spec line saying "owner question", "deferred" or "Phase 1 review", that
   `docs/research/phase-1-review.md` "Coverage" does not name; PR #208, two findings).
+- a wrapper or entry point that runs a command as its child (not by `exec`), or stays after
+  it, and does not stop what it started when it is stopped itself: a signal that leaves the
+  child, or a service it outlives, running, or lets go of files they still use (helper: the
+  one `stop` handler in `packaging/linux/appimage/AppRun`, set in every phase; check:
+  `test_a_signal_at_any_phase_stops_what_runs_from_the_appimage_before_apprun_ends` and
+  `test_a_signal_to_apprun_reaches_the_command_and_apprun_waits_for_it` in
+  `tests/linux_package/test_appimage_build.py`; PR #211, two findings).

@@ -125,12 +125,13 @@ def test_appimagetool_gets_the_pinned_runtime_and_fixed_times(tmp_path: Path) ->
 def staged_with_service(tmp_path: Path) -> Path:
     """A package folder whose launcher starts a "service" that runs from the folder until
     the file ``stop`` appears beside it, and returns once the service runs, as the real
-    launcher returns once the service answers. The service writes ``ended`` as it ends."""
+    launcher returns once the service answers. The service writes ``ended`` as it ends, at
+    ``stop`` or on TERM."""
     folder = stage(tmp_path)
     (folder / "python").mkdir()
     shutil.copy2(shutil.which("sh") or "/bin/sh", folder / "python" / "service")
     service = (
-        f'echo $$ > "{tmp_path}/started"; '
+        f'trap "touch {tmp_path}/ended; exit 0" TERM; echo $$ > "{tmp_path}/started"; '
         f'while [ ! -e "{tmp_path}/stop" ]; do sleep 0.05; done; touch "{tmp_path}/ended"'
     )
     launcher = folder / "bin" / "ithax-launcher"
@@ -291,3 +292,54 @@ def test_apprun_passes_its_standard_input_to_the_command(tmp_path: Path) -> None
     )
     assert done.returncode == 0, done.stderr
     assert done.stdout == '{"jsonrpc": "2.0"}\n'
+
+
+def parent_pid(pid: int) -> int:
+    with contextlib.suppress(OSError):
+        for line in Path(f"/proc/{pid}/status").read_text().splitlines():
+            if line.startswith("PPid:"):
+                return int(line.split()[1])
+    return 0
+
+
+def waiter_pids(folder: Path) -> list[int]:
+    """AppRun's background waiters for ``folder``: the processes still running its AppRun
+    whose parent does not, which leaves out the short subshells a waiter starts."""
+    apprun = {
+        int(path.parent.name)
+        for path in Path("/proc").glob("[0-9]*/cmdline")
+        if str(folder / "AppRun").encode() in cmdline(path)
+    }
+    return sorted(pid for pid in apprun if parent_pid(pid) not in apprun)
+
+
+@pytest.mark.parametrize("phase", ["foreground wait", "background waiter"])
+def test_a_signal_at_any_phase_stops_what_runs_from_the_appimage_before_apprun_ends(
+    tmp_path: Path, phase: str
+) -> None:
+    # Reviews of pull request 211 (twice, the class "a process left behind after a stop"):
+    # whichever of AppRun's processes is stopped, and whenever, nothing it started is left
+    # running from the AppImage's files, and AppRun ends only after it has. While the
+    # command runs, see test_a_signal_to_apprun_reaches_the_command_and_apprun_waits_for_it.
+    folder = staged_with_service(tmp_path)
+    with service_stopped_at_the_end(tmp_path, folder):
+        extracted = phase == "foreground wait"
+        environment = {"APPIMAGE_EXTRACT_AND_RUN": "1"} if extracted else {}
+        with start_apprun(folder, environment) as apprun:
+            assert apprun.stdout is not None
+            # The command has returned: AppRun closes the caller's output then, either way.
+            assert apprun.stdout.read() == "http://127.0.0.1:1/v1/ui/#token=t\n"
+            if extracted:
+                target = apprun.pid
+            else:
+                assert apprun.wait(timeout=30) == 0
+                [target] = waiter_pids(folder)
+            assert service_running(folder)
+            os.kill(target, signal.SIGTERM)
+            if extracted:
+                assert apprun.wait(timeout=30) == 143
+            else:
+                wait_until(lambda: not Path(f"/proc/{target}").exists(), "the waiter did not end")
+        # The service was stopped, and had ended, by the time AppRun's process ended.
+        assert (tmp_path / "ended").exists()
+        assert not service_running(folder)

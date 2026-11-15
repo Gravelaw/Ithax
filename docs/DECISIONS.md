@@ -3523,6 +3523,12 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Review of PR #211:** AppRun ran its command as a child but did not pass signals on, so stopping AppRun by its PID left `mcp` or the shell running. `bin/ithax-mcp` had used `exec`, so nothing was left behind there.
   - Now the command runs in the background with AppRun's standard input. TERM and HUP are passed on, and INT is passed on as TERM: dash starts a background command with INT ignored and cannot undo it. AppRun waits for the command to end. The traps are set before the command starts.
   - Tests: each of the three signals, and standard input reaching the command.
+- **Review of PR #211, second finding (the same class, so fixed for the class):** in the extracted case, AppRun reset its traps once the command returned. A TERM during its foreground wait then ended AppRun while the service still ran, and the runtime would remove the files under it. The background waiter had no handler either.
+  - One handler, `stop`, is now set in every phase, and set again in the waiter's subshell, which starts with the traps reset:
+    - before the command starts, AppRun ends;
+    - while the command runs, the signal goes to it;
+    - while AppRun stays, the signal goes to every process running from the AppImage, and AppRun ends only after they have, with status 143 or 129.
+  - The check is `test_a_signal_at_any_phase_stops_what_runs_from_the_appimage_before_apprun_ends`, for the foreground wait and the background waiter, beside the command-phase test. `AGENTS.md` names the class.
 - **Tests:** `tests/linux_package/test_appimage_build.py` covers the AppDir, the AppRun commands and its staying, mounted and extracted, and the appimagetool call. Under the marker `package`, `tests/linux_package/test_linux_package.py` checks:
   - the checksum, and the type 2 magic;
   - the extracted tree against the archive's;

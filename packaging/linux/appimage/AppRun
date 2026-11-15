@@ -27,13 +27,20 @@ case "${1:-}" in
         ;;
 esac
 
-running() {
+# The processes running from here, the AppImage's files.
+running_pids() {
     for exe in /proc/[0-9]*/exe; do
         case $(readlink "$exe" 2>/dev/null || true) in
-            "$here"/*) return 0 ;;
+            "$here"/*)
+                pid=${exe#/proc/}
+                echo "${pid%/exe}"
+                ;;
         esac
     done
-    return 1
+}
+
+running() {
+    [ -n "$(running_pids)" ]
 }
 
 stay() {
@@ -42,20 +49,44 @@ stay() {
     done
 }
 
-# The command runs as a child, so AppRun can stay after it; a signal that stops AppRun
-# (TERM, INT or HUP, as a caller stopping it by its PID sends) is passed on to the command,
-# and AppRun waits for it to end (review of pull request 211). A command started in the
-# background reads /dev/null unless given its standard input explicitly, so it gets a copy
-# taken first: the MCP server speaks over it.
-# The traps come first, so a signal arriving as the command starts is not lost. The shell
-# starts a background command with INT ignored, which it cannot undo, so INT (Ctrl+C) is
-# passed on as TERM, on which every command stops.
+# One handler for every signal that stops AppRun, in each of its phases, so that nothing
+# AppRun started is left running from the AppImage's files after AppRun lets them go
+# (reviews of pull request 211, twice):
+# - before the command starts, AppRun just ends;
+# - while it runs, the signal is passed on to it, and AppRun waits for it to end;
+# - after it, while AppRun stays (in the foreground, or as the background waiter), the
+#   signal goes to every process still running from here, and AppRun stays on until they
+#   have ended, so the files are not removed or unmounted under them.
+# The shell starts a background command with INT ignored, which it cannot undo, so INT
+# (Ctrl+C) is passed on as TERM, on which every command stops.
+phase=start
 child=
-trap 'if [ -n "$child" ]; then kill -TERM "$child" 2>/dev/null || true; else exit 143; fi' TERM INT
-trap 'if [ -n "$child" ]; then kill -HUP "$child" 2>/dev/null || true; else exit 129; fi' HUP
+stop() {
+    case $phase in
+        start) exit "$2" ;;
+        command) kill -"$1" "$child" 2>/dev/null || true ;;
+        stay)
+            status=$2
+            for pid in $(running_pids); do
+                kill -"$1" "$pid" 2>/dev/null || true
+            done
+            ;;
+    esac
+}
+handle_signals() {
+    trap 'stop TERM 143' TERM INT
+    trap 'stop HUP 129' HUP
+}
+
+# The command runs as a child, so AppRun can stay after it. A command started in the
+# background reads /dev/null unless given its standard input explicitly, so it gets a copy
+# taken first: the MCP server speaks over it. The handler is set before it starts, so a
+# signal arriving as it starts is not lost.
+handle_signals
 exec 3<&0
 "$command" "$@" <&3 3<&- &
 child=$!
+phase=command
 exec 3<&-
 status=0
 wait "$child" || status=$?
@@ -63,12 +94,13 @@ wait "$child" || status=$?
 while kill -0 "$child" 2>/dev/null; do
     wait "$child" || status=$?
 done
-trap - TERM INT HUP
+phase=stay
 if [ -n "${APPIMAGE_EXTRACT_AND_RUN:-}" ] && [ -z "${NO_CLEANUP:-}" ]; then
     # Nothing more is written to the caller; it sees the end of the output now.
     exec </dev/null >/dev/null 2>&1
     stay
 else
-    (exec </dev/null >/dev/null 2>&1 && stay) &
+    # A subshell starts with the traps reset, so the waiter sets the handler again.
+    (exec </dev/null >/dev/null 2>&1 && handle_signals && stay) &
 fi
 exit "$status"
