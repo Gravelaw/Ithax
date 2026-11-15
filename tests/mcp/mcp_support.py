@@ -77,7 +77,7 @@ def spec_4_tool_rows() -> dict[str, tuple[str, list[tuple[str, str]]]]:
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         match = re.fullmatch(r"`(\w+)`", cells[0]) if len(cells) == 4 else None
         if match:
-            calls = re.findall(r"`(GET|POST|PUT|DELETE) (/v1/[^`?]*)", cells[3])
+            calls = re.findall(r"`(GET|POST|PUT|PATCH|DELETE) (/v1/[^`?]*)", cells[3])
             rows[match.group(1)] = (cells[1], calls)
     return rows
 

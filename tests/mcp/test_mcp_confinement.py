@@ -6,7 +6,7 @@ an audit hook (``sys.addaudithook``, PEP 578) installed before ``ithax.mcp`` is 
 The hook writes one line for every file the process opens, every folder it lists, and every
 file or folder it creates, renames, removes or changes, and for every program it starts, to
 a log opened before the hook (writing to an open file raises no audit event). A scripted
-client then calls each of the eleven tools, refusals included, against a service running in
+client then calls each of the thirteen tools, refusals included, against a service running in
 this test's process, so everything the service does to the project folder happens here and
 nothing of it is in the log.
 
@@ -131,7 +131,7 @@ COFFEE_SHOP_EDITS: list[dict[str, Any]] = [
 
 
 async def use_every_tool(mcp_client: Client) -> dict[str, Any]:
-    """Call each of the eleven tools, with refusals; return what the checks need."""
+    """Call each of the thirteen tools, with refusals; return what the checks need."""
     called: set[str] = set()
 
     async def call(name: str, arguments: dict[str, Any]) -> tuple[bool, Any]:
@@ -167,6 +167,8 @@ async def use_every_tool(mcp_client: Client) -> dict[str, Any]:
         "get_results", {"run_id": rid, "tables": ["replications", "timeseries"]}
     )
     assert not error and set(results["tables"]) == {"replications", "timeseries"}
+    error, renamed = await call("rename_project", {"project_id": pid, "name": "Corner café"})
+    assert not error and renamed["name"] == "Corner café", renamed
     # Refusals, among them inputs that name places outside the project folder.
     refusals = [
         ("create_model", {"name": "x", "path": str(Path.home())}, "E184"),
@@ -177,10 +179,15 @@ async def use_every_tool(mcp_client: Client) -> dict[str, Any]:
         ("get_results", {"run_id": rid, "tables": ["../manifest"]}, "E185"),
         ("get_run_status", {"run_id": "../../projects"}, "E185"),
         ("run_model", {"project_id": pid}, "E184"),
+        ("rename_project", {"project_id": "../../..", "name": "x"}, "E185"),
+        ("remove_project", {"project_id": "../.."}, "E185"),
     ]
     for name, arguments, code in refusals:
         error, body = await call(name, arguments)
         assert error and body["error"]["code"] == code, (name, body)
+    # Last: off the list, its folder kept (#97).
+    error, removed = await call("remove_project", {"project_id": pid})
+    assert not error and removed == {"id": pid, "path": project["path"]}, removed
     return {
         "listed": {tool.name for tool in listed.tools},
         "called": called,
@@ -222,8 +229,10 @@ def test_no_mcp_tool_reads_or_writes_outside_the_project_folder(tmp_path: Path) 
         ) as http:
             project_paths = [item["path"] for item in http.get("/v1/projects").json()]
 
-    assert seen["called"] == seen["listed"] and len(seen["called"]) == 11
-    assert project_paths == [seen["project_path"]]
+    assert seen["called"] == seen["listed"] and len(seen["called"]) == 13
+    # remove_project took it off the list last; its folder is kept (#97).
+    assert project_paths == []
+    assert (Path(seen["project_path"]) / "project.json").is_file()
     lines = log_file.read_text(encoding="utf-8").splitlines()
     roots: list[str] = json.loads(lines[0])["roots"]
     records = [json.loads(line) for line in lines[1:]]
