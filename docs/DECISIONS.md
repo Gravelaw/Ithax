@@ -3304,3 +3304,17 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - "Bytes" (the Settings memory limit, typed in bytes) is left to #87, whose idle timeout needs the same entry in a chosen unit; the field already shows the size in words beside it ("= 8.59 GB").
 - **Spec sections updated:** spec 3 "Run monitor, Results and Settings" (Results), with a dated line.
 - **Dependencies added:** none.
+
+## 2026-11-15 · M15 · Plain words on the Canvas and in lessons (#91 part 1; Reviewer B finding 2)
+
+- **Decision:**
+  - **Block types in words.** `typeName` (`ui/src/canvas/model.ts`, the setting names' `words`) shows `resource_pool` as "Resource pool": in the palette (whose filter matches the type or its words), the type line ("Server · capacity = tills"), the side panel's heading and the blocks table. The model, the API and MCP keep the type ids.
+  - **Issue codes last.** A problems-list row reads severity, component id, message, hint, then "Code E122" small and muted. The code stays, for a report.
+  - **A lesson's change in words.** A setting reads "till: service"; a parameter's other field "tills: max"; a `set_path` pointer as "objective coefficient of tables", "wood: limit", "wood: coefficient of tables", or else its parts joined by "›" with a list entry by its `name` or `id` (or its place from 1); another kind of edit by its kind in words. A value object reads as words ("exponential, mean 1 min"), an array as a list.
+- **Reason:** issue #91: block types, hints and lesson changes showed raw ids, JSON pointers and issue codes. Tests first: `lesson.test.ts` (each place and value in words), `model.test.ts` (`typeName`, the type line), `CanvasScreen.test.tsx` (the problems row's order and the palette names); each failed before the change.
+- **Readings (reversible):**
+  - design-system.md's "Ids and metric names stay as they are, in Mono" is narrowed to ids, the names the user gives; block types become words. Metric names follow in part 2.
+  - The issue code is kept, last and small, rather than hidden: it is what a person quotes in a report.
+  - The `message` and `hint` texts are the service's and are not changed here; a pointer some of them quote stays until a service wording change.
+- **Spec sections updated:** spec 4 "Learn and Build modes" (The exercise), with a dated line; design-system.md "Plain words" and "Type line"; canvas-interactions.md "The problems list".
+- **Dependencies added:** none.

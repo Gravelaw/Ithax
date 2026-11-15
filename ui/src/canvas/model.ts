@@ -305,8 +305,14 @@ export function shown(value: unknown): string {
   return JSON.stringify(value);
 }
 
+/** A block type in words, as the interface shows it: `resource_pool` → "Resource pool" (#91). */
+export function typeName(type: string): string {
+  return words(type);
+}
+
 /** The block's type line: the type and one key setting (`design-system.md` "Block styles"). */
 export function typeLine(component: Component): string {
+  const type = typeName(component.type);
   const params = component.params;
   const key: Record<string, string> = {
     source: "interarrival",
@@ -322,17 +328,17 @@ export function typeLine(component: Component): string {
   };
   const name = own<string>(key, component.type);
   const value = name === undefined ? undefined : own(params, name);
-  if (name === undefined || value === undefined) return component.type;
+  if (name === undefined || value === undefined) return type;
   if (component.type === "source" && typeof value === "object" && value !== null) {
     const mean = (value as Record<string, unknown>).mean;
-    if (mean !== undefined) return `source · every ${shown(mean)}`;
-    return `source · ${shown((value as Record<string, unknown>).dist)}`;
+    if (mean !== undefined) return `${type} · every ${shown(mean)}`;
+    return `${type} · ${shown((value as Record<string, unknown>).dist)}`;
   }
   if (typeof value === "object" && value !== null && paramOf(value) === null) {
-    return `${component.type} · ${shown((value as Record<string, unknown>).dist ?? name)}`;
+    return `${type} · ${shown((value as Record<string, unknown>).dist ?? name)}`;
   }
   const joiner = paramOf(value) !== null ? " = " : " ";
-  return `${component.type} · ${name}${joiner}${shown(value)}`;
+  return `${type} · ${name}${joiner}${shown(value)}`;
 }
 
 /** The fields of each spec 1 distribution, and whether each is a time. */
