@@ -823,7 +823,12 @@
   grid-template-columns: 11rem minmax(0, 1fr);
 }
 
+/* At the designed width the wrapper adds no box: the panel is the grid's column. */
 .side-sheet {
+  display: contents;
+}
+
+.side-sheet.narrow {
   position: absolute;
   top: 0;
   right: 0;
@@ -836,7 +841,7 @@
   box-shadow: var(--shadow);
 }
 
-.side-sheet[hidden] {
+.side-sheet.narrow[hidden] {
   display: none;
 }
 
@@ -846,8 +851,8 @@
   padding: var(--space-1) var(--space-2) 0;
 }
 
-.side-sheet > .side-panel,
-.side-sheet > .side-column {
+.side-sheet.narrow > .side-panel,
+.side-sheet.narrow > .side-column {
   flex: 1 1 auto;
   min-height: 0;
   box-shadow: none;

@@ -84,6 +84,45 @@ for (const [name, width, height, textSize] of [
 test("at the designed size the side panel stays a column", async ({ page, service }) => {
   await open(page, service, 100);
   await whole(page, tools(page));
-  await expect(page.locator(".side-sheet")).toHaveCount(0);
+  await expect(page.locator(".side-sheet.narrow")).toHaveCount(0);
   await expect(page.locator(".side-panel")).toBeVisible();
+});
+
+test("when narrow, the review list opens the panel and takes the focus (review of PR #192)", async ({
+  page,
+  service,
+}) => {
+  await page.setViewportSize({ width: 900, height: 700 });
+  await open(page, service, 100);
+  const pid = decodeURIComponent(new URL(page.url()).hash.split("/").pop() ?? "");
+  const current = await service.api("GET", `/v1/projects/${pid}/model`);
+  await service.api("POST", `/v1/projects/${pid}/model/edits`, {
+    edits: [{ edit: "set_setting", id: "till", path: "/capacity", value: 3 }],
+    base_revision: (current.body as { revision: number }).revision,
+  });
+  const review = page.getByRole("button", { name: "1 change to review" });
+  await expect(review).toBeVisible();
+  await expect(page.locator(".side-sheet")).toBeHidden();
+  await review.click();
+  await expect(page.locator(".side-sheet")).toBeVisible();
+  await expect(page.locator("#review-heading")).toBeFocused();
+});
+
+test("a draft in the panel survives the window crossing the narrow width (review of PR #192)", async ({
+  page,
+  service,
+}) => {
+  await open(page, service, 100);
+  await page.locator('.react-flow__node[data-id="till"]').click();
+  const id = page.locator(".side-panel").getByRole("textbox", { name: "Id" });
+  await id.fill("till_draft");
+  await page.setViewportSize({ width: 900, height: 700 });
+  await expect(page.locator(".side-sheet")).toBeVisible();
+  await expect(page.locator(".side-panel").getByRole("textbox", { name: "Id" })).toHaveValue(
+    "till_draft",
+  );
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(page.locator(".side-panel").getByRole("textbox", { name: "Id" })).toHaveValue(
+    "till_draft",
+  );
 });

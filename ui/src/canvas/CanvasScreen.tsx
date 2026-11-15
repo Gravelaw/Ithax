@@ -593,6 +593,7 @@ function ProcessCanvas({
     selection.blocks.length + selection.connections.length === 0
       ? ""
       : `${selection.blocks.join(" ")}|${selection.connections.join(" ")}`,
+    openReview,
   );
 
   const selectBlocks = useCallback((ids: string[]) => {
