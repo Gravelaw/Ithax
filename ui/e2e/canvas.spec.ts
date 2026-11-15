@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import AxeBuilder from "@axe-core/playwright";
 import type { Locator, Page } from "@playwright/test";
+import { typeName } from "../src/canvas/model";
 import { expect, test } from "./fixtures";
 import type { Service } from "./service";
 
@@ -61,7 +62,7 @@ async function settled(page: Page): Promise<void> {
 
 async function drop(page: Page, type: string, x: number, y: number, id: string): Promise<void> {
   const pane = page.locator(".react-flow__pane");
-  await page.getByRole("button", { name: type, exact: true }).dragTo(pane, {
+  await page.getByRole("button", { name: typeName(type), exact: true }).dragTo(pane, {
     targetPosition: { x, y },
   });
   await expect(block(page, id)).toBeVisible();
@@ -231,11 +232,11 @@ test("another client's write reloads the canvas; undo and redo write whole model
 
 test("the canvas works from the keyboard", async ({ page, service }) => {
   const pid = await openCanvas(page, service, "Keys");
-  await page.getByRole("button", { name: "source", exact: true }).focus();
+  await page.getByRole("button", { name: "Source", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(block(page, "source_1")).toBeFocused();
   await settled(page);
-  await page.getByRole("button", { name: "sink", exact: true }).focus();
+  await page.getByRole("button", { name: "Sink", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(block(page, "sink_1")).toBeFocused();
   await settled(page);

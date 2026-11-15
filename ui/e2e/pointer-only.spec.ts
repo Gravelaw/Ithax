@@ -26,6 +26,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
+import { typeName } from "../src/canvas/model";
 import { test as base, expect } from "./fixtures";
 import { python, REPOSITORY_ROOT, type Service, startService } from "./service";
 
@@ -100,7 +101,7 @@ async function commitPanel(page: Page): Promise<void> {
 
 async function drop(page: Page, type: string, x: number, y: number, id: string): Promise<void> {
   await page
-    .getByRole("button", { name: type, exact: true })
+    .getByRole("button", { name: typeName(type), exact: true })
     .dragTo(page.locator(".react-flow__pane"), { targetPosition: { x, y } });
   await expect(block(page, id)).toBeVisible();
   await settled(page);

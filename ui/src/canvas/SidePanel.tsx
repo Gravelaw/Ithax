@@ -22,6 +22,7 @@ import {
   positionOf,
   readNumber,
   splitEnd,
+  typeName,
 } from "./model";
 import { own } from "./own";
 import { Parameters } from "./Parameters";
@@ -149,7 +150,8 @@ function BlockPanel({
   return (
     <section className="panel-section" aria-labelledby="block-heading">
       <h2 className="heading" id="block-heading">
-        {component.label ?? component.id} <span className="muted small">{component.type}</span>
+        {component.label ?? component.id}{" "}
+        <span className="muted small">{typeName(component.type)}</span>
       </h2>
       {issues.length > 0 ? <IssueList issues={issues} /> : null}
       <div className="panel-pair">
@@ -354,7 +356,7 @@ function BlocksTable({
             return (
               <tr key={component.id}>
                 <td className="mono">{component.id}</td>
-                <td>{component.type}</td>
+                <td>{typeName(component.type)}</td>
                 <td className="mono">
                   {goes.join(", ") ||
                     (portsOf(component, own(types, component.type)).outputs.length ? "—" : "")}

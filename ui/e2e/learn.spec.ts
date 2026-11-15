@@ -212,7 +212,7 @@ base("the product mix lesson works from the keyboard alone", async ({ page, serv
   await expect(card(page)).toContainText("Step 5 of 5 · Try it");
   await expect(row("Name of decision 2")).toHaveClass(/learn-target/);
   await expect(card(page).getByRole("list", { name: "The change" })).toHaveText(
-    "/objective/linear/tables: 80 → 100",
+    "objective coefficient of tables: 80 → 100",
   );
 
   // The exercise: Make the change, a choice, Run, all by keys.

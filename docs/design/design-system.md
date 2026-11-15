@@ -160,7 +160,7 @@ Fonts are bundled with the app and never downloaded at run time (owner review ch
 - **Fallback stacks.** Sans: `"Atkinson Hyperlegible Next", system-ui, "Segoe UI", "Noto Sans", sans-serif`. Display: `"Bricolage Grotesque", system-ui, sans-serif`. Mono: `"JetBrains Mono", ui-monospace, "Cascadia Mono", "DejaVu Sans Mono", monospace`.
 - **Units.** Sizes are set in `rem` against a 16 px root. The text-size setting (100% to 200%) changes the root size, so all text scales together (success criterion 1.4.4).
 - **Numbers** use tabular figures in tables and the run monitor.
-- **Plain words.** The interface uses everyday words and explains the technical one on hover or focus: "repeat runs" (replications), "settling-in time" (warm-up), "likely range of the average" (confidence interval), "how well the pattern fits" (fit score). Ids and metric names stay as they are, in Mono.
+- **Plain words.** The interface uses everyday words and explains the technical one on hover or focus: "repeat runs" (replications), "settling-in time" (warm-up), "likely range of the average" (confidence interval), "how well the pattern fits" (fit score). Ids, the names the user gives, stay as they are, in Mono; block types are words ("Resource pool", not `resource_pool`), a lesson's change names its place in words ("till: service", "objective coefficient of tables"), not a JSON pointer, and an issue's code comes last and small, after its message and hint, for a report (#91, 2026-11-15).
 
 ## Icons
 
@@ -236,7 +236,7 @@ A block draws one model component (spec 1 "Components and ports"). Each category
 - **Size.** About 176 × 64 px at 100% zoom; a `branch` with more than two routes grows by 20 px per extra route.
 - **Icon disc.** A 34 px circle at the left, filled with the category colour at 18% and holding the block's duotone icon in the category colour.
 - **Title.** The component's `label` when it has one, otherwise its `id` (Body, 700). When a label is shown, the id appears in Mono in the type line.
-- **Type line.** The type and one key setting: `server · capacity = tills`, `source · every 2 min`.
+- **Type line.** The type in words and one key setting: "Server · capacity = tills", "Source · every 2 min" (#91).
 - **Resource blocks each look different** (owner review choice 3): `resource_pool` shows a people icon and a count badge ("3 baristas"); `schedule` shows a calendar icon and a small strip of on and off hours; `failure` shows a wrench icon and a striped edge.
 
 ### After a run
