@@ -123,18 +123,12 @@ describe("Home", () => {
     expect(within(recent).getByText(/^Last opened 12 Nov 2026/)).toBeVisible();
   });
 
-  it("notes the open when a project is opened (#97)", async () => {
+  it("hands an opened project to onOpen, which notes the time (#97)", async () => {
     const onOpen = vi.fn();
-    const fake = service([project("a", "Shop")]).answer(
-      "PATCH /v1/projects/a",
-      project("a", "Shop"),
-    );
+    const fake = service([project("a", "Shop")]);
     render(<Home client={fake.client()} onOpen={onOpen} />);
     await userEvent.click(await screen.findByText("Shop"));
-    expect(onOpen).toHaveBeenCalled();
-    await waitFor(() =>
-      expect(fake.requested("PATCH", "/v1/projects/a")[0]?.body).toEqual({ opened: true }),
-    );
+    expect(onOpen).toHaveBeenCalledWith(project("a", "Shop"));
   });
 
   it("renames a project and takes one off the list, keeping its files (#97)", async () => {

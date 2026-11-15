@@ -3,7 +3,7 @@
  * rail, the top bar and the current screen, and the first-start notice until it has been
  * seen.
  */
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Project, SettingsBody } from "../api/types";
 import { CanvasScreen } from "../canvas/CanvasScreen";
@@ -65,13 +65,19 @@ export function App({ client }: { client: ApiClient }) {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  /**
+   * Every way a project is opened goes through here or `built`, which note the time so
+   * Recent projects lists it first (#97; review of pull request 201).
+   */
   const open = (opened: Project) => {
+    void client.changeProject(opened.id, { opened: true });
     setProject(opened);
     go({ screen: "canvas", projectId: opened.id });
   };
 
   /** A project the Build form made: the Data screen with data, else the Canvas (spec 4). */
   const built = (made: Project, data: boolean) => {
+    void client.changeProject(made.id, { opened: true });
     setProject(made);
     go({ screen: data ? "data" : "canvas", projectId: made.id });
   };
@@ -155,14 +161,21 @@ export function App({ client }: { client: ApiClient }) {
  * it after a reload; leaving the lesson clears it.
  */
 function useLessonStep(client: ApiClient, projectId: string | null, step: number | null) {
-  const [last, setLast] = useState<string | null>(null);
+  // The project whose step was last kept, and the write in flight: each write waits for the
+  // one before, so the service keeps the latest step or the clearing on exit, never an
+  // older step that arrived late (review of pull request 201).
+  const last = useRef<string | null>(null);
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
   useEffect(() => {
+    const send = (pid: string, value: number | null) => {
+      queue.current = queue.current.then(() => client.changeProject(pid, { lesson_step: value }));
+    };
     if (projectId !== null && step !== null) {
-      void client.changeProject(projectId, { lesson_step: step });
-      setLast(projectId);
-    } else if (last !== null) {
-      void client.changeProject(last, { lesson_step: null });
-      setLast(null);
+      send(projectId, step);
+      last.current = projectId;
+    } else if (last.current !== null) {
+      send(last.current, null);
+      last.current = null;
     }
-  }, [client, projectId, step, last]);
+  }, [client, projectId, step]);
 }

@@ -281,8 +281,26 @@ describe("the frame", () => {
       await screen.findByRole("button", { name: "Start the lesson Coffee shop queue" }),
     );
     expect(await screen.findByRole("region", { name: "Arrive" })).toBeVisible();
+    const steps = () =>
+      fake
+        .requested("PATCH", "/v1/projects/p1")
+        .map((request) => request.body as Record<string, unknown>)
+        .filter((body) => "lesson_step" in body)
+        .map((body) => body.lesson_step);
+    await waitFor(() => expect(steps()).toEqual([0]));
+    // Opening the new project notes the time, as every opening does (review of pull request 201).
+    expect(fake.requested("PATCH", "/v1/projects/p1").map((r) => r.body)).toContainEqual({
+      opened: true,
+    });
+    // With a step's write held, Exit's clearing waits for it, so it is the last kept.
+    const release = fake.holdWrites();
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(steps()).toEqual([0, 1]));
     await userEvent.click(screen.getByRole("button", { name: "Exit lesson" }));
     expect(screen.queryByRole("region", { name: "Arrive" })).toBeNull();
+    expect(steps()).toEqual([0, 1]);
+    release();
+    await waitFor(() => expect(steps()).toEqual([0, 1, null]));
   });
 
   it("moves between regions with F6", async () => {

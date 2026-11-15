@@ -78,12 +78,6 @@ export function Home({
   if (lessonsFirst) shown.sort((a, b) => audienceRank(a) - audienceRank(b));
   const buildable = shown.some((template) => BUILD_TEMPLATES.includes(template.id));
 
-  /** Opens a project and notes the time, so it leads the recent list (#97). */
-  const openProject = (project: Project) => {
-    void client.changeProject(project.id, { opened: true });
-    onOpen(project);
-  };
-
   /** The newest available project made from `template`, whose lesson is resumed (#97). */
   const lessonProject = (template: Template): Project | undefined =>
     projects?.kind === "ok"
@@ -118,7 +112,6 @@ export function Home({
     const earlier = lessonProject(template);
     if (earlier !== undefined) {
       setStarting(null);
-      void client.changeProject(earlier.id, { opened: true });
       const step = Math.min(earlier.lesson_step ?? 0, lesson.steps.length);
       onLesson(earlier, read.data.template, lesson, step);
       return;
@@ -245,7 +238,7 @@ export function Home({
           <RecentProjects
             client={client}
             projects={projects.data}
-            onOpen={openProject}
+            onOpen={onOpen}
             onChanged={() => void load()}
           />
         )}

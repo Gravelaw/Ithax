@@ -97,7 +97,7 @@ export class FakeService {
           : undefined;
     this.requests.push({ method, path: url.pathname, search: url.search, headers, body });
     // A slow service: writes wait here until the test opens the gate.
-    if (this.holding && (method === "POST" || method === "PUT")) {
+    if (this.holding && (method === "POST" || method === "PUT" || method === "PATCH")) {
       if (!url.pathname.endsWith("/validate")) {
         await new Promise<void>((resolve) => this.waiting.push(resolve));
       }
