@@ -164,16 +164,6 @@ def test_a_record_that_cannot_be_read_refuses_the_folder_and_changes_nothing(
     assert (tmp_path / "x").read_bytes() == b"x"
 
 
-def test_a_replay_leaves_a_folder_this_process_is_committing(tmp_path: Path) -> None:
-    (tmp_path / RECORD).write_text('{"renames": [["x", "a"]]}', encoding="utf-8")
-    (tmp_path / "x").write_bytes(b"x")
-    with commit._committing_in(tmp_path):
-        assert not replay(tmp_path)
-    assert (tmp_path / RECORD).exists()
-    assert replay(tmp_path)
-    assert (tmp_path / "a").read_bytes() == b"x"
-
-
 def test_files_of_one_commit_share_a_folder(tmp_path: Path) -> None:
     (tmp_path / "sub").mkdir()
     with pytest.raises(ValueError, match="one folder"):
@@ -278,3 +268,64 @@ def test_a_target_that_is_a_folder_saves_nothing(tmp_path: Path) -> None:
     assert failed.value.pending is False
     assert names(tmp_path) == ["a", "b"]
     assert (tmp_path / "a").read_bytes() == OLD[0]
+
+
+# --- a replay and a commit in one folder at once (review of PR #182, second round) ----------
+
+
+def test_a_replay_and_a_later_save_in_one_folder_never_meet(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Codex's interleaving: replay A reads the record of save 1 and pauses; save 2 runs,
+    and its last rename fails, so its record must stay; A must not then remove it. One
+    lock per folder over the whole of every replay and commit keeps them apart."""
+    import threading
+
+    old_files(tmp_path)
+    real_replace = os.replace
+
+    def failing_b(source: Any, target: Any) -> None:
+        if Path(target).name == "b" and threading.current_thread().name in ("first", "second"):
+            raise PermissionError("denied")
+        real_replace(source, target)
+
+    # Save 1 is left recorded: its rename of b fails.
+    monkeypatch.setattr(os, "replace", failing_b)
+    first = threading.Thread(target=lambda: _expect_pending(two(tmp_path)), name="first")
+    first.start()
+    first.join(30)
+    assert (tmp_path / RECORD).exists()
+
+    read, go = threading.Event(), threading.Event()
+    real_renames = commit._renames
+
+    def pausing(record: Path) -> list[tuple[str, str]] | None:
+        found = real_renames(record)
+        if threading.current_thread().name == "replay":
+            read.set()
+            go.wait(10)
+        return found
+
+    monkeypatch.setattr(commit, "_renames", pausing)
+    replaying = threading.Thread(target=lambda: replay(tmp_path), name="replay")
+    replaying.start()
+    assert read.wait(10)
+    later = [Planned(tmp_path / "a", b"2 a"), Planned(tmp_path / "b", b"2 b")]
+    second = threading.Thread(target=lambda: _expect_pending(later), name="second")
+    second.start()
+    second.join(0.5)
+    assert second.is_alive(), "the save went ahead while the replay held the folder"
+    go.set()
+    replaying.join(30)
+    second.join(30)
+    # Save 2 is recorded; the next replay finishes it, whole.
+    assert (tmp_path / RECORD).exists()
+    monkeypatch.undo()
+    assert replay(tmp_path)
+    assert contents(tmp_path) == (b"2 a", b"2 b")
+
+
+def _expect_pending(files: list[Planned]) -> None:
+    with pytest.raises(CommitFailed) as failed:
+        replace_in_order(files)
+    assert failed.value.pending is True

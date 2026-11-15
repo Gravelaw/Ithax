@@ -37,5 +37,6 @@ that reads input, and say whether the shared helper was bypassed:
 - a save of several files that restores old files after its commit point, or a recovery that
   admits a folder whose recorded change it could not finish: either can pair one revision with
   another's model (helper: `ithax.service.commit`, redo only; `tests/service/test_commit.py`
-  stops the writer and its replay at every step; PR #182);
+  stops the writer and its replay at every step; one lock per folder covers a whole commit or
+  replay, so a replay never removes a later commit's record; PR #182, two rounds);
 - interface state written from a stale draft or after a screen has closed.

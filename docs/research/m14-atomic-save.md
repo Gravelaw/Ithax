@@ -43,8 +43,10 @@ the same gap.
 - **When it is replayed.** On every use of a project folder: the project list, `folder(pid)`
   before every model, data or run use, and opening. It was first planned for the first use
   only; the review of PR #182 changed that, so a replay that fails is tried again rather than
-  the folder admitted. A replay skips a folder this process is committing at that moment,
-  since `replace_in_order` keeps a set of them, so it never races a save in another thread.
+  the folder admitted. Every commit and every replay holds its folder's lock for the whole
+  of it, from writing or reading the record to removing it (second review of PR #182). A
+  replay therefore never removes a record a later save wrote. The service is the only writer,
+  so a lock in the process is enough.
 - **A rename that fails** (`OSError`) after the record puts nothing back (review of PR
   #182). A roll-back has its own unsafe step: a stop part-way through it pairs the old model
   with the new revision. The record and the temporaries stay, the write is answered E186

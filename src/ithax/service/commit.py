@@ -20,10 +20,15 @@ then ``data/index.json``.
 
 ``replay(folder)`` finishes a recorded change. It renames each temporary that is still
 there onto its target, in order; a rename already done has no temporary left, so a replay
-can stop part-way and run again. It skips a folder this process is committing at the
-moment. It raises ``CommitFailed`` (``pending``) when the record cannot be read or the
-renames fail, so a folder is never used with a change half done. The projects store calls
-it on every use of a project folder (``ithax.service.projects_store``).
+can stop part-way and run again. It raises ``CommitFailed`` (``pending``) when the record
+cannot be read or the renames fail, so a folder is never used with a change half done. The
+projects store calls it on every use of a project folder (``ithax.service.projects_store``).
+
+Every commit and every replay holds its folder's lock (``_lock_of``, one per resolved
+folder path) for the whole of it, from writing or reading the record to removing it, so a
+replay never removes a record that a later commit wrote (second review of PR #182). The
+service is the only writer of a project folder (the interface and the MCP server go through
+it), so a lock in the process is enough.
 """
 
 from __future__ import annotations
@@ -32,7 +37,7 @@ import contextlib
 import logging
 import os
 import threading
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -46,9 +51,9 @@ RECORD = ".ithax-commit.json"
 
 _log = logging.getLogger(__name__)
 
-# The folders this process is committing now; a replay leaves them to their commit.
-_committing: set[Path] = set()
-_committing_lock = threading.Lock()
+# One lock per folder (by resolved path), held for a whole commit or replay.
+_locks: dict[str, threading.Lock] = {}
+_locks_guard = threading.Lock()
 
 
 @dataclass(frozen=True)
@@ -69,21 +74,17 @@ class CommitFailed(Exception):
         self.pending = pending
 
 
-@contextlib.contextmanager
-def _committing_in(folder: Path) -> Iterator[None]:
-    with _committing_lock:
-        _committing.add(folder)
-    try:
-        yield
-    finally:
-        with _committing_lock:
-            _committing.discard(folder)
+def _lock_of(folder: Path) -> threading.Lock:
+    """The lock of ``folder``, the same for every name of it."""
+    key = str(folder.resolve())
+    with _locks_guard:
+        return _locks.setdefault(key, threading.Lock())
 
 
 def replace_in_order(files: Sequence[Planned]) -> None:
     """Saves ``files`` in order as one change; ``CommitFailed`` when it is not in place."""
     folder = _one_folder(files)
-    with _committing_in(folder):
+    with _lock_of(folder):
         temporaries = [temporary_path(planned.path) for planned in files]
         renames = [
             (temporary.name, planned.path.name)
@@ -160,19 +161,17 @@ def _finish(folder: Path, renames: Sequence[tuple[str, str]]) -> None:
 
 
 def replay(folder: Path) -> bool:
-    """Finishes the change recorded in ``folder``; whether there was one. Nothing is done
-    while this process commits in ``folder``. ``CommitFailed`` (``pending``) when the
+    """Finishes the change recorded in ``folder``; whether there was one. It waits for a
+    commit or replay of ``folder`` under way. ``CommitFailed`` (``pending``) when the
     record cannot be read or its renames fail."""
-    with _committing_lock:
-        if folder in _committing:
+    with _lock_of(folder):
+        record = folder / RECORD
+        if not record.exists():
             return False
-    record = folder / RECORD
-    if not record.exists():
-        return False
-    renames = _renames(record)
-    if renames is None:
-        _log.error("The commit record %s cannot be read.", record)
-        raise CommitFailed(pending=True)
-    _finish(folder, renames)
+        renames = _renames(record)
+        if renames is None:
+            _log.error("The commit record %s cannot be read.", record)
+            raise CommitFailed(pending=True)
+        _finish(folder, renames)
     _log.warning("A save interrupted in %s was finished.", folder)
     return True
