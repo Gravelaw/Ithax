@@ -3586,3 +3586,16 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The branch point's SHA is recorded here once the branch is cut, in the version PR's entry.
 - **Spec sections updated:** none.
 - **Dependencies added:** none.
+
+## 2026-11-15 · M16 · `release/0.1` cut; `main` moves to 0.2.0.dev0 (#103)
+
+- **Decision:**
+  - **The branch point.** `release/0.1` was cut on 2026-11-15 from `main` at `e3f76d47fd64c99a2af492074b2b5cf0d298a7df` (#213's squash), read with `git ls-remote origin refs/heads/release/0.1` after the push. The version PR into it, #215, records the same SHA on the branch.
+  - **The version on `main`.** It is the next release's development version, `0.2.0.dev0`, in semver's spelling `0.2.0-dev.0` in the shell. That covers the six places of `docs/release/v0.1.0.md`, so Phase 2 builds never say 0.1.0. The package docstring says which branch carries which version.
+  - **A check for the lock files.** `tests/test_package.py` now also checks that `Cargo.lock`'s `ithax-desktop` and `package-lock.json`'s two entries carry the version. Before, a version change could leave them behind unnoticed.
+- **Reason:** `docs/release/v0.1.0.md`, "The release branch": `main` moves right after the cut, in a PR of its own.
+- **Readings (reversible):**
+  - 0.2.0, not 0.1.1: Phase 2 adds features, and F7's 0.x promise allows only additive changes, which is a minor version. 0.1.x is for fixes cherry-picked to `release/0.1`.
+  - A checkout's editable install keeps the old version in its metadata until `uv sync --reinstall-package ithax` runs; `test_the_version_is_real` fails until then. CI installs fresh.
+- **Spec sections updated:** none.
+- **Dependencies added:** none.
