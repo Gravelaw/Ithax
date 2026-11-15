@@ -3372,5 +3372,6 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - "The cause" is a finding of the earlier option (the baseline), since it explains why the change helps; `not_enough_runs` and `cannot_tell_apart` name no cause.
   - The headline is built in the interface from the summary's `differences` and `findings`, so no `/v1` field and no finding text changes.
   - "Option <id>" uses the scenario's id, as the key numbers' headings do.
+- **Review of PR #199:** the headline built the option's mean as the baseline's mean plus the paired difference, which is wrong when a replication is undefined on one side (baseline [100, 100, 1000] s against [50, 50, NaN] s read 400 to 350, not 400 to 50). Both means are now read from their own scenario's key numbers; the paired estimate gives only "told apart" and the direction. A test of that case, on the screen's headline and in the PDF, failed first. The test fixture `optionsSummary` had both options with the same means beside a paired difference of -300 s; its faster option now has its own mean. A sweep of the interface for other summary values built from others found none (the charts' likely range is the mean plus or minus the half-width, as defined).
 - **Spec sections updated:** spec 3 "Run monitor, Results and Settings" (Results), with a dated line.
 - **Dependencies added:** none.

@@ -126,6 +126,29 @@ describe('the comparison headline (#94; canvas-interactions.md "Results say why"
     expect(headline(LINE_FINDINGS, lineSummary())).toBe(LINE_FINDINGS[0]?.text);
   });
 
+  it("reads the option's own mean, not the baseline plus the paired difference (review of pull request 199)", () => {
+    // Baseline repeats [100, 100, 1000] s, the option's [50, 50, NaN]: the option's mean is
+    // 50 s; the paired difference over the two defined pairs is -50 s, so 400 + -50 = 350
+    // would be wrong.
+    const summary = optionsSummary();
+    const scenarios = summary.scenarios as Record<string, { metrics: Record<string, unknown> }>;
+    const at = (mean: number, n: number) => ({ mean, half_width: 5, unit: "s", n });
+    scenarios.default = { ...scenarios.default, metrics: { "weld.wait.mean": at(400, 3) } };
+    scenarios.faster = { ...scenarios.faster, metrics: { "weld.wait.mean": at(50, 2) } };
+    summary.differences = [
+      {
+        scenario: "faster",
+        against: "default",
+        metrics: {
+          "weld.wait.mean": { mean: -50, half_width: 1, unit: "s", n: 2, separated: true },
+        },
+      },
+    ];
+    const expected = "Option faster cuts the average wait at weld from 6.67 min to 0.833 min.";
+    expect(headline([], summary)).toBe(expected);
+    expect(texts(reportBlocks(summary, [], []))[1]).toBe(expected);
+  });
+
   it("puts a metric in a sentence", () => {
     expect(metricPhrase("weld.wait.mean")).toBe("the average wait at weld");
     expect(metricPhrase("model.wip.mean")).toBe("the average items in the system");

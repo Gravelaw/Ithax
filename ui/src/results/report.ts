@@ -58,11 +58,19 @@ function comparison(summary: Summary, findings: readonly Finding[]): string | nu
   if (chosen === undefined || chosen.estimate.mean === null) {
     return `Option ${pair.scenario} and option ${pair.against} cannot be told apart yet on any measure; more repeat runs would tell.`;
   }
-  const before = scenariosOf(summary)
-    .find((scenario) => scenario.id === pair.against)
-    ?.metrics.find(([name]) => name === chosen.name)?.[1];
-  if (before === undefined || before.mean === null) return null;
-  const after = before.mean + chosen.estimate.mean;
+  // Each option's own mean, as its key numbers show it; the paired difference only says
+  // whether they are told apart and which way (review of pull request 199: with a
+  // replication undefined on one side, the baseline plus the difference is not the option's
+  // mean).
+  const meanOf = (id: string) =>
+    scenariosOf(summary)
+      .find((scenario) => scenario.id === id)
+      ?.metrics.find(([name]) => name === chosen.name)?.[1];
+  const before = meanOf(pair.against);
+  const after = meanOf(pair.scenario)?.mean;
+  if (before === undefined || before.mean === null || after === undefined || after === null) {
+    return null;
+  }
   const name = chosen.name;
   const change =
     `Option ${pair.scenario} ${chosen.estimate.mean < 0 ? "cuts" : "raises"} ` +

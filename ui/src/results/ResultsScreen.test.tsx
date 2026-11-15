@@ -225,7 +225,7 @@ describe("a run's results", () => {
     );
     const table = screen.getByRole("table", { name: /^Average wait by component/ });
     expect(within(table).getAllByRole("row")).toHaveLength(5);
-    expect(table).toHaveTextContent("weldfaster15.7± 2.09");
+    expect(table).toHaveTextContent("weldfaster10.7± 2.09");
     await user.click(
       screen.getByRole("button", { name: /^Hide the table: Average wait by component/ }),
     );
