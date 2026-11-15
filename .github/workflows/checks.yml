@@ -9,7 +9,7 @@ on:
   # pr-title.yml, so a title edit never publishes a skipped, and so passing, code check.
   pull_request:
   push:
-    branches: [main]
+    branches: [main, "release/*"]
 
 # Least privilege: jobs only read the repository.
 permissions:
