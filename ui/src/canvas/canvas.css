@@ -1266,12 +1266,14 @@
   overflow-y: auto;
 }
 
+/* The card's text scrolls; its buttons stay below it, always in view (#90). */
 .step-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   max-height: 60%;
-  overflow-y: auto;
+  min-height: 0;
+  flex-shrink: 0;
   padding: var(--space-4);
   border-left: 4px solid var(--color-learn);
   border-bottom: 1px solid var(--color-border);
@@ -1281,6 +1283,28 @@
 
 .plan-learning .step-card {
   max-height: none;
+}
+
+.step-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.step-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.step-actions .button-row {
+  align-self: stretch;
 }
 
 .step-card p {
@@ -1308,14 +1332,6 @@
   align-items: center;
   gap: var(--space-2);
   color: var(--color-success);
-}
-
-.step-card .button-row {
-  margin-top: var(--space-2);
-}
-
-.step-card > .link {
-  align-self: flex-start;
 }
 
 .block-learn {

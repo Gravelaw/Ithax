@@ -121,100 +121,104 @@ export function StepCard({
       data-region="lesson"
       tabIndex={-1}
     >
-      <p className="step-label small">
-        {template.title} · Step {step + 1} of {count}
-        {exercise ? " · Try it" : ""}
-      </p>
-      <h2 id="step-heading" className="subheading">
-        {shown.heading}
-      </h2>
-      {!present ? (
-        <p className="notice" role="status">
-          This step's {what}, <code>{shown.component}</code>, is no longer in the model.
+      <div className="step-body">
+        <p className="step-label small">
+          {template.title} · Step {step + 1} of {count}
+          {exercise ? " · Try it" : ""}
         </p>
-      ) : null}
-      {exercise ? (
-        <>
-          <h3 className="step-part">Change</h3>
-          <Text text={lesson.exercise.change} />
-          <ul className="change-list" aria-label="The change">
-            {changeRows(model, edits).map((row, index) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: two edits may name one place
-              <li key={`${index}:${row.where}`}>
-                <code>{row.where}</code>: {valueText(row.now)} → {valueText(row.to)}
-              </li>
-            ))}
-          </ul>
-          {made ? (
-            <p className="change-made" role="status">
-              <CheckCircleIcon aria-hidden="true" size={16} weight="fill" />
-              The change is made.
-            </p>
-          ) : (
-            <button
-              type="button"
-              className="secondary"
-              aria-disabled={state.busy || state.failing || undefined}
-              onClick={makeChange}
-            >
-              Make the change
-            </button>
-          )}
-          {notice !== null ? <p className="notice">{notice}</p> : null}
-          <fieldset className="choices prediction">
-            <legend className="step-part">What do you think will happen?</legend>
-            {lesson.exercise.choices.map((choice, index) => (
-              <label key={choice.text} className="choice">
-                <input
-                  type="radio"
-                  name={name}
-                  checked={learning.prediction === index}
-                  onChange={() => update({ prediction: index })}
-                />
-                <span>{choice.text}</span>
-              </label>
-            ))}
-          </fieldset>
-        </>
-      ) : (
-        <Text text={shown.text} />
-      )}
-      <div className="button-row">
-        <button
-          type="button"
-          className="secondary"
-          disabled={step === 0}
-          onClick={() => go(step - 1)}
-        >
-          <ArrowLeftIcon aria-hidden="true" size={16} />
-          Back
-        </button>
+        <h2 id="step-heading" className="subheading">
+          {shown.heading}
+        </h2>
+        {!present ? (
+          <p className="notice" role="status">
+            This step's {what}, <code>{shown.component}</code>, is no longer in the model.
+          </p>
+        ) : null}
         {exercise ? (
-          <button
-            type="button"
-            className="primary"
-            aria-disabled={reason !== null || undefined}
-            aria-describedby={reason !== null ? "lesson-run-reason" : undefined}
-            onClick={run}
-          >
-            <PlayIcon aria-hidden="true" size={16} weight="fill" />
-            Run the exercise
-          </button>
+          <>
+            <h3 className="step-part">Change</h3>
+            <Text text={lesson.exercise.change} />
+            <ul className="change-list" aria-label="The change">
+              {changeRows(model, edits).map((row, index) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: two edits may name one place
+                <li key={`${index}:${row.where}`}>
+                  <code>{row.where}</code>: {valueText(row.now)} → {valueText(row.to)}
+                </li>
+              ))}
+            </ul>
+            {made ? (
+              <p className="change-made" role="status">
+                <CheckCircleIcon aria-hidden="true" size={16} weight="fill" />
+                The change is made.
+              </p>
+            ) : (
+              <button
+                type="button"
+                className="secondary"
+                aria-disabled={state.busy || state.failing || undefined}
+                onClick={makeChange}
+              >
+                Make the change
+              </button>
+            )}
+            {notice !== null ? <p className="notice">{notice}</p> : null}
+            <fieldset className="choices prediction">
+              <legend className="step-part">What do you think will happen?</legend>
+              {lesson.exercise.choices.map((choice, index) => (
+                <label key={choice.text} className="choice">
+                  <input
+                    type="radio"
+                    name={name}
+                    checked={learning.prediction === index}
+                    onChange={() => update({ prediction: index })}
+                  />
+                  <span>{choice.text}</span>
+                </label>
+              ))}
+            </fieldset>
+          </>
         ) : (
-          <button type="button" className="primary" onClick={() => go(step + 1)}>
-            Next
-            <ArrowRightIcon aria-hidden="true" size={16} />
-          </button>
+          <Text text={shown.text} />
         )}
       </div>
-      {exercise && reason !== null ? (
-        <p id="lesson-run-reason" className="small muted">
-          {reason}
-        </p>
-      ) : null}
-      <button type="button" className="link" onClick={exit}>
-        Exit lesson
-      </button>
+      <div className="step-actions">
+        <div className="button-row">
+          <button
+            type="button"
+            className="secondary"
+            disabled={step === 0}
+            onClick={() => go(step - 1)}
+          >
+            <ArrowLeftIcon aria-hidden="true" size={16} />
+            Back
+          </button>
+          {exercise ? (
+            <button
+              type="button"
+              className="primary"
+              aria-disabled={reason !== null || undefined}
+              aria-describedby={reason !== null ? "lesson-run-reason" : undefined}
+              onClick={run}
+            >
+              <PlayIcon aria-hidden="true" size={16} weight="fill" />
+              Run the exercise
+            </button>
+          ) : (
+            <button type="button" className="primary" onClick={() => go(step + 1)}>
+              Next
+              <ArrowRightIcon aria-hidden="true" size={16} />
+            </button>
+          )}
+        </div>
+        {exercise && reason !== null ? (
+          <p id="lesson-run-reason" className="small muted">
+            {reason}
+          </p>
+        ) : null}
+        <button type="button" className="link" onClick={exit}>
+          Exit lesson
+        </button>
+      </div>
     </section>
   );
 }
