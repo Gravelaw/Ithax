@@ -11,29 +11,44 @@ import type { ApiResult } from "../api/client";
 import { ServiceProblem } from "../components/ServiceProblem";
 
 export interface Unsaved {
+  /** The project the write was for. */
+  project: string;
   /** What was not saved, in words. */
   what: string;
   result: ApiResult<unknown>;
   retry: () => void;
 }
 
-/** Notes a write's answer under `key`: an answer that is not `ok` is kept with its retry. */
+/**
+ * Notes the answer of the write of `kind` ("step", "opened") for `project`: an answer that
+ * is not `ok` is kept with its retry, an `ok` one clears it.
+ */
 export type KeepWrite = (
-  key: string,
+  project: string,
+  kind: string,
   what: string,
   result: ApiResult<unknown>,
   retry: () => void,
 ) => void;
 
-export function useUnsaved(): [Record<string, Unsaved>, KeepWrite] {
+/** Drops every write kept for `project`, as when it is removed (review of pull request 201). */
+export type ForgetProject = (project: string) => void;
+
+export function useUnsaved(): [Record<string, Unsaved>, KeepWrite, ForgetProject] {
   const [unsaved, setUnsaved] = useState<Record<string, Unsaved>>({});
-  const keep = useCallback<KeepWrite>((key, what, result, retry) => {
+  const keep = useCallback<KeepWrite>((project, kind, what, result, retry) => {
+    const key = `${kind} ${project}`;
     setUnsaved((current) => {
       const { [key]: _done, ...others } = current;
-      return result.kind === "ok" ? others : { ...others, [key]: { what, result, retry } };
+      return result.kind === "ok" ? others : { ...others, [key]: { project, what, result, retry } };
     });
   }, []);
-  return [unsaved, keep];
+  const forget = useCallback<ForgetProject>((project) => {
+    setUnsaved((current) =>
+      Object.fromEntries(Object.entries(current).filter(([, item]) => item.project !== project)),
+    );
+  }, []);
+  return [unsaved, keep, forget];
 }
 
 export function UnsavedWrites({ unsaved }: { unsaved: Record<string, Unsaved> }) {

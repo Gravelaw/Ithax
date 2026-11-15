@@ -219,6 +219,32 @@ describe("project actions, one at a time (reviews of pull request 201)", () => {
     expect(listed()[0]?.lesson_step).toBe(2);
   });
 
+  it("drops a removed project's unsaved writes, whichever lesson is open", async () => {
+    const { fake } = projectService();
+    // Every note to p1 is refused: its opened time, its steps and Exit's clearing.
+    fake.on("PATCH /v1/projects/p1", () => ({
+      status: 503,
+      body: errorBody("E900", "The service did not save it."),
+    }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Resume the lesson Coffee shop queue" }),
+    );
+    expect(await screen.findByRole("region", { name: "Arrive" })).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Exit lesson" }));
+    expect(await screen.findByText(STEP_UNSAVED)).toBeVisible();
+    expect(screen.getByText(OPENED_UNSAVED)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Home" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Remove Shop p1 from the list" }),
+    );
+    await waitFor(() => expect(screen.queryByText(STEP_UNSAVED)).toBeNull());
+    expect(screen.queryByText(OPENED_UNSAVED)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    const patches = fake.requested("PATCH", "/v1/projects/p1").length;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(fake.requested("PATCH", "/v1/projects/p1")).toHaveLength(patches);
+  });
+
   it("resumes a lesson at the step whose write was still pending when Home opened", async () => {
     const { fake, listed } = projectService();
     await userEvent.click(

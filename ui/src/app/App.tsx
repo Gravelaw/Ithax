@@ -47,7 +47,7 @@ export function App({ client }: { client: ApiClient }) {
   // Every read and write of project state, one action at a time (review of pull request 201).
   const { run, busy } = useProjectQueue(client);
   // Background writes that were not saved, shown with "Try again" (review of pull request 201).
-  const [unsaved, keep] = useUnsaved();
+  const [unsaved, keep, forgetWrites] = useUnsaved();
   const forgetLesson = useLessonStep(
     run,
     keep,
@@ -100,7 +100,7 @@ export function App({ client }: { client: ApiClient }) {
   /** Notes the time a project was opened, so Recent projects lists it first. */
   const noteOpened = async (api: ProjectApi, pid: string) => {
     const answer = await api.change(pid, { opened: true });
-    keep(`opened ${pid}`, OPENED_UNSAVED, answer, () => {
+    keep(pid, "opened", OPENED_UNSAVED, answer, () => {
       void run((again) => noteOpened(again, pid));
     });
   };
@@ -133,11 +133,11 @@ export function App({ client }: { client: ApiClient }) {
       const answer = await api.remove(target.id);
       if (answer.kind === "ok") {
         setProject((current) => (current?.id === target.id ? null : current));
-        // Its lesson ends without a write to the project the service no longer lists.
-        if (currentLearning()?.projectId === target.id) {
-          forgetLesson(target.id);
-          exitLesson();
-        }
+        // Nothing more is written to, or tried again for, the project the service no longer
+        // lists, whichever lesson is open (review of pull request 201).
+        forgetLesson(target.id);
+        forgetWrites(target.id);
+        if (currentLearning()?.projectId === target.id) exitLesson();
       }
       return answer;
     },
@@ -238,7 +238,7 @@ function useLessonStep(
         if (!(pid in wanted.current)) return;
         const answer = await api.change(pid, { lesson_step: wanted.current[pid] ?? null });
         // A refused write is shown with "Try again", never taken as saved.
-        keep(`step ${pid}`, STEP_UNSAVED, answer, () => write(pid));
+        keep(pid, "step", STEP_UNSAVED, answer, () => write(pid));
       }),
     [run, keep],
   );
@@ -259,6 +259,5 @@ function useLessonStep(
   return (pid: string) => {
     if (last.current === pid) last.current = null;
     delete wanted.current[pid];
-    keep(`step ${pid}`, STEP_UNSAVED, { kind: "ok", status: 200, data: null }, () => {});
   };
 }
