@@ -428,7 +428,9 @@ REMOVE_PROJECT = ToolSpec(
         "Take a project off the list the service keeps (POST "
         "/v1/projects/{project_id}/remove). Nothing is deleted: the project's folder and its "
         "files are kept, and the user can open the folder again from the app. Returns {id, "
-        "path}. Ask the user before removing a project they did not ask to remove."
+        "path}. A project with a run queued or running is not removed (E188): cancel the run "
+        "or let it end first. Ask the user before removing a project they did not ask to "
+        "remove."
     ),
     inputs=(_PROJECT_ID,),
     example_arguments={"project_id": _EXAMPLE_PID},
