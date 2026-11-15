@@ -130,8 +130,14 @@ export function Home({
       }
       const listed = await api.list();
       if (!mounted.current) return;
-      if (listed.kind === "ok") setProjects(listed);
-      const earlier = listed.kind === "ok" ? lessonProjectIn(listed.data, template) : undefined;
+      // A project is made only once the list shows none for this lesson: a list that cannot
+      // be read is shown, never taken as empty (review of pull request 201).
+      if (listed.kind !== "ok") {
+        setStartProblem(listed);
+        return;
+      }
+      setProjects(listed);
+      const earlier = lessonProjectIn(listed.data, template);
       if (earlier !== undefined) {
         const step = Math.min(earlier.lesson_step ?? 0, lesson.steps.length);
         await actions.lesson(api, earlier, read.data.template, lesson, step);

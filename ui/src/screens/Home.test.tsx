@@ -183,6 +183,34 @@ describe("Home", () => {
     expect(fake.requested("POST", "/v1/projects")).toHaveLength(0);
   });
 
+  it("makes no project when the list cannot be read before a lesson starts (review of pull request 201)", async () => {
+    const shop = { id: "coffee_shop", title: "Coffee shop queue", summary: "Customers wait." };
+    const lesson =
+      "# Coffee shop queue\n\n## Arrive\n\nComponent: `arrivals`\n\nThey arrive.\n\n" +
+      "## Exercise: two tills\n\nComponent: `till`\n\n### Change\n\nSet it.\n\n" +
+      "### Prediction\n\n- [x] Less.\n- [ ] More.\n\n### Explanation\n\nBecause.\n";
+    const earlier = { ...project("p1", "Coffee shop queue"), template: "coffee_shop" };
+    let reads = 0;
+    const onLesson = vi.fn();
+    const fake = service([], [shop])
+      .answer("GET /v1/templates/coffee_shop", { template: shop, lesson, expected: [] })
+      .answer("POST /v1/projects", project("made", "Coffee shop queue"))
+      .on("GET /v1/projects", () => {
+        reads += 1;
+        // The lesson's own read of the list fails, as when the service drops a connection.
+        return reads === 1
+          ? { status: 200, body: [earlier] }
+          : { status: 500, body: errorBody("E900", "The list could not be read.") };
+      });
+    renderHome(fake.client(), { lesson: onLesson });
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Resume the lesson Coffee shop queue" }),
+    );
+    expect(await screen.findByText(/The list could not be read\./)).toBeVisible();
+    expect(fake.requested("POST", "/v1/projects")).toHaveLength(0);
+    expect(onLesson).not.toHaveBeenCalled();
+  });
+
   it("starts a lesson: the template first, then a project named after it", async () => {
     const onLesson = vi.fn();
     const shop = { id: "coffee_shop", title: "Coffee shop queue", summary: "Customers wait." };
