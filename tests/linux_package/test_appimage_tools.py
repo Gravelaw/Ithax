@@ -138,4 +138,9 @@ def test_the_runtimes_licence_is_downloaded_at_its_release_tag() -> None:
     )
     # Not a release asset, so no published digest is asked for; its pin alone checks it.
     assert build.RUNTIME_LICENCE.release is None
+    # Pinned from the package job of run 43757002802 (docs/DECISIONS.md).
+    assert (
+        build.RUNTIME_LICENCE.sha256
+        == "aa154fc9070614bbe7921f89db11efd1dba7a1f3a41685958110e2230f9c0ca1"
+    )
     assert build.published_digest(build.RUNTIME_LICENCE) is None

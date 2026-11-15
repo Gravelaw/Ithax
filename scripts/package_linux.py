@@ -117,7 +117,7 @@ RUNTIME_LICENCE = Tool(
     name=f"type2-runtime-{RUNTIME_RELEASE}-LICENSE",
     url=f"https://raw.githubusercontent.com/AppImage/type2-runtime/{RUNTIME_RELEASE}/LICENSE",
     release=None,
-    sha256=None,
+    sha256="aa154fc9070614bbe7921f89db11efd1dba7a1f3a41685958110e2230f9c0ca1",
 )
 
 _PIN = re.compile(
