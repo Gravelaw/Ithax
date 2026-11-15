@@ -76,8 +76,9 @@ class Tool:
 
     name: str
     url: str
-    #: The GitHub API address of its release, whose asset lists the published digest.
-    release: str
+    #: The GitHub API address of its release, whose asset lists the published digest;
+    #: ``None`` for a file that is not a release asset.
+    release: str | None
     #: Copied from the ``package`` CI job's output, which matched the release's published
     #: digest (``docs/DECISIONS.md``); a build refuses a tool with ``None``.
     sha256: str | None
@@ -108,6 +109,15 @@ APPIMAGE_TOOLS = (
         ),
         sha256="2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d",
     ),
+)
+
+#: The runtime's licence, MIT, at the runtime's release tag: the runtime ships inside every
+#: AppImage, so its licence text ships beside it.
+RUNTIME_LICENCE = Tool(
+    name=f"type2-runtime-{RUNTIME_RELEASE}-LICENSE",
+    url=f"https://raw.githubusercontent.com/AppImage/type2-runtime/{RUNTIME_RELEASE}/LICENSE",
+    release=None,
+    sha256=None,
 )
 
 _PIN = re.compile(
@@ -471,6 +481,8 @@ def published_digest(tool: Tool) -> str | None:
     """The digest ``tool``'s release publishes, read from the GitHub API (with the job's
     token when ``GITHUB_TOKEN`` is set, for the rate limit)."""
     headers = {"Accept": "application/vnd.github+json"}
+    if tool.release is None:
+        return None
     token = os.environ.get("GITHUB_TOKEN")
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -486,7 +498,7 @@ def check_tool(path: Path, tool: Tool, published: str | None) -> list[str]:
     print(f"{tool.name} sha256 {actual}")
     problems = []
     if published is None:
-        print(f"  {tool.release} publishes no digest for it")
+        print(f"  {tool.release or tool.url} publishes no digest for it")
     elif published == actual:
         print("  matches the release's published digest")
     else:
@@ -695,7 +707,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     arguments = parser.parse_args(argv)
     if arguments.check_appimage_tools:
-        return check_tools(arguments.out.resolve() / "cache", APPIMAGE_TOOLS, published_digest)
+        tools = (*APPIMAGE_TOOLS, RUNTIME_LICENCE)
+        return check_tools(arguments.out.resolve() / "cache", tools, published_digest)
     try:
         build(arguments.out.resolve(), arguments.prebuilt)
     except BuildError as error:

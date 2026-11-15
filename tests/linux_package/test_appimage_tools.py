@@ -123,9 +123,19 @@ def test_the_command_checks_the_tools_and_builds_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     item = tool(tmp_path, b"tool", None)
-    monkeypatch.setattr(build, "APPIMAGE_TOOLS", (item,))
+    monkeypatch.setattr(build, "APPIMAGE_TOOLS", ())
+    monkeypatch.setattr(build, "RUNTIME_LICENCE", item)
     monkeypatch.setattr(build, "published_digest", lambda _t: digest(b"tool"))
     out = tmp_path / "dist"
     assert build.main(["--check-appimage-tools", "--out", str(out)]) == 0
     assert (out / "cache" / "check" / item.name).read_bytes() == b"tool"
     assert sorted(path.name for path in out.iterdir()) == ["cache"]
+
+
+def test_the_runtimes_licence_is_downloaded_at_its_release_tag() -> None:
+    assert build.RUNTIME_LICENCE.url == (
+        "https://raw.githubusercontent.com/AppImage/type2-runtime/20251108/LICENSE"
+    )
+    # Not a release asset, so no published digest is asked for; its pin alone checks it.
+    assert build.RUNTIME_LICENCE.release is None
+    assert build.published_digest(build.RUNTIME_LICENCE) is None
