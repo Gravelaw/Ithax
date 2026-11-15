@@ -47,7 +47,13 @@ const PROJECT: Project = {
 };
 
 const REPLICATIONS = [
-  { scenario: "default", replication: 0, metric: "weld.wait.mean", value: 912.4, unit: "s" },
+  {
+    scenario: "default",
+    replication: 0,
+    metric: "weld.wait.mean",
+    value: 912.4123456789011,
+    unit: "s",
+  },
   { scenario: "default", replication: 1, metric: "weld.wait.mean", value: null, unit: "s" },
 ];
 const TIMESERIES = [
@@ -134,9 +140,11 @@ describe("a run's results", () => {
       "Busy share by component, with the likely range,Likely range",
     );
     expect(screen.getByRole("img", { name: /^Over time: weld.queue_length/ })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Every repeat run's values" })).toHaveTextContent(
-      "912.4",
-    );
+    // Each value in display units, as the key numbers show it, not 17 digits and "s" (#96).
+    const repeats = screen.getByRole("region", { name: "Every repeat run's values" });
+    expect(repeats).toHaveTextContent("15.2 min");
+    expect(repeats).not.toHaveTextContent("912.41");
+    expect(within(repeats).queryByRole("columnheader", { name: "unit" })).toBeNull();
   });
 
   it("carries every footer item and the feedback link, which only opens the browser", async () => {

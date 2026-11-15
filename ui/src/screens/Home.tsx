@@ -18,6 +18,7 @@ import type { Project, Template } from "../api/types";
 import { ServiceProblem } from "../components/ServiceProblem";
 import { useMounted } from "../components/useMounted";
 import { type Lesson, parseLesson } from "../learn/lesson";
+import { dateText } from "../results/display";
 import { BUILD_TEMPLATES } from "./BuildForm";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { OpenProjectDialog } from "./OpenProjectDialog";
@@ -37,9 +38,8 @@ function audienceRank(template: Template): number {
 
 function created(project: Project): string {
   if (project.created === null) return "";
-  const date = new Date(project.created);
-  if (Number.isNaN(date.getTime())) return "";
-  return `Created ${date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
+  const date = dateText(project.created);
+  return date === project.created ? "" : `Created ${date}`;
 }
 
 type Loaded<T> = ApiResult<T> | null;

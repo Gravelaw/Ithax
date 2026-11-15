@@ -129,7 +129,7 @@ describe("the chart's option", () => {
       xAxis: { name: string; min: number; max: number };
       series: { type: string; name: string; data: unknown[]; renderItem?: unknown }[];
     };
-    expect(option.xAxis).toMatchObject({ name: "gap (min)", min: 0, max: 4 });
+    expect(option.xAxis).toMatchObject({ name: "gap (minutes)", min: 0, max: 4 });
     expect(option.series.map((series) => [series.type, series.name])).toEqual([
       ["custom", "Your data"],
       ["line", "Fitted exponential"],
