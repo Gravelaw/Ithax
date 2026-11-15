@@ -9,7 +9,7 @@ import { useState } from "react";
 import type { ComponentType } from "../api/types";
 import { iconOf } from "./BlockNode";
 import { lock, useBusy } from "./busy";
-import { categoryOf, GROUPS } from "./model";
+import { categoryOf, GROUPS, typeName } from "./model";
 import { own } from "./own";
 
 export const BLOCK_MIME = "application/x-ithax-block";
@@ -48,7 +48,10 @@ export function Palette({
   ]
     .map((group) => ({
       ...group,
-      types: group.types.filter((type) => wanted === "" || type.includes(wanted)),
+      types: group.types.filter(
+        (type) =>
+          wanted === "" || type.includes(wanted) || typeName(type).toLowerCase().includes(wanted),
+      ),
     }))
     .filter((group) => group.types.length > 0);
 
@@ -112,7 +115,7 @@ export function Palette({
                     <span className="palette-disc" aria-hidden="true">
                       <Glyph size={16} weight="duotone" />
                     </span>
-                    <span className="mono">{type}</span>
+                    <span>{typeName(type)}</span>
                   </button>
                 </li>
               );

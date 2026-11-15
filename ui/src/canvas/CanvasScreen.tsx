@@ -57,6 +57,7 @@ import {
 import { createPortal } from "react-dom";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { ComponentType, Edit, Issue, Model, Project, SchemaBody } from "../api/types";
+import { useNarrow } from "../app/narrow";
 import type { Route } from "../app/router";
 import { LOST_CONTACT, ServiceProblem } from "../components/ServiceProblem";
 import { useMounted } from "../components/useMounted";
@@ -98,6 +99,7 @@ import { ReferenceEdge } from "./ReferenceEdge";
 import { OutsideNotice, type ReviewActions, ReviewContext, ReviewCount } from "./ReviewParts";
 import type { Change } from "./review";
 import { type PanelActions, type Selection, SidePanel } from "./SidePanel";
+import { ShowPanel, SideSheet, useSheet } from "./SideSheet";
 import { clientsOf, marksOf, type SessionState } from "./session";
 import { NOTICE_MS, runBlocked, SaveState, WAIT } from "./Toolbar";
 import { undoSteps, useSession } from "./useSession";
@@ -523,13 +525,6 @@ function ProcessCanvas({
     }
   }, [model, types, state.issues, locked, state.renamed, marked, learn]);
 
-  // "N changes to review" opens the list in the side panel and moves the focus to it.
-  useEffect(() => {
-    if (openReview === 0) return;
-    const frame = requestAnimationFrame(() => document.getElementById("review-heading")?.focus());
-    return () => cancelAnimationFrame(frame);
-  }, [openReview]);
-
   // A block just added or renamed takes the keyboard focus once it is drawn.
   // React Flow shows a node only once it is measured, so focusing is tried for a few frames.
   useEffect(() => {
@@ -585,6 +580,18 @@ function ProcessCanvas({
     }),
     [nodes, edges, state.renamed],
   );
+  const narrow = useNarrow();
+  const sheet = useSheet(
+    learning !== null,
+    selection.blocks.length + selection.connections.length === 0
+      ? ""
+      : `${selection.blocks.join(" ")}|${selection.connections.join(" ")}`,
+  );
+  // "N changes to review" opens the list in the side panel and moves the focus to it.
+  const { reveal } = sheet;
+  useEffect(() => {
+    if (openReview > 0) reveal("review-heading");
+  }, [openReview, reveal]);
 
   const selectBlocks = useCallback((ids: string[]) => {
     // Ids not drawn yet (a block just added or renamed) are selected when they are.
@@ -848,7 +855,7 @@ function ProcessCanvas({
     } else if (key === "F2") {
       if (selection.blocks.length === 1) {
         event.preventDefault();
-        document.getElementById("block-id")?.focus();
+        reveal("block-id");
       }
     } else if (control && (key === "a" || key === "A")) {
       event.preventDefault();
@@ -952,10 +959,12 @@ function ProcessCanvas({
   const chooseProblem = (issue: Issue, component: string | null) => {
     if (component !== null && components(model).some((item) => item.id === component)) {
       centreOn(component);
+      reveal();
     } else if (issue.path.startsWith("/experiments")) {
       onGo({ screen: "experiment", projectId: project.id });
     } else {
       selectBlocks([]);
+      reveal();
     }
   };
 
@@ -1016,6 +1025,7 @@ function ProcessCanvas({
   const tools = (
     <div className="canvas-tools">
       <SaveState state={state} />
+      {narrow && !sheet.open ? <ShowPanel onShow={() => sheet.setOpen(true)} /> : null}
       <ReviewCount
         count={marks.length}
         onOpen={() => {
@@ -1111,7 +1121,10 @@ function ProcessCanvas({
     <BusyContext.Provider value={busy}>
       <RevisionContext.Provider value={state.revision}>
         <ReviewContext.Provider value={review}>
-          <div className={`canvas-screen${placing !== null ? " placing" : ""}`} aria-busy={busy}>
+          <div
+            className={`canvas-screen${placing !== null ? " placing" : ""}${narrow ? " narrow" : ""}`}
+            aria-busy={busy}
+          >
             {toolbar ? createPortal(tools, toolbar) : tools}
             <h1 className="visually-hidden">Canvas</h1>
             <Palette
@@ -1200,22 +1213,24 @@ function ProcessCanvas({
                 onChoose={chooseProblem}
               />
             </div>
-            {learning ? (
-              <div className="side-column">
-                <StepCard
-                  learning={learning}
-                  model={model}
-                  state={state}
-                  session={session}
-                  present={components(model).some((item) => item.id === learnTarget)}
-                  what="block"
-                  onGo={onGo}
-                />
-                {panel}
-              </div>
-            ) : (
-              panel
-            )}
+            <SideSheet narrow={narrow} open={sheet.open} onClose={() => sheet.setOpen(false)}>
+              {learning ? (
+                <div className="side-column">
+                  <StepCard
+                    learning={learning}
+                    model={model}
+                    state={state}
+                    session={session}
+                    present={components(model).some((item) => item.id === learnTarget)}
+                    what="block"
+                    onGo={onGo}
+                  />
+                  {panel}
+                </div>
+              ) : (
+                panel
+              )}
+            </SideSheet>
             {deleting !== null ? (
               <DeleteDialog
                 plan={deleting}

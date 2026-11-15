@@ -160,7 +160,7 @@ Fonts are bundled with the app and never downloaded at run time (owner review ch
 - **Fallback stacks.** Sans: `"Atkinson Hyperlegible Next", system-ui, "Segoe UI", "Noto Sans", sans-serif`. Display: `"Bricolage Grotesque", system-ui, sans-serif`. Mono: `"JetBrains Mono", ui-monospace, "Cascadia Mono", "DejaVu Sans Mono", monospace`.
 - **Units.** Sizes are set in `rem` against a 16 px root. The text-size setting (100% to 200%) changes the root size, so all text scales together (success criterion 1.4.4).
 - **Numbers** use tabular figures in tables and the run monitor.
-- **Plain words.** The interface uses everyday words and explains the technical one on hover or focus: "repeat runs" (replications), "settling-in time" (warm-up), "likely range of the average" (confidence interval), "how well the pattern fits" (fit score). Ids and metric names stay as they are, in Mono.
+- **Plain words.** The interface uses everyday words and explains the technical one on hover or focus: "repeat runs" (replications), "settling-in time" (warm-up), "likely range of the average" (confidence interval), "how well the pattern fits" (fit score). Ids, the names the user gives, stay as they are, in Mono; block types are words ("Resource pool", not `resource_pool`), a lesson's change names its place in words ("till: service", "objective coefficient of tables"), not a JSON pointer, and an issue's code comes last and small, after its message and hint, for a report (#91, 2026-11-15).
 
 ## Icons
 
@@ -184,7 +184,7 @@ Phosphor Icons (`@phosphor-icons/react`, MIT), bundled with the app (`docs/resea
 - **Spacing scale:** 4, 8, 12, 16, 24, 32, 48 px. Inside controls 8 px; between controls 12 px; between sections 24 px.
 - **Radius:** 8 px for controls, 14 px for work blocks and cards, full (pill) for primary buttons, chips and flow blocks.
 - **Depth:** panels and cards sit on soft shadows instead of grey divider lines (light: `0 1px 2px` and `0 4px 14px` of `text` at 8 to 10%; dark: black at 35 to 40%). Dialogs sit on a scrim of `#000000` at 40% opacity.
-- **Window:** designed at 1280 × 800 and usable at 1024 × 640. Below 1024 px wide the side panel becomes an overlay that opens on selection.
+- **Window:** designed at 1280 × 800 and usable at 1024 × 640. Below 1024 px wide the side panel becomes an overlay that opens on selection, closes with its Close button and opens on the model's parameters from "Show the panel" in the top bar; the palette narrows to 11 rem. "1024 px" is 64 rem of the text size, so 200% text at 1280 px is narrow as well (#93, 2026-11-15). The top bar's 52 px is its least height: it grows with the text and wraps its tools, so none is clipped.
 
 | Region | Size at 1280 × 800 | Content |
 | --- | --- | --- |
@@ -236,7 +236,7 @@ A block draws one model component (spec 1 "Components and ports"). Each category
 - **Size.** About 176 × 64 px at 100% zoom; a `branch` with more than two routes grows by 20 px per extra route.
 - **Icon disc.** A 34 px circle at the left, filled with the category colour at 18% and holding the block's duotone icon in the category colour.
 - **Title.** The component's `label` when it has one, otherwise its `id` (Body, 700). When a label is shown, the id appears in Mono in the type line.
-- **Type line.** The type and one key setting: `server · capacity = tills`, `source · every 2 min`.
+- **Type line.** The type in words and one key setting: "Server · capacity = tills", "Source · every 2 min" (#91).
 - **Resource blocks each look different** (owner review choice 3): `resource_pool` shows a people icon and a count badge ("3 baristas"); `schedule` shows a calendar icon and a small strip of on and off hours; `failure` shows a wrench icon and a striped edge.
 
 ### After a run

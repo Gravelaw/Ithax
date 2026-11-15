@@ -22,6 +22,7 @@ import {
   splitEnd,
   splitQuantity,
   typeLine,
+  typeName,
   valueAt,
   withoutParameterField,
   withoutSetting,
@@ -225,18 +226,23 @@ describe("building setting edits", () => {
 
   it("writes the type line with one key setting", () => {
     const [arrivals, till, exit] = coffeeShop().components as Component[];
-    expect(typeLine(arrivals as Component)).toBe("source · every 2 min");
-    expect(typeLine(till as Component)).toBe("server · capacity = tills");
-    expect(typeLine(exit as Component)).toBe("sink");
+    expect(typeLine(arrivals as Component)).toBe("Source · every 2 min");
+    expect(typeLine(till as Component)).toBe("Server · capacity = tills");
+    expect(typeLine(exit as Component)).toBe("Sink");
     expect(typeLine({ id: "q", type: "queue", params: { capacity: 4 } })).toBe(
-      "queue · capacity 4",
+      "Queue · capacity 4",
     );
     expect(typeLine({ id: "d", type: "delay", params: { time: { dist: "uniform" } } })).toBe(
-      "delay · uniform",
+      "Delay · uniform",
     );
     expect(
       typeLine({ id: "s", type: "source", params: { interarrival: { dist: "uniform" } } }),
-    ).toBe("source · uniform");
+    ).toBe("Source · uniform");
+  });
+
+  it("names a block type in words (#91)", () => {
+    expect(typeName("resource_pool")).toBe("Resource pool");
+    expect(typeName("server")).toBe("Server");
   });
 
   it("knows when a setting is required", () => {

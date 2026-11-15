@@ -74,12 +74,12 @@ export const ProblemsList = forwardRef<
                   )}
                   <span className="problem-text">
                     <span className="problem-title">
-                      {issue.severity === "error" ? "Error" : "Warning"}{" "}
-                      <span className="mono">{issue.code}</span>
+                      {issue.severity === "error" ? "Error" : "Warning"}
                       {component ? <span className="mono"> {component}</span> : null}
                     </span>
                     <span>{issue.message}</span>
                     {issue.hint ? <span className="hint">{issue.hint}</span> : null}
+                    <span className="problem-code small muted">Code {issue.code}</span>
                   </span>
                 </button>
               </li>

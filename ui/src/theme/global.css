@@ -144,7 +144,8 @@ a {
 .frame {
   display: grid;
   grid-template-columns: 4.75rem 1fr;
-  grid-template-rows: 3.25rem 1fr;
+  /* The top bar grows with its text and wraps its tools, so none is clipped (#93). */
+  grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas: "rail top" "rail main";
   height: 100%;
   background: var(--color-surface);
@@ -202,10 +203,12 @@ a {
 .topbar {
   grid-area: top;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  padding: 0 var(--space-5);
+  gap: var(--space-2) var(--space-4);
+  min-height: 3.25rem;
+  padding: var(--space-2) var(--space-5);
   box-shadow: var(--shadow);
   background: var(--color-surface);
 }
@@ -217,6 +220,7 @@ a {
 
 .topbar-tools {
   margin-left: auto;
+  max-width: 100%;
 }
 
 .topbar-tools:empty {

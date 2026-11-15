@@ -142,7 +142,7 @@ export function StepCard({
               {changeRows(model, edits).map((row, index) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: two edits may name one place
                 <li key={`${index}:${row.where}`}>
-                  <code>{row.where}</code>: {valueText(row.now)} → {valueText(row.to)}
+                  <strong>{row.where}</strong>: {valueText(row.now)} → {valueText(row.to)}
                 </li>
               ))}
             </ul>

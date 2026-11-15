@@ -3305,6 +3305,36 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** spec 3 "Run monitor, Results and Settings" (Results), with a dated line.
 - **Dependencies added:** none.
 
+## 2026-11-15 · M15 · Plain words on the Canvas and in lessons (#91 part 1; Reviewer B finding 2)
+
+- **Decision:**
+  - **Block types in words.** `typeName` (`ui/src/canvas/model.ts`, the setting names' `words`) shows `resource_pool` as "Resource pool": in the palette (whose filter matches the type or its words), the type line ("Server · capacity = tills"), the side panel's heading and the blocks table. The model, the API and MCP keep the type ids.
+  - **Issue codes last.** A problems-list row reads severity, component id, message, hint, then "Code E122" small and muted. The code stays, for a report.
+  - **A lesson's change in words.** A setting reads "till: service"; a parameter's other field "tills: max"; a `set_path` pointer as "objective coefficient of tables", "wood: limit", "wood: coefficient of tables", or else its parts joined by "›" with a list entry by its `name` or `id` (or its place from 1); another kind of edit by its kind in words. A value object reads as words ("exponential, mean 1 min"), an array as a list.
+- **Reason:** issue #91: block types, hints and lesson changes showed raw ids, JSON pointers and issue codes. Tests first: `lesson.test.ts` (each place and value in words), `model.test.ts` (`typeName`, the type line), `CanvasScreen.test.tsx` (the problems row's order and the palette names); each failed before the change.
+- **Readings (reversible):**
+  - design-system.md's "Ids and metric names stay as they are, in Mono" is narrowed to ids, the names the user gives; block types become words. Metric names follow in part 2.
+  - The issue code is kept, last and small, rather than hidden: it is what a person quotes in a report.
+  - The `message` and `hint` texts are the service's and are not changed here; a pointer some of them quote stays until a service wording change.
+- **Spec sections updated:** spec 4 "Learn and Build modes" (The exercise), with a dated line; design-system.md "Plain words" and "Type line"; canvas-interactions.md "The problems list".
+- **Dependencies added:** none.
+
+## 2026-11-15 · M15 · The Canvas at 200% text and below 1,024 px (#93; Reviewer B finding 4)
+
+- **Decision:**
+  - **Narrow** is a window under 64 rem of the root's text size (`ui/src/app/narrow.ts`): 1,024 px at 100% text, as design-system.md "Window" says, and 2,048 px at 200%. A media query cannot say this, since its rem is the browser's; the old `max-width: 64rem` query, which only narrowed the side panel, is gone.
+  - **When narrow,** the palette is 11 rem and the side panel (with the step card in a lesson) is an overlay over the canvas's right edge (`SideSheet.tsx`). It opens on each new selection, and at a lesson's start; "Close the panel" closes it; "Show the panel" in the top bar opens it on the model's parameters. Closed, it is `hidden` and `inert`, so F6 passes it by and its fields keep their state.
+  - **The top bar** has 52 px (3.25 rem) as its least height and grows: it wraps the title and the tools, so Undo, Redo, the experiment and Run stay whole.
+- **Reason:** issue #93: at 200% text the top bar clipped its tools and Run, and below 1,024 px the side panel was a narrowed column, not the overlay of design-system.md "Window" and accessibility.md (WCAG 1.4.10). `ui/e2e/canvas-layout.spec.ts` checks 200% text at 1,280 × 800 and 100% at 900 × 700 (the tools whole in the bar, no panel until a selection, the panel over the canvas without taking its width, Close and "Show the panel"), and the column at the designed size; the two narrow cases failed before the change.
+- **Readings (reversible):**
+  - "Below 1024 px" counts in the text size's rem, so the layout at 200% text is the narrow one.
+  - "Panels collapse" narrows the palette to 11 rem and leaves the problems list as it is (resizable and collapsible already).
+  - The overlay also opens on the parameters from the top bar, since with nothing selected it would otherwise be unreachable.
+- **Review of PR #192:** "N changes to review" opens the overlay too, so the review list it focuses is not hidden; and the wrapper is the same element at every width (`display: contents` when not narrow), so crossing the narrow width keeps the panel mounted and a field's uncommitted draft with it. Each has an end-to-end test that failed first.
+- **Review of PR #192, second round:** F2 focused the Id field inside a closed overlay, the class of the first round's review list. Fixed for the class: `useSheet`'s `reveal(id)` opens the overlay and then focuses its target, and the review list, F2 and a chosen problem (whose block may already be selected, or which selects nothing for a parameter) all go through it. `SideSheet.test.ts` fails when `CanvasScreen.tsx` calls `getElementById` itself, and AGENTS.md lists the class. An e2e test of F2 and of a chosen problem with the overlay closed failed first.
+- **Spec sections updated:** design-system.md "Window"; accessibility.md 1.4.10. Spec 3 is silent on the layout.
+- **Dependencies added:** none.
+
 ## 2026-11-15 · M15 · Metric names in words (#91 part 2; Reviewer B finding 2)
 
 - **Decision:**

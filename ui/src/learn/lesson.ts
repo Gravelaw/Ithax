@@ -16,7 +16,7 @@
  * back).
  */
 import type { Edit, Model } from "../api/types";
-import { components, valueAt } from "../canvas/model";
+import { components, valueAt, words } from "../canvas/model";
 import { hasOwn, own } from "../canvas/own";
 
 export interface LessonStep {
@@ -176,7 +176,7 @@ function readEdit(model: Model, edit: Edit): { pairs: ChangeRow[] } | null {
     const pairs = ["value", "type", "min", "max"]
       .filter((key) => hasOwn(fields, key))
       .map((key) => ({
-        where: key === "value" ? id : `${id} ${key}`,
+        where: key === "value" ? id : `${id}: ${key}`,
         now: parameter === undefined ? undefined : own(parameter, key),
         to: fields[key],
       }));
@@ -187,11 +187,12 @@ function readEdit(model: Model, edit: Edit): { pairs: ChangeRow[] } | null {
     const path = String(fields.path);
     const found = components(model).find((item) => item.id === id);
     const now = found === undefined ? undefined : valueAt(found.params, segments(path));
-    return { pairs: [{ where: `${id}${path}`, now, to: fields.value }] };
+    return { pairs: [{ where: `${id}: ${segments(path).join(" ")}`, now, to: fields.value }] };
   }
   if (edit.edit === "set_path") {
     const path = String(fields.path);
-    return { pairs: [{ where: path, now: valueAt(model, segments(path)), to: fields.value }] };
+    const at = segments(path);
+    return { pairs: [{ where: placeWords(model, at), now: valueAt(model, at), to: fields.value }] };
   }
   return null;
 }
@@ -199,7 +200,8 @@ function readEdit(model: Model, edit: Edit): { pairs: ChangeRow[] } | null {
 /** Each value the exercise's edits set, beside the value the model shown holds there. */
 export function changeRows(model: Model, edits: readonly Edit[]): ChangeRow[] {
   return edits.flatMap(
-    (edit) => readEdit(model, edit)?.pairs ?? [{ where: edit.edit, now: undefined, to: edit }],
+    (edit) =>
+      readEdit(model, edit)?.pairs ?? [{ where: words(edit.edit), now: undefined, to: edit }],
   );
 }
 
@@ -217,11 +219,49 @@ export function changeMade(model: Model, edits: readonly Edit[]): boolean | null
   return made;
 }
 
-/** A value as the step card shows it. */
+/** A value as the step card shows it, in words (#91): `{dist, mean}` is "exponential, mean 1 min". */
 export function valueText(value: unknown): string {
   if (value === undefined) return "not set";
   if (typeof value === "string") return value;
-  const param = typeof value === "object" && value !== null ? own(value, "$param") : undefined;
-  if (typeof param === "string") return `= ${param}`;
-  return JSON.stringify(value);
+  if (Array.isArray(value)) return value.map(valueText).join(", ");
+  if (typeof value !== "object" || value === null) return JSON.stringify(value);
+  const entries = Object.entries(value);
+  const param = own(value, "$param");
+  if (typeof param === "string" && entries.length === 1) return `= ${param}`;
+  return entries
+    .map(([key, item]) => (key === "dist" ? valueText(item) : `${key} ${valueText(item)}`))
+    .join(", ");
+}
+
+/** A list entry by its `name` or `id`, else its place counted from 1. */
+function entryName(list: unknown, index: string): string {
+  const entry = Array.isArray(list) ? list[Number(index)] : undefined;
+  const name = entry === undefined ? undefined : (own(entry, "name") ?? own(entry, "id"));
+  return typeof name === "string" ? name : String(Number(index) + 1);
+}
+
+/**
+ * A place in the model in words, not a JSON pointer (#91): an objective's or a limit's
+ * coefficient and a limit's right-hand side by name; else each part in words, a list entry
+ * by its name.
+ */
+function placeWords(model: Model, at: readonly string[]): string {
+  const [top, index, key, variable] = at;
+  if (top === "objective" && index === "linear" && at.length === 3) {
+    return `objective coefficient of ${key}`;
+  }
+  const list = (model as Record<string, unknown>)[top ?? ""];
+  if (top === "constraints" && index !== undefined && Array.isArray(list) && list[Number(index)]) {
+    const name = entryName(list, index);
+    if (key === "rhs" && at.length === 3) return `${name}: limit`;
+    if (key === "linear" && at.length === 4) return `${name}: coefficient of ${variable}`;
+  }
+  let here: unknown = model;
+  return at
+    .map((part) => {
+      const shown = Array.isArray(here) ? entryName(here, part) : part === "rhs" ? "limit" : part;
+      here = here !== null && typeof here === "object" ? own(here, part) : undefined;
+      return shown;
+    })
+    .join(" › ");
 }
