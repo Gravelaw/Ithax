@@ -1263,7 +1263,7 @@ function ProcessCanvas({
 }
 
 /**
- * The blank canvas's guide (#95; owner decision #188, option A): what to do first, over the
+ * The blank canvas's guide (#95; owner decision 188, option A): what to do first, over the
  * empty canvas, without taking a drop or a click from it.
  */
 function BlankCanvas() {

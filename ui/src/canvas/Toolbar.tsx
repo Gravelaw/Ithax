@@ -13,13 +13,13 @@ export const WAIT = "Not saved: the canvas was saving. Make the change again.";
 /** Said while `POST .../runs` awaits its answer (AKS-138). */
 export const STARTING = "Starting the run…";
 
-/** Said when the model has no blocks (W204; #95, owner decision #188, option A). */
+/** Said when the model has no blocks (W204; #95, owner decision 188, option A). */
 export const EMPTY_MODEL = "Add a block to run the model.";
 
 /**
  * Why Run is not available, and which pointer it shows (owner review choice 9). An empty
  * process model is told by the service's W204 in the last validation, so the rule is the
- * service's (#95; owner decision #188, option A).
+ * service's (#95; owner decision 188, option A).
  */
 export function runBlocked(
   state: SessionState,

@@ -69,7 +69,10 @@ test("the coffee shop's base experiment set by pointer equals the example's", as
   };
   expect(saved.model.experiments).toEqual(coffeeShop.experiments);
   const checked = await service.api("POST", `/v1/projects/${pid}/validate`);
-  expect((checked.body as { issues: unknown[] }).issues).toEqual([]);
+  // The project has an experiment and no blocks, so its one issue is W204 (#95).
+  expect(
+    (checked.body as { issues: { code: string }[] }).issues.map((issue) => issue.code),
+  ).toEqual(["W204"]);
   // Every change was a documented model edit, and only documented routes were used.
   const writes = sent.slice(before).filter((request) => request.method !== "GET");
   expect(writes.length).toBeGreaterThan(0);
