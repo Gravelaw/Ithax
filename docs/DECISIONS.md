@@ -3360,3 +3360,17 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - An optimization model keeps E179 for "nothing to decide" (D2); W204 is for `process` only.
 - **Spec sections updated:** spec 1 "Validation issues" (W204, the warning ranges); spec 3 "Endpoints" (the new process project) and "Canvas behaviour" (Run); a dated line in each.
 - **Dependencies added:** none.
+
+## 2026-11-15 · M15 · The comparison headline and named findings (#94; Reviewer B finding 5)
+
+- **Decision:**
+  - **The headline of a comparison** (`headline(findings, summary)` in `ui/src/results/report.ts`, on the Results screen and in the PDF): with two options or more, the change between the first pair the summary compares (`differences[0]`), on the measure it tells apart first (a wait, then a time in the system, a throughput, a queue length, else the first told apart), from the earlier option's mean to that mean plus the paired difference, and the cause a `bottleneck` or `idle_capacity` finding of the earlier option points to: "Option faster cuts the average wait at weld from 15.7 min to 10.7 min, because weld is the bottleneck: busy 90% of the time, …". With no such finding, the change only; with nothing told apart, "Option X and option Y cannot be told apart yet on any measure; more repeat runs would tell." A run of one option keeps the first finding.
+  - **Named findings.** With two options or more, each finding shows "Option <id>" from its `scenario` field (and "(option <id>)" in the PDF). The finding texts served by `/v1` and MCP are unchanged.
+  - **The PDF's metric names** use `metricWords`, as the screen has since #195.
+- **Reason:** issue #94: "Findings do not name their option; the designed headline is missing" (canvas-interactions.md "Results say why"). `report.test.ts` and `ResultsScreen.test.tsx` cover the headline's four cases and the option labels; each failed before the change.
+- **Readings (reversible):**
+  - "The cause" is a finding of the earlier option (the baseline), since it explains why the change helps; `not_enough_runs` and `cannot_tell_apart` name no cause.
+  - The headline is built in the interface from the summary's `differences` and `findings`, so no `/v1` field and no finding text changes.
+  - "Option <id>" uses the scenario's id, as the key numbers' headings do.
+- **Spec sections updated:** spec 3 "Run monitor, Results and Settings" (Results), with a dated line.
+- **Dependencies added:** none.
