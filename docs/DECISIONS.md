@@ -3374,3 +3374,18 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Review of PR #196:** two findings at one site of one class, a typed value sent as something it does not mean (1e308 GB overflowed to `Infinity`, sent as `null`, the default; 0.0000000001 minutes rounded to 0, "never"). Fixed for the class: `typedInBase` (`ui/src/results/display.ts`) sends a result past a finite number as typed and never turns a non-zero entry into 0, so the service answers E184; `inSize` shows a value in a unit. `UnitField`, `bytesText` and the charts' time scaling go through them. A typed 0 where "Never" has its own box is not sent, and the field says to tick "Never". `units.test.ts` checks 0, tiny, huge, negative and NaN in every unit size and fails when other interface code multiplies or divides by a unit's size; AGENTS.md lists the class.
 - **Spec sections updated:** spec 3 "Lifetime" and "Run monitor, Results and Settings", with a dated line.
 - **Dependencies added:** none.
+
+## 2026-11-15 · M15 · Recent projects, part 1: rename, remove and notes in the service (#97; Reviewer B finding 10)
+
+- **Decision:**
+  - **`PATCH /v1/projects/{pid}`** takes any of `name`, `opened` (`true`) and `lesson_step` (a whole number from 0, or `null`). `name` changes `project.json`'s name in the hold of the project's writes (`ModelStore.rename`), so a save's `model_revision` and the new name never overwrite each other; the folder, the `id` and the model are kept. An empty body, a `null` name or `opened`, or another key is 400 with E184; an unknown `pid` 404 with E185.
+  - **`POST /v1/projects/{pid}/remove`** takes the project off the list with its notes and keeps its folder; `POST /v1/projects/open` registers it again.
+  - **Notes.** `GET /v1/projects` (and `create_model`/`list_projects` in MCP) adds `opened`, `template` and `lesson_step`, kept in `project-notes.json` in the configuration folder (`ProjectRegistry.note`), so the project folder keeps spec 3's layout and `project.json` its five fields. A project made from a template is noted with it at creation. A file that cannot be read, or a field of the wrong kind, reads as `null`.
+- **Reason:** issue #97: "Twelve identical entries after one session"; the issue asks for rename, remove, last opened and resuming lessons. This PR is the service half; the Home screen follows, and the MCP tools for rename and remove after it (C6). `tests/service/test_project_list.py` failed first.
+- **Readings (reversible):**
+  - "Remove" takes the project off the list and keeps its files; deleting a project's folder is not offered.
+  - "Rename" renames the project, not the model's `meta.name`, which a save or an assistant may change separately.
+  - Removing is `POST .../remove`, not `DELETE /v1/projects/{pid}`: a client that folds dot segments turns `DELETE .../data/..` into that path, and the data test showed it taking the project off the list. That request is now 405 (a path with a `PATCH`), not 404; it is refused with E185 either way.
+  - All three changes are additive to `/v1` (F7).
+- **Spec sections updated:** spec 3 "Endpoints" (two rows and `GET /v1/projects`), spec 4 "MCP tools" (`list_projects`); a dated line in each.
+- **Dependencies added:** none.

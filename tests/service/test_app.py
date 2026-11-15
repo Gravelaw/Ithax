@@ -54,6 +54,8 @@ AKS_119_ROUTES = {
     ("GET", "/v1/ui/{path}"),
 }
 AKS_138_ROUTES = {("GET", "/v1/projects/{pid}/export")}
+#: Recent projects (#97): rename and notes, and taking a project off the list.
+RECENT_ROUTES = {("PATCH", "/v1/projects/{pid}"), ("POST", "/v1/projects/{pid}/remove")}
 
 
 def test_the_app_has_the_aks_110_to_aks_113_aks_119_and_aks_138_routes_and_nothing_else(
@@ -66,6 +68,7 @@ def test_the_app_has_the_aks_110_to_aks_113_aks_119_and_aks_138_routes_and_nothi
         | AKS_113_ROUTES
         | AKS_119_ROUTES
         | AKS_138_ROUTES
+        | RECENT_ROUTES
     )
 
 

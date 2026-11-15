@@ -61,6 +61,9 @@ def test_a_new_project_holds_the_spec_3_folder(client: TestClient) -> None:
         "model_revision",
         "path",
         "available",
+        "opened",
+        "template",
+        "lesson_step",
     }
     assert uuid.UUID(project["id"]).version == 4
     assert project["name"] == "Coffee shop"
@@ -237,6 +240,9 @@ def test_a_project_whose_folder_is_gone_is_listed_unavailable(
             "model_revision": None,
             "path": str(folder),
             "available": False,
+            "opened": None,
+            "template": None,
+            "lesson_step": None,
         }
     ]
 
