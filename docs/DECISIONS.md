@@ -3553,3 +3553,20 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - a first result mounted with FUSE on the CI runner, for which the `package` job installs `fuse3`.
 - **Spec sections updated:** spec 3 "Packaging" (Linux, the AppImage) and its acceptance table (an M16 row), with a dated line.
 - **Dependencies added:** none beyond the pinned tools of the entry above; `fuse3` is a CI system package for the mounted test, not shipped.
+
+## 2026-11-15 · M16 · v0.1.0 is released from a branch, `release/0.1` (#103)
+
+- **Decision:** v0.1.0 is made on a release branch, option A, which the orchestrating session chose on 2026-11-15. `docs/release/v0.1.0.md` gives the steps:
+  - `release/0.1` is cut from `main` after #212 and this PR have merged.
+  - It takes only the version PR (0.1.0, the changelog dated) and cherry-picks of fixes merged to `main` first, each by a PR the orchestrating session merges under the usual gate.
+  - `main` moves to `0.2.0.dev0` in a PR of its own, right after the cut.
+  - The owner tags the branch's head and creates the GitHub release; sessions stop before both.
+- **Reason:** the owner tags only after the #102 checks, and Phase 2 goes on in `main` meanwhile (owner decisions, 2026-11-15, item 2). A branch keeps the released commit free of Phase 2 work, and keeps Phase 2 builds from saying 0.1.0.
+- **Also in this PR:**
+  - `CHANGELOG.md`, in Keep a Changelog form, with F7's 0.x promise and the 0.1.0 entry.
+  - `checks` now also runs on a push to `release/*`, so the commit to be tagged has its own run. `pull_request` already runs for any base branch, in both workflows.
+- **Readings (reversible):**
+  - The ruleset on `main` may not cover `release/*`, and a session cannot change rulesets. The release steps ask the owner to add the branch to it, or to protect it.
+  - The branch point's SHA is recorded here once the branch is cut, in the version PR's entry.
+- **Spec sections updated:** none.
+- **Dependencies added:** none.
