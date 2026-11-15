@@ -3317,4 +3317,4 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The issue code is kept, last and small, rather than hidden: it is what a person quotes in a report.
   - The `message` and `hint` texts are the service's and are not changed here; a pointer some of them quote stays until a service wording change.
 - **Spec sections updated:** spec 4 "Learn and Build modes" (The exercise), with a dated line; design-system.md "Plain words" and "Type line"; canvas-interactions.md "The problems list".
-=======
+- **Dependencies added:** none.
