@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ithax.model.issues import Issue
-from ithax.service.errors import malformed
+from ithax.service.errors import NOT_ALLOWED, ServiceError, malformed
 from ithax.service.paths import canonical, fully_qualified
 from ithax.service.projects_store import Domain
 from ithax.service.state import ServiceState, service_state
@@ -185,7 +185,19 @@ def remove_project(pid: str, state: State) -> dict[str, Any]:
     """Take a project off the list; its folder is kept (#97). A ``POST`` to its own path, as
     ``/open`` is, not ``DELETE /v1/projects/{pid}``: a client that folds dot segments turns
     ``DELETE .../data/..`` into that, which would take the project off the list."""
-    return state.projects.remove(pid)
+    # In the project's write hold, which starting a run takes too, so no run can start
+    # between the check and the removal (review of PR #200).
+    with state.models.locked(pid):
+        unfinished = state.runs.unfinished(pid)
+        if unfinished:
+            raise ServiceError(
+                409,
+                NOT_ALLOWED,
+                f"The project '{pid}' has a run that is queued or running "
+                f"({', '.join(unfinished)}), so it is not taken off the list: its run status "
+                "and cancel need it. Cancel the run or let it end, then remove the project.",
+            )
+        return state.projects.remove(pid)
 
 
 @router.post("/open")

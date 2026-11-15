@@ -328,7 +328,7 @@ Every issue is one object:
 | E185 | service | Not found: no such project, template, component type or path (spec 3: 404), or a method a path does not take (405) |
 | E186 | service | Project folder cannot be used: not a project folder, not empty when a project is created there, already registered under another folder, or not writable; also a `model.json` that is not JSON, cannot be stored as it is (a number JSON cannot hold, or text that is not valid Unicode), or fails the schema pass when edits are sent (spec 3: 400) |
 | E187 | service | The service failed while answering; the details are in its log (spec 3: 500) |
-| E188 | service | Action not allowed in the run's current state: cancelling a run that has ended, or reading the summary or a table of a run that is not `done` (spec 3: 409) |
+| E188 | service | Action not allowed in the run's current state: cancelling a run that has ended, or reading the summary or a table of a run that is not `done` (spec 3: 409); or removing a project that has a run queued or running (#97, review of PR #200) |
 | E189 | service | An uploaded data file cannot be imported (not CSV in UTF-8 or an Excel workbook, unreadable, too large, no usable header row, or a row longer than the header), or a column cannot be fitted (not numbers, or its file has changed since it was imported) (spec 3: 400; AKS-113, owner to confirm) |
 | E190 | run | Engine exited with an error (details in `log.txt`) |
 | E191 | run | Run interrupted by a service restart |
@@ -599,3 +599,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-14, M13 closed (#69, #72, #73, #74, #75, #76, #77, #79, #80, #81, #84, #85, #86, #132, #176 and the two hints of #83): no further change to this spec at the close. Version 1.6.
 - 2026-11-15, a process model with no blocks (#95; owner decision #188, option A): "Validation issues" adds W204, and the meaning-pass and summary warning ranges read W200 to W204. W204 is not in the run response; carrying warnings there is deferred to #191 (Phase 3).
 - 2026-11-15, every error at once (#92, Reviewer B finding 3): "Validation" says the checks of single values (E151, E123, E160, W202) also run on the components that convert when others cannot, each at its place in the file; the checks across the model still wait for a model that loads.
+- 2026-11-15, review of PR #200 (#97): the E188 row adds removing a project that has a run queued or running.

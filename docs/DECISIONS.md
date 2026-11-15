@@ -3398,7 +3398,8 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - "Rename" renames the project, not the model's `meta.name`, which a save or an assistant may change separately.
   - Removing is `POST .../remove`, not `DELETE /v1/projects/{pid}`: a client that folds dot segments turns `DELETE .../data/..` into that path, and the data test showed it taking the project off the list. That request is now 405 (a path with a `PATCH`), not 404; it is refused with E185 either way.
   - All three changes are additive to `/v1` (F7).
-- **Spec sections updated:** spec 3 "Endpoints" (two rows and `GET /v1/projects`), spec 4 "MCP tools" (`list_projects`); a dated line in each.
+- **Review of PR #200:** removing a project with a queued or running run took it off the list while the run went on, so its status and cancel answered 404. Removal is now refused with 409 and E188, naming the runs (`RunService.unfinished`); the check and the removal are made in the project's write hold, which starting a run takes too, so no run starts between them. A test with one run running and one queued failed first; after both are cancelled the project is removed. Reading: E188 ("an action the run's current state does not allow") is widened to cover this rather than a new code, since it is the runs' state that refuses it.
+- **Spec sections updated:** spec 3 "Endpoints" (two rows and `GET /v1/projects`), spec 4 "MCP tools" (`list_projects`), spec 1 E188; a dated line in each.
 - **Dependencies added:** none.
 
 ## 2026-11-15 · M15 · Recent projects, part 3: rename_project and remove_project in MCP (#97; C6)
