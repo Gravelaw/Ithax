@@ -3507,3 +3507,49 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Dependencies added:** two build tools, downloaded by the build into `dist/cache` (not Python packages). Their licences were read on 2026-11-15 from each project's `LICENSE` (`docs/research/m16-appimage.md`):
   - appimagetool 1.9.1, MIT ("Copyright (c) 2004-25 Simon Peter and the AppImage Team"). It builds the AppImage and does not ship in it. Checked by its pinned SHA-256 and the release's published digest.
   - type2-runtime `20251108`, MIT ("Copyright (c) 2004-23 probonopd"). It ships inside every AppImage, so the AppImage build adds it to `THIRD-PARTY-LICENSES.txt` and the licence list. Checked the same way.
+
+## 2026-11-15 · M16 · The AppImage of the Linux package (#88)
+
+- **Decision:** `scripts/package_linux.py` also builds `dist/ithax-<version>-x86_64.AppImage` and its `.sha256`, after the archive and from the same staged folder (`docs/research/m16-appimage.md`).
+  - `make_appdir` adds four files at the folder's top: `packaging/linux/appimage/AppRun`, `ithax.desktop`, the icon `ithax.png` (the package's `share/ithax.png`), and `LICENSE.type2-runtime.txt`, the runtime's pinned licence. It also adds the runtime to `THIRD-PARTY-LICENSES.txt`.
+  - appimagetool runs with `--no-appstream`, `--runtime-file` set to the pinned runtime, `APPIMAGE_EXTRACT_AND_RUN=1` (it is an AppImage and needs no FUSE that way) and the commit's time as `SOURCE_DATE_EPOCH`. Every tool is fetched and checked before the long part of the build.
+  - `AppRun` runs `bin/ithax`, or `bin/ithax-mcp` and `bin/ithax-launcher` for `mcp` and `launcher`, and then stays while any process runs from the AppImage's files. Mounted, it stays in the background with its output closed, so the caller gets its answer at once. Extracted with `APPIMAGE_EXTRACT_AND_RUN` (and no `NO_CLEANUP`), it stays in the foreground.
+- **Reason:** B5 (2026-11-13). The runtime keeps the files only while AppRun's processes need them. Read in `src/runtime/runtime.c` at tag `20251108`, fetched from `raw.githubusercontent.com` on 2026-11-15: a FUSE mount ends when no process holds the read end of its keepalive pipe; an extracted copy is removed once AppRun exits, unless `NO_CLEANUP` is set. The service the launcher starts is detached and started with its descriptors closed, so without the wait it would lose its files as soon as the launcher returned.
+- **Readings (reversible):**
+  - The extracted tree must equal the archive's folder, except for the four added files, `.DirIcon` (appimagetool's) and the longer `THIRD-PARTY-LICENSES.txt`.
+  - The runtime is listed in `THIRD-PARTY-LICENSES.txt` of the AppImage, not on the Help page's licences list. It is the AppImage's container format, not a part of the app that `GET /v1/licences` describes.
+  - AppRun checks every 2 s whether a process still runs from the AppImage, through `/proc/<pid>/exe`.
+  - The archive stays, for an installed menu entry and commands, and for machines that have no FUSE.
+- **Review of PR #211:** AppRun ran its command as a child but did not pass signals on, so stopping AppRun by its PID left `mcp` or the shell running. `bin/ithax-mcp` had used `exec`, so nothing was left behind there.
+  - Now the command runs in the background with AppRun's standard input. TERM and HUP are passed on, and INT is passed on as TERM: dash starts a background command with INT ignored and cannot undo it. AppRun waits for the command to end. The traps are set before the command starts.
+  - Tests: each of the three signals, and standard input reaching the command.
+- **Review of PR #211, second finding (the same class, so fixed for the class):** in the extracted case, AppRun reset its traps once the command returned. A TERM during its foreground wait then ended AppRun while the service still ran, and the runtime would remove the files under it. The background waiter had no handler either.
+  - One handler, `stop`, is now set in every phase, and set again in the waiter's subshell, which starts with the traps reset:
+    - before the command starts, AppRun ends;
+    - while the command runs, the signal goes to it;
+    - while AppRun stays, the signal goes to every process running from the AppImage, and AppRun ends only after they have, with status 143 or 129.
+  - The check is `test_a_signal_at_any_phase_stops_what_runs_from_the_appimage_before_apprun_ends`, for the foreground wait and the background waiter, beside the command-phase test. `AGENTS.md` names the class.
+- **Review of PR #211, a third finding of the class:** a TERM while the command ran stopped only the command. A service it had started then kept running, and AppRun stayed as usual.
+  - AppRun now remembers the stop. Once the command has ended, the same signal goes to everything still running from the AppImage, and AppRun keeps the files until that has ended, then exits 143 or 129.
+  - Test: `test_a_signal_while_the_command_runs_also_stops_the_service_it_started`, mounted and extracted.
+  - The waiter subshell starts with its traps reset, so AppRun ignores the signals across the fork until the waiter sets the handler. This closes a window found by running the tests 25 times.
+- **The check for the class:** one table-driven test, `test_a_signal_in_any_phase_stops_everything_from_the_appimage_before_apprun_ends`, replaces the three per-phase signal tests. It runs 21 cases.
+  - The phases are: before the command, the command alone, the command after it has started the service (each mounted and extracted), the foreground stay and the background waiter. Each runs against TERM, INT and HUP.
+  - In each case nothing from the AppImage is left, the service saw the signal and ended, and AppRun ends only after that, with 143 for TERM and INT or 129 for HUP.
+  - Two deliberate breaks of AppRun failed it: without the remembered stop, 6 cases failed; with no handler in the waiter, 3 failed.
+- **Readings (reversible):**
+  - The background waiter cannot take INT. dash starts a background process with INT ignored, past undoing, and without a terminal there is no job control to avoid it. So the waiter ignores INT, and the service keeps its files; the table asserts exactly that. Only an explicit `kill` reaches the waiter: it has no terminal, and Ctrl+C goes to AppRun, which is in the foreground.
+  - The phase before the command lasts microseconds, so for the tests `ITHAX_APPRUN_HOLD`, when it names a file, holds AppRun there, after the handler is set, until the file is removed. It changes nothing when unset.
+  - The orchestrating session also proposed a bounded wait followed by KILL. It did not ask for it when it accepted the remembered stop. The service stops on TERM within a bound already: spec 3 "One service per user", a 5 s bounded stop.
+- **CI run 43761150645 (head `1de13f2`):** the mounted test failed with "Transport endpoint is not connected". The first signal fix had saved standard input as `exec 3<&0`, and 3 was the runtime's keepalive pipe, which holds the mount.
+  - AppRun now copies standard input into a descriptor that is not open (9 down to 5), and closes nothing it inherits.
+  - Test: `test_apprun_keeps_every_descriptor_it_inherits` checks 3, 4 and 9. It failed for 3 before the fix.
+- **Review of PR #211, fourth finding:** with no Docker (`ITHAX_PACKAGE_RUNNER=local`), the AppImage's offline check ran with the network open: only the archive's check put its run in `unshare -rn`. Both now take their prefix from one helper, `local_isolation` in `tests/linux_package/test_linux_package.py`. It was checked here: an outbound connection fails through it and succeeds without it.
+- **Tests:** `tests/linux_package/test_appimage_build.py` covers the AppDir, the AppRun commands and its staying, mounted and extracted, and the appimagetool call. Under the marker `package`, `tests/linux_package/test_linux_package.py` checks:
+  - the checksum, and the type 2 magic;
+  - the extracted tree against the archive's;
+  - the same bytes from a second build;
+  - a first result offline in a clean `ubuntu:24.04` container (`clean_appimage.sh`);
+  - a first result mounted with FUSE on the CI runner, for which the `package` job installs `fuse3`.
+- **Spec sections updated:** spec 3 "Packaging" (Linux, the AppImage) and its acceptance table (an M16 row), with a dated line.
+- **Dependencies added:** none beyond the pinned tools of the entry above; `fuse3` is a CI system package for the mounted test, not shipped.

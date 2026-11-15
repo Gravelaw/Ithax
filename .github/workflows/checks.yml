@@ -144,6 +144,7 @@ jobs:
   # the pinned Python and wheels), then installed from the archive in a clean ubuntu:24.04
   # container, online and with --network none, to a first template result, and its shell
   # driven to Home under Xvfb (pytest marker package, which scripts/check.sh leaves out).
+  # The AppImage (#88) the same, and mounted with FUSE (fuse3) on the runner itself.
   package:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -154,7 +155,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
             libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
-            webkit2gtk-driver xvfb
+            webkit2gtk-driver xvfb fuse3
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -189,6 +190,8 @@ jobs:
           path: |
             dist/ithax-*-linux-x86_64.tar.gz
             dist/ithax-*-linux-x86_64.tar.gz.sha256
+            dist/ithax-*-x86_64.AppImage
+            dist/ithax-*-x86_64.AppImage.sha256
           retention-days: 14
 
   # The one check that branch protection requires (P4). A skipped or cancelled job counts
