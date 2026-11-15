@@ -51,7 +51,7 @@ const REPLICATIONS = [
     scenario: "default",
     replication: 0,
     metric: "weld.wait.mean",
-    value: 912.4123456789012,
+    value: 912.4123456789011,
     unit: "s",
   },
   { scenario: "default", replication: 1, metric: "weld.wait.mean", value: null, unit: "s" },
