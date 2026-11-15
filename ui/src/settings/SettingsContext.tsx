@@ -7,7 +7,15 @@
  * them; `refresh` reads both again (the Settings screen, when it opens, AKS-138), so a
  * change made in the file is seen.
  */
-import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Issue, Settings, SettingsBody, SettingsChange } from "../api/types";
 import { applyPreferences } from "./preferences";
@@ -37,9 +45,18 @@ export function SettingsProvider({
   children: ReactNode;
 }) {
   const [body, setBody] = useState<SettingsBody>({ settings: initial, issues: initialIssues });
+  // Each request is numbered when it is sent; an answer is taken only when no request sent
+  // after it has been taken, so a read sent before a write and answered after it does not
+  // bring back the settings the write replaced (CI of pull request 200).
+  const sent = useRef(0);
+  const taken = useRef(0);
   const take = useCallback(
-    (result: ApiResult<SettingsBody>) => {
-      if (result.kind === "ok") {
+    async (request: Promise<ApiResult<SettingsBody>>) => {
+      sent.current += 1;
+      const number = sent.current;
+      const result = await request;
+      if (result.kind === "ok" && number > taken.current) {
+        taken.current = number;
         setBody(result.data);
         applyPreferences(root, result.data.settings.interface);
       }
@@ -48,10 +65,10 @@ export function SettingsProvider({
     [root],
   );
   const save = useCallback(
-    async (change: SettingsChange) => take(await client.putSettings(change)),
+    (change: SettingsChange) => take(client.putSettings(change)),
     [client, take],
   );
-  const refresh = useCallback(async () => take(await client.getSettings()), [client, take]);
+  const refresh = useCallback(() => take(client.getSettings()), [client, take]);
   const value = useMemo(
     () => ({ settings: body.settings, issues: body.issues, save, refresh }),
     [body, save, refresh],

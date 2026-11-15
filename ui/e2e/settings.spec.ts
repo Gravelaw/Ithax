@@ -153,3 +153,36 @@ test("the idle timeout can be never, kept as 0 (#87; owner decision D8)", async 
   };
   expect(read.settings.idle_timeout_minutes).toBe(0);
 });
+
+test("ticking Never while Settings still reads the settings keeps it ticked (CI of pull request 200)", async ({
+  page,
+  service,
+}) => {
+  await service.api("PUT", "/v1/settings", { interface: { first_start_seen: true } });
+  await page.goto(service.url);
+  await expect(page.getByRole("button", { name: "Settings" })).toBeVisible();
+  // Settings' own read of the settings is answered only after the write: it was sent
+  // first, so it holds the value from before "Never".
+  let wrote: () => void = () => {};
+  const written = new Promise<void>((resolve) => {
+    wrote = resolve;
+  });
+  await page.route("**/v1/settings", async (route) => {
+    if (route.request().method() === "PUT") {
+      await route.continue();
+      wrote();
+      return;
+    }
+    const answer = await route.fetch();
+    await written;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await route.fulfill({ response: answer });
+  });
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("checkbox", { name: "Never" }).click();
+  await expect(page.getByRole("checkbox", { name: "Never" })).toBeChecked();
+  // Once the late read has been answered too, the box still shows the saved 0.
+  await page.waitForTimeout(600);
+  await expect(page.getByRole("checkbox", { name: "Never" })).toBeChecked();
+  await expect(page.getByRole("textbox", { name: "Stop when idle for" })).toBeDisabled();
+});
