@@ -5,6 +5,7 @@ import { ApiClient } from "../api/client";
 import { NewProjectDialog } from "../screens/NewProjectDialog";
 import { OpenProjectDialog } from "../screens/OpenProjectDialog";
 import { ORIGIN, TOKEN } from "../test/fakes";
+import { runIn } from "../test/projects";
 import { usePendingRequest } from "./usePendingRequest";
 
 function deferred<T>() {
@@ -67,8 +68,20 @@ describe.each([
 ] as const)("the %s dialog while its request is pending", (_title, submit, field) => {
   function show(client: ApiClient, onDone: () => void, onCancel: () => void) {
     return submit === "Create"
-      ? render(<NewProjectDialog client={client} onCreated={onDone} onCancel={onCancel} />)
-      : render(<OpenProjectDialog client={client} onOpened={onDone} onCancel={onCancel} />);
+      ? render(
+          <NewProjectDialog
+            projects={runIn(client)}
+            onCreated={async () => onDone()}
+            onCancel={onCancel}
+          />,
+        )
+      : render(
+          <OpenProjectDialog
+            projects={runIn(client)}
+            onOpened={async () => onDone()}
+            onCancel={onCancel}
+          />,
+        );
   }
 
   it("cannot be dismissed with Cancel or Escape", async () => {

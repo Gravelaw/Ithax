@@ -7,7 +7,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Project, SettingsBody } from "../api/types";
 import { CanvasScreen } from "../canvas/CanvasScreen";
-import { oneAtATime } from "../components/oneAtATime";
 import { ServiceProblem } from "../components/ServiceProblem";
 import { useCurrent } from "../components/useCurrent";
 import { DataScreen } from "../data/DataScreen";
@@ -21,9 +20,10 @@ import { Home } from "../screens/Home";
 import { useSettings } from "../settings/SettingsContext";
 import { SettingsScreen } from "../settings/SettingsScreen";
 import { NAV_ITEMS, NavRail } from "./NavRail";
-import type { ProjectActions } from "./projectActions";
+import type { ProjectActions, ProjectApi, RunProjects } from "./projectActions";
 import { cycleRegion } from "./regions";
 import { HOME, type Route, useRoute } from "./router";
+import { useProjectQueue } from "./useProjectQueue";
 
 function screenTitle(route: Route): string {
   if (route.screen === "build") return "Build a model";
@@ -36,7 +36,9 @@ export function App({ client }: { client: ApiClient }) {
   const { start: startLesson, exit: exitLesson, learning } = useLearning();
   // A completion after an await reads the lesson as it is then (review of pull request 201).
   const currentLearning = useCurrent(learning);
-  const forgetLesson = useLessonStep(client, learning?.projectId ?? null, learning?.step ?? null);
+  // Every read and write of project state, one action at a time (review of pull request 201).
+  const { run, busy } = useProjectQueue(client);
+  const forgetLesson = useLessonStep(run, learning?.projectId ?? null, learning?.step ?? null);
   const [noticeOpen, setNoticeOpen] = useState(!settings.interface.first_start_seen);
   const [saveProblem, setSaveProblem] = useState<ApiResult<SettingsBody> | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -48,7 +50,7 @@ export function App({ client }: { client: ApiClient }) {
     const wanted = route.projectId;
     if (wanted === null || project?.id === wanted) return;
     let current = true;
-    void client.listProjects().then((listed) => {
+    void run((api) => api.list()).then((listed) => {
       if (!current) return;
       const found = listed.kind === "ok" ? listed.data.find((item) => item.id === wanted) : null;
       if (found) setProject(found);
@@ -57,7 +59,7 @@ export function App({ client }: { client: ApiClient }) {
     return () => {
       current = false;
     };
-  }, [client, route.projectId, project, go]);
+  }, [run, route.projectId, project, go]);
 
   // Before the first paint, so F6 works as soon as the frame is visible.
   useLayoutEffect(() => {
@@ -74,17 +76,10 @@ export function App({ client }: { client: ApiClient }) {
    * Every way a project is opened goes through here or `built`, which note the time so
    * Recent projects lists it first (#97; review of pull request 201).
    */
-  const open = (opened: Project) => {
-    void client.changeProject(opened.id, { opened: true });
+  const open = async (api: ProjectApi, opened: Project, screen: "canvas" | "data" = "canvas") => {
     setProject(opened);
-    go({ screen: "canvas", projectId: opened.id });
-  };
-
-  /** A project the Build form made: the Data screen with data, else the Canvas (spec 4). */
-  const built = (made: Project, data: boolean) => {
-    void client.changeProject(made.id, { opened: true });
-    setProject(made);
-    go({ screen: data ? "data" : "canvas", projectId: made.id });
+    go({ screen, projectId: opened.id });
+    await api.change(opened.id, { opened: true });
   };
 
   /**
@@ -93,24 +88,26 @@ export function App({ client }: { client: ApiClient }) {
    * closes it and its lesson.
    */
   const projects: ProjectActions = {
-    open: (opened) => {
+    run,
+    busy,
+    open: (api, opened) => {
       // An ordinary open shows the model without a lesson (spec 4).
       exitLesson();
-      open(opened);
+      return open(api, opened);
     },
-    lesson: (made, template, lesson, step) => {
+    lesson: (api, made, template, lesson, step) => {
       startLesson({ ...newLearning(made.id, template, lesson), step });
-      open(made);
+      return open(api, made);
     },
-    rename: async (target, name) => {
-      const answer = await client.changeProject(target.id, { name });
+    rename: async (api, target, name) => {
+      const answer = await api.change(target.id, { name });
       if (answer.kind === "ok") {
         setProject((current) => (current?.id === target.id ? answer.data : current));
       }
       return answer;
     },
-    remove: async (target) => {
-      const answer = await client.removeProject(target.id);
+    remove: async (api, target) => {
+      const answer = await api.remove(target.id);
       if (answer.kind === "ok") {
         setProject((current) => (current?.id === target.id ? null : current));
         // Its lesson ends without a write to the project the service no longer lists.
@@ -160,9 +157,11 @@ export function App({ client }: { client: ApiClient }) {
         {route.screen === "build" ? (
           <BuildForm
             client={client}
-            onCreated={(made, data) => {
+            run={run}
+            onCreated={(api, made, data) => {
+              // A project the Build form made: the Data screen with data, else the Canvas.
               exitLesson();
-              built(made, data);
+              return open(api, made, data ? "data" : "canvas");
             }}
             onBack={() => go(HOME)}
           />
@@ -194,18 +193,17 @@ export function App({ client }: { client: ApiClient }) {
  * it after a reload; leaving the lesson clears it.
  */
 function useLessonStep(
-  client: ApiClient,
+  run: RunProjects,
   projectId: string | null,
   step: number | null,
 ): (pid: string) => void {
-  // The project whose step was last kept, and the write in flight: each write waits for the
-  // one before, so the service keeps the latest step or the clearing on exit, never an
-  // older step that arrived late (review of pull request 201).
+  // The project whose step was last kept. Each write is an action of App's queue, so the
+  // service keeps the latest step or the clearing on exit, and no read of the project list
+  // runs while one is pending (reviews of pull request 201).
   const last = useRef<string | null>(null);
-  const queue = useRef(oneAtATime());
   useEffect(() => {
     const send = (pid: string, value: number | null) => {
-      void queue.current(() => client.changeProject(pid, { lesson_step: value }));
+      void run((api) => api.change(pid, { lesson_step: value }));
     };
     if (projectId !== null && step !== null) {
       send(projectId, step);
@@ -214,7 +212,7 @@ function useLessonStep(
       send(last.current, null);
       last.current = null;
     }
-  }, [client, projectId, step]);
+  }, [run, projectId, step]);
   // A removed project's step is not cleared: the service no longer lists it.
   return (pid: string) => {
     if (last.current === pid) last.current = null;

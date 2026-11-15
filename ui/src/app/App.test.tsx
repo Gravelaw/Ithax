@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { Settings } from "../api/types";
 import { LOST_CONTACT } from "../components/ServiceProblem";
 import { NOTICE_TEXT } from "../screens/FirstStartNotice";
+import { NO_PROJECTS, PROJECTS_BUSY } from "../screens/Home";
 import { ModelService } from "../test/fakeModel";
 import { errorBody, SETTINGS, startedService } from "../test/fakes";
 import { Boot, CONNECTING, NO_TOKEN, NOT_ANSWERING, NoToken } from "./Boot";
@@ -16,6 +17,166 @@ function boot(settings: Settings = SETTINGS) {
 }
 
 const seen = { ...SETTINGS, interface: { ...SETTINGS.interface, first_start_seen: true } };
+
+/**
+ * A service holding two projects made from the coffee shop template, its lesson, and the
+ * notes the interface writes, as the service keeps them.
+ */
+function projectService() {
+  const shop = { id: "coffee_shop", title: "Coffee shop queue", experiment: "base" };
+  const lesson =
+    "# Coffee shop queue\n\n## Arrive\n\nComponent: `arrivals`\n\nThey arrive.\n\n" +
+    "## Queue\n\nComponent: `line`\n\nThey wait.\n\n" +
+    "## Exercise: two tills\n\nComponent: `till`\n\n### Change\n\nSet it.\n\n" +
+    "### Prediction\n\n- [x] Less.\n- [ ] More.\n\n### Explanation\n\nBecause.\n";
+  const made = (id: string, opened: string) => ({
+    id,
+    name: `Shop ${id}`,
+    created: "2026-11-09T10:00:00Z",
+    layout_version: 1,
+    model_revision: 0,
+    path: `/${id}`,
+    available: true,
+    template: "coffee_shop",
+    opened,
+    lesson_step: null as number | null,
+  });
+  let listed = [made("p1", "2026-11-15T10:00:00Z"), made("p2", "2026-11-15T09:00:00Z")];
+  window.location.hash = "#/";
+  const { fake } = boot(seen);
+  new ModelService(fake);
+  new ModelService(fake, { pid: "p2" });
+  fake
+    .answer("GET /v1/templates", [shop])
+    .answer("GET /v1/templates/coffee_shop", { template: shop, lesson, expected: [] })
+    .on("GET /v1/projects", () => ({ status: 200, body: listed }));
+  for (const id of ["p1", "p2"]) {
+    fake
+      .on(`PATCH /v1/projects/${id}`, (body) => {
+        listed = listed.map((item) =>
+          item.id === id ? { ...item, ...(body as Record<string, unknown>) } : item,
+        );
+        return { status: 200, body: listed.find((item) => item.id === id) };
+      })
+      .on(`POST /v1/projects/${id}/remove`, () => {
+        listed = listed.filter((item) => item.id !== id);
+        return { status: 200, body: { id, path: `/${id}` } };
+      });
+  }
+  // The project requests in the order sent (the template gallery's are left out).
+  const order = () =>
+    fake.requests
+      .filter((request) => !request.path.startsWith("/v1/templates"))
+      .map((request) => `${request.method} ${request.path}`);
+  return { fake, order, listed: () => listed };
+}
+
+describe("project actions, one at a time (reviews of pull request 201)", () => {
+  it("does not remove a project while its lesson is resuming", async () => {
+    const { fake, listed } = projectService();
+    const letTemplate = fake.hold("GET /v1/templates/coffee_shop");
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Resume the lesson Coffee shop queue" }),
+    );
+    await waitFor(() => expect(fake.heldOn("GET /v1/templates/coffee_shop")).toBe(1));
+    // Removing the project being resumed conflicts with it: the button waits, and says why.
+    const remove = screen.getByRole("button", { name: "Remove Shop p1 from the list" });
+    expect(remove).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText(PROJECTS_BUSY)).toBeVisible();
+    await userEvent.click(remove);
+    letTemplate();
+    expect(await screen.findByRole("region", { name: "Arrive" })).toBeVisible();
+    expect(window.location.hash).toBe("#/canvas/p1");
+    expect(fake.requested("POST", "/v1/projects/p1/remove")).toHaveLength(0);
+    expect(listed().map((item) => item.id)).toEqual(["p1", "p2"]);
+  });
+
+  it("renames one at a time, so the name shown is the last one given", async () => {
+    const { fake, order } = projectService();
+    await userEvent.click(await screen.findByRole("button", { name: "Rename Shop p1" }));
+    const letRename = fake.hold("PATCH /v1/projects/p1");
+    await userEvent.type(
+      screen.getByRole("textbox", { name: "New name for Shop p1" }),
+      " A{Enter}",
+    );
+    await waitFor(() => expect(fake.heldOn("PATCH /v1/projects/p1")).toBe(1));
+    // A second rename waits while the first awaits its answer.
+    expect(screen.getByRole("button", { name: "Rename Shop p2" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    letRename();
+    expect(await screen.findByRole("button", { name: "Rename Shop p1 A" })).toBeVisible();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Rename Shop p1 A" })).not.toHaveAttribute(
+        "aria-disabled",
+      ),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Rename Shop p1 A" }));
+    await userEvent.type(
+      screen.getByRole("textbox", { name: "New name for Shop p1 A" }),
+      "{Backspace}B{Enter}",
+    );
+    expect(await screen.findByRole("button", { name: "Rename Shop p1 B" })).toBeVisible();
+    // Each rename's list is read after it, never while it is in flight.
+    const patches = order().flatMap((route, at) => (route === "PATCH /v1/projects/p1" ? [at] : []));
+    for (const at of patches) expect(order()[at + 1]).toBe("GET /v1/projects");
+  });
+
+  it("reads the project list only after the removal before it, so a removed project stays off", async () => {
+    const { fake, order } = projectService();
+    const letRemove = fake.hold("POST /v1/projects/p1/remove");
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Remove Shop p1 from the list" }),
+    );
+    await waitFor(() => expect(fake.heldOn("POST /v1/projects/p1/remove")).toBe(1));
+    expect(screen.getByRole("button", { name: "Remove Shop p2 from the list" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    letRemove();
+    await waitFor(() => expect(screen.queryByText("/p1")).toBeNull());
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Remove Shop p2 from the list" }),
+      ).not.toHaveAttribute("aria-disabled"),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Remove Shop p2 from the list" }));
+    expect(await screen.findByText(NO_PROJECTS)).toBeVisible();
+    const removal = order().indexOf("POST /v1/projects/p1/remove");
+    expect(order().slice(removal + 1)).toEqual([
+      "GET /v1/projects",
+      "POST /v1/projects/p2/remove",
+      "GET /v1/projects",
+    ]);
+  });
+
+  it("resumes a lesson at the step whose write was still pending when Home opened", async () => {
+    const { fake, listed } = projectService();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Resume the lesson Coffee shop queue" }),
+    );
+    expect(await screen.findByRole("region", { name: "Arrive" })).toBeVisible();
+    // The next step's write is held while the user goes Home.
+    const letStep = fake.hold("PATCH /v1/projects/p1");
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(fake.heldOn("PATCH /v1/projects/p1")).toBe(1));
+    await userEvent.click(screen.getByRole("button", { name: "Home" }));
+    // The list is read only after the step's write; until then the lesson button waits.
+    const waiting = await screen.findByRole("button", { name: /the lesson Coffee shop queue$/ });
+    expect(waiting).toHaveAttribute("aria-disabled", "true");
+    expect(fake.requested("GET", "/v1/projects")).toHaveLength(2);
+    letStep();
+    await waitFor(() => expect(listed()[0]?.lesson_step).toBe(1));
+    const resume = await screen.findByRole("button", {
+      name: "Resume the lesson Coffee shop queue",
+    });
+    await waitFor(() => expect(resume).not.toHaveAttribute("aria-disabled"));
+    await userEvent.click(resume);
+    // At the step the write kept, not the one before it.
+    expect(await screen.findByRole("region", { name: "Queue" })).toBeVisible();
+  });
+});
 
 describe("first start", () => {
   it("shows the notice once: what the tool does, estimates, the licence, Continue", async () => {
@@ -354,57 +515,6 @@ describe("the frame", () => {
     await userEvent.click(screen.getByRole("button", { name: "Canvas" }));
     expect(screen.getByRole("heading", { name: "What would you like to do?" })).toBeVisible();
     expect(document.querySelector(".step-card")).toBeNull();
-  });
-
-  it("keeps a lesson started while an earlier project's removal awaited its answer (review of pull request 201)", async () => {
-    const shop = { id: "coffee_shop", title: "Coffee shop queue", experiment: "base" };
-    const lesson =
-      "# Coffee shop queue\n\n## Arrive\n\nComponent: `arrivals`\n\nThey arrive.\n\n" +
-      "## Exercise: two tills\n\nComponent: `till`\n\n### Change\n\nSet it.\n\n" +
-      "### Prediction\n\n- [x] Less.\n- [ ] More.\n\n### Explanation\n\nBecause.\n";
-    const made = (id: string) => ({
-      id,
-      name: `Coffee shop queue ${id}`,
-      created: "2026-11-09T10:00:00Z",
-      layout_version: 1,
-      model_revision: 0,
-      path: `/${id}`,
-      available: true,
-    });
-    window.location.hash = "#/";
-    const { fake } = boot(seen);
-    new ModelService(fake);
-    new ModelService(fake, { pid: "p2" });
-    let next = made("p1");
-    fake
-      .answer("GET /v1/templates", [shop])
-      .answer("GET /v1/templates/coffee_shop", { template: shop, lesson, expected: [] })
-      .on("POST /v1/projects", () => ({ status: 200, body: next }))
-      .on("GET /v1/projects", () => ({ status: 200, body: [made("p1")] }))
-      .answer("POST /v1/projects/p1/remove", { id: "p1", path: "/p1" });
-    const start = async () =>
-      userEvent.click(
-        await screen.findByRole("button", { name: "Start the lesson Coffee shop queue" }),
-      );
-    await start();
-    expect(await screen.findByRole("region", { name: "Arrive" })).toBeVisible();
-    await userEvent.click(screen.getByRole("button", { name: "Home" }));
-    // Project p1's removal waits for its answer while a lesson starts in a new project.
-    const release = fake.holdWrites();
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Remove Coffee shop queue p1 from the list" }),
-    );
-    next = made("p2");
-    await start();
-    await fake.releaseLast();
-    expect(await screen.findByRole("region", { name: "Arrive" })).toBeVisible();
-    expect(window.location.hash).toBe("#/canvas/p2");
-    release();
-    await waitFor(() => expect(fake.requested("POST", "/v1/projects/p1/remove")).toHaveLength(1));
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    // The removal of p1 leaves p2 and its lesson open.
-    expect(screen.getByRole("region", { name: "Arrive" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Canvas" })).not.toHaveAttribute("aria-disabled");
   });
 
   it("renames the open project in the top bar when Home renames it (review of pull request 201)", async () => {

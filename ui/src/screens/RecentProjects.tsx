@@ -56,13 +56,13 @@ export function RecentProjects({
   const rename = async (project: Project, name: string) => {
     setRenaming(null);
     if (name.trim() === "" || name.trim() === project.name) return;
-    const answer = await actions.rename(project, name.trim());
+    const answer = await actions.run((api) => actions.rename(api, project, name.trim()));
     setProblem(answer.kind === "ok" ? null : answer);
     onChanged();
   };
 
   const remove = async (project: Project) => {
-    const answer = await actions.remove(project);
+    const answer = await actions.run((api) => actions.remove(api, project));
     setProblem(answer.kind === "ok" ? null : answer);
     setRemoved(answer.kind === "ok");
     onChanged();
@@ -92,9 +92,10 @@ export function RecentProjects({
                 <button
                   type="button"
                   className="project"
-                  aria-disabled={project.available ? undefined : "true"}
+                  aria-disabled={!project.available || actions.busy || undefined}
                   onClick={() => {
-                    if (project.available) actions.open(project);
+                    if (project.available && !actions.busy)
+                      void actions.run((api) => actions.open(api, project));
                   }}
                 >
                   <span className="subheading">{name}</span>
@@ -109,7 +110,10 @@ export function RecentProjects({
                     className="icon-button"
                     aria-label={`Rename ${name}`}
                     title="Rename"
-                    onClick={() => setRenaming(project.id)}
+                    aria-disabled={actions.busy || undefined}
+                    onClick={() => {
+                      if (!actions.busy) setRenaming(project.id);
+                    }}
                   >
                     <PencilSimpleIcon aria-hidden="true" size={16} />
                   </button>
@@ -119,7 +123,11 @@ export function RecentProjects({
                   className="icon-button"
                   aria-label={`Remove ${name} from the list`}
                   title="Remove from the list (the files are kept)"
-                  onClick={() => void remove(project)}
+                  aria-disabled={actions.busy || undefined}
+                  onClick={() => {
+                    // Not while another project action is pending (review of pull request 201).
+                    if (!actions.busy) void remove(project);
+                  }}
                 >
                   <XIcon aria-hidden="true" size={16} />
                 </button>

@@ -1,21 +1,26 @@
 /**
- * Every change to a project from Home goes through App's `ProjectActions` (review of pull
- * request 201, three findings of one class): no screen calls the client's project-changing
- * requests itself, so App's open project and lesson always follow them.
+ * Every read and write of project state goes through App's one queue of actions (reviews of
+ * pull request 201, seven findings of one class): only `projectApi` calls the client's
+ * project requests, and an action receives it from `run`, so no screen or App code can read
+ * or change a project outside the queue.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const SCREENS = join(__dirname, "..", "screens");
+const FOLDERS = ["app", "screens"].map((name) => join(__dirname, "..", name));
+const PROJECT_REQUESTS =
+  /\.(listProjects|getTemplate|createProject|openProject|changeProject|removeProject)\(/;
 
-describe("project changes made on Home", () => {
-  it("go through App: no screen renames, notes or removes a project itself", () => {
-    const callers = readdirSync(SCREENS)
-      .filter((name) => /\.tsx?$/.test(name) && !/\.test\./.test(name))
-      .filter((name) =>
-        /\.(changeProject|removeProject)\(/.test(readFileSync(join(SCREENS, name), "utf-8")),
-      );
+describe("project reads and writes", () => {
+  it("are made only by projectApi, inside an action of App's queue", () => {
+    const callers = FOLDERS.flatMap((folder) =>
+      readdirSync(folder)
+        .filter((name) => /\.tsx?$/.test(name) && !/\.test\./.test(name))
+        .filter((name) => name !== "projectActions.ts")
+        .filter((name) => PROJECT_REQUESTS.test(readFileSync(join(folder, name), "utf-8")))
+        .map((name) => name),
+    );
     expect(callers).toEqual([]);
   });
 });

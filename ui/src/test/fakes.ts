@@ -55,6 +55,25 @@ export class FakeService {
   private holding = false;
   private readonly waiting: (() => void)[] = [];
 
+  private readonly heldRoutes = new Map<string, (() => void)[]>();
+
+  /**
+   * Holds every request to `route` ("GET /v1/templates/x") until the returned function is
+   * called; how many are waiting is `heldOn(route)`.
+   */
+  hold(route: string): () => void {
+    this.heldRoutes.set(route, []);
+    return () => {
+      const waiting = this.heldRoutes.get(route) ?? [];
+      this.heldRoutes.delete(route);
+      for (const go of waiting) go();
+    };
+  }
+
+  heldOn(route: string): number {
+    return this.heldRoutes.get(route)?.length ?? 0;
+  }
+
   /** Holds every write until the returned function is called. */
   holdWrites(): () => void {
     this.holding = true;
@@ -108,7 +127,10 @@ export class FakeService {
         await new Promise<void>((resolve) => this.waiting.push(resolve));
       }
     }
-    const handler = this.handlers.get(`${method} ${url.pathname}`);
+    const route = `${method} ${url.pathname}`;
+    const routeHeld = this.heldRoutes.get(route);
+    if (routeHeld !== undefined) await new Promise<void>((resolve) => routeHeld.push(resolve));
+    const handler = this.handlers.get(route);
     const answer = handler
       ? handler(body, url)
       : { status: 404, body: errorBody("E185", `The service has no '${url.pathname}'.`) };

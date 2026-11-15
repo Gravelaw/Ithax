@@ -3,8 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ApiClient } from "../api/client";
 import type { Project } from "../api/types";
-import type { ProjectActions } from "../app/projectActions";
 import { errorBody, FakeService, issue, ORIGIN, TOKEN } from "../test/fakes";
+import { type Given, testActions } from "../test/projects";
 import {
   BUILD_UNAVAILABLE,
   EMPTY_GALLERY,
@@ -26,22 +26,8 @@ function project(id: string, name: string, available = true): Project {
   };
 }
 
-/**
- * Home with the application's project actions: rename and remove sent to `client` as App
- * sends them, open and lesson as the test gives them.
- */
-function actions(client: ApiClient, given: Partial<ProjectActions> = {}): ProjectActions {
-  return {
-    open: () => {},
-    lesson: () => {},
-    rename: (target, name) => client.changeProject(target.id, { name }),
-    remove: (target) => client.removeProject(target.id),
-    ...given,
-  };
-}
-
-function renderHome(client: ApiClient, given: Partial<ProjectActions> = {}, onBuild?: () => void) {
-  return render(<Home client={client} projects={actions(client, given)} onBuild={onBuild} />);
+function renderHome(client: ApiClient, given: Given = {}, onBuild?: () => void) {
+  return render(<Home client={client} projects={testActions(client, given)} onBuild={onBuild} />);
 }
 
 function service(projects: Project[] = [], templates: unknown[] = []) {
@@ -225,10 +211,13 @@ describe("Home", () => {
     expect(template).toEqual(shop);
     expect(read.steps.map((step: { component: string }) => step.component)).toEqual(["arrivals"]);
     expect(read.exercise.choices).toHaveLength(2);
+    // The lesson's action reads the list again before it decides to make a project, so it
+    // sees a project made or removed meanwhile (review of pull request 201).
     expect(fake.requests.map((request) => `${request.method} ${request.path}`)).toEqual([
-      "GET /v1/projects",
       "GET /v1/templates",
+      "GET /v1/projects",
       "GET /v1/templates/coffee_shop",
+      "GET /v1/projects",
       "POST /v1/projects",
     ]);
     expect(fake.requested("POST", "/v1/projects")[0]?.body).toEqual({
