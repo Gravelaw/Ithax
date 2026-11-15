@@ -263,7 +263,7 @@ test("the coffee shop is built, run and viewed by pointer, through documented ro
     await expect(footer).toContainText(item);
   }
   await expect(
-    page.getByRole("rowheader", { name: "till.wait.mean" }).locator("xpath=.."),
+    page.getByRole("rowheader", { name: "till: average wait" }).locator("xpath=.."),
   ).toBeVisible();
 
   // till.wait.mean within 3 standard errors of 270 s (spec 2's pass rule).

@@ -1,0 +1,22 @@
+{
+  "format_version": "0.3",
+  "meta": {
+    "name": "Empty"
+  },
+  "domain": "process",
+  "parameters": {},
+  "components": [],
+  "connections": [],
+  "experiments": [
+    {
+      "id": "base",
+      "length": "8 h",
+      "warmup": "0 s",
+      "replications": 30
+    }
+  ],
+  "run": {
+    "target": "local",
+    "fidelity": "standard"
+  }
+}

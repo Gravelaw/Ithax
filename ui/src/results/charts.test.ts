@@ -148,14 +148,14 @@ describe("over time", () => {
     const share = overTime(rows, "till.utilization");
     expect(share.timeSymbol).toBe("h");
     expect(share.times).toEqual([0, 2]);
-    expect(share.valueName).toBe("till.utilization (%)");
+    expect(share.valueName).toBe("till: busy share (%)");
     expect(share.lines).toEqual([
       { scenario: "default", values: [60, 100] },
       { scenario: "b", values: [null, 0] },
     ]);
     const queue = overTime(rows, "till.queue_length");
     expect(queue.lines).toEqual([{ scenario: "default", values: [2] }]);
-    expect(queue.valueName).toBe("till.queue_length");
+    expect(queue.valueName).toBe("till: queue length");
     expect(overTime([], "x").timeSymbol).toBe("s");
     const option = overTimeOption(share, colours);
     expect((option.series as Series[])[1]?.data).toEqual([

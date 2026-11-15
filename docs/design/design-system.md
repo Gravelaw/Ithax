@@ -154,7 +154,7 @@ Fonts are bundled with the app and never downloaded at run time (owner review ch
 | Subheading | Atkinson Hyperlegible Next | 16 px | 700 | 24 px | Card titles, block-type names in the palette |
 | Body | Atkinson Hyperlegible Next | 14 px | 400 | 21 px | Forms, lists, findings, block titles (700) |
 | Small | Atkinson Hyperlegible Next | 12 px | 400 | 18 px | Block type line, port and line labels, results footer, table notes |
-| Mono | JetBrains Mono | 13 px | 400 | 20 px | Component ids, metric names (`till.wait.mean`), run ids |
+| Mono | JetBrains Mono | 13 px | 400 | 20 px | Component ids, run ids. Metric names are shown in words, the component's id then its statistic ("till: average wait"), with the name (`till.wait.mean`) on hover (#91, 2026-11-15) |
 
 - **Why these.** Bricolage Grotesque gives headings character without hurting reading. Atkinson Hyperlegible Next was designed for readers with low vision; its I, l and 1, and O and 0, are clearly different, which matters for ids such as `till_1`. JetBrains Mono lines up digits and separates similar characters.
 - **Fallback stacks.** Sans: `"Atkinson Hyperlegible Next", system-ui, "Segoe UI", "Noto Sans", sans-serif`. Display: `"Bricolage Grotesque", system-ui, sans-serif`. Mono: `"JetBrains Mono", ui-monospace, "Cascadia Mono", "DejaVu Sans Mono", monospace`.

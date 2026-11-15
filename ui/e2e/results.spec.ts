@@ -126,7 +126,7 @@ test("the coffee shop runs from the Canvas; its results have no finding, the foo
   ];
   const footer = page.locator(".results-footer");
   for (const item of footerItems) await expect(footer).toContainText(item);
-  const wait = page.getByRole("rowheader", { name: "till.wait.mean" }).locator("xpath=..");
+  const wait = page.getByRole("rowheader", { name: "till: average wait" }).locator("xpath=..");
   await expect(wait).toContainText("4.46 min");
   await expect(page.getByRole("img", { name: /^Busy share by component/ })).toBeVisible();
   const feedback = page.getByRole("link", { name: "Tell us what you built (opens your browser)" });
