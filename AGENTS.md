@@ -47,4 +47,8 @@ that reads input, and say whether the shared helper was bypassed:
   in a hold of the project's lock that did not settle the folder, which can see a save left
   half done in between (helper: `ModelStore.settled`; `tests/test_conventions.py` finds a
   reader outside one; PR #182, fifth round);
-- interface state written from a stale draft or after a screen has closed.
+- interface state written from a stale draft or after a screen has closed;
+- the focus moved into the side panel while it is a closed overlay, where the target is hidden
+  and inert, so the action does nothing (helper: `useSheet`'s `reveal` in
+  `ui/src/canvas/SideSheet.tsx`, which opens it first; `SideSheet.test.ts` fails when
+  `CanvasScreen.tsx` looks up an element by id itself; PR #192, two findings).
