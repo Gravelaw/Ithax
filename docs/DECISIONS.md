@@ -3347,3 +3347,16 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The metric's name stays one hover away, since the CSV, the summary and MCP use it.
 - **Spec sections updated:** design-system.md "Type" (Mono). Spec 3 and spec 4 name no display form for metrics.
 - **Dependencies added:** none.
+
+## 2026-11-15 · M15 · A process model with no blocks: W204, and the Canvas holds Run back (#95; owner decision #188, option A)
+
+- **Decision:**
+  - **The owner's answer.** #188, answered by the owner on 2026-11-15 through the orchestrating session: option A, a warning, and the Canvas disables Run. A follow-up the same day: the run response should one day carry validation warnings such as W204; that is deferred to Phase 3 with the API review for the physics engines (#191, under epic #66), and `POST .../runs` is not changed here. W204 is not in the run response; carrying warnings there is deferred to #191 (Phase 3).
+  - **W204** (`empty_model_issues`, last in the meaning pass) at `/components` for a `process` model with no components: "The model has no blocks: 'components' is empty, so a run has nothing to simulate." It is a warning, so `/validate` gains one entry and a `/v1` run of an empty model still runs (F7); it is in the summary's `warnings` with the other load-time warnings.
+  - **The Canvas.** `runBlocked` holds Run back while the last validation gives W204, with the reason "Add a block to run the model." (after any errors, which are named first). The rule is the service's, so the interface does not count blocks itself. The blank canvas shows a guide over its centre ("An empty model": drag a block from the palette, the smallest model that runs, or a template on Home) that lets drops and clicks through.
+- **Reason:** issue #95 (Reviewer B finding 6): Run was enabled on an empty model and the run completed as Done. Tests first: the W204 fixture (`tests/model/fixtures/issues/`), `test_validation_w.py` (W204, and none for a model with a block or a plan), the default project's validation in `test_projects.py` and `test_models.py`, the spec 1 code count in `test_docs.py`, and the Canvas tests (the reason and the guide); each failed before the change.
+- **Readings (reversible):**
+  - The guide is drawn here, not in a wireframe: the design has no blank-canvas state.
+  - An optimization model keeps E179 for "nothing to decide" (D2); W204 is for `process` only.
+- **Spec sections updated:** spec 1 "Validation issues" (W204, the warning ranges); spec 3 "Endpoints" (the new process project) and "Canvas behaviour" (Run); a dated line in each.
+- **Dependencies added:** none.

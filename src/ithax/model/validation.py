@@ -2446,6 +2446,27 @@ def _failure_capacity_issue(
     )
 
 
+# --- W204: a process model with no blocks -------------------------------------------------------
+
+
+def empty_model_issues(model: Model) -> list[Issue]:
+    """W204 (#95; owner decision #188, option A) for a ``process`` model with no
+    components: it loads, and a new project starts this way, but a run has nothing to
+    simulate. A warning, not an error, so a ``/v1`` run of it still runs (F7); the Canvas
+    holds Run back instead (spec 3 "Canvas behaviour")."""
+    if model.domain != "process" or model.components:
+        return []
+    return [
+        _issue(
+            "W204",
+            ("components",),
+            "The model has no blocks: 'components' is empty, so a run has nothing to simulate.",
+            "Add blocks from the palette: a source, a server and a sink connected in a line "
+            "are the smallest model that runs.",
+        )
+    ]
+
+
 # --- the pass --------------------------------------------------------------------------------
 
 
@@ -2567,7 +2588,7 @@ def decision_issues(model: Model) -> list[Issue]:
 def meaning_pass(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue]:
     """The meaning pass: part A (identifiers, settings that name things, connections),
     then part B (parameters, references, ranges, distributions, data, experiments,
-    metrics), then the warnings (W200, W201, W202, W203). ``data`` is the project's data index
+    metrics), then the warnings (W200, W201, W202, W203, W204). ``data`` is the project's data index
     (default: nothing imported).
 
     E102 is not here: the loader checks it before building (``engine_issues``).
@@ -2590,6 +2611,7 @@ def meaning_pass(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue
         *load_issues(model),
         *clipping_issues(model),
         *failure_capacity_issues(model),
+        *empty_model_issues(model),
     ]
 
 
