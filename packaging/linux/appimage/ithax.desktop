@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Ithax
+Comment=Model, simulate and optimize processes without writing code
+Exec=ithax
+Icon=ithax
+Terminal=false
+Categories=Education;Science;Engineering;

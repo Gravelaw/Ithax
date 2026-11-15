@@ -15,7 +15,10 @@ It makes ``dist/ithax-<version>-linux-x86_64.tar.gz`` and its checksum file
    recorded as compatible;
 5. the interface and templates under ``python/share/ithax``, the shell in ``lib/``, the
    commands and install scripts of ``packaging/linux``, the licence texts;
-6. one archive in a fixed order, with fixed owners and the commit's time on every file.
+6. one archive in a fixed order, with fixed owners and the commit's time on every file;
+7. the AppImage ``dist/ithax-<version>-x86_64.AppImage`` and its ``.sha256`` (#88): the same
+   folder with ``packaging/linux/appimage``'s ``AppRun`` and desktop file, the icon and the
+   runtime's licence at its top, made by the pinned appimagetool with the pinned runtime.
 
 Only the standard library is used, so any Python 3.11 or later runs it. Downloads need the
 network; the archive it makes needs none to install or run.
@@ -47,6 +50,7 @@ PACKAGING = ROOT / "packaging" / "linux"
 LOCK = PACKAGING / "requirements.lock"
 BUILD_CONSTRAINTS = PACKAGING / "build-constraints.txt"
 LICENCES = PACKAGING / "licences.json"
+APPIMAGE = PACKAGING / "appimage"
 
 PYTHON_RELEASE = "20261020"
 PYTHON_VERSION = "3.13.16"
@@ -527,6 +531,52 @@ def check_tools(cache: Path, tools: Sequence[Tool], published: Callable[[Tool], 
     return 1 if problems else 0
 
 
+def appimage_name(version: str) -> str:
+    return f"ithax-{version}-x86_64.AppImage"
+
+
+def make_appdir(stage: Path, runtime_licence: Path) -> None:
+    """The package folder ``stage`` made an AppDir (#88): ``AppRun``, the desktop file and
+    the icon at its top, and the runtime's licence, which ships inside every AppImage."""
+    shutil.copyfile(APPIMAGE / "AppRun", stage / "AppRun")
+    (stage / "AppRun").chmod(0o755)
+    shutil.copyfile(APPIMAGE / "ithax.desktop", stage / "ithax.desktop")
+    shutil.copyfile(stage / "share" / "ithax.png", stage / "ithax.png")
+    shutil.copyfile(runtime_licence, stage / "LICENSE.type2-runtime.txt")
+    with (stage / "THIRD-PARTY-LICENSES.txt").open("a", encoding="utf-8") as notices:
+        notices.write(
+            f"\nThe AppImage's runtime: type2-runtime {RUNTIME_RELEASE}, MIT, its licence in"
+            " LICENSE.type2-runtime.txt (https://github.com/AppImage/type2-runtime).\n"
+        )
+
+
+def appimage_command(
+    tool: Path, runtime: Path, appdir: Path, target: Path, mtime: int
+) -> tuple[list[str], dict[str, str]]:
+    """The appimagetool call and its environment: the pinned runtime, no AppStream check,
+    the commit's time for the squashfs, and no FUSE needed (it extracts itself)."""
+    command = [str(tool), "--no-appstream", "--runtime-file", str(runtime), str(appdir)]
+    environment = {
+        **os.environ,
+        "APPIMAGE_EXTRACT_AND_RUN": "1",
+        "SOURCE_DATE_EPOCH": str(mtime),
+        "ARCH": "x86_64",
+    }
+    return [*command, str(target)], environment
+
+
+def write_appimage(appdir: Path, target: Path, mtime: int, cache: Path) -> Path:
+    """``target`` built from ``appdir`` with the pinned appimagetool and runtime, and its
+    ``.sha256`` beside it; the checksum file's path."""
+    tool = fetch_tool(cache, APPIMAGE_TOOLS[0])
+    tool.chmod(0o755)
+    runtime = fetch_tool(cache, APPIMAGE_TOOLS[1])
+    command, environment = appimage_command(tool, runtime, appdir, target, mtime)
+    target.unlink(missing_ok=True)
+    _run(command, env=environment)
+    return write_checksum(target)
+
+
 def installed_distributions(python: Path) -> dict[str, str]:
     script = (
         "import importlib.metadata as m, json; "
@@ -563,6 +613,10 @@ def build(out: Path, prebuilt: bool) -> Path:
 
     out.mkdir(parents=True, exist_ok=True)
     python_archive = fetch_python(out / "cache")
+    # Every pinned tool is fetched and checked before the long part of the build.
+    runtime_licence = fetch_tool(out / "cache", RUNTIME_LICENCE)
+    for tool in APPIMAGE_TOOLS:
+        fetch_tool(out / "cache", tool)
     with tempfile.TemporaryDirectory(dir=out) as scratch:
         stage = Path(scratch) / name
         stage.mkdir()
@@ -687,8 +741,13 @@ def build(out: Path, prebuilt: bool) -> Path:
         )
         archive = out / f"{name}.tar.gz"
         write_archive(stage, archive, mtime)
+        make_appdir(stage, runtime_licence)
+        set_times(stage, mtime)
+        appimage = out / appimage_name(version)
+        appimage_checksum = write_appimage(stage, appimage, mtime, out / "cache")
     checksum = write_checksum(archive)
     print(f"Wrote {archive} ({archive.stat().st_size / 1e6:.0f} MB) and {checksum.name}")
+    print(f"Wrote {appimage} ({appimage.stat().st_size / 1e6:.0f} MB) and {appimage_checksum.name}")
     return archive
 
 

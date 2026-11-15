@@ -3483,3 +3483,24 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Dependencies added:** two build tools, downloaded by the build into `dist/cache` (not Python packages). Their licences were read on 2026-11-15 from each project's `LICENSE` (`docs/research/m16-appimage.md`):
   - appimagetool 1.9.1, MIT ("Copyright (c) 2004-25 Simon Peter and the AppImage Team"). It builds the AppImage and does not ship in it. Checked by its pinned SHA-256 and the release's published digest.
   - type2-runtime `20251108`, MIT ("Copyright (c) 2004-23 probonopd"). It ships inside every AppImage, so the AppImage build adds it to `THIRD-PARTY-LICENSES.txt` and the licence list. Checked the same way.
+
+## 2026-11-15 · M16 · The AppImage of the Linux package (#88)
+
+- **Decision:** `scripts/package_linux.py` also builds `dist/ithax-<version>-x86_64.AppImage` and its `.sha256`, after the archive and from the same staged folder (`docs/research/m16-appimage.md`).
+  - `make_appdir` adds four files at the folder's top: `packaging/linux/appimage/AppRun`, `ithax.desktop`, the icon `ithax.png` (the package's `share/ithax.png`), and `LICENSE.type2-runtime.txt`, the runtime's pinned licence. It also adds the runtime to `THIRD-PARTY-LICENSES.txt`.
+  - appimagetool runs with `--no-appstream`, `--runtime-file` set to the pinned runtime, `APPIMAGE_EXTRACT_AND_RUN=1` (it is an AppImage and needs no FUSE that way) and the commit's time as `SOURCE_DATE_EPOCH`. Every tool is fetched and checked before the long part of the build.
+  - `AppRun` runs `bin/ithax`, or `bin/ithax-mcp` and `bin/ithax-launcher` for `mcp` and `launcher`, and then stays while any process runs from the AppImage's files. Mounted, it stays in the background with its output closed, so the caller gets its answer at once. Extracted with `APPIMAGE_EXTRACT_AND_RUN` (and no `NO_CLEANUP`), it stays in the foreground.
+- **Reason:** B5 (2026-11-13). The runtime keeps the files only while AppRun's processes need them. Read in `src/runtime/runtime.c` at tag `20251108`, fetched from `raw.githubusercontent.com` on 2026-11-15: a FUSE mount ends when no process holds the read end of its keepalive pipe; an extracted copy is removed once AppRun exits, unless `NO_CLEANUP` is set. The service the launcher starts is detached and started with its descriptors closed, so without the wait it would lose its files as soon as the launcher returned.
+- **Readings (reversible):**
+  - The extracted tree must equal the archive's folder, except for the four added files, `.DirIcon` (appimagetool's) and the longer `THIRD-PARTY-LICENSES.txt`.
+  - The runtime is listed in `THIRD-PARTY-LICENSES.txt` of the AppImage, not on the Help page's licences list. It is the AppImage's container format, not a part of the app that `GET /v1/licences` describes.
+  - AppRun checks every 2 s whether a process still runs from the AppImage, through `/proc/<pid>/exe`.
+  - The archive stays, for an installed menu entry and commands, and for machines that have no FUSE.
+- **Tests:** `tests/linux_package/test_appimage_build.py` covers the AppDir, the AppRun commands and its staying, mounted and extracted, and the appimagetool call. Under the marker `package`, `tests/linux_package/test_linux_package.py` checks:
+  - the checksum, and the type 2 magic;
+  - the extracted tree against the archive's;
+  - the same bytes from a second build;
+  - a first result offline in a clean `ubuntu:24.04` container (`clean_appimage.sh`);
+  - a first result mounted with FUSE on the CI runner, for which the `package` job installs `fuse3`.
+- **Spec sections updated:** spec 3 "Packaging" (Linux, the AppImage) and its acceptance table (an M16 row), with a dated line.
+- **Dependencies added:** none beyond the pinned tools of the entry above; `fuse3` is a CI system package for the mounted test, not shipped.

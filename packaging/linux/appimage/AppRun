@@ -1,0 +1,54 @@
+#!/bin/sh
+# AppRun: the AppImage's entry point (#88; docs/research/m16-appimage.md). The AppImage is
+# the package folder with this file at its top: with no argument, or options, it starts the
+# app as bin/ithax does; "mcp" runs the MCP server and "launcher" the launcher, with the
+# arguments after them passed on.
+#
+# The service a command starts outlives it, and runs from this AppImage's files, which the
+# runtime keeps only while AppRun's processes need them (type2-runtime 20251108,
+# src/runtime/runtime.c): mounted with FUSE, until no process holds the mount's keepalive
+# pipe, which the service, started with its descriptors closed, does not; extracted with
+# APPIMAGE_EXTRACT_AND_RUN, until AppRun exits, unless NO_CLEANUP is set. So AppRun waits
+# while any process runs from here: in the background when mounted, where the waiter holds
+# the pipe and the command's caller gets its answer at once; else in the foreground.
+set -eu
+here=$(dirname "$(readlink -f "$0")")
+case "${1:-}" in
+    mcp)
+        shift
+        command="$here/bin/ithax-mcp"
+        ;;
+    launcher)
+        shift
+        command="$here/bin/ithax-launcher"
+        ;;
+    *)
+        command="$here/bin/ithax"
+        ;;
+esac
+
+running() {
+    for exe in /proc/[0-9]*/exe; do
+        case $(readlink "$exe" 2>/dev/null || true) in
+            "$here"/*) return 0 ;;
+        esac
+    done
+    return 1
+}
+
+stay() {
+    while running; do
+        sleep "${ITHAX_APPRUN_POLL_S:-2}"
+    done
+}
+
+status=0
+"$command" "$@" || status=$?
+if [ -n "${APPIMAGE_EXTRACT_AND_RUN:-}" ] && [ -z "${NO_CLEANUP:-}" ]; then
+    # Nothing more is written to the caller; it sees the end of the output now.
+    exec </dev/null >/dev/null 2>&1
+    stay
+else
+    (exec </dev/null >/dev/null 2>&1 && stay) &
+fi
+exit "$status"

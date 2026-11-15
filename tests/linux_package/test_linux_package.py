@@ -16,8 +16,10 @@ display server and ``tauri-driver`` as ``tests/desktop/test_shell.py`` does.
 """
 
 import contextlib
+import hashlib
 import json
 import os
+import stat
 import subprocess
 import sys
 import tarfile
@@ -319,3 +321,149 @@ def test_the_installed_shell_reaches_home(
         while any(line.startswith(shell) for line in command_lines()):
             assert time.monotonic() < deadline, "the shell did not end"
             time.sleep(0.2)
+
+
+# The AppImage (#88; docs/research/m16-appimage.md): the same package folder as the archive,
+# with AppRun, the desktop file, the icon and the runtime's licence at its top.
+
+APPIMAGE = Path(
+    os.environ.get("ITHAX_APPIMAGE") or ROOT / "dist" / f"ithax-{ithax.__version__}-x86_64.AppImage"
+)
+#: What the AppImage adds to the archive's folder (``make_appdir``); appimagetool adds
+#: ``.DirIcon``, a link to the icon.
+APPDIR_ADDED = {"AppRun", "ithax.desktop", "ithax.png", "LICENSE.type2-runtime.txt", ".DirIcon"}
+
+
+@pytest.fixture(scope="module")
+def appimage() -> Path:
+    if not APPIMAGE.is_file():
+        pytest.fail(f"{APPIMAGE} is missing: run python scripts/package_linux.py first")
+    return APPIMAGE
+
+
+@pytest.fixture(scope="module")
+def extracted(appimage: Path, tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The AppImage's tree, extracted by its own runtime (no FUSE needed)."""
+    folder = tmp_path_factory.mktemp("extracted")
+    done = subprocess.run(
+        [appimage, "--appimage-extract"], cwd=folder, capture_output=True, text=True, timeout=300
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+    return folder / "squashfs-root"
+
+
+def tree(root: Path) -> dict[str, tuple[int, str]]:
+    """Each path under ``root``: its mode, and its bytes' SHA-256 or a link's target."""
+    found = {}
+    for path in sorted(root.rglob("*")):
+        status = path.lstat()
+        if path.is_symlink():
+            content = "-> " + os.readlink(path)
+        elif path.is_file():
+            content = hashlib.sha256(path.read_bytes()).hexdigest()
+        else:
+            content = "folder"
+        found[str(path.relative_to(root))] = (stat.S_IMODE(status.st_mode), content)
+    return found
+
+
+def test_the_checksum_file_verifies_the_appimage(appimage: Path) -> None:
+    done = subprocess.run(
+        ["sha256sum", "-c", f"{appimage.name}.sha256"],
+        cwd=appimage.parent,
+        capture_output=True,
+        text=True,
+    )
+    assert done.returncode == 0, done.stderr
+    assert done.stdout == f"{appimage.name}: OK\n"
+
+
+def test_the_appimage_is_a_type_2_appimage(appimage: Path) -> None:
+    head = appimage.read_bytes()[:16]
+    assert head[:4] == b"\x7fELF"
+    assert head[8:11] == b"AI\x02"
+    assert appimage.stat().st_mode & 0o111
+
+
+def test_the_appimage_holds_the_archives_folder_and_its_own_top(
+    archive: Path, extracted: Path, tmp_path: Path
+) -> None:
+    with tarfile.open(archive) as tar:
+        tar.extractall(tmp_path, filter="tar")
+    package = tree(tmp_path / NAME)
+    image = tree(extracted)
+    assert set(image) - set(package) == APPDIR_ADDED
+    assert set(package) - set(image) == set()
+    changed = [name for name in package if package[name] != image[name]]
+    # Only the notices differ: the AppImage's add the runtime.
+    assert changed == ["THIRD-PARTY-LICENSES.txt"]
+    notices = (extracted / "THIRD-PARTY-LICENSES.txt").read_text("utf-8")
+    assert notices.startswith((tmp_path / NAME / "THIRD-PARTY-LICENSES.txt").read_text("utf-8"))
+    assert "type2-runtime 20251108" in notices
+    assert image["AppRun"][0] == 0o755
+
+
+def test_the_appimage_is_the_same_bytes_when_built_again(
+    appimage: Path, extracted: Path, tmp_path: Path
+) -> None:
+    from linux_package.build_script import build
+
+    mtime = int((extracted / "AppRun").stat().st_mtime)
+    again = tmp_path / appimage.name
+    build.write_appimage(extracted, again, mtime, ROOT / "dist" / "cache")
+    assert again.read_bytes() == appimage.read_bytes()
+
+
+def clean_appimage(
+    appimage: Path, offline: bool, tmp_path: Path, mounted: bool
+) -> tuple[float, dict[str, Any]]:
+    """Run ``clean_appimage.sh``: in a clean container with the AppImage extracted as it
+    runs (``mounted`` false), or on this machine with FUSE; the time and the result."""
+    extra = ["--offline"] if offline else []
+    if not mounted and runner() == "docker":
+        command = ["docker", "run", "--rm", "--user", "ubuntu", "-e", "APPIMAGE_EXTRACT_AND_RUN=1"]
+        command += ["--network", "none"] if offline else []
+        command += ["-v", f"{appimage.parent}:/pkg:ro", "-v", f"{HERE}:/check:ro", IMAGE]
+        command += ["sh", "/check/clean_appimage.sh", "/pkg", appimage.name, "bundled", *extra]
+        environment = None
+    else:
+        environment = {"HOME": str(tmp_path / "home"), "PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"}
+        if not mounted:
+            environment["APPIMAGE_EXTRACT_AND_RUN"] = "1"
+        (tmp_path / "home").mkdir()
+        command = ["sh", str(HERE / "clean_appimage.sh"), str(appimage.parent), appimage.name]
+        command += [sys.executable, *extra]
+    started = time.monotonic()
+    done = subprocess.run(
+        command, capture_output=True, text=True, timeout=LIMIT_S + 60, env=environment
+    )
+    elapsed = time.monotonic() - started
+    assert done.returncode == 0, done.stdout + done.stderr
+    result: dict[str, Any] = json.loads(
+        next(line for line in done.stdout.splitlines() if line.startswith("{"))
+    )
+    print(json.dumps({"wall_s": round(elapsed, 2), "mounted": mounted, **result}))
+    return elapsed, result
+
+
+def test_the_appimage_reaches_a_first_result_offline_in_a_clean_container(
+    appimage: Path, tmp_path: Path
+) -> None:
+    elapsed, result = clean_appimage(appimage, offline=True, tmp_path=tmp_path, mounted=False)
+    assert result["outbound"]["lookup"].startswith("failed")
+    assert result["outbound"]["connect"].startswith("failed")
+    assert_first_result(result)
+    assert elapsed < LIMIT_S
+
+
+def test_the_mounted_appimage_keeps_the_service_running_to_a_first_result(
+    appimage: Path, tmp_path: Path
+) -> None:
+    # Mounted with FUSE, as on a desktop: the service keeps running from the mount after
+    # the launcher has returned (AppRun's waiter holds it). The CI job installs fuse3.
+    assert Path("/dev/fuse").exists(), "FUSE is needed: /dev/fuse is missing"
+    try:
+        _elapsed, result = clean_appimage(appimage, offline=False, tmp_path=tmp_path, mounted=True)
+        assert_first_result(result)
+    finally:
+        stop_service(tmp_path / "home" / ".config" / "ithax")
