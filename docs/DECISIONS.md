@@ -3554,6 +3554,22 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** spec 3 "Packaging" (Linux, the AppImage) and its acceptance table (an M16 row), with a dated line.
 - **Dependencies added:** none beyond the pinned tools of the entry above; `fuse3` is a CI system package for the mounted test, not shipped.
 
+## 2026-11-15 · M16 · The owner checks before v0.1.0, listed (#102)
+
+- **Decision:** `docs/release/v0.1.0-owner-checks.md` lists the checks that are the owner's before v0.1.0, each with its source, how to do it and where to record it. None is done by a session.
+  - #102 named three: the pointer-only test by hand (C5), one or two people outside the project (C1, C2), and the trademark and name-clash search (C8).
+  - The list adds four that the specs and DECISIONS leave to the owner:
+    - the low-tier confirmation of the measured performance targets (AKS-82; spec 0, 2 and 3 rows marked "owner confirms");
+    - the AppImage on a real desktop (B5; CI tests it only in a container and on the runner);
+    - a trial with a different assistant (C6; spec 4's row "owner, or agent if an MCP-capable assistant is available");
+    - whether v0.1.0 is a public release, which decides whether the trademark search and spec 0's lawyer review must come first.
+- **Reason:** #102, the guide's M16 row ("the owner checks are done") and the orchestrating session's brief: list the owner checks, do not do them.
+- **Readings (reversible):**
+  - Windows, the three timed testers of C3 and spec 0's "Real use" measure are left out, with the reason given in the file. They are Phase 2, Phase 3, and after the release.
+  - `docs/research/usability.md`'s tester script still named `lcsim`, renamed Ithax at M12 (#70). It now names `ithax` and the AppImage, so the owner can follow it as written.
+- **Spec sections updated:** none.
+- **Dependencies added:** none.
+
 ## 2026-11-15 · M16 · v0.1.0 is released from a branch, `release/0.1` (#103)
 
 - **Decision:** v0.1.0 is made on a release branch, option A, which the orchestrating session chose on 2026-11-15. `docs/release/v0.1.0.md` gives the steps:
