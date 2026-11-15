@@ -35,6 +35,7 @@ from mcp.types import CallToolResult, TextContent, Tool
 
 from ithax.mcp.client import Answer, ServiceClient, ServiceUnavailable
 from ithax.mcp.limits import RunLimitReached, segment
+from ithax.model.edits import edit_schemas
 from ithax.model.issues import Issue, pointer
 from ithax.strict_json import is_whole, json_text
 
@@ -110,7 +111,8 @@ KINDS: Mapping[str, tuple[Mapping[str, Any], str, Callable[[object], bool]]] = {
         _is_texts,
     ),
     "edits": (
-        {"type": "array", "items": {"type": "object"}},
+        # Each kind typed (#98), from the table the service checks edits against.
+        {"type": "array", "items": {"oneOf": edit_schemas()}},
         f"an array of edits whose numbers are finite, nested at most {MAX_DEPTH} levels deep",
         lambda value: isinstance(value, list) and _sendable(value),
     ),
@@ -118,6 +120,22 @@ KINDS: Mapping[str, tuple[Mapping[str, Any], str, Callable[[object], bool]]] = {
 
 #: The error answer's status from which a result is marked ``isError``.
 _ERROR_STATUS = 400
+
+
+def refused(answer: Answer) -> bool:
+    """Whether a result is marked ``isError``: an answer with an error status."""
+    return answer.status >= _ERROR_STATUS
+
+
+def refused_or_saved_with_errors(answer: Answer) -> bool:
+    """``refused``, or a write saved with an error among its issues, so that the model
+    cannot run as saved (#98, Reviewer B finding 8)."""
+    if refused(answer):
+        return True
+    issues = answer.body.get("issues", []) if isinstance(answer.body, dict) else []
+    return isinstance(issues, list) and any(
+        isinstance(issue, dict) and issue.get("severity") == "error" for issue in issues
+    )
 
 
 @dataclass(frozen=True)
@@ -144,6 +162,8 @@ class ToolSpec:
     example_arguments: Mapping[str, object]
     example_result: str
     calls: Calls
+    #: Whether an answer's result is marked ``isError``.
+    is_error: Callable[[Answer], bool] = refused
 
     @property
     def description(self) -> str:
@@ -243,7 +263,7 @@ def run_tool(
         answer = spec.calls(client, given)
     except (ServiceUnavailable, RunLimitReached) as refusal:
         return result_of(refusal.body(), is_error=True)
-    return result_of(answer.body, is_error=answer.status >= _ERROR_STATUS)
+    return result_of(answer.body, is_error=spec.is_error(answer))
 
 
 _segment = segment
@@ -582,8 +602,9 @@ EDIT_MODEL = ToolSpec(
         "get_schema gives each block type's settings. A batch that applies is saved and "
         "returns "
         "{model, revision, issues}: the issues are the checks made on loading the model, "
-        "errors to fix before a run and warnings to read; validate_model adds the engine's "
-        "own check. An edit that cannot be applied (an unknown or duplicate "
+        "errors to fix before a run and warnings to read; with an error the result is "
+        "marked as an error, though the batch is still saved. validate_model adds the "
+        "engine's own check. An edit that cannot be applied (an unknown or duplicate "
         "component id, an unknown type, parameter or experiment, a path whose parent does "
         "not exist) is refused with E180 at /edits/<n> and nothing is saved. Send "
         "base_revision, the revision get_model or the last edit_model returned: if the user "
@@ -621,6 +642,7 @@ EDIT_MODEL = ToolSpec(
         '{"target": "local", "fidelity": "standard"}}, "revision": 1, "issues": []}'
     ),
     calls=_edit_model,
+    is_error=refused_or_saved_with_errors,
 )
 
 RUN_MODEL = ToolSpec(

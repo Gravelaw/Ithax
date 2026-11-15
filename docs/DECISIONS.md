@@ -3137,3 +3137,24 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Licences checked** (not legal advice): highspy 1.16.0 is MIT (`LICENSE.txt`, "Copyright (c) 2026 HiGHS"). `THIRD_PARTY_NOTICES.md` lists the same components as 1.15.1: AMD BSD-3, CLI11 BSD-3, METIS Apache-2.0, pdqsort zlib, RCM MIT, zstr MIT.
 - **Spec sections updated:** spec 2's two optimization benchmark results, with a dated line.
 - **Dependencies added:** none; highspy upgraded from 1.15.1 to 1.16.0 (MIT, unchanged).
+
+## 2026-11-15 · M14 · MCP: typed edits and isError on an invalid save (#98; Reviewer B finding 8, C6)
+
+- **Decision:**
+  - **Typed edits.** `edit_model`'s `edits` input is `{"type": "array", "items": {"oneOf": [...]}}`, one object per edit kind in spec 3's order. In each, `edit` has `const` the kind, each field has its JSON type, the required fields are `required`, and `additionalProperties` is `false`.
+    - The field types: text a string, an object an object, a pointer a string matching `^(/.*)?$`, a label a string or null, any value unconstrained.
+    - `ithax.model.edits.edit_schemas()` makes the schemas from `_FIELDS`, the table `check_edits` reads, so the schema and the service's check cannot drift.
+  - **isError on an invalid save.** `ToolSpec.is_error` decides how a result is marked; the default is a status of 400 or above.
+    - `edit_model` also marks a result whose saved batch's `issues` include an error (`refused_or_saved_with_errors`). The body is unchanged, and a warning alone does not mark it.
+    - The description says "with an error the result is marked as an error, though the batch is still saved"; it is now 4,056 characters, within 4,096.
+  - **Checks.** Each fails before the change.
+    - Each kind's schema: kinds, required fields, fields, no others.
+    - The worked example's edits and three more fit the schema; five the service refuses do not.
+    - A save with an error is marked; one with only W202 is not.
+    - The description says so.
+- **Reason:** issue #98 (Reviewer B finding 8, as the issue states it): "Edits are typed only as object, enums are empty, and an invalid save returns isError false."
+- **Readings (reversible):**
+  - "An invalid save" is `edit_model`'s, the tool the finding names. `create_model` is not marked: a new optimization project starts with E179 by design (D2), and the project was created.
+  - "Enums are empty": no tool input schema and no part of `GET /v1/schema` held an empty `enum`. The typed kinds, with `const` per kind, are read as the fix. The exact wording of finding 8 was asked of the orchestrating session.
+- **Spec sections updated:** spec 4 "How the server runs and answers" (Inputs, Results, the description length), with a dated line.
+- **Dependencies added:** none.

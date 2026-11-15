@@ -20,6 +20,7 @@ from typing import Any
 
 import anyio
 import httpx2
+import jsonschema
 import pytest
 from mcp import Client
 from mcp_support import (
@@ -36,6 +37,7 @@ from mcp_support import (
 from ithax.mcp.client import ServiceClient
 from ithax.mcp.limits import MAX_UNFINISHED_RUNS, RUN_LIMIT
 from ithax.mcp.tools import MAX_DEPTH, TOOLS, check_arguments, run_tool, tool_named
+from ithax.model.edits import EDIT_KINDS
 from ithax.service.discovery import ServiceInfo
 
 FINAL = ("done", "failed", "cancelled")
@@ -497,7 +499,8 @@ def test_edit_model_returns_the_model_its_revision_and_its_issues(
         pid = await new_coffee_shop(mcp_client)
         expected = http.get(f"/v1/projects/{pid}/model").json()
         assert expected["revision"] == 1
-        # An edit that applies but leaves an error is saved and returns the issue.
+        # An edit that applies but leaves an error is saved and returns the issue; the
+        # result is marked isError, since the model cannot run as saved (#98).
         error, body = await call(
             mcp_client,
             "edit_model",
@@ -506,7 +509,7 @@ def test_edit_model_returns_the_model_its_revision_and_its_issues(
                 "edits": [{"edit": "set_setting", "id": "till", "path": "/capacity", "value": 0}],
             },
         )
-        assert not error
+        assert error
         assert body["revision"] == 2 and body["model"]["components"][1]["params"]["capacity"] == 0
         assert [(issue["code"], issue["path"]) for issue in body["issues"]] == [
             ("E123", "/components/1/params/capacity")
@@ -1070,3 +1073,87 @@ MAX_DESCRIPTION = 4096
 def test_every_description_fits_the_trial_assistant_s_limit() -> None:
     for spec in TOOLS:
         assert len(spec.tool().description or "") <= MAX_DESCRIPTION, spec.name
+
+
+# --- typed edits and isError on an invalid save (#98, Reviewer B finding 8) ------------------
+
+
+def test_a_save_with_only_warnings_is_not_an_error(client: ServiceClient) -> None:
+    """A warning is to read, not to fix: the result is not marked isError (#98)."""
+
+    async def check(mcp_client: Client) -> None:
+        pid = await new_coffee_shop(mcp_client)
+        clipping = {"dist": "normal", "mean": "2 min", "sd": "1 min"}  # 2.3% below 0: W202
+        error, body = await call(
+            mcp_client,
+            "edit_model",
+            {
+                "project_id": pid,
+                "edits": [
+                    {
+                        "edit": "set_setting",
+                        "id": "arrivals",
+                        "path": "/interarrival",
+                        "value": clipping,
+                    }
+                ],
+            },
+        )
+        assert [issue["code"] for issue in body["issues"]] == ["W202"]
+        assert not error
+
+    run(check, client)
+
+
+def test_the_edit_model_description_says_an_invalid_save_is_an_error() -> None:
+    description = tool_named("edit_model").description
+    assert "marked as an error" in description and "still saved" in description
+
+
+def edits_schema() -> dict[str, Any]:
+    schema = tool_named("edit_model").input_schema()["properties"]["edits"]
+    assert schema["type"] == "array"
+    items: dict[str, Any] = schema["items"]
+    return items
+
+
+def test_each_edit_kind_is_typed_in_the_input_schema() -> None:
+    """Reviewer B finding 8: the edits were typed only as objects. Each kind is now its own
+    object: 'edit' is that kind, its fields are listed, the required ones required, and no
+    other field is allowed (the table of ``ithax.model.edits``, which the service checks)."""
+    kinds = edits_schema()["oneOf"]
+    assert [kind["properties"]["edit"]["const"] for kind in kinds] == list(EDIT_KINDS)
+    by_kind = {kind["properties"]["edit"]["const"]: kind for kind in kinds}
+    assert by_kind["add_component"]["required"] == ["edit", "id", "type", "params"]
+    assert set(by_kind["add_component"]["properties"]) == {"edit", "id", "type", "params", "ui"}
+    assert by_kind["set_label"]["properties"]["label"] == {"type": ["string", "null"]}
+    assert by_kind["connect"]["properties"]["from"] == {"type": "string"}
+    assert all(kind["additionalProperties"] is False for kind in kinds)
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        *tool_named("edit_model").example_arguments["edits"],  # type: ignore[misc]
+        {"edit": "set_label", "id": "till", "label": None},
+        {"edit": "set_experiment", "id": "base", "length": "210 h", "warmup": "10 h"},
+        {"edit": "set_path", "path": "/meta/description", "value": "A shop"},
+    ],
+)
+def test_the_edits_the_service_takes_fit_the_schema(edit: dict[str, Any]) -> None:
+    jsonschema.validate(edit, edits_schema())
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        {"edit": "add_component", "id": "till", "type": "server"},  # no params
+        {"edit": "connect", "from": "a.out", "to": "b.in", "extra": 1},
+        {"edit": "teleport", "id": "till"},
+        {"edit": "set_label", "id": "till", "label": 3},
+        {"id": "till"},
+    ],
+)
+def test_edits_the_service_refuses_do_not_fit_the_schema(edit: dict[str, Any]) -> None:
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(edit, edits_schema())
