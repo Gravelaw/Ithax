@@ -44,6 +44,7 @@ __all__ = [
     "EditOutcome",
     "apply_edits",
     "check_edits",
+    "edit_schemas",
     "first_unstorable",
     "parse_pointer",
 ]
@@ -99,6 +100,36 @@ _FIELDS: dict[str, tuple[dict[str, str], dict[str, str]]] = {
 
 #: The sixteen edit kinds, in the order of spec 3's table.
 EDIT_KINDS: tuple[str, ...] = tuple(_FIELDS)
+
+# The JSON Schema of each field kind: a pointer is "" or starts with "/" (RFC 6901).
+_KIND_SCHEMAS: dict[str, dict[str, Any]] = {
+    _TEXT: {"type": "string"},
+    _OBJECT: {"type": "object"},
+    _POINTER: {"type": "string", "pattern": "^(/.*)?$"},
+    _LABEL: {"type": ["string", "null"]},
+    _ANY: {},
+}
+
+
+def edit_schemas() -> list[dict[str, Any]]:
+    """One JSON Schema object per edit kind, in ``EDIT_KINDS`` order, from the same table
+    ``check_edits`` reads: ``edit`` that kind, its fields typed, the required ones
+    required and no others allowed (#98)."""
+    schemas: list[dict[str, Any]] = []
+    for kind, (required, optional) in _FIELDS.items():
+        properties: dict[str, Any] = {"edit": {"const": kind}}
+        for name, field_kind in {**required, **optional}.items():
+            properties[name] = dict(_KIND_SCHEMAS[field_kind])
+        schemas.append(
+            {
+                "type": "object",
+                "properties": properties,
+                "required": ["edit", *required],
+                "additionalProperties": False,
+            }
+        )
+    return schemas
+
 
 # Spec 3 `set_experiment`: a new experiment starts from the `base` experiment of a new
 # project.

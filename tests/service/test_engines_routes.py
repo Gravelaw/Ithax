@@ -10,7 +10,7 @@ from starlette.testclient import TestClient
 
 from ithax.engines.registry import installed_adapters
 from ithax.model.catalogue import PROCESS_TYPES, SettingKind, SettingSpec
-from ithax.model.schema import model_schema
+from ithax.model.schema import model_schema, published_schema
 from ithax.model.units import Dimension, Quantity
 from ithax.service.engines import (
     COMPONENT_TYPES_KEY,
@@ -46,8 +46,9 @@ def test_engines_lists_the_installed_adapters(client: TestClient) -> None:
 
 
 def test_the_schema_is_spec_1s_with_the_component_types(client: TestClient) -> None:
+    """Spec 1's schema with the words and bounds the meaning pass checks (#98)."""
     schema = client.get("/v1/schema").json()
-    static = model_schema()
+    static = published_schema()
     types = schema.pop(COMPONENT_TYPES_KEY)
     assert schema == static
     assert list(types) == list(PROCESS_TYPES)
