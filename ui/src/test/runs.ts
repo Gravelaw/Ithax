@@ -76,7 +76,18 @@ export function optionsSummary(): Summary {
   const scenarios = one.scenarios as Record<string, unknown>;
   return {
     ...one,
-    scenarios: { default: scenarios.default, faster: scenarios.default },
+    scenarios: {
+      default: scenarios.default,
+      // The faster option's own wait: the default's 941.5 s less the paired 300 s.
+      faster: (() => {
+        const base = scenarios.default as { set: unknown; metrics: Record<string, unknown> };
+        const wait = base.metrics["weld.wait.mean"] as Record<string, unknown>;
+        return {
+          ...base,
+          metrics: { ...base.metrics, "weld.wait.mean": { ...wait, mean: 641.5 } },
+        };
+      })(),
+    },
     differences: [
       {
         scenario: "faster",

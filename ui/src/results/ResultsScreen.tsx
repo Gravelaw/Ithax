@@ -339,7 +339,7 @@ function Shown({
       {learning !== null && learning.runId === rid ? (
         <LessonResult learning={learning} onGo={onGo} onExit={exit} />
       ) : null}
-      <p className="headline-card">{headline(findings)}</p>
+      <p className="headline-card">{headline(findings, summary)}</p>
 
       <h2 className="heading" id="findings-heading">
         Findings
@@ -352,6 +352,9 @@ function Shown({
             // biome-ignore lint/suspicious/noArrayIndexKey: findings are in the rules' order
             <li key={index} className={`finding finding-${finding.severity}`}>
               <span className="finding-rule">{ruleName(finding.rule)}</span>
+              {scenarios.length > 1 && finding.scenario !== null ? (
+                <span className="finding-option">Option {finding.scenario}</span>
+              ) : null}
               <span>{finding.text}</span>
             </li>
           ))}

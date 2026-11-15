@@ -195,6 +195,23 @@ describe("a run's results", () => {
     ).toBeVisible();
   });
 
+  it("heads a comparison with its change and cause, and names each finding's option (#94)", async () => {
+    show(service(optionsSummary(), LINE_FINDINGS));
+    expect(
+      await screen.findByText(/^Option faster cuts the average wait at weld from 15.7 min/, {
+        selector: ".headline-card",
+      }),
+    ).toBeVisible();
+    const findings = screen.getByRole("list", { name: "Findings" });
+    expect(within(findings).getAllByText("Option default")).toHaveLength(LINE_FINDINGS.length);
+  });
+
+  it("names no option for a run of one (#94)", async () => {
+    show(service());
+    await screen.findByRole("heading", { name: "Findings" });
+    expect(screen.queryByText("Option default")).toBeNull();
+  });
+
   it("shows the bars and their table, the differences and the time series picked", async () => {
     const { user } = show(service(optionsSummary(), []));
     await screen.findByRole("heading", { name: "Differences between options" });
@@ -208,7 +225,7 @@ describe("a run's results", () => {
     );
     const table = screen.getByRole("table", { name: /^Average wait by component/ });
     expect(within(table).getAllByRole("row")).toHaveLength(5);
-    expect(table).toHaveTextContent("weldfaster15.7± 2.09");
+    expect(table).toHaveTextContent("weldfaster10.7± 2.09");
     await user.click(
       screen.getByRole("button", { name: /^Hide the table: Average wait by component/ }),
     );
