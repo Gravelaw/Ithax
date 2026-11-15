@@ -380,7 +380,7 @@ def test_an_import_is_saved_while_the_project_s_writes_are_held(
     monkeypatch.setattr(os, "replace", replace)
     assert upload(client, pid).status_code == 200
     monkeypatch.undo()
-    assert held == [True, True]
+    assert held == [True, True, True]  # the commit record (#71), the file, the index
 
 
 def test_a_data_folder_that_is_missing_is_made_again(client: TestClient) -> None:

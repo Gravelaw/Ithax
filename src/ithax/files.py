@@ -23,7 +23,7 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 
-__all__ = ["atomic_write", "atomic_write_with", "temporary_path", "write_synced"]
+__all__ = ["atomic_write", "atomic_write_with", "sync_folder", "temporary_path", "write_synced"]
 
 #: The mode a new file is created with when none is asked for, before the umask.
 _OPEN_MODE = 0o666
@@ -42,7 +42,7 @@ def _sync(path: Path) -> None:
         os.close(descriptor)
 
 
-def _sync_folder(folder: Path) -> None:
+def sync_folder(folder: Path) -> None:
     """Flushes the rename to disk. A system that cannot open a folder (Windows) has
     nothing to flush this way."""
     with contextlib.suppress(OSError):
@@ -79,7 +79,7 @@ def atomic_write_with(
         with contextlib.suppress(OSError):
             temporary.unlink()
         raise
-    _sync_folder(path.parent)
+    sync_folder(path.parent)
 
 
 def atomic_write(path: Path, data: bytes, *, mode: int | None = None) -> None:

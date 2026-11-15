@@ -3137,3 +3137,27 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Licences checked** (not legal advice): highspy 1.16.0 is MIT (`LICENSE.txt`, "Copyright (c) 2026 HiGHS"). `THIRD_PARTY_NOTICES.md` lists the same components as 1.15.1: AMD BSD-3, CLI11 BSD-3, METIS Apache-2.0, pdqsort zlib, RCM MIT, zstr MIT.
 - **Spec sections updated:** spec 2's two optimization benchmark results, with a dated line.
 - **Dependencies added:** none; highspy upgraded from 1.15.1 to 1.16.0 (MIT, unchanged).
+
+## 2026-11-15 · M14 · An atomic model save (#71; D3, M6-34)
+
+- **Decision:**
+  - **The commit record** (`ithax.service.commit`). `replace_in_order` writes every file's bytes to synced temporary files. Then it writes `.ithax-commit.json`, `{"renames": [[temporary, target], ...]}`, beside them with `atomic_write`: that write is the commit. Then it renames the temporaries in order, syncs the folder and removes the record.
+    - A failure before the record removes the temporaries.
+    - A rename that fails puts the earlier files back, as before, and removes the record.
+    - Every file of one commit sits in one folder.
+  - **The replay** (`replay(folder)`). It renames each temporary still present onto its target, in the record's order, syncs the folder and removes the record.
+    - A record that cannot be read (not JSON, not pairs of plain file names) is left and logged, and nothing changes.
+  - **When.** The projects store replays a folder and its `data/` the first time this process uses it: listed (the start, through the run service), found (`folder(pid)`, before every model, data or run use) or opened.
+  - **Checks.** Each fails before the change.
+    - `tests/service/test_commit.py`: a child process ends with `os._exit` at the record's rename, at the first file's or between the two files. Replay gives the old files in the first case and the new ones in the others.
+    - Also there: a failed commit leaves no record; an unreadable record changes nothing; one folder per commit.
+    - `tests/service/test_admission.py`: the same three stops on a real project, read back by a new service through `GET` model and `GET /v1/projects`, and a folder opened mid-save.
+    - On the old code the same stop left the new model at the old revision, for a new service: shown by a direct run, recorded in the PR.
+- **Reason:** issue #71 (D3, M6-34): "Done when an interrupted save leaves either the old or the new model and revision, with a test."
+- **Readings (reversible):**
+  - **A redo record, not a checksum** (`docs/research/m14-atomic-save.md`). A checksum would detect the mismatch but could not repair it, since the old model is gone.
+  - **Replay only on first use, not on every read**, so it never races a save in another thread.
+  - **Temporaries left by a stop before the record are kept.** They are named for the process and thread, so they never meet a later save.
+  - **`files.sync_folder` is now public** for the commit.
+- **Spec sections updated:** spec 3 "Revision", with a dated line.
+- **Dependencies added:** none.

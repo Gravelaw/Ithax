@@ -13,6 +13,8 @@ with the last rename, of ``project.json``.
 import dataclasses
 import json
 import os
+import subprocess
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -26,6 +28,7 @@ from ithax.engines.process.adapter import ProcessAdapter
 from ithax.model.issues import Issue
 from ithax.model.model import Model
 from ithax.service.app import create_app
+from ithax.service.commit import RECORD
 from ithax.service.config import ServiceConfig
 from ithax.service.errors import AsciiJSONResponse
 from ithax.service.projects_store import MODEL_FILE, PROJECT_FILE, encode_json, write_json
@@ -294,15 +297,16 @@ def test_a_project_name_that_cannot_be_written_is_e184(client: TestClient) -> No
 # --- the save --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("failing", [1, 2])
-def test_a_save_that_fails_at_either_rename_changes_nothing(
+@pytest.mark.parametrize("failing", [1, 2, 3])
+def test_a_save_that_fails_at_any_rename_changes_nothing(
     client: TestClient,
     events: list[tuple[str, int, str]],
     monkeypatch: pytest.MonkeyPatch,
     failing: int,
 ) -> None:
-    """The first rename puts the new model in place, the second (``project.json``) is the
-    commit; a failure at the second puts the old model back."""
+    """The first rename puts the commit record in place (#71), the second the new model,
+    the third ``project.json``; a failure at the third puts the old model back, and any
+    failure removes the record."""
     pid, where = project(client)
     events.clear()
     before = snapshot(where)
@@ -323,8 +327,15 @@ def test_a_save_that_fails_at_either_rename_changes_nothing(
     monkeypatch.undo()
     coded_refusal(response, "E186")
     assert "denied" not in response.text
-    # At the second rename the old model is renamed back into place.
-    assert calls == ([MODEL_FILE] if failing == 1 else [MODEL_FILE, PROJECT_FILE, MODEL_FILE])
+    # At the third rename the old model is renamed back into place.
+    assert (
+        calls
+        == [
+            [RECORD],
+            [RECORD, MODEL_FILE],
+            [RECORD, MODEL_FILE, PROJECT_FILE, MODEL_FILE],
+        ][failing - 1]
+    )
     assert snapshot(where) == before
     assert events == []
 
@@ -349,7 +360,7 @@ def test_a_save_commits_with_project_json_last_then_publishes(
     )
     monkeypatch.undo()
     assert response.status_code == 200
-    assert order == [MODEL_FILE, PROJECT_FILE]
+    assert order == [RECORD, MODEL_FILE, PROJECT_FILE]  # the commit record first (#71)
     assert events == [(pid, 2, "script")]
     assert sorted(path.name for path in where.iterdir()) == [
         "data",
@@ -438,7 +449,8 @@ def test_a_put_back_that_fails_is_logged_and_still_refused(
 
     def replace(source: Any, target: Any) -> None:
         calls.append(Path(target).name)
-        if len(calls) >= 2:
+        # The record (#71) and the model are renamed; project.json and the put back fail.
+        if len(calls) >= 3:
             raise PermissionError("denied")
         real(source, target)
 
@@ -470,3 +482,88 @@ def test_write_json_leaves_nothing_when_the_write_fails(tmp_path: Path) -> None:
     with pytest.raises(OSError):
         write_json(tmp_path / "missing" / "x.json", {"a": 1})
     assert list(tmp_path.iterdir()) == []
+
+
+# --- a save a stopped service left half done (#71; docs/research/m14-atomic-save.md) --------
+
+#: A child that saves the model bytes and project.json bytes it is given, as the model store
+#: does, and ends at once (no clean-up runs) at its stop-th call of ``os.replace``.
+HALF_SAVE = """
+import os, sys
+from pathlib import Path
+from ithax.service.commit import Planned, replace_in_order
+folder, model, record, stop = Path(sys.argv[1]), sys.argv[2], sys.argv[3], int(sys.argv[4])
+real, calls = os.replace, []
+def replace(source, target):
+    calls.append(target)
+    if len(calls) == stop:
+        os._exit(9)
+    real(source, target)
+os.replace = replace
+replace_in_order([
+    Planned(folder / "model.json", Path(model).read_bytes(), None),
+    Planned(folder / "project.json", Path(record).read_bytes(), None),
+])
+"""
+
+
+def half_save(where: Path, tmp_path: Path, model: Json, stop: int) -> None:
+    record = json.loads((where / PROJECT_FILE).read_text(encoding="utf-8"))
+    record["model_revision"] += 1
+    (tmp_path / "new-model.json").write_text(json.dumps(model), encoding="utf-8")
+    (tmp_path / "new-record.json").write_text(json.dumps(record), encoding="utf-8")
+    ended = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            HALF_SAVE,
+            str(where),
+            str(tmp_path / "new-model.json"),
+            str(tmp_path / "new-record.json"),
+            str(stop),
+        ],
+        check=False,
+        timeout=60,
+    )
+    assert ended.returncode == 9
+
+
+@pytest.mark.parametrize(("stop", "finished"), [(1, False), (2, True), (3, True)])
+def test_a_save_a_stopped_service_left_half_done_is_old_or_new_on_the_next_start(
+    config: ServiceConfig, tmp_path: Path, stop: int, finished: bool
+) -> None:
+    """Issue #71: the service stops before the commit record (1), after it (2), or between
+    model.json and project.json (3, the gap of M6-34). The next service shows the old model
+    and revision, or the new ones, never the new model at the old revision."""
+    with TestClient(create_app(config), base_url=BASE_URL, headers=AUTH) as first:
+        pid, where = project(first)
+        old = first.get(f"/v1/projects/{pid}/model").json()
+    new = {**old["model"], "meta": {**old["model"]["meta"], "name": "Shop after the save"}}
+    half_save(where, tmp_path, new, stop)
+    if stop == 3:
+        assert json.loads((where / MODEL_FILE).read_text())["meta"]["name"] == "Shop after the save"
+        assert json.loads((where / PROJECT_FILE).read_text())["model_revision"] == old["revision"]
+    with TestClient(create_app(config), base_url=BASE_URL, headers=AUTH) as second:
+        now = second.get(f"/v1/projects/{pid}/model").json()
+        listed = [item for item in second.get("/v1/projects").json() if item["id"] == pid]
+    expected = (new, old["revision"] + 1) if finished else (old["model"], old["revision"])
+    assert (now["model"], now["revision"]) == expected
+    assert listed[0]["model_revision"] == expected[1]
+    assert not (where / RECORD).exists()
+
+
+def test_an_opened_folder_finishes_a_half_done_save_first(
+    config: ServiceConfig, tmp_path: Path
+) -> None:
+    """A project folder copied from elsewhere, mid-save, is finished when it is opened."""
+    with TestClient(create_app(config), base_url=BASE_URL, headers=AUTH) as first:
+        pid, where = project(first)
+        old = first.get(f"/v1/projects/{pid}/model").json()
+    new = {**old["model"], "meta": {**old["model"]["meta"], "name": "Copied mid-save"}}
+    half_save(where, tmp_path, new, 3)
+    other = dataclasses.replace(config, config_dir=tmp_path / "other-config")
+    with TestClient(create_app(other), base_url=BASE_URL, headers=AUTH) as second:
+        opened = second.post("/v1/projects/open", json={"path": str(where)})
+        assert opened.status_code == 200, opened.text
+        assert opened.json()["model_revision"] == old["revision"] + 1
+        assert second.get(f"/v1/projects/{pid}/model").json()["model"] == new
