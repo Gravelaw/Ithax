@@ -3273,19 +3273,6 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Reason:** issue #90: at 1,280 × 800 the buttons followed a long step inside a card capped at 60% of the column, so they were below the card's fold. The wireframe `01b-canvas-learn.svg` draws them in view, and design-system.md "Layout" designs at 1,280 × 800. `ui/e2e/learn-layout.spec.ts` walks every step of every template's lesson at that size and checks each control is wholly in the window and inside the card; it failed before the change, at "Exit lesson".
 - **Readings (reversible):** "Exit lesson" stays a link under the buttons, as built, not on their row as the wireframe draws it.
 - **Spec sections updated:** none; the layout now matches the design.
-
-## 2026-11-15 · M15 · The Canvas at 200% text and below 1,024 px (#93; Reviewer B finding 4)
-
-- **Decision:**
-  - **Narrow** is a window under 64 rem of the root's text size (`ui/src/app/narrow.ts`): 1,024 px at 100% text, as design-system.md "Window" says, and 2,048 px at 200%. A media query cannot say this, since its rem is the browser's; the old `max-width: 64rem` query, which only narrowed the side panel, is gone.
-  - **When narrow,** the palette is 11 rem and the side panel (with the step card in a lesson) is an overlay over the canvas's right edge (`SideSheet.tsx`). It opens on each new selection, and at a lesson's start; "Close the panel" closes it; "Show the panel" in the top bar opens it on the model's parameters. Closed, it is `hidden` and `inert`, so F6 passes it by and its fields keep their state.
-  - **The top bar** has 52 px (3.25 rem) as its least height and grows: it wraps the title and the tools, so Undo, Redo, the experiment and Run stay whole.
-- **Reason:** issue #93: at 200% text the top bar clipped its tools and Run, and below 1,024 px the side panel was a narrowed column, not the overlay of design-system.md "Window" and accessibility.md (WCAG 1.4.10). `ui/e2e/canvas-layout.spec.ts` checks 200% text at 1,280 × 800 and 100% at 900 × 700 (the tools whole in the bar, no panel until a selection, the panel over the canvas without taking its width, Close and "Show the panel"), and the column at the designed size; the two narrow cases failed before the change.
-- **Readings (reversible):**
-  - "Below 1024 px" counts in the text size's rem, so the layout at 200% text is the narrow one.
-  - "Panels collapse" narrows the palette to 11 rem and leaves the problems list as it is (resizable and collapsible already).
-  - The overlay also opens on the parameters from the top bar, since with nothing selected it would otherwise be unreachable.
-- **Spec sections updated:** design-system.md "Window"; accessibility.md 1.4.10. Spec 3 is silent on the layout.
 - **Dependencies added:** none.
 
 ## 2026-11-15 · M14 · Large optimization results kept small (#82; owner decision #181)
@@ -3302,4 +3289,19 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - **"The model's order" is the summary's order.** The adapter writes values and slacks in the program's order, and the MCP server does not read the model.
 - **Spec sections updated:** spec 4 "Results" and "Finding rules", with a dated line.
 - **Also in this PR: lost dependency lines restored.** Merges that resolved conflicts in this file since M12 had dropped the closing `- **Dependencies added:** none.` of 13 entries: 12 from M12 and M13, and #90's in this PR's merge of main. Each line was restored from the entry's own history on main; every one was "none", so no licence record was lost. The diff against main showed no deletion, because git pairs a lost line with the same line closing the next entry. The entry for retrospective PR 11a (#148) never had the line; that PR changed no dependency file, so it now says none. `tests/test_docs.py::test_every_milestone_decision_records_its_dependencies` checks each milestone entry from 2026-11-13 on, and the pre-push skill compares heading and dependency-line counts with main's.
+- **Dependencies added:** none.
+
+## 2026-11-15 · M15 · The Canvas at 200% text and below 1,024 px (#93; Reviewer B finding 4)
+
+- **Decision:**
+  - **Narrow** is a window under 64 rem of the root's text size (`ui/src/app/narrow.ts`): 1,024 px at 100% text, as design-system.md "Window" says, and 2,048 px at 200%. A media query cannot say this, since its rem is the browser's; the old `max-width: 64rem` query, which only narrowed the side panel, is gone.
+  - **When narrow,** the palette is 11 rem and the side panel (with the step card in a lesson) is an overlay over the canvas's right edge (`SideSheet.tsx`). It opens on each new selection, and at a lesson's start; "Close the panel" closes it; "Show the panel" in the top bar opens it on the model's parameters. Closed, it is `hidden` and `inert`, so F6 passes it by and its fields keep their state.
+  - **The top bar** has 52 px (3.25 rem) as its least height and grows: it wraps the title and the tools, so Undo, Redo, the experiment and Run stay whole.
+- **Reason:** issue #93: at 200% text the top bar clipped its tools and Run, and below 1,024 px the side panel was a narrowed column, not the overlay of design-system.md "Window" and accessibility.md (WCAG 1.4.10). `ui/e2e/canvas-layout.spec.ts` checks 200% text at 1,280 × 800 and 100% at 900 × 700 (the tools whole in the bar, no panel until a selection, the panel over the canvas without taking its width, Close and "Show the panel"), and the column at the designed size; the two narrow cases failed before the change.
+- **Readings (reversible):**
+  - "Below 1024 px" counts in the text size's rem, so the layout at 200% text is the narrow one.
+  - "Panels collapse" narrows the palette to 11 rem and leaves the problems list as it is (resizable and collapsible already).
+  - The overlay also opens on the parameters from the top bar, since with nothing selected it would otherwise be unreachable.
+- **Review of PR #192:** "N changes to review" opens the overlay too, so the review list it focuses is not hidden; and the wrapper is the same element at every width (`display: contents` when not narrow), so crossing the narrow width keeps the panel mounted and a field's uncommitted draft with it. Each has an end-to-end test that failed first.
+- **Spec sections updated:** design-system.md "Window"; accessibility.md 1.4.10. Spec 3 is silent on the layout.
 - **Dependencies added:** none.

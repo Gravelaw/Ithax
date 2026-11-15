@@ -6,7 +6,7 @@
  * opens it on the model's parameters, and "N changes to review" on the review list. Closed,
  * it is hidden and inert, so F6 passes it by and its fields keep what they hold. At the
  * designed width the same wrapper is `display: contents`, so the panel is the plain column
- * and crossing the width never remounts it, which would lose a draft (review of PR #192).
+ * and crossing the width never remounts it, which would lose a draft (review of pull request 192).
  */
 import { SidebarSimpleIcon, XIcon } from "@phosphor-icons/react";
 import { type ReactNode, useEffect, useState } from "react";
