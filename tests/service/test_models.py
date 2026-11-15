@@ -816,10 +816,13 @@ def test_validate_reports_a_schema_failure_of_the_saved_file(client: TestClient)
 
 
 def test_validate_of_the_default_models(client: TestClient) -> None:
-    """A new process model has no issues; a new optimization model starts empty, so its
-    one issue is E179 at /variables (#80, D2)."""
+    """A new process model's one issue is W204 at /components, a warning (#95; owner
+    decision #188, option A); a new optimization model starts empty, so its one issue is
+    E179 at /variables (#80, D2)."""
     pid = new_project(client, "process")
-    assert client.post(f"/v1/projects/{pid}/validate").json() == {"revision": 0, "issues": []}
+    body = client.post(f"/v1/projects/{pid}/validate").json()
+    assert body["revision"] == 0
+    assert [(issue["code"], issue["severity"]) for issue in body["issues"]] == [("W204", "warning")]
     pid = new_project(client, "optimization")
     body = client.post(f"/v1/projects/{pid}/validate").json()
     assert [(issue["code"], issue["path"]) for issue in body["issues"]] == [("E179", "/variables")]

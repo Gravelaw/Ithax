@@ -98,7 +98,9 @@ def test_the_default_process_model_is_spec_3s_and_validates(client: TestClient) 
         "experiments": [{"id": "base", "length": "8 h", "warmup": "0 s", "replications": 30}],
         "run": {"target": "local", "fidelity": "standard"},
     }
-    assert validate(text) == []
+    # No error, so it can be edited and saved; W204 says it has nothing to run yet (#95;
+    # owner decision #188, option A).
+    assert [(issue["code"], issue["path"]) for issue in validate(text)] == [("W204", "/components")]
 
 
 def test_an_optimization_project_starts_empty_with_e179(client: TestClient) -> None:

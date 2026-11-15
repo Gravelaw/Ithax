@@ -15,6 +15,7 @@ import { FakeService, SETTINGS } from "../test/fakes";
 import { CanvasScreen, runBlocked, WAIT } from "./CanvasScreen";
 import { BLOCK_MIME } from "./Palette";
 import type { SessionState } from "./session";
+import { EMPTY_MODEL } from "./Toolbar";
 
 const PROJECT: Project = {
   id: PID,
@@ -902,6 +903,33 @@ describe("other screens and states", () => {
   });
 });
 
+describe("the blank canvas (#95; owner decision #188, option A)", () => {
+  it("guides the first block and holds Run back with its reason", async () => {
+    const model = { ...coffeeShop(), components: [], connections: [] };
+    const { toolbar } = renderCanvas({
+      model,
+      validate: () => [
+        {
+          code: "W204",
+          severity: "warning",
+          component: null,
+          path: "/components",
+          message:
+            "The model has no blocks: 'components' is empty, so a run has nothing to simulate.",
+          hint: null,
+        },
+      ],
+    });
+    await settled(toolbar);
+    expect(await screen.findByRole("note", { name: "An empty model" })).toHaveTextContent(
+      /Drag a block from the palette/,
+    );
+    const run = within(toolbar).getByRole("button", { name: "Run" });
+    expect(run).toHaveAttribute("aria-disabled", "true");
+    expect(within(toolbar).getByText(EMPTY_MODEL)).toBeVisible();
+  });
+});
+
 describe("why Run waits", () => {
   const base: SessionState = {
     status: "ready",
@@ -932,6 +960,23 @@ describe("why Run waits", () => {
     message: "m",
     hint: null,
   };
+
+  it("waits for a block when the service says the model has none (#95; #188, option A)", () => {
+    const empty: Issue = {
+      code: "W204",
+      severity: "warning",
+      component: null,
+      path: "/components",
+      message: "The model has no blocks: 'components' is empty, so a run has nothing to simulate.",
+      hint: null,
+    };
+    expect(runBlocked({ ...base, issues: [empty] })).toEqual({
+      reason: EMPTY_MODEL,
+      pointer: "empty",
+    });
+    // An error is named first.
+    expect(runBlocked({ ...base, issues: [error, empty] })?.pointer).toBe("errors");
+  });
 
   it("names the first reason, with the pointer to show", () => {
     expect(runBlocked(base)).toBeNull();

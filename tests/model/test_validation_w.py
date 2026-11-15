@@ -24,6 +24,7 @@ from ithax.model.units import Dimension, Quantity
 from ithax.model.validation import (
     clipping_issues,
     distribution_mean,
+    empty_model_issues,
     failure_capacity_issues,
     flow_rates,
     load_issues,
@@ -140,6 +141,7 @@ GROUPS: list[Callable[[Model], list[Issue]]] = [
     load_issues,
     clipping_issues,
     failure_capacity_issues,
+    empty_model_issues,
 ]
 
 
@@ -148,7 +150,7 @@ def test_the_coffee_shop_raises_no_warning(group: Callable[[Model], list[Issue]]
     assert group(built(coffee())) == []
 
 
-@pytest.mark.parametrize("code", ["W200", "W201", "W202", "W203"])
+@pytest.mark.parametrize("code", ["W200", "W201", "W202", "W203", "W204"])
 def test_a_warning_fixture_loads_with_its_warning_and_no_error(code: str) -> None:
     """Spec 1 "Validation issues": warnings do not block a run, so the model loads."""
     fixtures = sorted(FIXTURES.glob(f"{code}_*.json"))
@@ -1087,3 +1089,27 @@ def test_w203_names_the_first_scenario_that_raises_the_capacity() -> None:
     ]
     (issue,) = failure_capacity_issues(built(document))
     assert "'capacity' is 2 in scenario 'two' of experiment 'base':" in issue.message
+
+
+# --- W204: a process model with no blocks (#95; owner decision #188, option A) -----------------
+
+
+def test_w204_a_process_model_with_no_blocks() -> None:
+    document = coffee()
+    document["components"] = []
+    document["connections"] = []
+    document["experiments"][0].pop("metrics", None)
+    [issue] = empty_model_issues(built(document))
+    assert issue.code == "W204"
+    assert issue.path == "/components"
+    assert issue.component is None
+    assert "no blocks" in issue.message
+    assert "source" in issue.hint
+
+
+def test_w204_not_for_a_model_with_a_block_or_a_plan() -> None:
+    assert empty_model_issues(built(coffee())) == []
+    plan = ROOT / "templates" / "product_mix" / "model.json"
+    result = load_document(json.loads(plan.read_text(encoding="utf-8")))
+    assert result.model is not None
+    assert empty_model_issues(result.model) == []
