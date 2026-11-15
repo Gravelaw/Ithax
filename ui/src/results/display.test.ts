@@ -6,6 +6,7 @@ import {
   figures,
   inUnit,
   isShare,
+  metricWords,
   percent,
   quantity,
   rangeText,
@@ -82,6 +83,8 @@ describe("readable units and times (#96)", () => {
     ["1/d", "per day"],
     ["1", "no unit"],
     ["kg", "kg"],
+    ["constructor", "constructor"],
+    ["1/toString", "1/toString"],
   ])("names the unit %s in words: %s", (symbol, words) => {
     expect(unitWords(symbol)).toBe(words);
   });
@@ -95,5 +98,28 @@ describe("readable units and times (#96)", () => {
   it("gives text that is not a moment as it is", () => {
     expect(whenText("soon")).toBe("soon");
     expect(dateText("")).toBe("");
+  });
+});
+
+describe("metric names in words (#91)", () => {
+  it.each([
+    ["till.wait.mean", "till: average wait"],
+    ["till.utilization", "till: busy share"],
+    ["exit.throughput", "exit: throughput"],
+    ["exit.cycle_time.mean", "exit: average time in the system"],
+    ["till.queue_length.max", "till: longest queue"],
+    ["till.queue_length.mean", "till: average queue length"],
+    ["shelf.stock.mean", "shelf: average stock"],
+    ["arrivals.created", "arrivals: items created"],
+    ["exit.count", "exit: items finished"],
+    ["model.wip.mean", "whole model: average items in the system"],
+    ["till.new_thing.max", "till: new thing max"],
+    ["model.wip", "whole model: items in the system"],
+    ["till.queue_length", "till: queue length"],
+    ["plain", "plain"],
+    // A name on Object.prototype is not a statistic (review of PR #46).
+    ["till.constructor", "till: constructor"],
+  ])("%s reads %s", (metric, words) => {
+    expect(metricWords(metric)).toBe(words);
   });
 });
