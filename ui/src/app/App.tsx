@@ -48,6 +48,10 @@ export function App({ client }: { client: ApiClient }) {
   const { run, busy } = useProjectQueue(client);
   // Background writes that were not saved, shown with "Try again" (review of pull request 201).
   const [unsaved, keep, forgetWrites] = useUnsaved();
+  // Projects removed in this session: a background write or retry queued before a removal
+  // checks this when it runs, so nothing is sent to a removed project (review of pull
+  // request 201). Opening a project, as from its folder again, takes it off.
+  const removed = useRef(new Set<string>());
   const forgetLesson = useLessonStep(
     run,
     keep,
@@ -92,6 +96,7 @@ export function App({ client }: { client: ApiClient }) {
    * Recent projects lists it first (#97; review of pull request 201).
    */
   const open = async (api: ProjectApi, opened: Project, screen: "canvas" | "data" = "canvas") => {
+    removed.current.delete(opened.id);
     setProject(opened);
     go({ screen, projectId: opened.id });
     await noteOpened(api, opened.id);
@@ -99,6 +104,7 @@ export function App({ client }: { client: ApiClient }) {
 
   /** Notes the time a project was opened, so Recent projects lists it first. */
   const noteOpened = async (api: ProjectApi, pid: string) => {
+    if (removed.current.has(pid)) return;
     const answer = await api.change(pid, { opened: true });
     keep(pid, "opened", OPENED_UNSAVED, answer, () => {
       void run((again) => noteOpened(again, pid));
@@ -132,6 +138,7 @@ export function App({ client }: { client: ApiClient }) {
     remove: async (api, target) => {
       const answer = await api.remove(target.id);
       if (answer.kind === "ok") {
+        removed.current.add(target.id);
         setProject((current) => (current?.id === target.id ? null : current));
         // Nothing more is written to, or tried again for, the project the service no longer
         // lists, whichever lesson is open (review of pull request 201).

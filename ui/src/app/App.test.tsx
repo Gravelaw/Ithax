@@ -245,6 +245,30 @@ describe("project actions, one at a time (reviews of pull request 201)", () => {
     expect(fake.requested("PATCH", "/v1/projects/p1")).toHaveLength(patches);
   });
 
+  it("sends no retry queued during a project's removal once it is removed", async () => {
+    const { fake } = projectService();
+    fake.on("PATCH /v1/projects/p1", () => ({
+      status: 503,
+      body: errorBody("E900", "The service did not save it."),
+    }));
+    await userEvent.click(await screen.findByText("/p1"));
+    expect(await screen.findByText(OPENED_UNSAVED)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Home" }));
+    const letRemove = fake.hold("POST /v1/projects/p1/remove");
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Remove Shop p1 from the list" }),
+    );
+    await waitFor(() => expect(fake.heldOn("POST /v1/projects/p1/remove")).toBe(1));
+    // Try again is pressed while the removal awaits its answer.
+    const before = fake.requested("PATCH", "/v1/projects/p1").length;
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    letRemove();
+    await waitFor(() => expect(screen.queryByText("/p1")).toBeNull());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(fake.requested("PATCH", "/v1/projects/p1")).toHaveLength(before);
+    expect(screen.queryByText(OPENED_UNSAVED)).toBeNull();
+  });
+
   it("resumes a lesson at the step whose write was still pending when Home opened", async () => {
     const { fake, listed } = projectService();
     await userEvent.click(
