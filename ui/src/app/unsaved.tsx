@@ -3,7 +3,8 @@
  * reached in a lesson, the time a project was opened): one that is refused or not answered
  * is never taken as saved (review of pull request 201). It is kept by what it saves and
  * shown in the top bar with "Try again", which sends it again; a later write of the same
- * thing that succeeds clears it.
+ * thing that succeeds clears it. A retry sends the value wanted when it runs, never the
+ * one captured when the write failed, so it cannot undo a newer write queued meanwhile.
  */
 import { useCallback, useState } from "react";
 import type { ApiResult } from "../api/client";

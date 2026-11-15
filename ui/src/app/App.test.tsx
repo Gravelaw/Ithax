@@ -182,6 +182,43 @@ describe("project actions, one at a time (reviews of pull request 201)", () => {
     expect(sent.at(-1)).toEqual(sent.at(-2));
   });
 
+  it("sends the latest step when Try again is pressed after a newer step was queued", async () => {
+    const { fake, listed } = projectService();
+    let refused = false;
+    fake.on("PATCH /v1/projects/p1", (body) => {
+      const change = body as { lesson_step?: number | null };
+      // The first write of step 1 is refused.
+      if (change.lesson_step === 1 && !refused) {
+        refused = true;
+        return { status: 503, body: errorBody("E900", "The service did not save it.") };
+      }
+      const saved = Object.assign(listed()[0] ?? {}, change);
+      return { status: 200, body: saved };
+    });
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Resume the lesson Coffee shop queue" }),
+    );
+    expect(await screen.findByRole("region", { name: "Arrive" })).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText(STEP_UNSAVED)).toBeVisible();
+    // Step 2's write is held; Try again is pressed while it waits.
+    const letWrite = fake.hold("PATCH /v1/projects/p1");
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(fake.heldOn("PATCH /v1/projects/p1")).toBe(1));
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    letWrite();
+    await waitFor(() => expect(screen.queryByText(STEP_UNSAVED)).toBeNull());
+    await waitFor(() =>
+      expect(
+        fake
+          .requested("PATCH", "/v1/projects/p1")
+          .filter((r) => "lesson_step" in (r.body as object)),
+      ).toHaveLength(4),
+    );
+    // The retry saved the step shown, 2, not the 1 that failed.
+    expect(listed()[0]?.lesson_step).toBe(2);
+  });
+
   it("resumes a lesson at the step whose write was still pending when Home opened", async () => {
     const { fake, listed } = projectService();
     await userEvent.click(

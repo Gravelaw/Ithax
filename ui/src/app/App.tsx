@@ -3,7 +3,7 @@
  * rail, the top bar and the current screen, and the first-start notice until it has been
  * seen.
  */
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Project, SettingsBody } from "../api/types";
 import { CanvasScreen } from "../canvas/CanvasScreen";
@@ -226,17 +226,26 @@ function useLessonStep(
   projectId: string | null,
   step: number | null,
 ): (pid: string) => void {
-  // The project whose step was last kept. Each write is an action of App's queue, so the
-  // service keeps the latest step or the clearing on exit, and no read of the project list
-  // runs while one is pending (reviews of pull request 201).
+  // The project whose step was last kept, and the step wanted for each project. Each write
+  // is an action of App's queue and sends the step wanted when it runs, not when it was
+  // queued, so a write queued earlier, or "Try again" on one that failed, never saves an
+  // older step or undoes Exit's clearing (reviews of pull request 201).
   const last = useRef<string | null>(null);
+  const wanted = useRef<Record<string, number | null>>({});
+  const write = useCallback(
+    (pid: string) =>
+      void run(async (api) => {
+        if (!(pid in wanted.current)) return;
+        const answer = await api.change(pid, { lesson_step: wanted.current[pid] ?? null });
+        // A refused write is shown with "Try again", never taken as saved.
+        keep(`step ${pid}`, STEP_UNSAVED, answer, () => write(pid));
+      }),
+    [run, keep],
+  );
   useEffect(() => {
     const send = (pid: string, value: number | null) => {
-      void run(async (api) => {
-        const answer = await api.change(pid, { lesson_step: value });
-        // A refused write is shown with "Try again", never taken as saved.
-        keep(`step ${pid}`, STEP_UNSAVED, answer, () => send(pid, value));
-      });
+      wanted.current[pid] = value;
+      write(pid);
     };
     if (projectId !== null && step !== null) {
       send(projectId, step);
@@ -245,9 +254,11 @@ function useLessonStep(
       send(last.current, null);
       last.current = null;
     }
-  }, [run, keep, projectId, step]);
-  // A removed project's step is not cleared: the service no longer lists it.
+  }, [write, projectId, step]);
+  // A removed project's step is not cleared, nor tried again: the service no longer lists it.
   return (pid: string) => {
     if (last.current === pid) last.current = null;
+    delete wanted.current[pid];
+    keep(`step ${pid}`, STEP_UNSAVED, { kind: "ok", status: 200, data: null }, () => {});
   };
 }
