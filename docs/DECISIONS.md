@@ -3401,6 +3401,22 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** spec 3 "Run monitor, Results and Settings" (Results), with a dated line.
 - **Dependencies added:** none.
 
+## 2026-11-15 · M15 · Recent projects, part 1: rename, remove and notes in the service (#97; Reviewer B finding 10)
+
+- **Decision:**
+  - **`PATCH /v1/projects/{pid}`** takes any of `name`, `opened` (`true`) and `lesson_step` (a whole number from 0, or `null`). `name` changes `project.json`'s name in the hold of the project's writes (`ModelStore.rename`), so a save's `model_revision` and the new name never overwrite each other; the folder, the `id` and the model are kept. An empty body, a `null` name or `opened`, or another key is 400 with E184; an unknown `pid` 404 with E185.
+  - **`POST /v1/projects/{pid}/remove`** takes the project off the list with its notes and keeps its folder; `POST /v1/projects/open` registers it again.
+  - **Notes.** `GET /v1/projects` (and `create_model`/`list_projects` in MCP) adds `opened`, `template` and `lesson_step`, kept in `project-notes.json` in the configuration folder (`ProjectRegistry.note`), so the project folder keeps spec 3's layout and `project.json` its five fields. A project made from a template is noted with it at creation. A file that cannot be read, or a field of the wrong kind, reads as `null`.
+- **Reason:** issue #97: "Twelve identical entries after one session"; the issue asks for rename, remove, last opened and resuming lessons. This PR is the service half; the Home screen follows, and the MCP tools for rename and remove after it (C6). `tests/service/test_project_list.py` failed first.
+- **Readings (reversible):**
+  - "Remove" takes the project off the list and keeps its files; deleting a project's folder is not offered.
+  - "Rename" renames the project, not the model's `meta.name`, which a save or an assistant may change separately.
+  - Removing is `POST .../remove`, not `DELETE /v1/projects/{pid}`: a client that folds dot segments turns `DELETE .../data/..` into that path, and the data test showed it taking the project off the list. That request is now 405 (a path with a `PATCH`), not 404; it is refused with E185 either way.
+  - All three changes are additive to `/v1` (F7).
+- **Review of PR #200:** removing a project with a queued or running run took it off the list while the run went on, so its status and cancel answered 404. Removal is now refused with 409 and E188, naming the runs (`RunService.unfinished`); the check and the removal are made in the project's write hold, which starting a run takes too, so no run starts between them. A test with one run running and one queued failed first; after both are cancelled the project is removed. Reading: E188 ("an action the run's current state does not allow") is widened to cover this rather than a new code, since it is the runs' state that refuses it. CI of PR #200 then failed on the Settings screen's "Never" box, and a review finding followed: the settings context took a read's answer that was sent before or during a write, putting back the value the write had replaced. A second review found that a rule over the order of answers still lost a write when two writes from different Settings mounts overlapped, since the service commits them in any order. Fixed structurally: every settings read and write goes through one queue in the settings provider (`oneAtATime`, `ui/src/components/oneAtATime.ts`), so one is in flight and each answer is the settings at its turn. `SettingsContext.test.tsx` has a fake service answer what is in flight oldest first and newest first, with two overlapping writes and a read between them; it failed on both earlier rules. `e2e/settings.spec.ts` answers Settings' read 1.5 s late while "Never" is ticked: it failed 10 of 10 on the code before these fixes, and both "Never" tests passed 40 of 40 with `--repeat-each 20`. `AGENTS.md` names the class.
+- **Spec sections updated:** spec 3 "Endpoints" (two rows and `GET /v1/projects`), spec 4 "MCP tools" (`list_projects`), spec 1 E188; a dated line in each.
+- **Dependencies added:** none.
+
 ## 2026-11-15 · M15 · The open source licences list of the service (#89, part 1; owner decisions B4, C7 and F4)
 
 - **Decision:**

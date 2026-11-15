@@ -41,6 +41,8 @@ from ithax.strict_json import MAX_WHOLE, encode_json, read_json_file, whole_in
 __all__ = [
     "LAYOUT_VERSION",
     "MODEL_FILE",
+    "NOTES_FILE",
+    "NOTE_FIELDS",
     "PROJECTS_FILE",
     "PROJECT_FILE",
     "Domain",
@@ -60,6 +62,12 @@ Domain = Literal["process", "optimization"]
 PROJECT_FILE = "project.json"
 MODEL_FILE = "model.json"
 PROJECTS_FILE = "projects.json"
+#: What the interface keeps about each registered project (#97): when it was last opened,
+#: the template it came from, and the step a lesson reached. In the configuration folder,
+#: so the project folder keeps spec 3's layout.
+NOTES_FILE = "project-notes.json"
+#: The fields of a project's notes, each listed by ``GET /v1/projects`` (``null`` unknown).
+NOTE_FIELDS = ("opened", "template", "lesson_step")
 
 #: The version of the project folder layout of spec 3 "Project folder".
 LAYOUT_VERSION = 1
@@ -153,6 +161,19 @@ def _folder_error(message: str) -> ServiceError:
     return ServiceError(400, PROJECT_FOLDER, message)
 
 
+def _usable(note: Mapping[str, Any]) -> dict[str, Any]:
+    """The fields of a stored note that hold what they should: ``opened`` and ``template``
+    text, ``lesson_step`` a whole number from 0; anything else is left out (unknown)."""
+    kept: dict[str, Any] = {}
+    for field in ("opened", "template"):
+        if isinstance(note.get(field), str):
+            kept[field] = note[field]
+    step = whole_in(note.get("lesson_step"), 0, MAX_WHOLE)
+    if step is not None:
+        kept["lesson_step"] = step
+    return kept
+
+
 class ProjectRegistry:
     """The projects the service knows, kept in ``projects.json`` in ``config_dir``;
     projects without a ``path`` are created under ``<data_dir>/projects/<id>/``."""
@@ -201,6 +222,21 @@ class ProjectRegistry:
         self.config_dir.mkdir(parents=True, exist_ok=True)
         write_json(self._file, projects)
 
+    def _notes(self) -> dict[str, dict[str, Any]]:
+        """``project-notes.json``: each project's notes; a file that cannot be read is
+        taken as none, since the notes are a convenience the next write replaces."""
+        try:
+            loaded = read_json_file(self.config_dir / NOTES_FILE)
+        except (OSError, ValueError):
+            return {}
+        if not isinstance(loaded, dict):
+            return {}
+        return {pid: _usable(note) for pid, note in loaded.items() if isinstance(note, dict)}
+
+    def _save_notes(self, notes: dict[str, dict[str, Any]]) -> None:
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        write_json(self.config_dir / NOTES_FILE, notes)
+
     def _settle(self, folder: Path) -> Path:
         """``folder``, with a recorded save there finished (module docstring); E186 when
         one cannot be. A model save finished here is told to ``on_replayed`` with the
@@ -232,21 +268,66 @@ class ProjectRegistry:
     # --- reading --------------------------------------------------------------------
 
     @staticmethod
-    def view(pid: str, folder: Path, record: ProjectRecord | None) -> dict[str, Any]:
+    def view(
+        pid: str,
+        folder: Path,
+        record: ProjectRecord | None,
+        note: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """A project as the API shows it; ``record`` ``None`` for one that cannot be
-        read, which is ``available`` ``false``."""
+        read, which is ``available`` ``false``. ``note`` gives ``opened``, ``template`` and
+        ``lesson_step``, each ``null`` when unknown (#97)."""
+        noted = {field: (note or {}).get(field) for field in NOTE_FIELDS}
         if record is None or record.id != pid:
             empty: dict[str, Any] = dict.fromkeys(_FIELDS)
-            return {**empty, "id": pid, "path": str(folder), "available": False}
-        return {**asdict(record), "path": str(folder), "available": True}
+            return {**empty, "id": pid, "path": str(folder), "available": False, **noted}
+        return {**asdict(record), "path": str(folder), "available": True, **noted}
 
     def entries(self) -> list[dict[str, Any]]:
         """Every registered project, in the order registered."""
         with self._lock:
             projects = self._load()
+            notes = self._notes()
         return [
-            self.view(pid, Path(path), self._settled(Path(path))) for pid, path in projects.items()
+            self.view(pid, Path(path), self._settled(Path(path)), notes.get(pid))
+            for pid, path in projects.items()
         ]
+
+    def entry(self, pid: str) -> dict[str, Any]:
+        """Project ``pid`` as ``entries`` lists it; 404 with E185 when no project has it."""
+        folder = self.folder(pid)
+        with self._lock:
+            note = self._notes().get(pid)
+        return self.view(pid, folder, self._settled(folder), note)
+
+    # --- notes and removing (#97) --------------------------------------------------
+
+    def note(self, pid: str, changes: Mapping[str, Any]) -> None:
+        """Set project ``pid``'s notes: ``opened`` ``True`` stamps now, and each other field
+        given takes its value; 404 with E185 when no project has the id."""
+        with self._lock:
+            if pid not in self._load():
+                raise ServiceError(404, NOT_FOUND, f"There is no project '{pid}'.")
+            notes = self._notes()
+            note = dict(notes.get(pid, {}))
+            for field, value in changes.items():
+                note[field] = utc_now() if field == "opened" else value
+            notes[pid] = note
+            self._save_notes(notes)
+
+    def remove(self, pid: str) -> dict[str, Any]:
+        """Take project ``pid`` off the list, with its notes; its folder is kept, so
+        ``open`` registers it again. 404 with E185 when no project has the id."""
+        with self._lock:
+            projects = self._load()
+            path = projects.pop(pid, None)
+            if path is None:
+                raise ServiceError(404, NOT_FOUND, f"There is no project '{pid}'.")
+            self._save(projects)
+            notes = self._notes()
+            if notes.pop(pid, None) is not None:
+                self._save_notes(notes)
+        return {"id": pid, "path": path}
 
     def folder(self, pid: str) -> Path:
         """The folder of project ``pid``; 404 with E185 when no project has that id."""
@@ -284,11 +365,17 @@ class ProjectRegistry:
         except OSError:
             _log.warning("Creating the project folder %s failed.", folder, exc_info=True)
             raise _folder_error(f"The project folder '{folder}' cannot be written.") from None
+        template = None if model is None else model.get("meta", {}).get("template")
+        note = {"template": template} if isinstance(template, str) else None
         with self._lock:
             projects = self._load()
             projects[pid] = str(folder)
             self._save(projects)
-        return self.view(pid, folder, record)
+            if note is not None:
+                notes = self._notes()
+                notes[pid] = note
+                self._save_notes(notes)
+        return self.view(pid, folder, record, note)
 
     def open(self, path: Path) -> dict[str, Any]:
         """Register the existing project folder ``path`` (absolute) and return it. A
@@ -308,7 +395,7 @@ class ProjectRegistry:
             projects = self._load()
             known = projects.get(record.id)
             if known is not None and same_folder(Path(known), path):
-                return self.view(record.id, Path(known), record)
+                return self.view(record.id, Path(known), record, self._notes().get(record.id))
             if known is not None:
                 other = read_project(Path(known))
                 if other is not None and other.id == record.id:
