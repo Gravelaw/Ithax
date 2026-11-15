@@ -34,7 +34,7 @@ import {
   trialPoints,
   trialsOption,
 } from "./charts";
-import { figures, rangeText, UNDEFINED, valueText } from "./display";
+import { figures, metricWords, rangeText, UNDEFINED, valueText } from "./display";
 import { makePdf } from "./pdf";
 import { headline, reportBlocks, ruleName } from "./report";
 import { saveFile } from "./save";
@@ -387,8 +387,8 @@ function Shown({
                 <tbody>
                   {difference.metrics.map(({ name, estimate, separated }) => (
                     <tr key={name}>
-                      <th scope="row" className="mono">
-                        {name}
+                      <th scope="row" title={name}>
+                        {metricWords(name)}
                       </th>
                       <td>{valueText(name, estimate.mean, estimate.unit)}</td>
                       <td>{rangeText(name, estimate.half_width, estimate.unit, estimate.mean)}</td>
@@ -482,8 +482,8 @@ function KeyNumbers({ scenarios }: { scenarios: readonly Scenario[] }) {
             <tbody>
               {scenario.metrics.map(([name, estimate]) => (
                 <tr key={name}>
-                  <th scope="row" className="mono">
-                    {name}
+                  <th scope="row" title={name}>
+                    {metricWords(name)}
                   </th>
                   <td>{valueText(name, estimate.mean, estimate.unit)}</td>
                   <td>{rangeText(name, estimate.half_width, estimate.unit, estimate.mean)}</td>
@@ -559,16 +559,16 @@ function OverTimeChart({ rows }: { rows: readonly TableRow[] }) {
   const [picked, setPicked] = useState("");
   const metric = metrics.includes(picked) ? picked : (metrics[0] ?? "");
   const data = useMemo(() => overTime(rows, metric), [rows, metric]);
-  const title = `Over time: ${metric}, average of the repeat runs`;
+  const title = `Over time: ${metricWords(metric)}, average of the repeat runs`;
   return (
     <figure className="result-chart">
       <figcaption className="subheading">Over time, average of the repeat runs</figcaption>
       <label className="inline-field">
         <span>Value</span>
-        <select className="mono" value={metric} onChange={(event) => setPicked(event.target.value)}>
+        <select value={metric} onChange={(event) => setPicked(event.target.value)}>
           {metrics.map((name) => (
             <option key={name} value={name}>
-              {name}
+              {metricWords(name)}
             </option>
           ))}
         </select>
@@ -621,7 +621,7 @@ function Trials({ search }: { search: Search }) {
         <figcaption className="subheading">Every trial, and the best found</figcaption>
         <Chart
           option={trialsOption(search, points, colours)}
-          label={`Every trial's ${search.metric} in the order tried, with the best found. The table of all trials gives the numbers.`}
+          label={`Every trial's ${metricWords(search.metric)} in the order tried, with the best found. The table of all trials gives the numbers.`}
         />
         <p className="chart-caption">
           One dot per trial. Filled: meets every limit. Hollow: breaks one. The dashed line is the
@@ -639,8 +639,8 @@ function Trials({ search }: { search: Search }) {
                   {name}
                 </th>
               ))}
-              <th scope="col" className="mono">
-                {search.metric}
+              <th scope="col" title={search.metric}>
+                {metricWords(search.metric)}
               </th>
               <th scope="col">Likely range</th>
               <th scope="col">Meets every limit?</th>
@@ -779,6 +779,7 @@ function cellText(row: TableRow, column: string): string {
   if (column === "value" && typeof value === "number" && typeof row.unit === "string") {
     return valueText(String(row.metric), value, row.unit);
   }
+  if (column === "metric" && typeof value === "string") return metricWords(value);
   if (typeof value === "number" && !Number.isInteger(value)) return figures(value);
   return String(value);
 }
@@ -810,10 +811,7 @@ function Replications({ rows }: { rows: readonly TableRow[] }) {
             // biome-ignore lint/suspicious/noArrayIndexKey: rows are in the table's order
             <tr key={index}>
               {columns.map((column) => (
-                <td
-                  key={column}
-                  className={column === "metric" || column === "scenario" ? "mono" : undefined}
-                >
+                <td key={column} className={column === "scenario" ? "mono" : undefined}>
                   {cellText(row, column)}
                 </td>
               ))}

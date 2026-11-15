@@ -127,19 +127,21 @@ describe("a run's results", () => {
         .map((item) => item.textContent),
     ).toEqual([`Bottleneck${LINE_FINDINGS[0]?.text}`, `Not enough runs${LINE_FINDINGS[1]?.text}`]);
     expect(within(list).getAllByRole("listitem")[1]).toHaveClass("finding-warning");
-    const row = screen.getByRole("rowheader", { name: "weld.wait.mean" }).closest("tr");
+    const row = screen.getByRole("rowheader", { name: "weld: average wait" }).closest("tr");
     expect(row).toHaveTextContent("15.7 min± 2.09 min30");
     expect(
-      screen.getByRole("rowheader", { name: "weld.utilization" }).closest("tr"),
+      screen.getByRole("rowheader", { name: "weld: busy share" }).closest("tr"),
     ).toHaveTextContent("90.1%± 1.1%30");
     expect(
-      screen.getByRole("rowheader", { name: "model.wip.mean" }).closest("tr"),
+      screen
+        .getByRole("rowheader", { name: "whole model: average items in the system" })
+        .closest("tr"),
     ).toHaveTextContent("12.4not defined30");
     expect(screen.getByRole("img", { name: /^Busy share by component/ })).toHaveAttribute(
       "data-series",
       "Busy share by component, with the likely range,Likely range",
     );
-    expect(screen.getByRole("img", { name: /^Over time: weld.queue_length/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /^Over time: weld: queue length/ })).toBeInTheDocument();
     // Each value in display units, as the key numbers show it, not 17 digits and "s" (#96).
     const repeats = screen.getByRole("region", { name: "Every repeat run's values" });
     expect(repeats).toHaveTextContent("15.2 min");
@@ -197,7 +199,7 @@ describe("a run's results", () => {
     const { user } = show(service(optionsSummary(), []));
     await screen.findByRole("heading", { name: "Differences between options" });
     const difference = screen
-      .getAllByRole("rowheader", { name: "weld.wait.mean" })
+      .getAllByRole("rowheader", { name: "weld: average wait" })
       .at(-1)
       ?.closest("tr");
     expect(difference).toHaveTextContent("-5 min± 0.833 minYes");
@@ -212,11 +214,11 @@ describe("a run's results", () => {
     );
     expect(screen.queryByRole("table", { name: /^Average wait by component/ })).toBeNull();
     await user.selectOptions(screen.getByRole("combobox", { name: "Value" }), "weld.utilization");
-    expect(screen.getByRole("img", { name: /^Over time: weld.utilization/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /^Over time: weld: busy share/ })).toBeInTheDocument();
     await user.click(
-      screen.getByRole("button", { name: /^Show as table: Over time: weld.utilization/ }),
+      screen.getByRole("button", { name: /^Show as table: Over time: weld: busy share/ }),
     );
-    expect(screen.getByRole("table", { name: /^Over time: weld.utilization/ })).toHaveTextContent(
+    expect(screen.getByRole("table", { name: /^Over time: weld: busy share/ })).toHaveTextContent(
       "050",
     );
   });
@@ -231,7 +233,7 @@ describe("a run's results", () => {
       "231.5 s± 0.15 sNoNo",
     ]);
     expect(rows[1]).toHaveAttribute("data-selected", "true");
-    expect(screen.getByRole("img", { name: /^Every trial's till.wait.mean/ })).toHaveAttribute(
+    expect(screen.getByRole("img", { name: /^Every trial's till: average wait/ })).toHaveAttribute(
       "data-series",
       "Meets every limit,Breaks a limit,Best found",
     );

@@ -7,7 +7,7 @@
 
 import type { Estimate, TableRow } from "../api/types";
 import type { SeriesColours } from "../charts/Chart";
-import { figures, inUnit, isShare, timeUnit } from "./display";
+import { figures, inUnit, isShare, metricWords, timeUnit } from "./display";
 import type { Scenario, Search, Solution } from "./summary";
 
 /** Marker shapes, one per series, so no series is told apart by colour alone. */
@@ -211,7 +211,7 @@ export function overTime(rows: readonly TableRow[], metric: string): OverTime {
   const share = isShare(metric, "1");
   return {
     metric,
-    valueName: share ? `${metric} (%)` : metric,
+    valueName: share ? `${metricWords(metric)} (%)` : metricWords(metric),
     timeSymbol,
     times: sorted.map((time) => time / size),
     lines: [...sums.entries()].map(([scenario, points]) => ({
@@ -299,7 +299,8 @@ export function trialsOption(
   points: TrialPoints,
   colours: SeriesColours,
 ): Record<string, unknown> {
-  const name = points.unit === "" ? search.metric : `${search.metric} (${points.unit})`;
+  const words = metricWords(search.metric);
+  const name = points.unit === "" ? words : `${words} (${points.unit})`;
   const series: Record<string, unknown>[] = [
     {
       name: "Meets every limit",
