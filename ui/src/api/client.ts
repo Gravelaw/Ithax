@@ -24,6 +24,8 @@ import type {
   FitBody,
   ImportedFile,
   Issue,
+  LicencedPart,
+  Licences,
   Model,
   ModelBody,
   ModelWriteBody,
@@ -361,6 +363,16 @@ export class ApiClient {
 
   getEngines(): Promise<ApiResult<Engine[]>> {
     return this.request("GET", "/v1/engines");
+  }
+
+  /** `GET /v1/licences`: every package and engine the service runs on (issue 89). */
+  getLicences(): Promise<ApiResult<Licences>> {
+    return this.request("GET", "/v1/licences");
+  }
+
+  /** The interface's own npm packages, which its build lists in `third-party.json`. */
+  getInterfacePackages(): Promise<ApiResult<LicencedPart[]>> {
+    return this.request("GET", "/v1/ui/third-party.json");
   }
 
   /**

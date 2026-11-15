@@ -74,6 +74,7 @@ def test_the_adapter_declares_the_optimization_domain_mit_and_in_process() -> No
         parallel_modes=(),
         licence="MIT",
         invocation="in-process",
+        distribution="highspy",
     )
 
 

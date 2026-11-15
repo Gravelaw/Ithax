@@ -3425,6 +3425,35 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** spec 4 "MCP server" and "MCP tools" (two rows each), and the confinement paragraph's count; a dated line.
 - **Dependencies added:** none.
 
+## 2026-11-15 · M15 · The open source licences list of the service (#89, part 1; owner decisions B4, C7 and F4)
+
+- **Decision:**
+  - **`GET /v1/licences`** (`src/ithax/service/licences.py`): the product (AGPL-3.0-only, its repository), the engines (name, version, licence, distribution, authors), the running Python with the libraries the package's Python bundles, the Python packages (each installed distribution the package's licence list records, and every run-time requirement of `ithax` followed through theirs, with its installed version, recorded licence and authors) and the desktop shell's crates. The licence list is `packaging/linux/licences.json` in a checkout, or `share/ithax/licences.json`, which the package build now writes with the crates (`shared_licences` in `scripts/package_linux.py`). Not an MCP tool.
+  - **Authors** come from the installed metadata without e-mail addresses (`Author`, `Author-email` names, `Maintainer`, `Maintainer-email` names); when none is given, or only a pointer ("See AUTHORS.txt": openpyxl, et-xmlfile), the copyright holder of the distribution's own licence file.
+  - **`Capabilities.distribution`** (spec 1, default empty): `simpy` and `highspy`, so each engine's authors are named (F4).
+  - The Help screen that shows the list, with the interface's own npm packages, is part 2 (its own entry).
+- **Reason:** issue #89 and owner decisions B4 and C7 (2026-11-13): "A Help section, 'Open source licences', lists every package and engine used, with its licence and authors, generated from the package's licence list so it cannot drift", and F4: "the licences page (B4) cites each engine and its authors". `tests/service/test_licences.py` checks that every run-time requirement is in the licence list and is listed with the recorded licence, the installed version and authors without addresses, and `tests/linux_package/test_build_script.py` the list the package build writes.
+- **Readings (reversible):**
+  - "The package's licence list" is `packaging/linux/licences.json`, which the Linux build already checks against what it installs; nothing is typed into the list.
+  - Authors are names only: an e-mail address in the metadata is not shown.
+  - The licence list's Python entry (bundled OpenSSL, SQLite and the rest) is shown only when the running Python is the package's version; in a checkout the Python's own licence is shown alone.
+  - The endpoint is exempt from MCP, like `POST /v1/projects/open`: an assistant needs nothing from it to build or run a model.
+- **Review of PR #203:** a licence list with an empty distribution name made `metadata.distribution("")` raise `ValueError`, which the lookup did not catch, so the route answered 500. The lookup now takes `ValueError` as "not installed" too. `tests/service/test_licences.py` feeds the route lists of several broken shapes, and `tests/properties/test_licences_never_raise.py` any list with hostile names and values and any file; both failed without the change. A second finding: the walk through the requirements dropped the extras a requirement asks for, so mcp's `pyjwt[crypto]` did not bring in cryptography (and cffi, pycparser) when the licence list could not be read. Each requirement now carries its extras, and a distribution asked again with a new extra is followed again for it; a fixture with extras and the real mcp chain failed without the change.
+- **Spec sections updated:** spec 3 "API", "Endpoints" (a row and its note) and "Packaging"; spec 1 "Engine adapter interface"; each with a dated line.
+- **Dependencies added:** `packaging>=26.3` in `[project] dependencies`: `ithax.service.licences` evaluates requirement markers with it. It was already installed as a dependency of optuna and is in `packaging/linux/licences.json` at 26.3 (Apache-2.0 OR BSD-2-Clause, recorded with optuna's dependencies on 2026-11-07, the M5 research entry). The lower bound is the version installed on 2026-11-15. `uv lock` was run; `packaging/linux/requirements.lock` already pins it.
+
+## 2026-11-15 · M15 · The Help screen: open source licences (#89, part 2; owner decisions B4, C7 and F4)
+
+- **Decision:**
+  - **Help** is a screen at `#/help` (`ui/src/settings/HelpScreen.tsx`), reached from Settings, About ("Open source licences"), with Settings current on the rail. It reads `GET /v1/licences` and `third-party.json` and shows one table per part: engines, Python, the libraries built into it, Python packages, the desktop shell's crates (or where they are listed, in a checkout), interface packages.
+  - **The interface's npm packages**: the notices plugin (`ui/plugins/notices.ts`) also writes `third-party.json` (name, version, licence, authors from `author`, `contributors` or `maintainers`, else the copyright holder of the licence or notice: Meta Platforms for React, The Apache Software Foundation for ECharts, webkid GmbH for React Flow).
+- **Reason:** issue #89 and the owner decisions quoted in part 1's entry. `ui/plugins/notices.test.ts`, `ui/src/settings/HelpScreen.test.tsx`, `ui/src/app/router.test.ts`, `ui/src/app/NavRail.test.tsx` and `ui/e2e/help.spec.ts` (a real service and the built interface, both themes, WCAG 2.2 AA) cover it; the package test expects `python/share/ithax/ui/third-party.json`.
+- **Readings (reversible):**
+  - Help is reached from Settings, About and is not on the rail, as the Build form belongs to Home, so the rail keeps spec 3's seven screens.
+  - A package without a named author shows the copyright holder of its licence, the same rule as the service's.
+- **Spec sections updated:** spec 3 "Screens", "Endpoints" (the `GET /v1/licences` note) and "Run monitor, Results and Settings", with a dated line.
+- **Dependencies added:** none.
+
 ## 2026-11-15 · M15 · Recent projects, part 2: Home and resuming lessons (#97; Reviewer B finding 10)
 
 - **Decision:**

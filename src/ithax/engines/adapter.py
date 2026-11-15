@@ -96,6 +96,8 @@ class Capabilities:
     beyond a CPU and memory, such as ``gpu``; empty for none. ``parallel_modes`` is drawn
     from ``PARALLEL_MODES``. ``licence`` is the engine's SPDX licence identifier, and
     ``invocation`` is ``process`` or ``in-process`` (spec 1 "Engine licence rule").
+    ``distribution`` names the installed Python distribution that provides the engine, whose
+    authors the licences page names (#89); empty when the engine is not one.
 
     ``component_types`` is kept as a read-only copy. A word outside its list, or an empty
     licence, raises ``ValueError``: the adapter is wrong, not the user's model.
@@ -107,6 +109,7 @@ class Capabilities:
     parallel_modes: tuple[ParallelMode, ...]
     licence: str
     invocation: Invocation
+    distribution: str = ""
 
     def __post_init__(self) -> None:
         unknown = [mode for mode in self.parallel_modes if mode not in PARALLEL_MODES]

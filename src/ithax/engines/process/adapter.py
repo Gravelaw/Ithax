@@ -60,6 +60,7 @@ class ProcessAdapter:
             parallel_modes=("replications",),
             licence="MIT",
             invocation="in-process",
+            distribution="simpy",
         )
 
     def validate(self, model: Model) -> list[Issue]:

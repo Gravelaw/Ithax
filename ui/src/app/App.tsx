@@ -17,6 +17,7 @@ import { ResultsScreen } from "../results/ResultsScreen";
 import { BuildForm } from "../screens/BuildForm";
 import { FirstStartNotice } from "../screens/FirstStartNotice";
 import { Home } from "../screens/Home";
+import { HelpScreen } from "../settings/HelpScreen";
 import { useSettings } from "../settings/SettingsContext";
 import { SettingsScreen } from "../settings/SettingsScreen";
 import { NAV_ITEMS, NavRail } from "./NavRail";
@@ -27,6 +28,7 @@ import { useProjectQueue } from "./useProjectQueue";
 
 function screenTitle(route: Route): string {
   if (route.screen === "build") return "Build a model";
+  if (route.screen === "help") return "Help";
   return NAV_ITEMS.find((item) => item.screen === route.screen)?.label ?? "Home";
 }
 
@@ -128,7 +130,10 @@ export function App({ client }: { client: ApiClient }) {
 
   const shownProject = route.projectId !== null && project?.id === route.projectId ? project : null;
   const title =
-    route.screen === "home" || route.screen === "build" || route.screen === "settings"
+    route.screen === "home" ||
+    route.screen === "build" ||
+    route.screen === "settings" ||
+    route.screen === "help"
       ? screenTitle(route)
       : (shownProject?.name ?? screenTitle(route));
 
@@ -182,6 +187,7 @@ export function App({ client }: { client: ApiClient }) {
           <ResultsScreen client={client} project={shownProject} runId={route.runId} onGo={go} />
         ) : null}
         {route.screen === "settings" ? <SettingsScreen client={client} /> : null}
+        {route.screen === "help" ? <HelpScreen client={client} /> : null}
       </main>
       {noticeOpen ? <FirstStartNotice onContinue={() => void continueFromNotice()} /> : null}
     </div>

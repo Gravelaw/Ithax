@@ -166,6 +166,8 @@ def test_the_archive_holds_the_interface_service_engines_and_templates(archive: 
         "python/licenses/LICENSE.cpython.txt",
         "python/share/ithax/ui/index.html",
         "python/share/ithax/ui/THIRD-PARTY-NOTICES.txt",
+        "python/share/ithax/ui/third-party.json",
+        "python/share/ithax/licences.json",
     ):
         assert f"{NAME}/{name}" in members, name
     site = f"{NAME}/python/lib/python3.13/site-packages"

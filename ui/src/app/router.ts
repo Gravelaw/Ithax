@@ -1,7 +1,7 @@
 /**
  * Which screen is shown, kept in the address's fragment (`#/canvas/<project id>`), so a
  * reload of the tab stays on it. The Run monitor and Results may also name a run
- * (`#/monitor/<project id>/<run id>`, AKS-138); the Build form is `#/build` (AKS-124). The fragment `#token=...` belongs to the launcher and is
+ * (`#/monitor/<project id>/<run id>`, AKS-138); the Build form is `#/build` (AKS-124), Help `#/help`. The fragment `#token=...` belongs to the launcher and is
  * taken away before the router reads the address (`api/token.ts`).
  */
 import { useCallback, useEffect, useState } from "react";
@@ -14,7 +14,8 @@ export type Screen =
   | "experiment"
   | "monitor"
   | "results"
-  | "settings";
+  | "settings"
+  | "help";
 
 /** Screens that show one project, and so need one. */
 export const PROJECT_SCREENS: readonly Screen[] = [
@@ -37,8 +38,11 @@ export interface Route {
 
 export const HOME: Route = { screen: "home", projectId: null };
 
-/** The Build form (`#/build`, AKS-124) is part of Home, and not on the rail. */
-const SCREENS: readonly Screen[] = ["home", "build", ...PROJECT_SCREENS, "settings"];
+/**
+ * The Build form (`#/build`, AKS-124) is part of Home, and Help (`#/help`, its open source
+ * licences; issue 89) part of Settings; neither is on the rail.
+ */
+const SCREENS: readonly Screen[] = ["home", "build", ...PROJECT_SCREENS, "settings", "help"];
 
 function decoded(part: string): string | null {
   try {

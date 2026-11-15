@@ -63,9 +63,11 @@ export function NavRail({
     <nav className="rail" aria-label="Screens" data-region="rail">
       <ul ref={list} onKeyDown={move}>
         {NAV_ITEMS.map((item) => {
-          // The Build form belongs to Home (spec 3 "Screens" 1).
+          // The Build form belongs to Home, and Help to Settings (spec 3 "Screens" 1 and 7).
           const current =
-            route.screen === item.screen || (route.screen === "build" && item.screen === "home");
+            route.screen === item.screen ||
+            (route.screen === "build" && item.screen === "home") ||
+            (route.screen === "help" && item.screen === "settings");
           const needsProject = PROJECT_SCREENS.includes(item.screen);
           const blocked = needsProject && projectId === null;
           const IconFor = item.icon;

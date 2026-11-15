@@ -29,6 +29,17 @@ describe("NavRail", () => {
     expect(screen.getByRole("button", { name: "Settings" })).toHaveAttribute("tabindex", "-1");
   });
 
+  it("shows Settings as current on Help, which belongs to it", () => {
+    render(
+      <NavRail route={{ screen: "help", projectId: null }} projectId={null} onGo={() => {}} />,
+    );
+    expect(screen.getByRole("button", { name: "Settings" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("button", { name: "Home" })).not.toHaveAttribute("aria-current");
+  });
+
   it("keeps the project screens waiting, with the reason, until a project is open", async () => {
     const onGo = vi.fn();
     render(<NavRail route={HOME} projectId={null} onGo={onGo} />);
