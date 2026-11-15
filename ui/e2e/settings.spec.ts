@@ -49,12 +49,11 @@ test("Settings reads and writes every key and shows the service's issues", async
   expect((await new AxeBuilder({ page }).withTags(WCAG).analyze()).violations).toEqual([]);
 
   await enter(page, "Runs at once", "2");
-  await enter(page, "Time limit, in seconds", "1200");
-  await enter(page, "Memory limit, in bytes", "4000000000");
-  await expect(page.getByRole("textbox", { name: "Stop when idle for, in minutes" })).toHaveValue(
-    "30",
-  );
-  await enter(page, "Stop when idle for, in minutes", "45");
+  await enter(page, "Time limit", "20");
+  await enter(page, "Memory limit", "4");
+  await expect(page.getByRole("textbox", { name: "Stop when idle for" })).toHaveValue("30");
+  await page.getByRole("combobox", { name: "Unit of Stop when idle for" }).selectOption("hours");
+  await enter(page, "Stop when idle for", "2");
   await page.getByRole("combobox", { name: "Tier at the next start" }).selectOption("high");
   await enter(page, "Bottleneck at", "0.9");
   await expect(page.locator(".settings-screen .problem")).toHaveCount(0);
@@ -83,7 +82,7 @@ test("Settings reads and writes every key and shows the service's issues", async
     max_concurrent_runs: 2,
     run_time_limit_s: 1200,
     run_memory_limit_bytes: 4000000000,
-    idle_timeout_minutes: 45,
+    idle_timeout_minutes: 120,
     finding_thresholds: {
       bottleneck_utilization: 0.9,
       idle_utilization: 0.2,
@@ -109,12 +108,13 @@ test("Settings reads and writes every key and shows the service's issues", async
   await expect(page.getByRole("alert")).toContainText("E184");
   await expect(page.getByRole("textbox", { name: "Runs at once", exact: true })).toHaveValue("2");
   // An idle timeout out of its range (spec 3 "Lifetime"): the service's E184 issue.
-  const idle = page.getByRole("textbox", { name: "Stop when idle for, in minutes" });
-  await idle.fill("10081");
+  // Shown in hours since it was saved as 2 hours; 200 hours is past 7 days.
+  const idle = page.getByRole("textbox", { name: "Stop when idle for", exact: true });
+  await idle.fill("200");
   await idle.press("Enter");
   await expect(page.getByRole("alert")).toContainText("idle_timeout_minutes");
   await expect(page.getByRole("alert")).toContainText("from 1 to 10,080");
-  await expect(idle).toHaveValue("45");
+  await expect(idle).toHaveValue("2");
 
   // Restore all defaults: the preferences only, after a question.
   await page.getByRole("button", { name: "Restore all defaults" }).click();
@@ -135,4 +135,21 @@ test("Settings reads and writes every key and shows the service's issues", async
     motion: "system",
     colour_blind_charts: false,
   });
+});
+
+test("the idle timeout can be never, kept as 0 (#87; owner decision D8)", async ({
+  page,
+  service,
+}) => {
+  await service.api("PUT", "/v1/settings", { interface: { first_start_seen: true } });
+  await page.goto(service.url);
+  await page.getByRole("button", { name: "Settings" }).click();
+  // The box shows the saved value, so it is ticked once the service has the 0.
+  await page.getByRole("checkbox", { name: "Never" }).click();
+  await expect(page.getByRole("checkbox", { name: "Never" })).toBeChecked();
+  await expect(page.getByRole("textbox", { name: "Stop when idle for" })).toBeDisabled();
+  const read = (await service.api("GET", "/v1/settings")).body as {
+    settings: { idle_timeout_minutes: number };
+  };
+  expect(read.settings.idle_timeout_minutes).toBe(0);
 });

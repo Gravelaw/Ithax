@@ -163,7 +163,6 @@ def test_every_value_in_range_is_taken(client: TestClient) -> None:
         ({"run_time_limit_s": "600"}, ["/run_time_limit_s"]),
         ({"run_memory_limit_bytes": 0}, ["/run_memory_limit_bytes"]),
         ({"run_memory_limit_bytes": 2**63}, ["/run_memory_limit_bytes"]),
-        ({"idle_timeout_minutes": 0}, ["/idle_timeout_minutes"]),
         ({"idle_timeout_minutes": 10081}, ["/idle_timeout_minutes"]),
         ({"idle_timeout_minutes": 1.5}, ["/idle_timeout_minutes"]),
         ({"idle_timeout_minutes": 30.0}, ["/idle_timeout_minutes"]),
@@ -328,13 +327,20 @@ def test_put_writes_the_idle_timeout_and_get_returns_it(
 
 
 def test_the_idle_timeout_refused_names_its_range(client: TestClient) -> None:
-    response = client.put("/v1/settings", json={"idle_timeout_minutes": 0})
+    response = client.put("/v1/settings", json={"idle_timeout_minutes": -1})
     [issue] = response.json()["issues"]
     assert issue["path"] == "/idle_timeout_minutes"
-    assert "a whole number of minutes from 1 to 10,080 (7 days)" in issue["message"]
+    assert "a whole number of minutes from 1 to 10,080 (7 days), or 0 for never" in issue["message"]
 
 
-@pytest.mark.parametrize("value", [0, 10081, 2.5, "30", False, None])
+def test_the_idle_timeout_0_is_never_and_kept(client: TestClient, config: ServiceConfig) -> None:
+    """0 is "never" (#87; owner decision D8): stored and served as the number 0."""
+    put(client, {"idle_timeout_minutes": 0})
+    assert settings_file(config)["idle_timeout_minutes"] == 0
+    assert client.get("/v1/settings").json()["settings"]["idle_timeout_minutes"] == 0
+
+
+@pytest.mark.parametrize("value", [-1, 10081, 2.5, "30", False, None])
 def test_a_stored_idle_timeout_that_cannot_be_used_is_w220_and_30(
     client: TestClient, config: ServiceConfig, value: object
 ) -> None:

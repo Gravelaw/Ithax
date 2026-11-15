@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import faulthandler
+import math
 import os
 import signal
 import socket
@@ -156,8 +157,8 @@ def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--idle-minutes",
         type=float,
-        help="exit after this many idle minutes (default: idle_timeout_minutes in "
-        "settings.json, 30 when unset)",
+        help="exit after this many idle minutes, 0 for never (default: idle_timeout_minutes "
+        "in settings.json, 30 when unset)",
     )
     parser.add_argument(
         "--ui-dir",
@@ -172,9 +173,20 @@ def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
         "templates, else share/ithax/templates under the Python prefix)",
     )
     arguments = parser.parse_args(argv)
-    if arguments.idle_minutes is not None and not arguments.idle_minutes > 0:
-        parser.error("--idle-minutes must be above 0")
+    if arguments.idle_minutes is not None and not arguments.idle_minutes >= 0:
+        parser.error("--idle-minutes must be 0 (never) or above")
     return arguments
+
+
+def idle_timeout_s(idle_minutes: float | None, config_dir: Path) -> float:
+    """The idle timeout the service takes, in seconds: ``--idle-minutes`` when given, else
+    ``idle_timeout_minutes`` of the settings; 0 from either is "never", an infinite timeout
+    (#87; owner decision D8)."""
+    if idle_minutes is None:
+        return read_idle_settings(config_dir).timeout_s
+    if idle_minutes == 0:
+        return math.inf
+    return idle_minutes * 60  # unit factor: whole minutes, a setting
 
 
 def _own_or_find(config_dir: Path, out: TextIO, err: TextIO) -> RunLock | int:
@@ -223,11 +235,8 @@ def main(
         return owned
     try:
         # Read once the lock is taken: a second start serves nothing and needs no idle time.
-        if arguments.idle_minutes is not None:
-            idle_timeout_s = arguments.idle_minutes * 60  # unit factor: whole minutes, a setting
-        else:
-            idle_timeout_s = read_idle_settings(config_dir).timeout_s
-        caught = _serve(config_dir, data_dir, ui_dir, templates_dir, idle_timeout_s, out)
+        timeout_s = idle_timeout_s(arguments.idle_minutes, config_dir)
+        caught = _serve(config_dir, data_dir, ui_dir, templates_dir, timeout_s, out)
     finally:
         owned.release()
     raise_again(caught)

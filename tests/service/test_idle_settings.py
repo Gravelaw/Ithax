@@ -56,7 +56,7 @@ def test_a_whole_number_in_range_is_used(tmp_path: Path, minutes: int) -> None:
 
 
 @pytest.mark.parametrize(
-    "value", [0, -1, 10_081, 1.5, 30.0, True, False, "30", None, [30], {"minutes": 30}]
+    "value", [-1, 10_081, 1.5, 30.0, True, False, "30", None, [30], {"minutes": 30}]
 )
 def test_a_value_that_cannot_be_used_is_w220_and_the_default(
     tmp_path: Path, value: object, caplog: pytest.LogCaptureFixture
@@ -73,7 +73,7 @@ def test_a_value_that_cannot_be_used_is_w220_and_the_default(
     assert issue["path"] == "/idle_timeout_minutes"
     assert IDLE_TIMEOUT in item.message and SETTINGS_FILE in item.message
     assert "30" in item.message
-    assert "1 to 10,080" in item.hint
+    assert "1 to 10,080" in item.hint and "0 for never" in item.hint
     assert not EXCEPTION_TEXT.search(item.message + item.hint)
     assert "W220" in caplog.text and "/idle_timeout_minutes" in caplog.text
 
@@ -84,3 +84,11 @@ def test_a_file_that_cannot_be_read_gives_the_default_without_its_own_issue(
 ) -> None:
     (tmp_path / SETTINGS_FILE).write_text(text, encoding="utf-8")
     assert read_idle_settings(tmp_path) == IdleSettings(30, ())
+
+
+def test_zero_is_never(tmp_path: Path) -> None:
+    """0 is "never": the service does not exit when idle (#87; owner decision D8)."""
+    write(tmp_path, {IDLE_TIMEOUT: 0})
+    settings = read_idle_settings(tmp_path)
+    assert settings == IdleSettings(0, ())
+    assert settings.timeout_s == float("inf")

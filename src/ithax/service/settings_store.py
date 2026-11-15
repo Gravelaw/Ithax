@@ -44,6 +44,7 @@ from ithax.service.finding_settings import (
 )
 from ithax.service.hardware import SETTINGS_FILE, TIERS, Hardware, TierName, tier_for
 from ithax.service.idle_settings import (
+    IDLE_NEVER,
     IDLE_TIMEOUT,
     IDLE_WORDS,
     MAX_IDLE_MINUTES,
@@ -169,7 +170,7 @@ _PLAIN: dict[str, tuple[Callable[[object], bool], str]] = {
         _whole(1, MAX_WHOLE),
         "a whole number of bytes from 1 to 2**63 - 1",
     ),
-    IDLE_TIMEOUT: (_whole(1, MAX_IDLE_MINUTES), IDLE_WORDS),
+    IDLE_TIMEOUT: (_whole(IDLE_NEVER, MAX_IDLE_MINUTES), IDLE_WORDS),
 }
 
 

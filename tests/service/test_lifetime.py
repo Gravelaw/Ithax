@@ -137,3 +137,11 @@ def test_the_idle_count_starts_when_the_service_starts_serving(config: ServiceCo
         assert app.state.service.lifetime.idle_for() == 0
         clock.now += 10
         assert idle.wait(5)
+
+
+def test_an_infinite_limit_never_expires() -> None:
+    """``idle_timeout_minutes`` 0, "never" (#87; owner decision D8)."""
+    clock = Clock()
+    lifetime = Lifetime(float("inf"), clock)
+    clock.now += 7 * 24 * 3600 * 1000
+    assert not lifetime.expired()

@@ -259,9 +259,9 @@ def test_waiting_ends_as_soon_as_the_service_answers(
         child.wait()
 
 
-def test_idle_minutes_must_be_above_zero() -> None:
+def test_idle_minutes_must_be_zero_or_above() -> None:
     with pytest.raises(SystemExit) as refused:
-        main(["--idle-minutes", "0"])
+        main(["--idle-minutes", "-1"])
     assert refused.value.code == 2
 
 

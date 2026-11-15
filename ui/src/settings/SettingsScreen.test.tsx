@@ -13,6 +13,7 @@ import {
   AT_NEXT_RESULTS,
   AT_NEXT_START,
   bytesText,
+  IDLE_HINT,
   IDLE_LABEL,
   SETTINGS_WAIT,
   SettingsScreen,
@@ -124,11 +125,13 @@ describe("Settings reads", () => {
     expect(screen.getAllByText(AT_NEXT_START)).toHaveLength(2);
     expect(screen.getByText(new RegExp(`^${AT_NEXT_RESULTS}`))).toBeVisible();
     expect(screen.getAllByText("Takes effect at once.")).toHaveLength(2);
-    expect(screen.getByRole("textbox", { name: "Time limit, in seconds" })).toHaveValue("600");
-    expect(screen.getByText("= 10 min")).toBeVisible();
-    expect(screen.getByText("= 8.59 GB")).toBeVisible();
+    // Each in the largest unit that shows it whole, never in bytes (#87, #96).
+    expect(screen.getByRole("textbox", { name: "Time limit" })).toHaveValue("10");
+    expect(screen.getByRole("combobox", { name: "Unit of Time limit" })).toHaveValue("minutes");
+    expect(screen.getByRole("textbox", { name: "Memory limit" })).toHaveValue("8.589934592");
+    expect(screen.getByRole("combobox", { name: "Unit of Memory limit" })).toHaveValue("GB");
     expect(screen.getByRole("textbox", { name: IDLE_LABEL })).toHaveValue("30");
-    expect(screen.getByText("= 30 min (1 to 10,080)")).toBeVisible();
+    expect(screen.getByText(IDLE_HINT)).toBeVisible();
     expect(screen.getByText("= 1 per hour")).toBeVisible();
     expect(screen.getByRole("combobox", { name: "Tier at the next start" })).toHaveValue("mid");
     expect(screen.getByText("Empty: the tier's recommendation, 500 (100 to 10,000)")).toBeVisible();
@@ -182,9 +185,9 @@ describe("Settings writes", () => {
     };
     await field("Runs at once", "2");
     expect(lastPut(fake)).toEqual({ max_concurrent_runs: 2 });
-    await field("Time limit, in seconds", "1200");
+    await field("Time limit", "20");
     expect(lastPut(fake)).toEqual({ run_time_limit_s: 1200 });
-    await field("Memory limit, in bytes", "4000000000");
+    await field("Memory limit", "4");
     expect(lastPut(fake)).toEqual({ run_memory_limit_bytes: 4000000000 });
     await user.selectOptions(
       screen.getByRole("combobox", { name: "Tier at the next start" }),
@@ -227,7 +230,6 @@ describe("Settings writes", () => {
     await waitFor(() => expect(current().idle_timeout_minutes).toBe(5));
     expect(lastPut(fake)).toEqual({ idle_timeout_minutes: 5 });
     expect(screen.getByRole("textbox", { name: IDLE_LABEL })).toHaveValue("5");
-    expect(screen.getByText("= 5 min (1 to 10,080)")).toBeVisible();
     // The service's own E184 issue is shown, never text the interface makes up.
     const refusal: Issue = {
       code: "E184",
@@ -246,17 +248,28 @@ describe("Settings writes", () => {
     );
     const again = screen.getByRole("textbox", { name: IDLE_LABEL });
     await user.clear(again);
-    await user.type(again, "0{Enter}");
+    await user.type(again, "-1{Enter}");
     expect(await screen.findByText(refusal.message)).toBeVisible();
-    expect(lastPut(fake)).toEqual({ idle_timeout_minutes: 0 });
+    expect(lastPut(fake)).toEqual({ idle_timeout_minutes: -1 });
     await waitFor(() => expect(screen.getByRole("textbox", { name: IDLE_LABEL })).toHaveValue("5"));
+  });
+
+  it("writes never as 0 and shows it ticked (#87; owner decision D8)", async () => {
+    const { fake, current } = settingsService();
+    const user = await open(fake);
+    await user.click(screen.getByRole("checkbox", { name: "Never" }));
+    await waitFor(() => expect(current().idle_timeout_minutes).toBe(0));
+    expect(lastPut(fake)).toEqual({ idle_timeout_minutes: 0 });
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: "Never" })).toBeChecked());
+    expect(screen.getByRole("textbox", { name: IDLE_LABEL })).toBeDisabled();
   });
 
   it("restores the idle timeout's default when its field is emptied", async () => {
     const changed: Settings = { ...SETTINGS, idle_timeout_minutes: 120 };
     const { fake, current } = settingsService(changed);
     const user = await open(fake, changed);
-    expect(screen.getByText("= 2 h (1 to 10,080)")).toBeVisible();
+    expect(screen.getByRole("textbox", { name: IDLE_LABEL })).toHaveValue("2");
+    expect(screen.getByRole("combobox", { name: `Unit of ${IDLE_LABEL}` })).toHaveValue("hours");
     await user.clear(screen.getByRole("textbox", { name: IDLE_LABEL }));
     await user.tab();
     await waitFor(() => expect(lastPut(fake)).toEqual({ idle_timeout_minutes: null }));
