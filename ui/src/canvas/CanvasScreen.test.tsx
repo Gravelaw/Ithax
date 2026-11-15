@@ -388,7 +388,8 @@ describe("renaming and labels", () => {
     await select(user, "till");
     expect(node("till")).toHaveTextContent("Till");
     fireEvent.keyDown(node("till"), { key: "F2" });
-    expect(screen.getByRole("textbox", { name: "Id" })).toHaveFocus();
+    // Through `reveal`, which focuses once the panel can take it (review of pull request 192).
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Id" })).toHaveFocus());
     await user.clear(screen.getByRole("textbox", { name: "Label (optional)" }));
     await user.keyboard("{Enter}");
     await settled(toolbar);

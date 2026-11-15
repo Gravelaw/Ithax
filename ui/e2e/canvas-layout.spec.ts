@@ -126,3 +126,39 @@ test("a draft in the panel survives the window crossing the narrow width (review
     "till_draft",
   );
 });
+
+test("when narrow, F2 and a chosen problem open the closed panel (review of pull request 192)", async ({
+  page,
+  service,
+}) => {
+  await page.setViewportSize({ width: 900, height: 700 });
+  await open(page, service, 100);
+  const sheet = page.locator(".side-sheet.narrow");
+  const till = page.locator('.react-flow__node[data-id="till"]');
+
+  // F2 with the block selected and the panel closed: the panel opens on the Id field.
+  await till.click();
+  await sheet.getByRole("button", { name: "Close the panel" }).click();
+  await expect(sheet).toBeHidden();
+  await till.focus();
+  await page.keyboard.press("F2");
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("textbox", { name: "Id" })).toBeFocused();
+
+  // A problem about the selected block, with the panel closed: the panel opens.
+  const pid = decodeURIComponent(new URL(page.url()).hash.split("/").pop() ?? "");
+  const current = await service.api("GET", `/v1/projects/${pid}/model`);
+  await service.api("POST", `/v1/projects/${pid}/model/edits`, {
+    edits: [{ edit: "set_parameter", id: "tills", value: 0 }],
+    base_revision: (current.body as { revision: number }).revision,
+  });
+  const row = page
+    .locator(".problems")
+    .getByRole("button", { name: /^Error/ })
+    .first();
+  await expect(row).toBeVisible();
+  await sheet.getByRole("button", { name: "Close the panel" }).click();
+  await expect(sheet).toBeHidden();
+  await row.click();
+  await expect(sheet).toBeVisible();
+});

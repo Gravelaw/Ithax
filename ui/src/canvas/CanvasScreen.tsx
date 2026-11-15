@@ -525,12 +525,6 @@ function ProcessCanvas({
     }
   }, [model, types, state.issues, locked, state.renamed, marked, learn]);
 
-  // "N changes to review" opens the list in the side panel and moves the focus to it.
-  useEffect(() => {
-    if (openReview === 0) return;
-    const frame = requestAnimationFrame(() => document.getElementById("review-heading")?.focus());
-    return () => cancelAnimationFrame(frame);
-  }, [openReview]);
 
   // A block just added or renamed takes the keyboard focus once it is drawn.
   // React Flow shows a node only once it is measured, so focusing is tried for a few frames.
@@ -588,13 +582,17 @@ function ProcessCanvas({
     [nodes, edges, state.renamed],
   );
   const narrow = useNarrow();
-  const [sheetOpen, setSheetOpen] = useSheet(
+  const sheet = useSheet(
     learning !== null,
     selection.blocks.length + selection.connections.length === 0
       ? ""
       : `${selection.blocks.join(" ")}|${selection.connections.join(" ")}`,
-    openReview,
   );
+  // "N changes to review" opens the list in the side panel and moves the focus to it.
+  const { reveal } = sheet;
+  useEffect(() => {
+    if (openReview > 0) reveal("review-heading");
+  }, [openReview, reveal]);
 
   const selectBlocks = useCallback((ids: string[]) => {
     // Ids not drawn yet (a block just added or renamed) are selected when they are.
@@ -858,7 +856,7 @@ function ProcessCanvas({
     } else if (key === "F2") {
       if (selection.blocks.length === 1) {
         event.preventDefault();
-        document.getElementById("block-id")?.focus();
+        reveal("block-id");
       }
     } else if (control && (key === "a" || key === "A")) {
       event.preventDefault();
@@ -962,10 +960,12 @@ function ProcessCanvas({
   const chooseProblem = (issue: Issue, component: string | null) => {
     if (component !== null && components(model).some((item) => item.id === component)) {
       centreOn(component);
+      reveal();
     } else if (issue.path.startsWith("/experiments")) {
       onGo({ screen: "experiment", projectId: project.id });
     } else {
       selectBlocks([]);
+      reveal();
     }
   };
 
@@ -1026,7 +1026,7 @@ function ProcessCanvas({
   const tools = (
     <div className="canvas-tools">
       <SaveState state={state} />
-      {narrow && !sheetOpen ? <ShowPanel onShow={() => setSheetOpen(true)} /> : null}
+      {narrow && !sheet.open ? <ShowPanel onShow={() => sheet.setOpen(true)} /> : null}
       <ReviewCount
         count={marks.length}
         onOpen={() => {
@@ -1214,7 +1214,7 @@ function ProcessCanvas({
                 onChoose={chooseProblem}
               />
             </div>
-            <SideSheet narrow={narrow} open={sheetOpen} onClose={() => setSheetOpen(false)}>
+            <SideSheet narrow={narrow} open={sheet.open} onClose={() => sheet.setOpen(false)}>
               {learning ? (
                 <div className="side-column">
                   <StepCard

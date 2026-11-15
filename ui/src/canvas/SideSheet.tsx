@@ -9,25 +9,37 @@
  * and crossing the width never remounts it, which would lose a draft (review of pull request 192).
  */
 import { SidebarSimpleIcon, XIcon } from "@phosphor-icons/react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 
-/**
- * Whether the overlay is open: opened by each new selection, by each request for the review
- * list (`review` counts them), and at a lesson's start.
- */
-export function useSheet(
-  learning: boolean,
-  selected: string,
-  review: number,
-): [boolean, (open: boolean) => void] {
+export interface Sheet {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  /**
+   * Opens the overlay, then moves the focus to the element `id` names once it can take it.
+   * Every move of the focus into the side panel goes through here: a closed overlay is
+   * hidden and inert, so a plain `focus()` would do nothing (review of pull request 192).
+   */
+  reveal: (id?: string) => void;
+}
+
+/** Whether the overlay is open: opened by each new selection, at a lesson's start, and by `reveal`. */
+export function useSheet(learning: boolean, selected: string): Sheet {
   const [open, setOpen] = useState(learning);
+  const [target, setTarget] = useState<{ id: string | null } | null>(null);
   useEffect(() => {
     if (selected !== "") setOpen(true);
   }, [selected]);
   useEffect(() => {
-    if (review > 0) setOpen(true);
-  }, [review]);
-  return [open, setOpen];
+    const id = target?.id;
+    if (id === undefined || id === null) return;
+    const frame = requestAnimationFrame(() => document.getElementById(id)?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [target]);
+  const reveal = useCallback((id?: string) => {
+    setOpen(true);
+    setTarget({ id: id ?? null });
+  }, []);
+  return { open, setOpen, reveal };
 }
 
 export function SideSheet(props: {
