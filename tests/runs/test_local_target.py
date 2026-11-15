@@ -389,12 +389,26 @@ def test_cancel_during_collect_ends_cancelled_without_results(tmp_path: Path) ->
 
 
 def process_ended(pid: int) -> bool:
-    """Whether ``pid`` has ended (gone, or a zombie no one has reaped yet)."""
+    """Whether ``pid`` has ended (gone, or a zombie no one has reaped yet). A process
+    reaped between opening its ``stat`` and reading it raises ESRCH on the read (#185)."""
     try:
         stat = Path(f"/proc/{pid}/stat").read_text(encoding="ascii")
-    except FileNotFoundError:
+    except (FileNotFoundError, ProcessLookupError):
         return True
     return stat[stat.rindex(")") + 2] == "Z"
+
+
+def test_a_process_reaped_while_its_stat_is_read_has_ended(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Issue #185 (CI run 43675304933): the read of ``/proc/<pid>/stat`` raised
+    ProcessLookupError, as when the process is reaped after the open."""
+
+    def reaped(self: Path, *args: object, **options: object) -> str:
+        raise ProcessLookupError(3, "No such process")
+
+    monkeypatch.setattr(Path, "read_text", reaped)
+    assert process_ended(os.getpid())
 
 
 def test_terminating_a_worker_also_ends_the_processes_it_started(tmp_path: Path) -> None:
