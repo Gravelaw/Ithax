@@ -63,3 +63,9 @@ that reads input, and say whether the shared helper was bypassed:
   return E185, or show an old name or step (helper: App's `ProjectActions`,
   `ui/src/app/projectActions.ts`; `projectActions.test.ts` fails when a screen calls
   `changeProject` or `removeProject` itself; PR #201, three findings).
+- an answer that arrives after other requests or actions, acted on against the state known
+  when its request was sent: a read sent before or during a write that puts back the old
+  value, a completion that ends what a newer action started (helper: `AnswerOrder` in
+  `ui/src/components/answerOrder.ts` for reads and writes of one shared value; a test per
+  site holds a slower request back while a newer one or a newer action completes; PR #200
+  and its stack, two findings).

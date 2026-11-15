@@ -18,6 +18,7 @@ import {
 } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Issue, Settings, SettingsBody, SettingsChange } from "../api/types";
+import { AnswerOrder } from "../components/answerOrder";
 import { applyPreferences } from "./preferences";
 
 export interface SettingsState {
@@ -45,18 +46,14 @@ export function SettingsProvider({
   children: ReactNode;
 }) {
   const [body, setBody] = useState<SettingsBody>({ settings: initial, issues: initialIssues });
-  // Each request is numbered when it is sent; an answer is taken only when no request sent
-  // after it has been taken, so a read sent before a write and answered after it does not
-  // bring back the settings the write replaced (CI of pull request 200).
-  const sent = useRef(0);
-  const taken = useRef(0);
+  // An answer is taken against what is known now, not when it was sent: a read sent
+  // before or during a write is not taken, the write's own answer being newer (CI and
+  // review of pull request 200).
+  const order = useRef(new AnswerOrder());
   const take = useCallback(
-    async (request: Promise<ApiResult<SettingsBody>>) => {
-      sent.current += 1;
-      const number = sent.current;
+    async (request: Promise<ApiResult<SettingsBody>>, settle: (ok: boolean) => boolean) => {
       const result = await request;
-      if (result.kind === "ok" && number > taken.current) {
-        taken.current = number;
+      if (settle(result.kind === "ok") && result.kind === "ok") {
         setBody(result.data);
         applyPreferences(root, result.data.settings.interface);
       }
@@ -65,10 +62,16 @@ export function SettingsProvider({
     [root],
   );
   const save = useCallback(
-    (change: SettingsChange) => take(client.putSettings(change)),
+    (change: SettingsChange) => {
+      const settle = order.current.write();
+      return take(client.putSettings(change), settle);
+    },
     [client, take],
   );
-  const refresh = useCallback(() => take(client.getSettings()), [client, take]);
+  const refresh = useCallback(() => {
+    const settle = order.current.read();
+    return take(client.getSettings(), settle);
+  }, [client, take]);
   const value = useMemo(
     () => ({ settings: body.settings, issues: body.issues, save, refresh }),
     [body, save, refresh],
