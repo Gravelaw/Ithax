@@ -7,12 +7,14 @@ real process, as the interface and the MCP server will start it.
 
 import contextlib
 import dataclasses
+import faulthandler
 import io
 import json
 import logging
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -27,7 +29,15 @@ import uvicorn
 from ithax.service.config import ServiceConfig, default_ui_dir
 from ithax.service.discovery import SERVICE_FILE, ServiceInfo, read_service_file
 from ithax.service.hardware import SETTINGS_FILE
-from ithax.service.main import LOCAL_ADDRESS, SignalServer, bind_local, main, raise_again
+from ithax.service.main import (
+    DUMP_AFTER_S,
+    GRACEFUL_SHUTDOWN_S,
+    LOCAL_ADDRESS,
+    SignalServer,
+    bind_local,
+    main,
+    raise_again,
+)
 
 
 def wait_for(condition: object, timeout_s: float = 20.0) -> None:
@@ -271,9 +281,11 @@ def test_a_service_stopped_by_a_signal_removes_its_file(tmp_path: Path, stop: in
     assert not (config_dir / SERVICE_FILE).exists()
 
 
-def test_the_server_keeps_a_caught_signal_for_main() -> None:
+def test_the_server_keeps_a_caught_signal_for_main(monkeypatch: pytest.MonkeyPatch) -> None:
     """In the main thread uvicorn installs its handlers; a signal caught while serving is
     kept in ``caught_signals`` instead of being raised as the server finishes."""
+    # The traceback dump the signal arms (#158) is not wanted in the test process.
+    monkeypatch.setattr(faulthandler, "dump_traceback_later", lambda *args, **options: None)
     server = SignalServer(uvicorn.Config(app=lambda: None))
     assert threading.current_thread() is threading.main_thread()
     with server.capture_signals():
@@ -424,3 +436,85 @@ def test_idle_minutes_given_wins_over_the_setting(
     started.thread.join(30)
     assert started.status == [0], started.output.getvalue()
     assert [config.idle_timeout_s for config in made] == [pytest.approx(0.3)]
+
+
+# --- a stop that a request cannot hold up (#158) ----------------------------------------------
+
+STUCK_SERVICE = Path(__file__).resolve().parent / "stuck_service.py"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows has no SIGTERM to send to a process")
+def test_a_request_that_never_ends_does_not_keep_a_stopped_service_alive(tmp_path: Path) -> None:
+    """Issue #158: uvicorn's graceful shutdown waited for every request, without limit, before
+    ``main`` removed ``service.json``. With ``GRACEFUL_SHUTDOWN_S`` it cancels the request,
+    logs that, and the service still ends by its signal with the file removed."""
+    config_dir = tmp_path / "config"
+    marker = tmp_path / "stuck"
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            str(STUCK_SERVICE),
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(tmp_path / "data"),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env={**os.environ, "ITHAX_TEST_STUCK_MARKER": str(marker)},
+    )
+    held: socket.socket | None = None
+    try:
+        wait_for(lambda: read_service_file(config_dir) is not None or process.poll() is not None)
+        info = read_service_file(config_dir)
+        assert info is not None, process.communicate()
+        held = socket.create_connection((LOCAL_ADDRESS, info.port), timeout=10)
+        held.sendall(b"GET /test/stuck HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+        wait_for(marker.exists)
+        process.send_signal(signal.SIGTERM)
+        started = time.monotonic()
+        _, stderr = process.communicate(timeout=GRACEFUL_SHUTDOWN_S + 25)
+        took = time.monotonic() - started
+    finally:
+        if held is not None:
+            held.close()
+        if process.poll() is None:  # pragma: no cover - only when the test fails
+            process.kill()
+    assert process.returncode == -signal.SIGTERM
+    assert not (config_dir / SERVICE_FILE).exists()
+    assert GRACEFUL_SHUTDOWN_S - 1 < took < GRACEFUL_SHUTDOWN_S + 15
+    assert "timeout graceful shutdown exceeded" in stderr
+
+
+def test_the_service_bounds_uvicorn_s_graceful_shutdown(
+    folders: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    made: list[uvicorn.Config] = []
+    real = uvicorn.Config.__init__
+
+    def init(self: uvicorn.Config, *args: object, **options: object) -> None:
+        real(self, *args, **options)  # type: ignore[arg-type]
+        made.append(self)
+
+    monkeypatch.setattr(uvicorn.Config, "__init__", init)
+    thread = threading.Thread(target=main, args=([*folders, "--idle-minutes", "0.01"],))
+    thread.start()
+    thread.join(timeout=60)
+    assert [config.timeout_graceful_shutdown for config in made] == [GRACEFUL_SHUTDOWN_S]
+
+
+def test_a_stop_signal_arms_a_traceback_dump(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Issue #158: a service still alive ``DUMP_AFTER_S`` after a stop signal writes every
+    thread's traceback to its standard error, which the launcher keeps in service.log."""
+    armed: list[tuple[float, bool]] = []
+    monkeypatch.setattr(
+        faulthandler,
+        "dump_traceback_later",
+        lambda timeout, exit=False, **_: armed.append((timeout, exit)),
+    )
+    server = SignalServer(uvicorn.Config(lambda scope, receive, send: None))
+    server.handle_exit(signal.SIGTERM, None)
+    server.handle_exit(signal.SIGTERM, None)
+    assert armed == [(DUMP_AFTER_S, False)]
+    assert DUMP_AFTER_S > GRACEFUL_SHUTDOWN_S
