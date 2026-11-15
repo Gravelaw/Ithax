@@ -184,7 +184,7 @@ Phosphor Icons (`@phosphor-icons/react`, MIT), bundled with the app (`docs/resea
 - **Spacing scale:** 4, 8, 12, 16, 24, 32, 48 px. Inside controls 8 px; between controls 12 px; between sections 24 px.
 - **Radius:** 8 px for controls, 14 px for work blocks and cards, full (pill) for primary buttons, chips and flow blocks.
 - **Depth:** panels and cards sit on soft shadows instead of grey divider lines (light: `0 1px 2px` and `0 4px 14px` of `text` at 8 to 10%; dark: black at 35 to 40%). Dialogs sit on a scrim of `#000000` at 40% opacity.
-- **Window:** designed at 1280 × 800 and usable at 1024 × 640. Below 1024 px wide the side panel becomes an overlay that opens on selection.
+- **Window:** designed at 1280 × 800 and usable at 1024 × 640. Below 1024 px wide the side panel becomes an overlay that opens on selection, closes with its Close button and opens on the model's parameters from "Show the panel" in the top bar; the palette narrows to 11 rem. "1024 px" is 64 rem of the text size, so 200% text at 1280 px is narrow as well (#93, 2026-11-15). The top bar's 52 px is its least height: it grows with the text and wraps its tools, so none is clipped.
 
 | Region | Size at 1280 × 800 | Content |
 | --- | --- | --- |
