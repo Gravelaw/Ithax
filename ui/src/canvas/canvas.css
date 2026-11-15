@@ -813,11 +813,44 @@
   background: var(--color-surface-alt);
 }
 
-/* Below 1024 px the side panel narrows; the canvas keeps its room (WCAG 1.4.10). */
-@media (max-width: 64rem) {
-  .canvas-screen {
-    grid-template-columns: 11rem minmax(0, 1fr) 16rem;
-  }
+/*
+ * Narrow (below 64 rem of the root's size: 1,024 px at 100% text, 2,048 px at 200%; #93,
+ * WCAG 1.4.10): the palette narrows and the side panel becomes an overlay over the canvas,
+ * opened on selection (design-system.md "Spacing and layout"; `SideSheet.tsx`).
+ */
+.canvas-screen.narrow {
+  position: relative;
+  grid-template-columns: 11rem minmax(0, 1fr);
+}
+
+.side-sheet {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  width: min(20rem, 90%);
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+}
+
+.side-sheet[hidden] {
+  display: none;
+}
+
+.side-sheet-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-1) var(--space-2) 0;
+}
+
+.side-sheet > .side-panel,
+.side-sheet > .side-column {
+  flex: 1 1 auto;
+  min-height: 0;
+  box-shadow: none;
 }
 
 .react-flow__minimap-svg {
