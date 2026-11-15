@@ -78,8 +78,8 @@ class Tool:
     url: str
     #: The GitHub API address of its release, whose asset lists the published digest.
     release: str
-    #: Copied from the ``package`` CI job's output (``docs/DECISIONS.md``); ``None`` until
-    #: recorded, and a build refuses a tool without one.
+    #: Copied from the ``package`` CI job's output, which matched the release's published
+    #: digest (``docs/DECISIONS.md``); a build refuses a tool with ``None``.
     sha256: str | None
 
 
@@ -95,7 +95,7 @@ APPIMAGE_TOOLS = (
             "https://api.github.com/repos/AppImage/appimagetool/releases/tags/"
             f"{APPIMAGETOOL_RELEASE}"
         ),
-        sha256=None,
+        sha256="ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0",
     ),
     Tool(
         name=f"runtime-{RUNTIME_RELEASE}-x86_64",
@@ -106,7 +106,7 @@ APPIMAGE_TOOLS = (
         release=(
             f"https://api.github.com/repos/AppImage/type2-runtime/releases/tags/{RUNTIME_RELEASE}"
         ),
-        sha256=None,
+        sha256="2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d",
     ),
 )
 

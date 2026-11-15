@@ -38,8 +38,11 @@ def test_the_tools_are_the_researched_releases_by_exact_url() -> None:
         "appimagetool-x86_64.AppImage",
         "https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64",
     ]
-    for item in build.APPIMAGE_TOOLS:
-        assert item.sha256 is None or len(item.sha256) == 64
+    # Pinned from the package job of run 43752479955 (docs/DECISIONS.md).
+    assert [item.sha256 for item in build.APPIMAGE_TOOLS] == [
+        "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0",
+        "2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d",
+    ]
 
 
 def test_a_pinned_tool_is_downloaded_once_and_checked(tmp_path: Path) -> None:

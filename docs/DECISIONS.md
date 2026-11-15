@@ -3476,4 +3476,9 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Reason:** `docs/research/m16-appimage.md` "Not tested here": `github.com` is closed to the agent container, so the pins are taken from the CI job's output (option A, the orchestrating session's choice of 2026-11-15, made a lasting check). The Python archive's download now shares `download`.
 - **Readings (reversible):** the published checksum is the GitHub API's asset `digest`. Whether either release also ships a checksum file could not be seen from here, and the job's output shows which releases list a digest. A tool whose release lists none is checked against its pin alone.
 - **Spec sections updated:** none; spec 3 "Packaging" gains the AppImage with the build.
-- **Dependencies added:** none yet. The two tools are recorded with their pins once the job has printed them.
+- **Pins:** taken from the `package` job (132929274232) of CI run 43752479955 on head `1751cb7f1e50fed3f20be736d92400ef07837ef8`, which printed each SHA-256 and "matches the release's published digest" for both. The hashes were computed in CI and compared with the GitHub release's asset digest; both releases list one.
+  - `appimagetool-x86_64.AppImage` 1.9.1: `ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0`.
+  - `runtime-x86_64` 20251108: `2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d`.
+- **Dependencies added:** two build tools, downloaded by the build into `dist/cache` (not Python packages). Their licences were read on 2026-11-15 from each project's `LICENSE` (`docs/research/m16-appimage.md`):
+  - appimagetool 1.9.1, MIT ("Copyright (c) 2004-25 Simon Peter and the AppImage Team"). It builds the AppImage and does not ship in it. Checked by its pinned SHA-256 and the release's published digest.
+  - type2-runtime `20251108`, MIT ("Copyright (c) 2004-23 probonopd"). It ships inside every AppImage, so the AppImage build adds it to `THIRD-PARTY-LICENSES.txt` and the licence list. Checked the same way.
