@@ -2585,6 +2585,20 @@ def decision_issues(model: Model) -> list[Issue]:
     return issues
 
 
+def value_issues(model: Model) -> list[Issue]:
+    """The checks of single values (#92): parameters (E151), setting ranges (E123),
+    distribution fields (E160) and clipping (W202). Each looks at one parameter or one
+    component's own settings and skips a reference it cannot read, so it can run on a
+    ``process`` model of only the components that built while others have errors; the
+    checks across the model (identifiers, connections, reachability, loads) cannot."""
+    return [
+        *parameter_issues(model),
+        *range_issues(model),
+        *distribution_issues(model),
+        *clipping_issues(model),
+    ]
+
+
 def meaning_pass(model: Model, data: DataIndex = EMPTY_DATA_INDEX) -> list[Issue]:
     """The meaning pass: part A (identifiers, settings that name things, connections),
     then part B (parameters, references, ranges, distributions, data, experiments,

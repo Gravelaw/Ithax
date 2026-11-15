@@ -3375,6 +3375,17 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** spec 3 "Lifetime" and "Run monitor, Results and Settings", with a dated line.
 - **Dependencies added:** none.
 
+## 2026-11-15 · M15 · Every error at once (#92; Reviewer B finding 3)
+
+- **Decision:** when a `process` model has build errors (E122 and the other conversion codes), the builder keeps the model of the components that built and each one's index in the file (`_Partial`), and `load_document` runs `value_issues` on it: parameters (E151), setting ranges (E123), distribution fields (E160) and clipping (W202). Each issue's `/components/<i>` is mapped back to the component's index in the file. The checks across the model (identifiers, references, connections, reachability, loads, experiments, metrics) still run only on a model that builds. The model is still refused while any error remains, so nothing that ran before runs now.
+- **Reason:** issue #92: "Value errors hide while another block lacks required settings": the meaning pass ran only on a model that built, so fixing a missing setting revealed a second round of errors. `tests/model/test_all_errors.py` builds an E122 on block 1 with an E160 on block 0, an E123 on block 3 and an E151 on a parameter; before the change only the E122 was reported. The property tests (no input makes the loader raise) pass with the new path.
+- **Readings (reversible):**
+  - "All validation errors" means the value checks: each looks at one parameter or one block's own settings and skips a reference it cannot read, so it is sound on a partial model. A check across the model would report a connection to a block that failed to build as a connection to nothing, so those still wait; the problems list shows them once the build errors are fixed.
+  - `POST .../validate` returns more issues in the same shape (additive, F7); a run of such a model is refused as before.
+- **Review of PR #198:** an experiment that cannot be built is dropped from the partial model too, and E151 names a scenario value by its experiment's index, so the path shifted to the experiment before it. The partial model now keeps the file index of each entry of every list it drops (components and experiments), and one mapping restores both; a test with experiment 0 unbuildable and a scenario of experiment 1 out of range failed first.
+- **Spec sections updated:** spec 1 "Validation", with a dated line.
+- **Dependencies added:** none.
+
 ## 2026-11-15 · M15 · Recent projects, part 1: rename, remove and notes in the service (#97; Reviewer B finding 10)
 
 - **Decision:**
