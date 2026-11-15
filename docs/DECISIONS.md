@@ -3400,3 +3400,11 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - All three changes are additive to `/v1` (F7).
 - **Spec sections updated:** spec 3 "Endpoints" (two rows and `GET /v1/projects`), spec 4 "MCP tools" (`list_projects`); a dated line in each.
 - **Dependencies added:** none.
+
+## 2026-11-15 · M15 · Recent projects, part 3: rename_project and remove_project in MCP (#97; C6)
+
+- **Decision:** two thin MCP tools over the endpoints of part 1. `rename_project` (`project_id`, `name`) sends `PATCH /v1/projects/{pid}` with the name only; `remove_project` (`project_id`) sends `POST /v1/projects/{pid}/remove`, whose description says nothing is deleted and to ask the user before removing a project they did not ask to remove. `opened` and `lesson_step` are the interface's notes and have no tool. The server lists thirteen tools, in spec 4's order.
+- **Reason:** owner decision C6: each feature ships with a thin API and MCP tool and a parity test. `tests/mcp/test_mcp_confinement.py` now calls both (a rename, refusals for ids outside the project folder, and a removal last, after which the folder is still on disk), and the tool lists and counts follow spec 4's table.
+- **Readings (reversible):** the tools sit after `create_model` in spec 4's order, with the other project tools.
+- **Spec sections updated:** spec 4 "MCP server" and "MCP tools" (two rows each), and the confinement paragraph's count; a dated line.
+- **Dependencies added:** none.

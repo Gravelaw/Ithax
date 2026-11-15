@@ -44,7 +44,15 @@ READ_TOOLS = {
     "validate_model",
     "list_engines",
 }
-WRITE_TOOLS = {"create_model", "edit_model", "run_model", "get_run_status", "get_results"}
+WRITE_TOOLS = {
+    "create_model",
+    "rename_project",
+    "remove_project",
+    "edit_model",
+    "run_model",
+    "get_run_status",
+    "get_results",
+}
 ALL_TOOLS = READ_TOOLS | WRITE_TOOLS
 
 
@@ -84,12 +92,12 @@ def new_project(http: httpx2.Client, name: str = "Coffee shop") -> str:
 # --- the tool list ---------------------------------------------------------------------------
 
 
-def test_the_server_lists_the_eleven_tools_in_the_order_of_spec_4() -> None:
+def test_the_server_lists_the_thirteen_tools_in_the_order_of_spec_4() -> None:
     # Was test_the_server_lists_the_six_read_tools (AKS-115); AKS-134 adds the other five.
     async def check(mcp_client: Client) -> None:
         listed = await mcp_client.list_tools()
         assert {tool.name for tool in listed.tools} == ALL_TOOLS
-        assert len(ALL_TOOLS) == 11
+        assert len(ALL_TOOLS) == 13
         assert [tool.name for tool in listed.tools] == [spec.name for spec in TOOLS]
         assert [tool.name for tool in listed.tools] == list(spec_4_tool_rows())
 
