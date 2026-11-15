@@ -44,3 +44,29 @@ def test_every_phase_2_table_row_has_a_milestone() -> None:
 
 def test_the_parser_finds_the_two_rows_of_the_finding() -> None:
     assert {'M5 "Left"', "M6-28", "M9-105"} <= set(phase_2_items())
+
+
+CODE = re.compile(r"\b(?:[A-F]\d+|P\d+|M\d+-\d+)\b")
+
+
+def holds_codes() -> list[str]:
+    """The decision, retrospective and session codes of "What Phase 2 holds"."""
+    text = MILESTONES.read_text("utf-8")
+    holds = section(text, "What Phase 2 holds").split("\nNot in Phase 2:", 1)[0]
+    return sorted(set(CODE.findall(holds)))
+
+
+def test_every_item_phase_2_holds_has_a_milestone() -> None:
+    """Review of pull request 214, second finding: the retrospective's items were covered
+    by "and the rest", and could be closed by listing them."""
+    codes = holds_codes()
+    assert {"P12", "P25", "D10", "M5-23"} <= set(codes)
+    rows = milestone_rows()
+    missing = [code for code in codes if not re.search(rf"\b{re.escape(code)}(?![\d-])", rows)]
+    assert not missing, f"name these codes in a Phase 2 milestone row: {missing}"
+
+
+def test_no_milestone_closes_by_listing_or_a_catch_all() -> None:
+    rows = milestone_rows()
+    for phrase in ("and the rest", "listed for the owner", "rows of"):
+        assert phrase not in rows, f'a milestone row says "{phrase}"; name each item instead'
