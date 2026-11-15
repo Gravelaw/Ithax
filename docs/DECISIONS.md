@@ -3138,6 +3138,24 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Spec sections updated:** spec 2's two optimization benchmark results, with a dated line.
 - **Dependencies added:** none; highspy upgraded from 1.15.1 to 1.16.0 (MIT, unchanged).
 
+## 2026-11-15 · M14 · A stop that no request can hold up (#158)
+
+- **Decision:**
+  - **The bound.** `ithax.service.main` runs uvicorn with `timeout_graceful_shutdown` `GRACEFUL_SHUTDOWN_S` = 5. After SIGTERM or SIGINT, uvicorn waits at most 5 s for open connections and requests, then cancels them and logs "Cancel N running task(s), timeout graceful shutdown exceeded". The lifespan's `RunService.stop`, bounded at 30 s, follows as before.
+  - **The dump.** `SignalServer.handle_exit` arms `faulthandler.dump_traceback_later(DUMP_AFTER_S = 20)` on the first stop signal. A service still running then writes every thread's traceback to standard error, which the launcher keeps in `service.log`. `_serve` cancels the dump once `service.json` is removed.
+  - **The e2e fixture** (`ui/e2e/service.ts`). A stop whose `service.json` is still there after 30 s prints `service.log` (and the logged service's log) before the folder is deleted.
+  - **Checks.**
+    - `tests/service/stuck_service.py` wraps the service so that `/test/stuck` is never answered. The new test holds such a request open and sends SIGTERM. The service ends by SIGTERM within the bound, with `service.json` removed and the cancel logged.
+    - On the old code the same run was still going 30 s after SIGTERM, with `service.json` left: shown by a direct run, recorded in the PR. With the change it exits after 5.2 s.
+    - Two unit tests: the uvicorn config holds the bound, and the first stop signal arms one dump of 20 s.
+- **Reason:** issue #158 (CI run 43583917879, attempt 1): the e2e fixture's service did not exit within 30 s of SIGTERM. The one wait without limit was uvicorn's graceful shutdown.
+- **Readings (reversible):**
+  - 5 s, as the issue proposed.
+  - 20 s for the dump: past the graceful shutdown, and before the 30 s a stopping test waits.
+  - The dump is armed on the signal, not at start, so a running service writes nothing.
+- **Spec sections updated:** spec 3 "One service per user", with a dated line.
+- **Dependencies added:** none.
+
 ## 2026-11-15 · M14 · An atomic model save (#71; D3, M6-34)
 
 - **Decision:**
@@ -3146,7 +3164,8 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
     - A failure before the record removes the temporaries: `CommitFailed(pending=False)`, E186 "not saved".
     - A rename that fails after it keeps the record and the temporaries: `CommitFailed(pending=True)`, E186 "the save is recorded, and it is finished the next time the project is used".
   - **The replay** (`replay(folder)`). It renames each temporary still present onto its target, in order, syncs the folder and removes the record; it can stop and run again.
-    - It skips a folder this process is committing at the moment (a set kept by `replace_in_order`).
+    - Every commit and every replay holds its folder's lock (one per resolved path, `_lock_of`) for the whole of it, from writing or reading the record to removing it (second review of PR #182).
+    - The service is the only writer of a project folder: the interface and the MCP server go through it. So a lock in the process is enough.
     - A record that cannot be read, or renames that fail, raise `CommitFailed(pending=True)`. Unreadable means not JSON, not a non-empty list of pairs, or a name that is empty, `.`, `..` or holds `/`, `\` or NUL.
   - **When.** The projects store replays a folder and its `data/` on every use: listing, `folder(pid)` (before every model, data or run use) and opening.
     - A replay that fails refuses the project with E186 (naming `.ithax-commit.json` for a folder changed by hand); the next use tries again.
@@ -3163,12 +3182,28 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - (3) A NUL in a recorded name raised `ValueError` past `except OSError`.
   - (1) and (2) are one class: a recovery that combines one revision with another's model. Redo only removes the class: there is no roll-back left, and an unfinished record refuses the folder. `AGENTS.md` lists the class.
   - (3) is fixed by validating names and catching `ValueError`.
+  - **Second round** (one P1, reproduced by Codex): a replay that read record J and paused could, after another replay finished J and a later save wrote J2 and failed, remove J2, leaving the new model with the old revision and no record.
+    - It is the same class again, so the fix is the class's helper: one lock per folder over the whole of every commit and replay replaces the "folder being committed" set.
+    - New test `test_a_replay_and_a_later_save_in_one_folder_never_meet` forces that interleaving with a pause inside the replay. The save waits, its record stays, and the next replay finishes it whole. Before the fix the save went ahead.
 - **Reason:** issue #71 (D3, M6-34): "Done when an interrupted save leaves either the old or the new model and revision, with a test."
 - **Readings (reversible):**
   - **A redo record, not a checksum or one combined file** (`docs/research/m14-atomic-save.md`). A checksum detects but cannot repair; one file holding model and revision would change the project layout.
-  - **Replay on every use**, skipped for a folder this process is committing, so it never races a save in another thread.
+  - **Replay on every use**, under the folder's lock, so it never races a save in another thread.
   - **A failed save after its record is answered E186, not 200**, though the save is decided. Its listeners are not told until a later write: a replay sends no event.
   - **Temporaries left by a stop before the record are kept.** They are named for the process and thread, so they never meet a later save.
   - **`files.sync_folder` is now public** for the commit.
 - **Spec sections updated:** spec 3 "Revision", with dated lines.
+- **Dependencies added:** none.
+
+## 2026-11-15 · Owner decisions: Phase 2 milestones, v0.1.0, Windows, sessions
+
+Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 and #106.
+
+- **Decision:**
+  1. **Phase 2 milestones.** The orchestrating session proposes the grouping and sends it to the owner. It proceeds unless the owner objects within a day.
+  2. **v0.1.0.** Sessions prepare and verify everything and stop before tagging; the owner tags and publishes. Phase 2 continues meanwhile, with #102 awaiting the owner.
+  3. **Windows (#106).** An unsigned installer, with a SmartScreen note and a checksum, for now. Signing is decided before the public launch.
+  4. **Sessions.** One coding session at a time; one modest agent council for #104.
+- **Reason:** the owner's decisions of 2026-11-15.
+- **Spec sections updated:** none; the guide's milestone table is changed when Phase 2's grouping is agreed.
 - **Dependencies added:** none.

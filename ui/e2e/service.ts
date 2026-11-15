@@ -8,6 +8,11 @@
  * (the service with every call that reaches it logged to `requestLog`, AKS-121), and the
  * launcher then finds it running, as it finds any running service.
  *
+ * A stop that does not end within 30 s prints the service's log (`service.log`, and the
+ * logged service's own) before the folder is removed, so a CI failure shows where the
+ * service was stuck: the service writes every thread's traceback there 20 s after the
+ * signal (#158).
+ *
  * The Python is `ITHAX_PYTHON` (or, for one release, its old name `LCSIM_PYTHON`; #70), else
  * the repository's `.venv`, else `python3`.
  */
@@ -47,6 +52,14 @@ export function python(): string {
 }
 
 export const REPOSITORY_ROOT = REPOSITORY;
+
+/** Prints the service's logs to standard error, for a stop that did not end (#158). */
+function showLogs(folder: string, configDir: string): void {
+  for (const log of [join(configDir, "service.log"), join(folder, "logged-service.log")]) {
+    if (!existsSync(log)) continue;
+    console.error(`--- ${log} ---\n${readFileSync(log, "utf8")}--- end of ${log} ---`);
+  }
+}
 
 /** Starts the logged service and waits until `service.json` names it. */
 async function startLogged(
@@ -136,6 +149,7 @@ export async function startService(options: { requestLog?: boolean } = {}): Prom
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
       const left = existsSync(join(configDir, "service.json"));
+      if (left) showLogs(folder, configDir);
       rmSync(folder, { recursive: true, force: true });
       if (left) throw new Error("the service did not remove service.json when stopped");
     },
