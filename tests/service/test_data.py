@@ -335,13 +335,14 @@ def test_an_unknown_project_is_404_and_an_unreadable_one_e186(client: TestClient
     refusal(client.get(f"/v1/projects/{pid}/data"), 400, "E186")
 
 
-def test_a_failed_commit_puts_the_previous_file_back(
+def test_an_import_that_fails_after_its_record_is_finished_on_next_use(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Redo only (#71, review of PR #182): the file and the index never disagree; the
+    import is refused, and the next use of the project finishes it."""
     pid = project(client)
     upload(client, pid, "a.csv", b"x\n1\n")
     folder = folder_of(client, pid)
-    before = {name: (folder / "data" / name).read_bytes() for name in data_listing(folder)}
     real = os.replace
 
     def replace(source: Any, target: Any) -> None:
@@ -354,8 +355,10 @@ def test_a_failed_commit_puts_the_previous_file_back(
     monkeypatch.undo()
     body = refusal(response, 400, "E186")
     assert "denied" not in json.dumps(body)
-    after = {name: (folder / "data" / name).read_bytes() for name in data_listing(folder)}
-    assert after == before
+    assert "recorded" in body["error"]["message"]
+    listed = client.get(f"/v1/projects/{pid}/data").json()
+    assert [entry["name"] for entry in listed] == ["a.csv"]
+    assert (folder / "data" / "a.csv").read_bytes() == b"x\n9\n"
 
 
 def test_an_import_is_saved_while_the_project_s_writes_are_held(
@@ -380,7 +383,7 @@ def test_an_import_is_saved_while_the_project_s_writes_are_held(
     monkeypatch.setattr(os, "replace", replace)
     assert upload(client, pid).status_code == 200
     monkeypatch.undo()
-    assert held == [True, True]
+    assert held == [True, True, True]  # the commit record (#71), the file, the index
 
 
 def test_a_data_folder_that_is_missing_is_made_again(client: TestClient) -> None:
@@ -783,3 +786,57 @@ def test_a_column_that_overflows_in_seconds_is_refused_by_validate_and_by_runs(
     assert [(issue["code"], issue["path"]) for issue in body["issues"]] == expected
     runs = folder_of(client, pid) / "runs"
     assert not runs.exists() or list(runs.iterdir()) == []
+
+
+def test_validation_never_reads_data_an_import_left_unfinished_after_it_settled(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fifth review of PR #182: ``validate`` settled the folder in one hold of the project's
+    lock and read the column index in a second. An import that failed at its index rename
+    between the two left the new file beside the old index, and validation reported E162.
+    Every read of the folder is now made in the hold that settled it, so the import waits."""
+    from ithax.service.errors import ServiceError
+    from ithax.service.model_store import ModelStore
+
+    pid = project(client)
+    log = b"up_h,down_min\n1.5,20\n2,35\n0.75,10\n"
+    units = {"up_h": "h", "down_min": "min"}
+    upload(client, pid, "log.csv", log, units)
+    assert (
+        client.put(f"/v1/projects/{pid}/model", content=json.dumps(breakdown())).status_code == 200
+    )
+    store = state_of(client).data
+    real_replace, real_load = os.replace, ModelStore._load
+    refused: list[str] = []
+
+    def replace(source: Any, target: Any) -> None:
+        if Path(target).name == INDEX_FILE and threading.current_thread().name == "import":
+            raise PermissionError("denied")
+        real_replace(source, target)
+
+    def importing() -> None:
+        try:
+            store.upload(pid, "log.csv", log + b"1,5\n", units)
+        except ServiceError as error:
+            refused.append(error.code)
+
+    importer = threading.Thread(target=importing, name="import")
+
+    def load(self: ModelStore, *args: Any, **options: Any) -> Any:
+        if threading.current_thread() is not importer and not importer.is_alive():
+            importer.start()
+            importer.join(1)  # it finishes here only if the project's lock is free
+        return real_load(self, *args, **options)
+
+    monkeypatch.setattr(os, "replace", replace)
+    monkeypatch.setattr(ModelStore, "_load", load)
+    issues = client.post(f"/v1/projects/{pid}/validate").json()["issues"]
+    importer.join(30)
+    monkeypatch.setattr(os, "replace", real_replace)
+    monkeypatch.setattr(ModelStore, "_load", real_load)
+    assert refused == ["E186"]  # the import is recorded, not finished
+    assert issues == [], issues
+    # The next use finishes the import; validation then sees the changed file whole.
+    assert client.get(f"/v1/projects/{pid}/data").status_code == 200
+    assert (folder_of(client, pid) / "data" / "log.csv").read_bytes() == log + b"1,5\n"
+    assert client.post(f"/v1/projects/{pid}/validate").json()["issues"] == []

@@ -88,8 +88,13 @@ def create_app(config: ServiceConfig) -> FastAPI:
     hardware = config.hardware if config.hardware is not None else detect_hardware()
     lifetime = Lifetime(config.idle_timeout_s, config.clock)
     adapters = installed_adapters() if config.adapters is None else config.adapters
-    registry = ProjectRegistry(config.config_dir, config.data_dir)
     events = ProjectEvents()
+    # A save a replay finishes is published as a write whose client is not known (#71).
+    registry = ProjectRegistry(
+        config.config_dir,
+        config.data_dir,
+        on_replayed=lambda pid, revision: events.model_written(pid, revision, None),
+    )
     tier = active_tier(config.config_dir, hardware)
     model_store = ModelStore(registry, adapters, events)
     state = ServiceState(

@@ -78,7 +78,6 @@ from ithax.service.errors import (
     MALFORMED,
     NOT_ALLOWED,
     NOT_FOUND,
-    PROJECT_FOLDER,
     ServiceError,
     malformed,
 )
@@ -86,7 +85,7 @@ from ithax.service.events import ProjectEvents
 from ithax.service.finding_settings import read_finding_settings
 from ithax.service.lifetime import Lifetime
 from ithax.service.model_store import ModelStore
-from ithax.service.projects_store import PROJECT_FILE, ProjectRegistry, read_project
+from ithax.service.projects_store import ProjectRegistry
 from ithax.service.run_feed import RunFeed
 from ithax.service.run_settings import RunSettings
 from ithax.strict_json import read_json_file
@@ -243,15 +242,8 @@ class RunService:
     def _project(self, pid: str) -> Path:
         """The folder of project ``pid``, prepared; 404 with E185 for an unknown project,
         400 with E186 for one that cannot be read."""
-        folder = self.projects.folder(pid)
-        record = read_project(folder)
-        if record is None or record.id != pid:
-            raise ServiceError(
-                400,
-                PROJECT_FOLDER,
-                f"The project '{pid}' cannot be used: the {PROJECT_FILE} in '{folder}' is "
-                "missing or cannot be read.",
-            )
+        # Settled and its project.json read in one hold of the lock (fifth review of PR #182).
+        folder = self.models.project_folder(pid)
         self._prepare(pid, folder)
         return folder
 
@@ -320,7 +312,8 @@ class RunService:
         """Creates a run of the project's model and puts it in the run queue; its
         ``run_id``."""
         folder = self._project(pid)
-        with self.models.locked(pid):
+        with self.models.settled(pid):
+            # The model and the column index are read in this one hold (PR #182).
             return self._submit(pid, folder, experiment_id, target, client)
 
     def _submit(

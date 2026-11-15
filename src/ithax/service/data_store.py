@@ -7,7 +7,8 @@ and notes, and "Project folder"; AKS-113).
   reads the bytes (``read_table``: E189 for content that cannot be used), checks the
   declared units against the columns read (E184), and saves the file unchanged and its
   entry in ``data/index.json`` together (``ithax.service.commit``: the file, then the index,
-  which commits; a failure puts the previous file back, E186). A name already in the index
+  as one change: a failure before its commit record changes nothing, and one after it is
+  finished on the next use of the project, E186 either way; #71). A name already in the index
   is imported again in its place; one that differs from an indexed name only in letter
   case is E184, since Windows takes the two as one file. The save holds the project's
   write lock (``ModelStore.locked``), so no model write or run creation meets half an
@@ -107,9 +108,10 @@ class DataStore:
     def __init__(self, models: ModelStore) -> None:
         self.models = models
 
-    def _folder(self, pid: str) -> Path:
-        """The ``data/`` folder of project ``pid`` (made when it is missing)."""
-        folder = self.models.project_folder(pid) / DATA_FOLDER
+    @staticmethod
+    def _folder(root: Path) -> Path:
+        """The ``data/`` folder of the project folder ``root`` (made when it is missing)."""
+        folder = root / DATA_FOLDER
         try:
             folder.mkdir(exist_ok=True)
         except OSError:
@@ -120,19 +122,17 @@ class DataStore:
             ) from None
         return folder
 
-    def index(self, pid: str) -> DataIndex:
-        """The column index of project ``pid``."""
-        return read_data_index(self._folder(pid))
-
     def files(self, pid: str) -> list[dict[str, Any]]:
         """The imported files of project ``pid``, in the order first imported."""
-        with self.models.locked(pid):
-            return [entry.as_dict() for entry in self.index(pid).entries()]
+        with self.models.settled(pid) as (root, _record):
+            index = read_data_index(self._folder(root))
+        return [entry.as_dict() for entry in index.entries()]
 
     def check_project(self, pid: str) -> None:
         """404 with E185 or 400 with E186 unless project ``pid`` can be used; before an
         upload is read."""
-        self._folder(pid)
+        with self.models.settled(pid) as (root, _record):
+            self._folder(root)
 
     # --- importing ---------------------------------------------------------------------
 
@@ -153,8 +153,8 @@ class DataStore:
             raise _unusable("/file", unreadable.message, unreadable.hint) from None
         _check_units(table, units)
         entry = new_entry(name, raw, table, units, _now())
-        with self.models.locked(pid):
-            folder = self._folder(pid)
+        with self.models.settled(pid) as (root, _record):
+            folder = self._folder(root)
             current = read_data_index(folder)
             clash = next(
                 (
@@ -175,7 +175,7 @@ class DataStore:
             files[name] = entry  # in place when it was imported before
             self._save(
                 folder,
-                [Planned(folder / name, raw, _previous(folder / name, name in current.files))],
+                [Planned(folder / name, raw)],
                 files.values(),
                 "imported",
             )
@@ -184,16 +184,19 @@ class DataStore:
     def _save(
         self, folder: Path, planned: list[Planned], files: Iterable[DataFile], what: str
     ) -> None:
-        """Saves ``planned`` and then the index listing ``files`` (the commit); E186 when
-        the folder cannot be written, with the folder as it was."""
+        """Saves ``planned`` and then the index listing ``files`` as one change; E186 when
+        the folder cannot be written."""
         index = folder / INDEX_FILE
         try:
-            previous = index.read_bytes() if index.exists() else None
-        except OSError:
-            previous = None
-        try:
-            replace_in_order([*planned, Planned(index, index_bytes(files), previous)])
-        except CommitFailed:
+            replace_in_order([*planned, Planned(index, index_bytes(files))])
+        except CommitFailed as failed:
+            if failed.pending:
+                raise ServiceError(
+                    400,
+                    PROJECT_FOLDER,
+                    f"The data folder '{folder}' could not be written to the end. The change "
+                    "is recorded, and it is finished the next time the project is used.",
+                ) from None
             raise ServiceError(
                 400,
                 PROJECT_FOLDER,
@@ -211,8 +214,8 @@ class DataStore:
 
     def delete(self, pid: str, name: str) -> list[dict[str, Any]]:
         """Removes the file ``name`` and its entry; the files that remain."""
-        with self.models.locked(pid):
-            folder = self._folder(pid)
+        with self.models.settled(pid) as (root, _record):
+            folder = self._folder(root)
             current, _entry = self._entry(folder, name)
             remaining = [entry for entry in current.entries() if entry.name != name]
             self._save(folder, [], remaining, "removed")
@@ -227,8 +230,8 @@ class DataStore:
 
     def fit(self, pid: str, name: str, column: str) -> dict[str, Any]:
         """The candidates fitted to column ``column`` of file ``name``."""
-        with self.models.locked(pid):
-            folder = self._folder(pid)
+        with self.models.settled(pid) as (root, _record):
+            folder = self._folder(root)
             _current, entry = self._entry(folder, name)
             try:
                 raw = (folder / name).read_bytes()
@@ -271,17 +274,6 @@ class DataStore:
             "candidates": [candidate.as_dict() for candidate in candidates],
             "histogram": histogram(values),
         }
-
-
-def _previous(path: Path, indexed: bool) -> bytes | None:
-    """The bytes a save replaces at ``path``, put back if it fails; a file there that the
-    index does not list is not part of the project and is not kept."""
-    if not indexed:
-        return None
-    try:
-        return path.read_bytes()
-    except OSError:
-        return None
 
 
 def _check_units(table: Table, units: Mapping[str, str | None]) -> None:

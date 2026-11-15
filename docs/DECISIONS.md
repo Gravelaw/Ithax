@@ -3191,3 +3191,65 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - Finding 8's wording came from the orchestrating session: the "empty enums" were the static schema's `{}`. The published schema fills them, while the schema pass keeps its structural schema so its codes stay the meaning pass's. The published schema accepts every shipped model (a test).
 - **Spec sections updated:** spec 4 "How the server runs and answers" (Inputs, Results, the descriptions); spec 3 `GET /v1/schema`; dated lines in both.
 - **Dependencies added:** none.
+
+## 2026-11-15 · M14 · An atomic model save (#71; D3, M6-34)
+
+- **Decision:**
+  - **The commit record** (`ithax.service.commit`). `replace_in_order` refuses a target that is a folder, then writes every file's bytes to synced temporary files. It then writes `.ithax-commit.json`, `{"renames": [[temporary, target], ...]}`, beside them with `atomic_write`: that write is the commit. Last, it renames the temporaries in order, syncs the folder and removes the record. Every file of one commit sits in one folder.
+  - **Redo only** (review of PR #182). Nothing is put back after the record, and `Planned` no longer carries the bytes it replaces.
+    - A failure before the record removes the temporaries: `CommitFailed(pending=False)`, E186 "not saved".
+    - A rename that fails after it keeps the record and the temporaries: `CommitFailed(pending=True)`, E186 "the save is recorded, and it is finished the next time the project is used".
+  - **The replay** (`replay(folder)`). It renames each temporary still present onto its target, in order, syncs the folder and removes the record; it can stop and run again.
+    - Every commit and every replay holds its folder's lock (one per resolved path, `_lock_of`) for the whole of it, from writing or reading the record to removing it (second review of PR #182).
+    - The service is the only writer of a project folder: the interface and the MCP server go through it. So a lock in the process is enough.
+    - A record that cannot be read, or renames that fail, raise `CommitFailed(pending=True)`. Unreadable means not JSON, not a non-empty list of pairs, or a name that is empty, `.`, `..` or holds `/`, `\` or NUL.
+  - **When.** The projects store replays a folder and its `data/` on every use: listing, `folder(pid)` (before every model, data or run use) and opening.
+    - A replay that fails refuses the project with E186 (naming `.ithax-commit.json` for a folder changed by hand); the next use tries again.
+    - A listing shows the project as not available.
+  - **Checks.** Each fails before the change.
+    - `tests/service/test_commit.py`: a child process is stopped with `os._exit` at every `os.replace` and `os.fsync` of a save. Wherever a record was left, a second child replays and is stopped at every step of the replay. The folder always reads as the old two files or the new two.
+    - Also there: a failed rename leaves the change for replay; ten unreadable records (NUL, separators, `..` and so on) refuse and change nothing; a folder being committed is left alone; a folder as a target saves nothing.
+    - `tests/service/test_admission.py`: the same stops on a real project, read by a new service and by an opened folder; a failure at each rename; a recorded save that cannot be finished refuses `GET` model and is finished once it can.
+    - `tests/service/test_data.py`: an import that fails after its record is finished on the next use.
+    - On the old code a stop between the renames left the new model at the old revision for a new service: shown by a direct run, recorded in the PR.
+- **Review of PR #182** (three P1s):
+  - (1) A stop during the roll-back could pair the old model with the new revision.
+  - (2) A replay that failed still admitted the folder.
+  - (3) A NUL in a recorded name raised `ValueError` past `except OSError`.
+  - (1) and (2) are one class: a recovery that combines one revision with another's model. Redo only removes the class: there is no roll-back left, and an unfinished record refuses the folder. `AGENTS.md` lists the class.
+  - (3) is fixed by validating names and catching `ValueError`.
+  - **Second round** (one P1, reproduced by Codex): a replay that read record J and paused could, after another replay finished J and a later save wrote J2 and failed, remove J2, leaving the new model with the old revision and no record.
+    - It is the same class again, so the fix is the class's helper: one lock per folder over the whole of every commit and replay replaces the "folder being committed" set.
+    - New test `test_a_replay_and_a_later_save_in_one_folder_never_meet` forces that interleaving with a pause inside the replay. The save waits, its record stays, and the next replay finishes it whole. Before the fix the save went ahead.
+  - **Third round** (two P2s):
+    - `record.exists()` in `replay` could raise (`PermissionError`) outside the handler. It now raises `CommitFailed(pending=True)`, so the project is refused with E186 and listed as not available. Tests: `test_a_record_that_cannot_be_looked_at_refuses_the_folder`, `test_a_project_whose_record_cannot_be_looked_at_is_refused_and_listed_unavailable`.
+    - A replay that finished a save published no `model` event, so open canvases kept the old revision. The registry now takes `on_replayed(pid, revision)`, and the app sends `model_written(pid, revision, None)`: `client` `null`. Test: `test_a_save_finished_by_a_replay_is_published_to_the_project_s_listeners`. The earlier tests that called `monkeypatch.undo()` also undid the events fixture, so they now restore only `os.replace` and expect the replay's event.
+  - **Fourth round** (one P1): a `data` folder that links to itself made `Path.resolve` raise `RuntimeError` on Python 3.11 (3.13 does not), past every handler, so the listing and each request failed unexpectedly. It was the third filesystem error to escape one call of the commit (after the NUL's `ValueError` and `exists`'s `PermissionError`), so the class is fixed in its helper:
+    - `commit.FILE_ERRORS` is `(OSError, ValueError, RuntimeError)`. One guard over the whole of `replay` (finding the lock, looking for the record, reading it, the renames, removing it) maps each to `CommitFailed(pending=True)`. One over `replace_in_order` before the record (finding the lock, the folder check, the temporaries, the record) maps each to `CommitFailed(pending=False)`; `_finish` maps each to `pending=True`.
+    - Tests: `test_any_filesystem_error_in_a_replay_refuses_the_folder` raises each of the three from each of six filesystem calls of a replay, and `test_any_filesystem_error_before_the_record_saves_nothing` from each of three calls before the record. 16 of the 27 failed before the fix. At the service, `test_a_project_whose_folder_cannot_be_looked_into_is_refused_and_listed_unavailable` gives E186 and a listing that marks the project not available, for each error. `test_a_data_folder_that_links_to_itself_never_escapes_as_an_exception` uses a real loop: on 3.11 it failed before the fix with the `RuntimeError` and now gives E186.
+  - **Fifth round** (one P2): `validate` settled the folder and read `model.json` in one hold of the project's lock, then read the column index in a second (`_load`). An import that failed at its index rename between the two left the new file beside the old index, and validation reported E162. `put`, and `edit`'s final load, read the index the same way, and `run_service._project` read `project.json` with no lock.
+    - It is the second finding of one class, a read made in a hold that did not settle the folder, so the fix is one accessor. `ModelStore.settled(pid)` holds the lock, settles and gives the folder and its record. Every read of the model, `project.json` or the column index in `ithax.service` is made inside one such hold: the model store's reads, `_load`, the data store, run creation, `_project` (through `project_folder`) and the export.
+    - Check: `tests/test_conventions.py::test_project_folders_are_read_inside_a_settled_hold` finds a reader (`read_data_index`, `data_index`, `read_project`) or a helper given a settled folder (`_record`, `_raw`, `_stored`, `_check_revision`, `_entry`, `_submit`) called outside a `with ....settled(...)` block; `projects_store` is the settling itself. On the previous code it finds 20 calls, among them `_load`'s.
+    - Test: `test_validation_never_reads_data_an_import_left_unfinished_after_it_settled` (`tests/service/test_data.py`) starts the failing import as validation reaches `_load`. Before the fix it ran in the gap, and validation gave two E162; now it waits for the hold, and validation gives none.
+- **Reason:** issue #71 (D3, M6-34): "Done when an interrupted save leaves either the old or the new model and revision, with a test."
+- **Readings (reversible):**
+  - **A redo record, not a checksum or one combined file** (`docs/research/m14-atomic-save.md`). A checksum detects but cannot repair; one file holding model and revision would change the project layout.
+  - **Replay on every use**, under the folder's lock, so it never races a save in another thread.
+  - **A failed save after its record is answered E186, not 200**, though the save is decided. Its listeners are told when a replay finishes it, with `client` `null` (third review).
+  - **Temporaries left by a stop before the record are kept.** They are named for the process and thread, so they never meet a later save.
+  - **`files.sync_folder` is now public** for the commit.
+- **Spec sections updated:** spec 3 "Revision", with dated lines.
+- **Dependencies added:** none.
+
+## 2026-11-15 · Owner decisions: Phase 2 milestones, v0.1.0, Windows, sessions
+
+Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 and #106.
+
+- **Decision:**
+  1. **Phase 2 milestones.** The orchestrating session proposes the grouping and sends it to the owner. It proceeds unless the owner objects within a day.
+  2. **v0.1.0.** Sessions prepare and verify everything and stop before tagging; the owner tags and publishes. Phase 2 continues meanwhile, with #102 awaiting the owner.
+  3. **Windows (#106).** An unsigned installer, with a SmartScreen note and a checksum, for now. Signing is decided before the public launch.
+  4. **Sessions.** One coding session at a time; one modest agent council for #104.
+- **Reason:** the owner's decisions of 2026-11-15.
+- **Spec sections updated:** none; the guide's milestone table is changed when Phase 2's grouping is agreed.
+- **Dependencies added:** none.

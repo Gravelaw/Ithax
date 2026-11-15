@@ -34,4 +34,17 @@ that reads input, and say whether the shared helper was bypassed:
 - Windows paths without a drive, symlink or junction aliases, `..` after a link
   (helper: `ithax.service.paths.canonical`);
 - loops that never check for cancellation; waits with no time limit;
+- a save of several files that restores old files after its commit point, or a recovery that
+  admits a folder whose recorded change it could not finish: either can pair one revision with
+  another's model (helper: `ithax.service.commit`, redo only; `tests/service/test_commit.py`
+  stops the writer and its replay at every step; one lock per folder covers a whole commit or
+  replay, so a replay never removes a later commit's record; PR #182, two rounds); also a
+  filesystem error that escapes a commit or replay as anything but `CommitFailed` (a NUL's
+  `ValueError`, an unreadable folder's `PermissionError`, a symlink loop's `RuntimeError` on
+  Python 3.11): one guard over each whole call maps `commit.FILE_ERRORS`, and
+  `tests/service/test_commit.py` raises each of them from each filesystem call (PR #182,
+  fourth round); also a read of a project folder's model, `project.json` or column index made
+  in a hold of the project's lock that did not settle the folder, which can see a save left
+  half done in between (helper: `ModelStore.settled`; `tests/test_conventions.py` finds a
+  reader outside one; PR #182, fifth round);
 - interface state written from a stale draft or after a screen has closed.

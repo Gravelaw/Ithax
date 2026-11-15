@@ -10,13 +10,13 @@
   ``PUT`` body (E100), the result of an edit batch (E180) and ``validate`` (its E100 is
   the only issue reported). An edit's own fields are checked as the request's shape first
   (E184, ``ithax.model.edits.check_edits``).
-- **Saving.** ``_commit`` makes both files' final bytes first, writes each to a temporary
-  file in the project folder, then renames ``model.json`` into place and ``project.json``
-  (the new revision) last: that last rename is the commit (``ithax.service.commit``, which
-  a data import also uses). A failure before it removes the
-  temporary files, and a failure at it also puts the previous model back, so the revision,
-  the model and the events are unchanged; the project's listeners are told only after the
-  commit. Every write of one project holds that project's lock, so two writes that state
+- **Saving.** ``_commit`` saves ``model.json`` and then ``project.json`` (the new revision)
+  as one change through ``ithax.service.commit``, which a data import also uses: both
+  files' bytes first, then the commit record, then the renames (#71). A failure before the
+  record changes nothing (E186, "not saved"). A failure after it leaves the change recorded,
+  to be finished on the next use of the project (E186, "recorded"), so the folder never
+  pairs one revision with another's model. The project's listeners are told only once the
+  change is in place. Every write of one project holds that project's lock, so two writes that state
   the same ``base_revision`` cannot both pass the check. The lock is re-entrant and public
   (``locked``): a data import holds it while it saves a file and its column index, and a
   run while it reads the model and its data, so neither sees half of the other (AKS-113).
@@ -175,6 +175,16 @@ class ModelStore:
         with self._lock_for(pid):
             yield
 
+    @contextlib.contextmanager
+    def settled(self, pid: str) -> Iterator[tuple[Path, ProjectRecord]]:
+        """Holds project ``pid``'s write lock, finishes a save recorded in its folder, and
+        gives the folder and its record. Every read of the folder's model, ``project.json``
+        or column index is made inside one such hold, so no save can be left unfinished
+        between the settling and the read (fifth review of PR #182;
+        ``tests/test_conventions.py`` checks it)."""
+        with self.locked(pid):
+            yield self._record(pid)
+
     def _record(self, pid: str) -> tuple[Path, ProjectRecord]:
         folder = self.projects.folder(pid)
         record = read_project(folder)
@@ -228,37 +238,35 @@ class ModelStore:
     def project_folder(self, pid: str) -> Path:
         """The folder of project ``pid``: 404 with E185 for an unknown project, 400 with
         E186 for one whose ``project.json`` cannot be read."""
-        return self._record(pid)[0]
+        with self.settled(pid) as (folder, _record):
+            return folder
 
     def read(self, pid: str) -> dict[str, Any]:
         """``{model, revision}`` of project ``pid``."""
-        with self.locked(pid):
-            folder, record = self._record(pid)
+        with self.settled(pid) as (folder, record):
             return {"model": self._stored(folder).document, "revision": record.model_revision}
 
     def model_file(self, pid: str) -> bytes:
         """The bytes of project ``pid``'s admitted ``model.json``, read while no write of it
         is under way, for a run to copy byte for byte (AKS-112); E186 when it cannot be
         used."""
-        with self.locked(pid):
-            folder, _record = self._record(pid)
+        with self.settled(pid) as (folder, _record):
             return self._stored(folder).data
 
     def revision(self, pid: str) -> int:
         """The current revision of project ``pid``."""
-        with self.locked(pid):
-            return self._record(pid)[1].model_revision
+        with self.settled(pid) as (_folder, record):
+            return record.model_revision
 
     # --- validating ------------------------------------------------------------------
 
-    def _load(
-        self, pid: str, folder: Path, text: bytes | None, document: object = None
-    ) -> LoadResult:
-        """Loads a model against the project's column index. The project's write lock is
-        held, since the meaning pass hashes the data files: a data import renames its file
-        before its index, and must never be seen between the two (AKS-113)."""
+    def _load(self, pid: str, text: bytes | None, document: object = None) -> LoadResult:
+        """Loads a model against the project's column index. The folder is settled in the
+        same hold of the lock, since the meaning pass hashes the data files: a data import
+        renames its file before its index, and must never be seen between the two
+        (AKS-113; fifth review of PR #182)."""
         engines = installed_engines(self.adapters)
-        with self.locked(pid):
+        with self.settled(pid) as (folder, _record):
             data = self.data_index(folder / "data")
             if text is not None:
                 return load_text(text, seed_source=_no_seed, data=data, engines=engines)
@@ -268,14 +276,14 @@ class ModelStore:
         """``{revision, issues}`` of the saved model: when it is JSON, the admission gate
         first (its E100 alone when it fails), then the schema pass, the meaning pass and
         the adapter's ``validate`` when the first two find no error."""
-        with self.locked(pid):
-            folder, record = self._record(pid)
+        with self.settled(pid) as (folder, record):
             raw = self._raw(folder)
-        with contextlib.suppress(ValueError):
-            admitted = admit(self._parse(raw))
-            if isinstance(admitted, Issue):
-                return {"revision": record.model_revision, "issues": [admitted.as_dict()]}
-        result = self._load(pid, folder, raw)
+            with contextlib.suppress(ValueError):
+                admitted = admit(self._parse(raw))
+                if isinstance(admitted, Issue):
+                    return {"revision": record.model_revision, "issues": [admitted.as_dict()]}
+            # In the hold that read model.json, so the column index is of the same folder.
+            result = self._load(pid, raw)
         issues = list(result.issues)
         if result.model is not None:
             selection = select_adapter(result.model.domain, result.model.run.engine, self.adapters)
@@ -303,12 +311,9 @@ class ModelStore:
         folder: Path,
         record: ProjectRecord,
         data: bytes,
-        previous: bytes | None,
         client: str,
     ) -> int:
-        """Save the admitted model bytes ``data`` as the next revision; ``previous`` is the
-        ``model.json`` it replaces (``None`` when there was none), put back when the
-        commit fails."""
+        """Save the admitted model bytes ``data`` as the next revision."""
         revision = record.model_revision + 1
         if revision > MAX_WHOLE:
             raise _folder_error(
@@ -319,13 +324,14 @@ class ModelStore:
         project_data = encode_json(asdict(replace(record, model_revision=revision)))
         try:
             replace_in_order(
-                [
-                    Planned(folder / MODEL_FILE, data, previous),
-                    # The commit; it is never put back, being last.
-                    Planned(folder / PROJECT_FILE, project_data, None),
-                ]
+                [Planned(folder / MODEL_FILE, data), Planned(folder / PROJECT_FILE, project_data)]
             )
-        except CommitFailed:
+        except CommitFailed as failed:
+            if failed.pending:
+                raise _folder_error(
+                    f"The project folder '{folder}' could not be written to the end. The "
+                    "save is recorded, and it is finished the next time the project is used."
+                ) from None
             raise _folder_error(
                 f"The project folder '{folder}' cannot be written, so the model was not saved."
             ) from None
@@ -334,8 +340,7 @@ class ModelStore:
 
     def put(self, pid: str, body: bytes, base_revision: int | None, client: str) -> Written:
         """Save the model file ``body`` when it passes the schema pass and is admitted."""
-        folder = self.projects.folder(pid)
-        loaded = self._load(pid, folder, body)
+        loaded = self._load(pid, body)
         schema = [issue for issue in loaded.issues if issue.code in _SCHEMA_CODES]
         if schema:
             raise ServiceError(
@@ -353,14 +358,9 @@ class ModelStore:
                 "The model file does not pass the schema pass, so it was not saved.",
                 [admitted],
             )
-        with self.locked(pid):
-            folder, record = self._record(pid)
+        with self.settled(pid) as (folder, record):
             self._check_revision(folder, record, base_revision)
-            try:
-                previous: bytes | None = (folder / MODEL_FILE).read_bytes()
-            except OSError:
-                previous = None
-            revision = self._commit(pid, folder, record, admitted, previous, client)
+            revision = self._commit(pid, folder, record, admitted, client)
         return Written(model, revision, loaded.issues)
 
     def _component_types(self, domain: object) -> dict[str, BlockType]:
@@ -380,8 +380,7 @@ class ModelStore:
         if shape:
             raise malformed([*shape])
         assert isinstance(edits, list)
-        with self.locked(pid):
-            folder, record = self._record(pid)
+        with self.settled(pid) as (folder, record):
             self._check_revision(folder, record, base_revision)
             stored = self._stored(folder)
             current = stored.document
@@ -408,8 +407,8 @@ class ModelStore:
                     hint=admitted.hint,
                 )
                 raise ServiceError(400, EDIT_REJECTED, issue.message, [issue])
-            revision = self._commit(pid, folder, record, admitted, stored.data, client)
-        return Written(outcome.model, revision, self._load(pid, folder, None, outcome.model).issues)
+            revision = self._commit(pid, folder, record, admitted, client)
+        return Written(outcome.model, revision, self._load(pid, None, outcome.model).issues)
 
 
 def base_revision(text: str | None) -> int | None:

@@ -9,6 +9,13 @@ projects were registered.
 ``ProjectRegistry`` creates, opens, lists and finds projects; it refuses with
 ``ServiceError`` (E184, E185, E186) and never with exception text. It is safe to call from
 several threads (FastAPI runs plain routes in a thread pool).
+
+Each time a project folder is used (listed, found or opened), the store first finishes a
+save that a stopped process, or a failed rename, left recorded there, in the folder and in
+its ``data/`` (``ithax.service.commit.replay``; #71). A save this process is making there
+at that moment is left to finish itself. A recorded save that cannot be finished refuses
+the project with E186, and the next use tries again; a listing shows such a project as not
+available.
 """
 
 from __future__ import annotations
@@ -26,6 +33,7 @@ from typing import Any, Literal
 
 from ithax.files import atomic_write
 from ithax.model.migration import FORMAT_VERSION
+from ithax.service.commit import RECORD, CommitFailed, replay
 from ithax.service.errors import NOT_FOUND, PROJECT_FOLDER, ServiceError
 from ithax.service.paths import canonical, same_folder
 from ithax.strict_json import MAX_WHOLE, encode_json, read_json_file, whole_in
@@ -154,12 +162,14 @@ class ProjectRegistry:
         config_dir: Path,
         data_dir: Path,
         new_id: Callable[[], str] = lambda: str(uuid.uuid4()),
+        on_replayed: Callable[[str, int], None] = lambda pid, revision: None,
     ) -> None:
         # Canonical, so that the paths in projects.json do not depend on the working
         # directory or on an alias (review of PR #34).
         self.config_dir = canonical(config_dir)
         self.data_dir = canonical(data_dir)
         self._new_id = new_id
+        self._on_replayed = on_replayed
         self._lock = threading.Lock()
 
     # --- projects.json --------------------------------------------------------------
@@ -191,6 +201,34 @@ class ProjectRegistry:
         self.config_dir.mkdir(parents=True, exist_ok=True)
         write_json(self._file, projects)
 
+    def _settle(self, folder: Path) -> Path:
+        """``folder``, with a recorded save there finished (module docstring); E186 when
+        one cannot be. A model save finished here is told to ``on_replayed`` with the
+        project's id and new revision, so its listeners hear of it (third review of PR
+        #182)."""
+        try:
+            finished = replay(folder)
+            replay(folder / "data")
+        except CommitFailed:
+            raise _folder_error(
+                f"The project folder '{folder}' holds a save that could not be finished, so "
+                "the project cannot be used until it can be written. If the folder was "
+                f"changed by hand, remove '{RECORD}' from it."
+            ) from None
+        if finished:
+            record = read_project(folder)
+            if record is not None:
+                self._on_replayed(record.id, record.model_revision)
+        return folder
+
+    def _settled(self, folder: Path) -> ProjectRecord | None:
+        """``folder``'s record, read once a recorded save there is finished; ``None``
+        when it cannot be read or the save cannot be finished (a listing's not available)."""
+        try:
+            return read_project(self._settle(folder))
+        except ServiceError:
+            return None
+
     # --- reading --------------------------------------------------------------------
 
     @staticmethod
@@ -207,7 +245,7 @@ class ProjectRegistry:
         with self._lock:
             projects = self._load()
         return [
-            self.view(pid, Path(path), read_project(Path(path))) for pid, path in projects.items()
+            self.view(pid, Path(path), self._settled(Path(path))) for pid, path in projects.items()
         ]
 
     def folder(self, pid: str) -> Path:
@@ -216,7 +254,7 @@ class ProjectRegistry:
             path = self._load().get(pid)
         if path is None:
             raise ServiceError(404, NOT_FOUND, f"There is no project '{pid}'.")
-        return Path(path)
+        return self._settle(Path(path))
 
     # --- creating and opening ------------------------------------------------------
 
@@ -260,7 +298,7 @@ class ProjectRegistry:
         path = canonical(path)
         if not path.is_dir():
             raise ServiceError(404, NOT_FOUND, f"There is no folder '{path}'.")
-        record = read_project(path)
+        record = read_project(self._settle(path))
         if record is None:
             raise _folder_error(
                 f"'{path}' is not a project folder: its {PROJECT_FILE} is missing or "
