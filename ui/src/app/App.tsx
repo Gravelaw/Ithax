@@ -24,7 +24,13 @@ import { NAV_ITEMS, NavRail } from "./NavRail";
 import type { ProjectActions, ProjectApi, RunProjects } from "./projectActions";
 import { cycleRegion } from "./regions";
 import { HOME, type Route, useRoute } from "./router";
+import { type KeepWrite, UnsavedWrites, useUnsaved } from "./unsaved";
 import { useProjectQueue } from "./useProjectQueue";
+
+/** Said when the place reached in a lesson could not be saved. */
+export const STEP_UNSAVED = "Your place in the lesson was not saved.";
+/** Said when the time a project was opened could not be saved. */
+export const OPENED_UNSAVED = "The time this project was opened was not saved.";
 
 function screenTitle(route: Route): string {
   if (route.screen === "build") return "Build a model";
@@ -40,7 +46,14 @@ export function App({ client }: { client: ApiClient }) {
   const currentLearning = useCurrent(learning);
   // Every read and write of project state, one action at a time (review of pull request 201).
   const { run, busy } = useProjectQueue(client);
-  const forgetLesson = useLessonStep(run, learning?.projectId ?? null, learning?.step ?? null);
+  // Background writes that were not saved, shown with "Try again" (review of pull request 201).
+  const [unsaved, keep] = useUnsaved();
+  const forgetLesson = useLessonStep(
+    run,
+    keep,
+    learning?.projectId ?? null,
+    learning?.step ?? null,
+  );
   const [noticeOpen, setNoticeOpen] = useState(!settings.interface.first_start_seen);
   const [saveProblem, setSaveProblem] = useState<ApiResult<SettingsBody> | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -81,7 +94,15 @@ export function App({ client }: { client: ApiClient }) {
   const open = async (api: ProjectApi, opened: Project, screen: "canvas" | "data" = "canvas") => {
     setProject(opened);
     go({ screen, projectId: opened.id });
-    await api.change(opened.id, { opened: true });
+    await noteOpened(api, opened.id);
+  };
+
+  /** Notes the time a project was opened, so Recent projects lists it first. */
+  const noteOpened = async (api: ProjectApi, pid: string) => {
+    const answer = await api.change(pid, { opened: true });
+    keep(`opened ${pid}`, OPENED_UNSAVED, answer, () => {
+      void run((again) => noteOpened(again, pid));
+    });
   };
 
   /**
@@ -145,6 +166,7 @@ export function App({ client }: { client: ApiClient }) {
         <div className="topbar-tools" ref={setTools} />
         <div className="topbar-notices">
           <ServiceProblem result={saveProblem} />
+          <UnsavedWrites unsaved={unsaved} />
         </div>
       </header>
       <main
@@ -200,6 +222,7 @@ export function App({ client }: { client: ApiClient }) {
  */
 function useLessonStep(
   run: RunProjects,
+  keep: KeepWrite,
   projectId: string | null,
   step: number | null,
 ): (pid: string) => void {
@@ -209,7 +232,11 @@ function useLessonStep(
   const last = useRef<string | null>(null);
   useEffect(() => {
     const send = (pid: string, value: number | null) => {
-      void run((api) => api.change(pid, { lesson_step: value }));
+      void run(async (api) => {
+        const answer = await api.change(pid, { lesson_step: value });
+        // A refused write is shown with "Try again", never taken as saved.
+        keep(`step ${pid}`, STEP_UNSAVED, answer, () => send(pid, value));
+      });
     };
     if (projectId !== null && step !== null) {
       send(projectId, step);
@@ -218,7 +245,7 @@ function useLessonStep(
       send(last.current, null);
       last.current = null;
     }
-  }, [run, projectId, step]);
+  }, [run, keep, projectId, step]);
   // A removed project's step is not cleared: the service no longer lists it.
   return (pid: string) => {
     if (last.current === pid) last.current = null;

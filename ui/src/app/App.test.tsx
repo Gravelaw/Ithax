@@ -7,6 +7,7 @@ import { NOTICE_TEXT } from "../screens/FirstStartNotice";
 import { NO_PROJECTS, PROJECTS_BUSY } from "../screens/Home";
 import { ModelService } from "../test/fakeModel";
 import { errorBody, SETTINGS, startedService } from "../test/fakes";
+import { OPENED_UNSAVED, STEP_UNSAVED } from "./App";
 import { Boot, CONNECTING, NO_TOKEN, NOT_ANSWERING, NoToken } from "./Boot";
 
 function boot(settings: Settings = SETTINGS) {
@@ -149,6 +150,36 @@ describe("project actions, one at a time (reviews of pull request 201)", () => {
       "POST /v1/projects/p2/remove",
       "GET /v1/projects",
     ]);
+  });
+
+  it.each([
+    ["the place reached in a lesson", "lesson_step", STEP_UNSAVED],
+    ["the time a project was opened", "opened", OPENED_UNSAVED],
+  ])("shows %s when it is not saved, and saves it with Try again", async (_what, field, said) => {
+    const { fake } = projectService();
+    let refuse = true;
+    const sent: unknown[] = [];
+    fake.on("PATCH /v1/projects/p1", (body) => {
+      const change = body as Record<string, unknown>;
+      if (field in change) sent.push(change[field]);
+      return refuse && field in change
+        ? { status: 503, body: errorBody("E900", "The service did not save it.") }
+        : { status: 200, body: { id: "p1" } };
+    });
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Resume the lesson Coffee shop queue" }),
+    );
+    expect(await screen.findByRole("region", { name: "Arrive" })).toBeVisible();
+    if (field === "lesson_step")
+      await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    // The refused write is said, never taken as saved.
+    expect(await screen.findByText(said)).toBeVisible();
+    const tries = sent.length;
+    refuse = false;
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(screen.queryByText(said)).toBeNull());
+    expect(sent.length).toBe(tries + 1);
+    expect(sent.at(-1)).toEqual(sent.at(-2));
   });
 
   it("resumes a lesson at the step whose write was still pending when Home opened", async () => {
