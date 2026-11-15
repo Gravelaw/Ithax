@@ -380,6 +380,12 @@ class RunService:
                 view["started"] = None
         return view
 
+    def unfinished(self, pid: str) -> list[str]:
+        """The ids of project ``pid``'s runs that are queued or running, in the order
+        accepted (review of PR #200: a project with one is not taken off the list)."""
+        with self._lock:
+            return [rid for rid, active in self._active.items() if active.pid == pid]
+
     def runs(self, pid: str) -> list[dict[str, Any]]:
         """The runs of project ``pid`` in the order they were accepted."""
         folder = self._project(pid)
