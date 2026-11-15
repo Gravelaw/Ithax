@@ -67,16 +67,20 @@ def licence_record(path: Path) -> dict[str, Any]:
         return {}
 
 
-def _requirements(distribution: metadata.Distribution) -> Iterator[str]:
-    """The names of ``distribution``'s requirements that apply here without an extra."""
+def _requirements(
+    distribution: metadata.Distribution, extras: frozenset[str]
+) -> Iterator[tuple[str, frozenset[str]]]:
+    """``distribution``'s requirements that apply here with the ``extras`` asked of it, each
+    with the extras it asks of its own distribution (review of PR #203: mcp asks for
+    ``pyjwt[crypto]``, and only that extra brings in cryptography)."""
     for line in distribution.requires or []:
         try:
             requirement = Requirement(line)
         except InvalidRequirement:
             continue
         marker = requirement.marker
-        if marker is None or marker.evaluate({"extra": ""}):
-            yield requirement.name
+        if marker is None or any(marker.evaluate({"extra": extra}) for extra in {"", *extras}):
+            yield requirement.name, frozenset(requirement.extras)
 
 
 def _installed(name: str) -> metadata.Distribution | None:
@@ -90,17 +94,24 @@ def _installed(name: str) -> metadata.Distribution | None:
 
 def runtime_distributions(names: list[str]) -> dict[str, metadata.Distribution]:
     """The installed distributions of ``names`` and of every run-time requirement of the
-    ``ithax`` distribution, followed through theirs; by normalised name, ``ithax`` left out."""
+    ``ithax`` distribution, followed through theirs with the extras each asks for; by
+    normalised name, ``ithax`` left out."""
     found: dict[str, metadata.Distribution] = {}
-    stack = ["ithax", *names]
+    # The extras already followed for each distribution: one asked again with a new extra
+    # is followed again for it.
+    followed: dict[str, frozenset[str]] = {}
+    stack: list[tuple[str, frozenset[str]]] = [(name, frozenset()) for name in ["ithax", *names]]
     while stack:
-        name = stack.pop()
+        name, extras = stack.pop()
         key = normalise(name)
-        distribution = None if key in found else _installed(name)
+        if key in followed and extras <= followed[key]:
+            continue
+        distribution = found.get(key) or _installed(name)
         if distribution is None:
             continue
         found[key] = distribution
-        stack.extend(_requirements(distribution))
+        followed[key] = followed.get(key, frozenset()) | extras
+        stack.extend(_requirements(distribution, followed[key]))
     found.pop("ithax", None)
     return found
 

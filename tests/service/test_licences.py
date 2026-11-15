@@ -214,10 +214,34 @@ def test_a_licence_file_that_cannot_be_read_or_names_no_holder_is_passed_over(
     assert authors(_Metadata({"Author": "See AUTHORS"}, files[:2])) == "See AUTHORS"  # type: ignore[arg-type]
 
 
+def test_requirements_carry_the_extras_asked_for() -> None:
+    # Review of PR #203: mcp asks for pyjwt[crypto], whose cryptography applies only with
+    # that extra, so the list without the licence file left cryptography out.
+    requires = [
+        "plain",
+        "crypto-lib; extra == 'crypto'",
+        "dev-lib; extra == 'dev'",
+        "wanted[fast,crypto]>=1",
+    ]
+    fixture = _Metadata({}, requires=requires)
+    assert list(_requirements(fixture, frozenset())) == [  # type: ignore[arg-type]
+        ("plain", frozenset()),
+        ("wanted", frozenset({"fast", "crypto"})),
+    ]
+    assert list(_requirements(fixture, frozenset({"crypto"}))) == [  # type: ignore[arg-type]
+        ("plain", frozenset()),
+        ("crypto-lib", frozenset()),
+        ("wanted", frozenset({"fast", "crypto"})),
+    ]
+    found = runtime_distributions([])
+    assert {"pyjwt", "cryptography", "cffi"} <= set(found)
+
+
 def test_requirements_follow_markers_and_skip_lines_that_cannot_be_read() -> None:
     requires = ["numpy>=2", "pytest; extra == 'dev'", "not a requirement !!", "simpy"]
-    assert list(_requirements(_Metadata({}, requires=requires))) == ["numpy", "simpy"]  # type: ignore[arg-type]
-    assert list(_requirements(_Metadata({}))) == []  # type: ignore[arg-type]
+    found = _requirements(_Metadata({}, requires=requires), frozenset())  # type: ignore[arg-type]
+    assert [name for name, _ in found] == ["numpy", "simpy"]
+    assert list(_requirements(_Metadata({}), frozenset())) == []  # type: ignore[arg-type]
 
 
 def test_a_licence_list_of_any_shape_is_answered(config: ServiceConfig, tmp_path: Path) -> None:
