@@ -31,7 +31,7 @@ import { RECOMMENDED_UNDO_STEPS } from "../canvas/useSession";
 import { Dialog } from "../components/Dialog";
 import { IssueList, ServiceProblem } from "../components/ServiceProblem";
 import { usePendingRequest } from "../components/usePendingRequest";
-import { figures, quantity } from "../results/display";
+import { figures, inSize, quantity } from "../results/display";
 import { DEFAULT_PREFERENCES } from "./preferences";
 import { useSettings } from "./SettingsContext";
 import "../results/results.css";
@@ -75,7 +75,7 @@ export function bytesText(bytes: number): string {
     ["MB", 1e6],
     ["kB", 1e3],
   ] as const) {
-    if (bytes >= size) return `${figures(bytes / size)} ${unit}`;
+    if (bytes >= size) return `${figures(inSize(bytes, size) ?? bytes)} ${unit}`;
   }
   return `${figures(bytes)} bytes`;
 }
@@ -203,7 +203,6 @@ export function SettingsScreen({ client }: { client: ApiClient }) {
             term="run_time_limit_s"
             saved={settings.run_time_limit_s}
             units={LIMIT_SECONDS}
-            whole
             busy={busy}
             onCommit={(value) => write({ run_time_limit_s: value } as SettingsChange)}
           />
@@ -415,7 +414,6 @@ export function SettingsScreen({ client }: { client: ApiClient }) {
             term="idle_timeout_minutes"
             saved={settings.idle_timeout_minutes}
             units={IDLE_MINUTES}
-            whole
             never
             hint={IDLE_HINT}
             busy={busy}

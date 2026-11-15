@@ -248,9 +248,9 @@ describe("Settings writes", () => {
     );
     const again = screen.getByRole("textbox", { name: IDLE_LABEL });
     await user.clear(again);
-    await user.type(again, "0{Enter}");
+    await user.type(again, "-1{Enter}");
     expect(await screen.findByText(refusal.message)).toBeVisible();
-    expect(lastPut(fake)).toEqual({ idle_timeout_minutes: 0 });
+    expect(lastPut(fake)).toEqual({ idle_timeout_minutes: -1 });
     await waitFor(() => expect(screen.getByRole("textbox", { name: IDLE_LABEL })).toHaveValue("5"));
   });
 

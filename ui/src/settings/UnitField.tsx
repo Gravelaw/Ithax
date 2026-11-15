@@ -7,8 +7,7 @@
  * unit pickers do. `never` adds a "Never" box that writes 0 (only the idle timeout).
  */
 import { useId, useState } from "react";
-import { readNumber } from "../canvas/model";
-import { TIME_UNITS } from "../results/display";
+import { inSize, TIME_UNITS, typedInBase } from "../results/display";
 
 export interface Unit {
   label: string;
@@ -56,32 +55,23 @@ export function unitFor(saved: number | null, units: readonly Unit[]): Unit {
 
 /** `saved` in `unit`, as typed text, without a float's noise. */
 export function shownIn(saved: number, unit: Unit): string {
-  return String(Number((saved / unit.size).toPrecision(12)));
+  const shown = inSize(saved, unit.size);
+  return shown === null ? String(saved) : String(Number(shown.toPrecision(12)));
 }
 
-/**
- * Typed text in the base unit: empty is `null` (the default); text that is not a number is
- * sent as typed, so the service refuses it with its own issue; with `whole`, a result within
- * a float's noise of a whole number is that number (0.1 h is 6 minutes).
- */
-export function inUnits(text: string, unit: Unit, whole: boolean): unknown {
-  const trimmed = text.trim();
-  if (trimmed === "") return null;
-  const read = readNumber(trimmed);
-  if (typeof read !== "number") return read;
-  const value = read * unit.size;
-  const rounded = Math.round(value);
-  if (!whole) return rounded;
-  return Math.abs(value - rounded) <= 1e-9 * Math.max(1, Math.abs(value)) ? rounded : value;
+/** Typed text in the base unit, through the shared `typedInBase` (review of pull request 196). */
+export function inUnits(text: string, unit: Unit): unknown {
+  return typedInBase(text, unit.size);
 }
+
+/** Said when 0 is typed where "Never" has its own box (review of pull request 196). */
+export const USE_NEVER = 'For no limit, tick "Never"; a typed 0 is not taken.';
 
 export function UnitField(props: {
   label: string;
   term: string;
   saved: number | null;
   units: readonly Unit[];
-  /** The base unit holds whole numbers only (minutes, seconds); bytes are always rounded. */
-  whole?: boolean;
   never?: boolean;
   hint?: string;
   busy: boolean;
@@ -92,9 +82,12 @@ export function UnitField(props: {
   const isNever = props.never === true && props.saved === 0;
   const shown = props.saved === null || isNever ? "" : shownIn(props.saved, unit);
   const [text, setText] = useState(shown);
-  const whole = props.whole === true;
+  const [refused, setRefused] = useState(false);
   const commit = (typedText: string, inUnit: Unit) => {
-    const value = inUnits(typedText, inUnit, whole);
+    const value = inUnits(typedText, inUnit);
+    // "Never" is reached only through its own box (review of pull request 196).
+    setRefused(props.never === true && value === 0);
+    if (props.never === true && value === 0) return;
     if (value !== props.saved) props.onCommit(value);
   };
   return (
@@ -145,6 +138,11 @@ export function UnitField(props: {
           </label>
         ) : null}
       </span>
+      {refused ? (
+        <span className="hint notice" role="status">
+          {USE_NEVER}
+        </span>
+      ) : null}
       {props.hint ? (
         <span id={`${id}-hint`} className="hint">
           {props.hint}

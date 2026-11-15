@@ -47,6 +47,12 @@ that reads input, and say whether the shared helper was bypassed:
   in a hold of the project's lock that did not settle the folder, which can see a save left
   half done in between (helper: `ModelStore.settled`; `tests/test_conventions.py` finds a
   reader outside one; PR #182, fifth round);
+- a value typed in a unit sent as something it does not mean: a result past a finite number
+  sent as `null` (the default), a non-zero entry rounded to 0 (the idle timeout's "never"),
+  a sentinel reached by typing (helpers: `typedInBase` and `inSize` in
+  `ui/src/results/display.ts`; `ui/src/results/units.test.ts` checks every unit with 0, tiny,
+  huge, negative and NaN entries, and fails when other interface code scales by a unit's
+  size; PR #196, two findings);
 - interface state written from a stale draft or after a screen has closed;
 - the focus moved into the side panel while it is a closed overlay, where the target is hidden
   and inert, so the action does nothing (helper: `useSheet`'s `reveal` in

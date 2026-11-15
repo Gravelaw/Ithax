@@ -7,7 +7,7 @@
 
 import type { Estimate, TableRow } from "../api/types";
 import type { SeriesColours } from "../charts/Chart";
-import { figures, inUnit, isShare, timeUnit } from "./display";
+import { figures, inSize, inUnit, isShare, timeUnit } from "./display";
 import type { Scenario, Search, Solution } from "./summary";
 
 /** Marker shapes, one per series, so no series is told apart by colour alone. */
@@ -79,10 +79,12 @@ export function barGroups(scenarios: readonly Scenario[]): BarGroup[] {
       values: scenarios.map((scenario) =>
         components.map((component) => {
           const estimate = found(scenario, component);
-          if (estimate === null || estimate.mean === null) return null;
+          const mean =
+            estimate?.mean === null || estimate === null ? null : inSize(estimate.mean, size);
+          if (estimate === null || mean === null) return null;
           return {
-            mean: estimate.mean / size,
-            half: estimate.half_width === null ? null : estimate.half_width / size,
+            mean,
+            half: estimate.half_width === null ? null : inSize(estimate.half_width, size),
           };
         }),
       ),
@@ -213,7 +215,7 @@ export function overTime(rows: readonly TableRow[], metric: string): OverTime {
     metric,
     valueName: share ? `${metric} (%)` : metric,
     timeSymbol,
-    times: sorted.map((time) => time / size),
+    times: sorted.map((time) => inSize(time, size) ?? time),
     lines: [...sums.entries()].map(([scenario, points]) => ({
       scenario,
       values: sorted.map((time) => {

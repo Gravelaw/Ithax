@@ -2,7 +2,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { BYTES, IDLE_MINUTES, inUnits, shownIn, UnitField, unitFor } from "./UnitField";
+import { BYTES, IDLE_MINUTES, inUnits, shownIn, UnitField, USE_NEVER, unitFor } from "./UnitField";
 
 describe("the unit a value is shown in", () => {
   it("is the largest that shows it whole, else the largest it reaches", () => {
@@ -19,14 +19,14 @@ describe("the unit a value is shown in", () => {
   it("turns a typed number back into the base unit, whole when it is", () => {
     const hours = IDLE_MINUTES[1];
     if (hours === undefined) throw new Error("no hours");
-    expect(inUnits("1.5", hours, true)).toBe(90);
-    expect(inUnits("0.1", hours, true)).toBe(6);
-    expect(inUnits("0.01", hours, true)).toBe(0.6);
-    expect(inUnits("", hours, true)).toBeNull();
-    expect(inUnits("lots", hours, true)).toBe("lots");
+    expect(inUnits("1.5", hours)).toBe(90);
+    expect(inUnits("0.1", hours)).toBe(6);
+    expect(inUnits("0.01", hours)).toBe(0.6);
+    expect(inUnits("", hours)).toBeNull();
+    expect(inUnits("lots", hours)).toBe("lots");
     const gb = BYTES[1];
     if (gb === undefined) throw new Error("no GB");
-    expect(inUnits("8.59", gb, false)).toBe(8_590_000_000);
+    expect(inUnits("8.59", gb)).toBe(8_590_000_000);
   });
 });
 
@@ -40,7 +40,6 @@ describe("UnitField", () => {
         term="idle_timeout_minutes"
         saved={30}
         units={IDLE_MINUTES}
-        whole
         busy={false}
         onCommit={commit}
       />,
@@ -60,6 +59,31 @@ describe("UnitField", () => {
     expect(commit).toHaveBeenLastCalledWith(120);
   });
 
+  it("takes a typed 0 as nothing where Never has its own box (review of pull request 196)", async () => {
+    const commit = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <UnitField
+        label="Stop when idle for"
+        term="idle_timeout_minutes"
+        saved={30}
+        units={IDLE_MINUTES}
+        never
+        busy={false}
+        onCommit={commit}
+      />,
+    );
+    const box = screen.getByRole("textbox", { name: "Stop when idle for" });
+    await user.clear(box);
+    await user.type(box, "0{Enter}");
+    expect(commit).not.toHaveBeenCalled();
+    expect(screen.getByText(USE_NEVER)).toBeVisible();
+    // A tiny entry is sent as it is, for the service to refuse, never as 0.
+    await user.clear(box);
+    await user.type(box, "0.0000000001{Enter}");
+    expect(commit).toHaveBeenLastCalledWith(1e-10);
+  });
+
   it("offers never as its own choice, which writes 0, and unticked the default", async () => {
     const commit = vi.fn();
     const user = userEvent.setup();
@@ -69,7 +93,6 @@ describe("UnitField", () => {
         term="idle_timeout_minutes"
         saved={30}
         units={IDLE_MINUTES}
-        whole
         never
         busy={false}
         onCommit={commit}
@@ -83,7 +106,6 @@ describe("UnitField", () => {
         term="idle_timeout_minutes"
         saved={0}
         units={IDLE_MINUTES}
-        whole
         never
         busy={false}
         onCommit={commit}
