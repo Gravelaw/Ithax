@@ -3468,6 +3468,18 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** spec 3 "Screens" (Home) and spec 4 "Learn and Build modes" (Where the lesson lives), with dated lines.
 - **Dependencies added:** none.
 
+## 2026-11-15 · M16 · The Phase 1 review's checklist (#101)
+
+- **Decision:** `docs/research/phase-1-review.md` lists every change the Phase 1 review folds into specs 0 to 4. It covers each "the Phase 1 review sets…" deferral in the specs and DECISIONS, and each owner decision of 2026-11-13 (B1 to F8), checked against the spec text at `main` c864cb9. Each row is marked already in the spec (built in M12 to M15), change needed, or needs the owner. It is the draft the owner approves (2026-11-09 B2; C10). The spec edits follow it, one PR per spec, each with a dated line and a version bump.
+- **Reason:** #101 and the guide's M16 row ("the Phase 1 review's changes are in specs 0 to 4"). The 2026-11-13 entry leaves the spec text to this review.
+- **Review of PR #208 (two findings of one class, fixed for the class):** the checklist had missed two later-phase parts of accepted decisions: B7 item 1, the `sketch` preview in Phase 2, which spec 2 still calls an owner question; and M5-23's noise-aware method in Phase 2.
+  - The sweep now covers every DECISIONS entry through 2026-11-15, every session summary's "Awaiting owner" items, and every spec line that leaves something open. The new rows are spec 2 (B7 item 1, M5-23's second part, line 18's source schedule from M4-1 and D10, B1's line 276) and spec 3 (the shell's Windows build, line 87). The new section "Later-phase parts of accepted readings" maps each E1-accepted reading's later part.
+  - `tests/test_phase_1_review.py` fails on any owner-decision item, later-phase reading, later-phase session item or open spec marker that the checklist's "Coverage" does not name. `AGENTS.md` names the class.
+- **Readings (reversible):** B6's search-suggestion threshold is set when #111 builds the estimate. The six risk rows of 2026-11-05 are accepted as written. 2026-11-09 B8 is taken as replaced by the 2026-11-13 list. D2 keeps E179 with its warning mark. The draft-and-approve step is this file, then one spec PR per spec. A later phase goes into spec text only where an owner decision names it; the later part of an E1-accepted reading goes to the Phase 2 milestone table.
+- **Awaiting owner:** #206 (the six success measures' targets, B2) and #207 (Windows natively or through WSL). Both default on 2026-11-17.
+- **Spec sections updated:** none in this change. The spec PRs follow the approved checklist.
+- **Dependencies added:** none.
+
 ## 2026-11-15 · M16 · The AppImage tools downloaded and checked in the package job (#88)
 
 - **Decision:** `scripts/package_linux.py` names appimagetool 1.9.1 and type2-runtime `20251108` by their exact release URLs (`APPIMAGE_TOOLS`). Each has a pinned SHA-256, `None` until recorded.
@@ -3480,6 +3492,7 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Pins:** taken from the `package` job (132929274232) of CI run 43752479955 on head `1751cb7f1e50fed3f20be736d92400ef07837ef8`, which printed each SHA-256 and "matches the release's published digest" for both. The hashes were computed in CI and compared with the GitHub release's asset digest; both releases list one.
   - `appimagetool-x86_64.AppImage` 1.9.1: `ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0`.
   - `runtime-x86_64` 20251108: `2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d`.
+  - The runtime's `LICENSE` at tag `20251108`: `aa154fc9070614bbe7921f89db11efd1dba7a1f3a41685958110e2230f9c0ca1`. It was printed by the `package` job (132943168885) of CI run 43757002802 on head `21acb359ff450255db542d3a5b667e80cae09ac9`, and the same hash was computed in the agent container from the same URL, which `raw.githubusercontent.com` serves there. It is a raw file, not a release asset, so no digest is published for it; its text is the MIT licence, "Copyright (c) 2004-23 probonopd".
 - **Dependencies added:** two build tools, downloaded by the build into `dist/cache` (not Python packages). Their licences were read on 2026-11-15 from each project's `LICENSE` (`docs/research/m16-appimage.md`):
   - appimagetool 1.9.1, MIT ("Copyright (c) 2004-25 Simon Peter and the AppImage Team"). It builds the AppImage and does not ship in it. Checked by its pinned SHA-256 and the release's published digest.
   - type2-runtime `20251108`, MIT ("Copyright (c) 2004-23 probonopd"). It ships inside every AppImage, so the AppImage build adds it to `THIRD-PARTY-LICENSES.txt` and the licence list. Checked the same way.
