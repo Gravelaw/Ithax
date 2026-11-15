@@ -433,7 +433,9 @@ export function SettingsScreen({ client }: { client: ApiClient }) {
         <p>
           This is free software under the GNU AGPL version 3.{" "}
           <a href="./LICENSE.txt">Read the licence</a>.{" "}
-          <a href="./THIRD-PARTY-NOTICES.txt">Notices of the software it includes</a>.
+          <a href="./THIRD-PARTY-NOTICES.txt">Notices of the software it includes</a>.{" "}
+          <a href="#/help">Open source licences</a>: every package and engine, with its licence and
+          authors.
         </p>
       </div>
       {restoring ? (

@@ -394,6 +394,24 @@ export interface SummaryBody {
 export type TableRow = Record<string, unknown>;
 
 /** An installed adapter as `GET /v1/engines` lists it. */
+/** A package, engine or crate with its licence, as Help lists it (issue 89). */
+export interface LicencedPart {
+  name: string;
+  version?: string;
+  licence: string;
+  /** The people its metadata names; absent for a crate and a library built into Python. */
+  authors?: string;
+}
+
+/** `GET /v1/licences`: everything the service runs on, with its licence and authors. */
+export interface Licences {
+  product: { name: string; version: string; licence: string; source: string };
+  engines: (LicencedPart & { distribution: string; authors: string })[];
+  python: LicencedPart & { version: string; bundled: LicencedPart[] };
+  packages: (LicencedPart & { version: string; authors: string })[];
+  crates: LicencedPart[];
+}
+
 export interface Engine {
   name: string;
   version: string;

@@ -3416,3 +3416,15 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The endpoint is exempt from MCP, like `POST /v1/projects/open`: an assistant needs nothing from it to build or run a model.
 - **Spec sections updated:** spec 3 "API", "Endpoints" (a row and its note) and "Packaging"; spec 1 "Engine adapter interface"; each with a dated line.
 - **Dependencies added:** `packaging>=26.3` in `[project] dependencies`: `ithax.service.licences` evaluates requirement markers with it. It was already installed as a dependency of optuna and is in `packaging/linux/licences.json` at 26.3 (Apache-2.0 OR BSD-2-Clause, recorded with optuna's dependencies on 2026-11-07, the M5 research entry). The lower bound is the version installed on 2026-11-15. `uv lock` was run; `packaging/linux/requirements.lock` already pins it.
+
+## 2026-11-15 · M15 · The Help screen: open source licences (#89, part 2; owner decisions B4, C7 and F4)
+
+- **Decision:**
+  - **Help** is a screen at `#/help` (`ui/src/settings/HelpScreen.tsx`), reached from Settings, About ("Open source licences"), with Settings current on the rail. It reads `GET /v1/licences` and `third-party.json` and shows one table per part: engines, Python, the libraries built into it, Python packages, the desktop shell's crates (or where they are listed, in a checkout), interface packages.
+  - **The interface's npm packages**: the notices plugin (`ui/plugins/notices.ts`) also writes `third-party.json` (name, version, licence, authors from `author`, `contributors` or `maintainers`, else the copyright holder of the licence or notice: Meta Platforms for React, The Apache Software Foundation for ECharts, webkid GmbH for React Flow).
+- **Reason:** issue #89 and the owner decisions quoted in part 1's entry. `ui/plugins/notices.test.ts`, `ui/src/settings/HelpScreen.test.tsx`, `ui/src/app/router.test.ts`, `ui/src/app/NavRail.test.tsx` and `ui/e2e/help.spec.ts` (a real service and the built interface, both themes, WCAG 2.2 AA) cover it; the package test expects `python/share/ithax/ui/third-party.json`.
+- **Readings (reversible):**
+  - Help is reached from Settings, About and is not on the rail, as the Build form belongs to Home, so the rail keeps spec 3's seven screens.
+  - A package without a named author shows the copyright holder of its licence, the same rule as the service's.
+- **Spec sections updated:** spec 3 "Screens", "Endpoints" (the `GET /v1/licences` note) and "Run monitor, Results and Settings", with a dated line.
+- **Dependencies added:** none.
