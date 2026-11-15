@@ -99,8 +99,8 @@ describe("the Canvas draws the model and nothing else", () => {
       { id: "breaks", type: "failure", params: { target: "till" }, ui: { x: 480, y: 320 } },
     );
     renderCanvas({ model });
-    expect(await drawn("arrivals")).toHaveAttribute("aria-label", "arrivals, source, every 2 min");
-    expect(node("till")).toHaveAttribute("aria-label", "till, server, capacity = tills");
+    expect(await drawn("arrivals")).toHaveAttribute("aria-label", "arrivals, Source, every 2 min");
+    expect(node("till")).toHaveAttribute("aria-label", "till, Server, capacity = tills");
     expect(node("arrivals").querySelector(".block")).toHaveClass("block-flow");
     expect(node("till").querySelector(".block")).toHaveClass("block-work");
     expect(node("staff").querySelector(".block")).toHaveClass("block-resource");
@@ -120,7 +120,7 @@ describe("adding a block", () => {
     const { fake, toolbar, user } = renderCanvas({ model });
     await drawn("till");
     await settled(toolbar);
-    screen.getByRole("button", { name: "server" }).focus();
+    screen.getByRole("button", { name: "Server" }).focus();
     await user.keyboard("{Enter}");
     await drawn("server_3");
     const [edits] = sentEdits(fake) as { id: string; params: unknown; ui: unknown }[][];
@@ -161,7 +161,7 @@ describe("adding a block", () => {
   it("adds by clicking a type then the canvas; Escape stops placing", async () => {
     const { fake, toolbar, user } = renderCanvas({ model: emptyModel() });
     await settled(toolbar);
-    const delay = screen.getByRole("button", { name: "delay" });
+    const delay = screen.getByRole("button", { name: "Delay" });
     await user.click(delay);
     expect(delay).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Click the canvas to place delay. Escape cancels.")).toBeVisible();
@@ -189,7 +189,7 @@ describe("adding a block", () => {
       within(palette)
         .getAllByRole("button")
         .map((item) => item.textContent),
-    ).toEqual(["schedule"]);
+    ).toEqual(["Schedule"]);
   });
 });
 
@@ -476,14 +476,14 @@ describe("validation and Run", () => {
     expect(screen.getByText("No problems")).toBeVisible();
     const run = within(toolbar).getByRole("button", { name: "Run" });
     expect(run).toHaveAttribute("aria-disabled", "false");
-    screen.getByRole("button", { name: "server" }).focus();
+    screen.getByRole("button", { name: "Server" }).focus();
     await user.keyboard("{Enter}");
     await drawn("server_1");
     await waitFor(() => expect(screen.getByText("1 error, 1 warning")).toBeVisible());
     await waitFor(() =>
       expect(node("server_1")).toHaveAttribute(
         "aria-label",
-        "server_1, server, 1 error, 1 warning",
+        "server_1, Server, 1 error, 1 warning",
       ),
     );
     expect(node("server_1").querySelector(".block")).toHaveClass("block-error");
@@ -492,13 +492,16 @@ describe("validation and Run", () => {
     const reason = within(toolbar).getByRole("button", { name: "1 error. Fix it to run." });
     await user.click(reason);
     expect(screen.getByRole("region", { name: "Problems" })).toHaveFocus();
-    // Errors first; the service's code, message and hint as it wrote them.
+    // Errors first; the message and hint as the service wrote them, then its code, last and
+    // small, for a report (#91).
     const rows = within(screen.getByRole("region", { name: "Problems" })).getAllByRole("button", {
       name: /Error|Warning/,
     });
-    expect(rows[0]).toHaveTextContent("Error E122 server_1");
+    expect(rows[0]).toHaveTextContent(/^Error server_1Component 'server_1' is missing/);
     expect(rows[0]).toHaveTextContent("Add 'capacity' to the 'params' of 'server_1'.");
-    expect(rows[1]).toHaveTextContent("Warning W200 server_1");
+    expect(rows[0]).toHaveTextContent(/Code E122$/);
+    expect(rows[1]).toHaveTextContent(/^Warning server_1/);
+    expect(rows[1]).toHaveTextContent(/Code W200$/);
     await user.click(rows[0] as HTMLElement);
     expect(await screen.findByRole("textbox", { name: "Id" })).toHaveValue("server_1");
     // The field the issue names shows it.
@@ -622,7 +625,7 @@ describe("a write that fails", () => {
         "Not saved: the service is not answering. Retrying.",
       ),
     );
-    expect(screen.getByRole("button", { name: "sink" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Sink" })).toBeDisabled();
     expect(screen.getByRole("textbox", { name: "Id" })).toHaveAttribute("readonly");
     expect(within(toolbar).getByRole("button", { name: "Run" })).toHaveAttribute(
       "data-blocked",
@@ -976,7 +979,7 @@ describe("while a write awaits its answer (review of PR #45)", () => {
       "aria-busy",
       "true",
     );
-    expect(screen.getByRole("button", { name: "sink" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("button", { name: "Sink" })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("button", { name: "Delete" })).toHaveAttribute("aria-disabled", "true");
     expect(within(toolbar).getByRole("button", { name: "Undo" })).toHaveAttribute(
       "aria-disabled",
@@ -1351,7 +1354,7 @@ describe("reviewing an outside change (AKS-137)", () => {
     model.components?.push({ id: "odd", type: "constructor", params: {}, ui: { x: 0, y: 300 } });
     const { fake, service, toolbar, user } = renderCanvas({ model });
     await settled(toolbar);
-    expect(node("odd")).toHaveAttribute("aria-label", "odd, constructor");
+    expect(node("odd")).toHaveAttribute("aria-label", "odd, Constructor");
     service.outsideWrite((written) => {
       written.parameters = JSON.parse(
         `{"tills": {"value": 1, "type": "integer", "min": 1, "max": 5},

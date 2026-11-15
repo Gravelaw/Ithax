@@ -87,6 +87,8 @@ describe("which run the monitor shows", () => {
     ).toBeVisible();
     expect(screen.getByText(NO_LIVE_NUMBERS)).toBeVisible();
     expect(screen.getByText(/Experiment base · accepted/)).toBeVisible();
+    // A readable moment, not the ISO text (#96).
+    expect(screen.queryByText(/accepted 2026-/)).toBeNull();
     act(() => {
       socket.emit({ type: "metrics", scenario: "default", values: { x: 1 } });
       socket.emit("not json");

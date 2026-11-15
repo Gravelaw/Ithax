@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { Edit } from "../api/types";
+import type { Edit, Model } from "../api/types";
 import { coffeeShop } from "../test/fakeModel";
 import { changeMade, changeRows, paragraphs, parseLesson, valueText } from "./lesson";
 
@@ -121,8 +121,8 @@ describe("the exercise's change", () => {
     expect(changeMade(changed, tills)).toBe(true);
     const typed: Edit[] = [{ edit: "set_parameter", id: "tills", type: "number", max: 9 }];
     expect(changeRows(model, typed)).toEqual([
-      { where: "tills type", now: "integer", to: "number" },
-      { where: "tills max", now: 5, to: 9 },
+      { where: "tills: type", now: "integer", to: "number" },
+      { where: "tills: max", now: 5, to: 9 },
     ]);
     const missing: Edit[] = [{ edit: "set_parameter", id: "staff", value: 3 }];
     expect(changeRows(model, missing)).toEqual([{ where: "staff", now: undefined, to: 3 }]);
@@ -134,7 +134,7 @@ describe("the exercise's change", () => {
     const service = { dist: "exponential", mean: "1 min" };
     const setting: Edit[] = [{ edit: "set_setting", id: "till", path: "/service", value: service }];
     expect(changeRows(model, setting)).toEqual([
-      { where: "till/service", now: { dist: "exponential", mean: "1.5 min" }, to: service },
+      { where: "till: service", now: { dist: "exponential", mean: "1.5 min" }, to: service },
     ]);
     expect(changeMade(model, setting)).toBe(false);
     const till = (model.components ?? [])[1];
@@ -152,11 +152,32 @@ describe("the exercise's change", () => {
     expect(changeMade({ ...model, meta: { name: "Shop", "a/b": null } }, path)).toBe(false);
   });
 
+  it("names a place in words, not a JSON pointer (#91)", () => {
+    const plan = {
+      format_version: "0.3",
+      domain: "optimization",
+      meta: { name: "Mix" },
+      variables: [{ name: "tables" }],
+      objective: { sense: "maximize", linear: { tables: 80 } },
+      constraints: [{ name: "wood", linear: { tables: 30 }, op: "<=", rhs: 300 }],
+    } as unknown as Model;
+    const at = (path: string) => changeRows(plan, [{ edit: "set_path", path, value: 1 }])[0]?.where;
+    expect(at("/objective/linear/tables")).toBe("objective coefficient of tables");
+    expect(at("/constraints/0/rhs")).toBe("wood: limit");
+    expect(at("/constraints/0/linear/tables")).toBe("wood: coefficient of tables");
+    expect(at("/constraints/3/rhs")).toBe("constraints › 4 › limit");
+    expect(at("/meta/a~1b")).toBe("meta › a/b");
+    const deep: Edit[] = [
+      { edit: "set_setting", id: "till", path: "/service/mean", value: "1 min" },
+    ];
+    expect(changeRows(coffeeShop(), deep)[0]?.where).toBe("till: service mean");
+  });
+
   it("cannot tell for another kind of edit", () => {
     const edits: Edit[] = [...tills, { edit: "set_label", id: "till", label: "Till" }];
     expect(changeMade(coffeeShop(), edits)).toBeNull();
     expect(changeRows(coffeeShop(), edits)[1]).toEqual({
-      where: "set_label",
+      where: "Set label",
       now: undefined,
       to: edits[1],
     });
@@ -167,6 +188,10 @@ describe("the exercise's change", () => {
     expect(valueText("5 min")).toBe("5 min");
     expect(valueText(3)).toBe("3");
     expect(valueText({ $param: "tills" })).toBe("= tills");
-    expect(valueText({ dist: "constant", value: 1 })).toBe('{"dist":"constant","value":1}');
+    // Plain words, not JSON (#91).
+    expect(valueText({ dist: "constant", value: 1 })).toBe("constant, value 1");
+    expect(valueText({ dist: "exponential", mean: "1.5 min" })).toBe("exponential, mean 1.5 min");
+    expect(valueText([1, 2])).toBe("1, 2");
+    expect(valueText({ $param: "tills", x: 1 })).toBe("$param tills, x 1");
   });
 });

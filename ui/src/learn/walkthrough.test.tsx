@@ -285,7 +285,7 @@ describe("Learn mode on a plan", () => {
     const { user, toolbar, fake, go } = renderLesson(productMix(), { ...learning, step: exercise });
     await settled(toolbar);
     expect(within(stepCard()).getByRole("list", { name: "The change" })).toHaveTextContent(
-      "/objective/linear/tables: 80 → 100",
+      "objective coefficient of tables: 80 → 100",
     );
     await user.click(within(stepCard()).getByRole("button", { name: "Make the change" }));
     await settled(toolbar);

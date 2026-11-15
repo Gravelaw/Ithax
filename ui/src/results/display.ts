@@ -111,3 +111,34 @@ export function rangeText(
 export function confidenceText(confidence: number): string {
   return `${Number((confidence * 100).toPrecision(12))}%`;
 }
+
+const UNIT_WORDS: Readonly<Record<string, string>> = {
+  s: "seconds",
+  min: "minutes",
+  h: "hours",
+  d: "days",
+  "1": "no unit",
+};
+
+/** A unit symbol in words (#96): `min` is "minutes", `1/h` "per hour", `1` "no unit". */
+export function unitWords(symbol: string): string {
+  const words = UNIT_WORDS[symbol];
+  if (words !== undefined) return words;
+  const per = symbol.startsWith("1/") ? UNIT_WORDS[symbol.slice(2)] : undefined;
+  return per === undefined ? symbol : `per ${per.replace(/s$/, "")}`;
+}
+
+/** An ISO 8601 moment as a date, in local time: "8 Nov 2026"; other text as it is (#96). */
+export function dateText(iso: string): string {
+  const date = new Date(iso);
+  if (iso === "" || Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+/** An ISO 8601 moment as a date and a time, in local time: "8 Nov 2026, 10:15" (#96). */
+export function whenText(iso: string): string {
+  const date = new Date(iso);
+  if (iso === "" || Number.isNaN(date.getTime())) return iso;
+  const time = date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return `${dateText(iso)}, ${time}`;
+}

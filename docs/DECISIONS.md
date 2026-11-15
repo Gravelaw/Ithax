@@ -3291,6 +3291,34 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Also in this PR: lost dependency lines restored.** Merges that resolved conflicts in this file since M12 had dropped the closing `- **Dependencies added:** none.` of 13 entries: 12 from M12 and M13, and #90's in this PR's merge of main. Each line was restored from the entry's own history on main; every one was "none", so no licence record was lost. The diff against main showed no deletion, because git pairs a lost line with the same line closing the next entry. The entry for retrospective PR 11a (#148) never had the line; that PR changed no dependency file, so it now says none. `tests/test_docs.py::test_every_milestone_decision_records_its_dependencies` checks each milestone entry from 2026-11-13 on, and the pre-push skill compares heading and dependency-line counts with main's.
 - **Dependencies added:** none.
 
+## 2026-11-15 · M15 · Readable numbers, units and times (#96; Reviewer B finding 9)
+
+- **Decision:**
+  - **Replications table.** Each `value` is shown in the key numbers' display units, by its row's metric and SI unit (`valueText`), so 912.4123456789011 with `s` reads "15.2 min" and a share reads as a percentage. The `unit` column is not shown; other fractional numbers get three significant figures. The table's CSV, `GET .../tables/replications?format=csv`, is unchanged: SI units, full precision.
+  - **Times.** `whenText` gives a moment as "8 Nov 2026, 10:15" in local time, and `dateText` as "8 Nov 2026" (`ui/src/results/display.ts`). The Run monitor's "accepted" and its runs table use the first, Home's "Created" the second; both had their own code, or none.
+  - **Units in words.** `unitWords` names `s`, `min`, `h` and `d` as "seconds" to "days", `1/…` as "per …", and `1` as "no unit". The Experiment screen's and the Data screen's unit pickers, the Data screen's fit hint and table headings, and the histogram's axis use it; the values sent stay the symbols.
+- **Reason:** issue #96: "17-digit values, units 1 and 1/s, ISO timestamps, bytes". Tests first: the replications table shows "15.2 min", not "912.41" or a `unit` heading; the Run monitor shows no ISO moment; `display.test.ts` covers the three helpers. Each failed before the change.
+- **Readings (reversible):**
+  - Spec 3's "the tables stay in SI units" means the tables the service stores and serves; the table on the screen follows the key numbers' display units.
+  - Moments are shown in local time, the day before the month ("8 Nov 2026"), as Home already showed dates.
+  - "Bytes" (the Settings memory limit, typed in bytes) is left to #87, whose idle timeout needs the same entry in a chosen unit; the field already shows the size in words beside it ("= 8.59 GB").
+- **Spec sections updated:** spec 3 "Run monitor, Results and Settings" (Results), with a dated line.
+- **Dependencies added:** none.
+
+## 2026-11-15 · M15 · Plain words on the Canvas and in lessons (#91 part 1; Reviewer B finding 2)
+
+- **Decision:**
+  - **Block types in words.** `typeName` (`ui/src/canvas/model.ts`, the setting names' `words`) shows `resource_pool` as "Resource pool": in the palette (whose filter matches the type or its words), the type line ("Server · capacity = tills"), the side panel's heading and the blocks table. The model, the API and MCP keep the type ids.
+  - **Issue codes last.** A problems-list row reads severity, component id, message, hint, then "Code E122" small and muted. The code stays, for a report.
+  - **A lesson's change in words.** A setting reads "till: service"; a parameter's other field "tills: max"; a `set_path` pointer as "objective coefficient of tables", "wood: limit", "wood: coefficient of tables", or else its parts joined by "›" with a list entry by its `name` or `id` (or its place from 1); another kind of edit by its kind in words. A value object reads as words ("exponential, mean 1 min"), an array as a list.
+- **Reason:** issue #91: block types, hints and lesson changes showed raw ids, JSON pointers and issue codes. Tests first: `lesson.test.ts` (each place and value in words), `model.test.ts` (`typeName`, the type line), `CanvasScreen.test.tsx` (the problems row's order and the palette names); each failed before the change.
+- **Readings (reversible):**
+  - design-system.md's "Ids and metric names stay as they are, in Mono" is narrowed to ids, the names the user gives; block types become words. Metric names follow in part 2.
+  - The issue code is kept, last and small, rather than hidden: it is what a person quotes in a report.
+  - The `message` and `hint` texts are the service's and are not changed here; a pointer some of them quote stays until a service wording change.
+- **Spec sections updated:** spec 4 "Learn and Build modes" (The exercise), with a dated line; design-system.md "Plain words" and "Type line"; canvas-interactions.md "The problems list".
+- **Dependencies added:** none.
+
 ## 2026-11-15 · M15 · The Canvas at 200% text and below 1,024 px (#93; Reviewer B finding 4)
 
 - **Decision:**
