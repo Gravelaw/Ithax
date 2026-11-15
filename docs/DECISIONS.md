@@ -3479,3 +3479,14 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Awaiting owner:** #206 (the six success measures' targets, B2) and #207 (Windows natively or through WSL). Both default on 2026-11-17.
 - **Spec sections updated:** none in this change. The spec PRs follow the approved checklist.
 - **Dependencies added:** none.
+
+## 2026-11-15 · M16 · Research: an AppImage of the Linux package (#88)
+
+- **Decision (proposed, owner to confirm):**
+  - Build the AppImage with appimagetool 1.9.1 and type2-runtime `20251108`, both MIT, downloaded once into `dist/cache`, checked against pinned SHA-256s, with the runtime given by `--runtime-file`.
+  - The staged package folder is the AppDir, plus `AppRun` (which runs `bin/ithax`, or `bin/ithax-mcp` and `bin/ithax-launcher` when asked), `ithax.desktop` and `ithax.png`.
+  - The output is `ithax-<version>-x86_64.AppImage` with its `.sha256`, unsigned. The archive stays.
+  - Tests: extract the AppImage and compare it with the archive's tree; run the first result offline in a clean container with `APPIMAGE_EXTRACT_AND_RUN=1`; and check that two builds give the same bytes.
+- **Reason:** #88 (B5). The static type2 runtime no longer needs libfuse2, which removes the 2026-11-09 objection to an AppImage. Tauri's own AppImage is still not used, since it bundles WebKitGTK and GTK and would need the Python tree anyway. See `docs/research/m16-appimage.md`.
+- **Pins:** `github.com` answers 403 in the agent container, and no package registry carries either file. The orchestrating session chose option A on 2026-11-15: the `package` CI job downloads, prints and checks the tools (#210, its entry "The AppImage tools downloaded and checked in the package job"). The build follows in its own PR.
+- **Dependencies added:** none yet. When the build lands, appimagetool and the runtime are build-time downloads (MIT), and the runtime ships inside the AppImage.
