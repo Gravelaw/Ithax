@@ -356,6 +356,57 @@ describe("the frame", () => {
     expect(document.querySelector(".step-card")).toBeNull();
   });
 
+  it("keeps a lesson started while an earlier project's removal awaited its answer (review of pull request 201)", async () => {
+    const shop = { id: "coffee_shop", title: "Coffee shop queue", experiment: "base" };
+    const lesson =
+      "# Coffee shop queue\n\n## Arrive\n\nComponent: `arrivals`\n\nThey arrive.\n\n" +
+      "## Exercise: two tills\n\nComponent: `till`\n\n### Change\n\nSet it.\n\n" +
+      "### Prediction\n\n- [x] Less.\n- [ ] More.\n\n### Explanation\n\nBecause.\n";
+    const made = (id: string) => ({
+      id,
+      name: `Coffee shop queue ${id}`,
+      created: "2026-11-09T10:00:00Z",
+      layout_version: 1,
+      model_revision: 0,
+      path: `/${id}`,
+      available: true,
+    });
+    window.location.hash = "#/";
+    const { fake } = boot(seen);
+    new ModelService(fake);
+    new ModelService(fake, { pid: "p2" });
+    let next = made("p1");
+    fake
+      .answer("GET /v1/templates", [shop])
+      .answer("GET /v1/templates/coffee_shop", { template: shop, lesson, expected: [] })
+      .on("POST /v1/projects", () => ({ status: 200, body: next }))
+      .on("GET /v1/projects", () => ({ status: 200, body: [made("p1")] }))
+      .answer("POST /v1/projects/p1/remove", { id: "p1", path: "/p1" });
+    const start = async () =>
+      userEvent.click(
+        await screen.findByRole("button", { name: "Start the lesson Coffee shop queue" }),
+      );
+    await start();
+    expect(await screen.findByRole("region", { name: "Arrive" })).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Home" }));
+    // Project p1's removal waits for its answer while a lesson starts in a new project.
+    const release = fake.holdWrites();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Remove Coffee shop queue p1 from the list" }),
+    );
+    next = made("p2");
+    await start();
+    await fake.releaseLast();
+    expect(await screen.findByRole("region", { name: "Arrive" })).toBeVisible();
+    expect(window.location.hash).toBe("#/canvas/p2");
+    release();
+    await waitFor(() => expect(fake.requested("POST", "/v1/projects/p1/remove")).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    // The removal of p1 leaves p2 and its lesson open.
+    expect(screen.getByRole("region", { name: "Arrive" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Canvas" })).not.toHaveAttribute("aria-disabled");
+  });
+
   it("renames the open project in the top bar when Home renames it (review of pull request 201)", async () => {
     const made = {
       id: "p1",

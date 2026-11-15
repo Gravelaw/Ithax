@@ -8,6 +8,7 @@ import type { ApiClient, ApiResult } from "../api/client";
 import type { Project, SettingsBody } from "../api/types";
 import { CanvasScreen } from "../canvas/CanvasScreen";
 import { ServiceProblem } from "../components/ServiceProblem";
+import { useCurrent } from "../components/useCurrent";
 import { DataScreen } from "../data/DataScreen";
 import { ExperimentScreen } from "../experiment/ExperimentScreen";
 import { newLearning, useLearning } from "../learn/LearnContext";
@@ -32,6 +33,8 @@ export function App({ client }: { client: ApiClient }) {
   const [route, go] = useRoute();
   const { settings, save } = useSettings();
   const { start: startLesson, exit: exitLesson, learning } = useLearning();
+  // A completion after an await reads the lesson as it is then (review of pull request 201).
+  const currentLearning = useCurrent(learning);
   const forgetLesson = useLessonStep(client, learning?.projectId ?? null, learning?.step ?? null);
   const [noticeOpen, setNoticeOpen] = useState(!settings.interface.first_start_seen);
   const [saveProblem, setSaveProblem] = useState<ApiResult<SettingsBody> | null>(null);
@@ -110,7 +113,7 @@ export function App({ client }: { client: ApiClient }) {
       if (answer.kind === "ok") {
         setProject((current) => (current?.id === target.id ? null : current));
         // Its lesson ends without a write to the project the service no longer lists.
-        if (learning?.projectId === target.id) {
+        if (currentLearning()?.projectId === target.id) {
           forgetLesson(target.id);
           exitLesson();
         }

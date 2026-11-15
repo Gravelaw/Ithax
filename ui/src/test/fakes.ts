@@ -69,6 +69,12 @@ export class FakeService {
     return this.waiting.length;
   }
 
+  /** Lets the last held write through first; resolves once one was waiting. */
+  async releaseLast(): Promise<void> {
+    while (this.waiting.length === 0) await new Promise((resolve) => setTimeout(resolve, 5));
+    this.waiting.pop()?.();
+  }
+
   /** Lets the first held write through; resolves once one was waiting. */
   async releaseOne(): Promise<void> {
     while (this.waiting.length === 0) await new Promise((resolve) => setTimeout(resolve, 5));
