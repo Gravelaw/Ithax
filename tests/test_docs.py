@@ -131,3 +131,42 @@ def used_markers() -> set[str]:
 def test_every_marker_used_in_tests_is_registered() -> None:
     unregistered = used_markers() - registered_markers()
     assert not unregistered, f"markers used but not registered in pyproject.toml: {unregistered}"
+
+
+# Every milestone entry of docs/DECISIONS.md records its dependencies (guide "Session
+# procedure"). A merge that resolves a conflict there has lost that closing line three times
+# (PR #189), and the diff against main showed no deletion each time, since git pairs the lost
+# line with the same line closing the next entry. So each entry is checked on its own.
+# Entries before 2026-11-13, when the records moved to GitHub, and the owner-decision records,
+# which add no dependency, are not milestone entries of this form.
+DECISIONS = ROOT / "docs" / "DECISIONS.md"
+FIRST_CHECKED = "2026-11-13"
+MILESTONE_ENTRY = re.compile(r"^## (\d{4}-\d{2}-\d{2}) · M\d+ · ", re.MULTILINE)
+DEPENDENCIES = "\n- **Dependencies added:**"
+
+
+def entries_without_dependencies(text: str) -> list[str]:
+    """The headings of milestone entries from ``FIRST_CHECKED`` on with no dependencies line."""
+    parts = re.split(r"(?m)^(## .*)$", text)
+    missing = []
+    for heading, body in zip(parts[1::2], parts[2::2], strict=True):
+        dated = MILESTONE_ENTRY.match(heading)
+        if dated and dated.group(1) >= FIRST_CHECKED and DEPENDENCIES not in "\n" + body:
+            missing.append(heading)
+    return missing
+
+
+def test_every_milestone_decision_records_its_dependencies() -> None:
+    text = DECISIONS.read_text(encoding="utf-8")
+    assert MILESTONE_ENTRY.search(text)
+    assert entries_without_dependencies(text) == []
+
+
+def test_the_dependencies_check_finds_an_entry_that_lost_its_line() -> None:
+    text = (
+        "## 2026-11-12 · M11 · Before the check\n\n- **Decision:** a.\n\n"
+        "## 2026-11-15 · M15 · Lost\n\n- **Decision:** b.\n- **Spec sections updated:** none.\n\n"
+        "## 2026-11-15 · Owner decisions\n\n- **Decision:** c.\n\n"
+        "## 2026-11-15 · M14 · Kept\n\n- **Decision:** d.\n- **Dependencies added:** none.\n"
+    )
+    assert entries_without_dependencies(text) == ["## 2026-11-15 · M15 · Lost"]

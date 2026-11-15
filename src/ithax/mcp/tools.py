@@ -478,9 +478,78 @@ def _get_run_status(client: ServiceClient, arguments: Mapping[str, Any]) -> Answ
     return client.request("GET", f"/v1/runs/{_segment(arguments['run_id'])}")
 
 
+#: The most variables and constraints ``get_results`` gives of an optimization (#82, owner
+#: option A on #181): the one exception to "a tool's result is the response body".
+SHOWN = 50
+
+
+def _first(items: object) -> object:
+    """The first ``SHOWN`` of a mapping or list; anything else unchanged."""
+    if isinstance(items, dict):
+        return dict(list(items.items())[:SHOWN])
+    if isinstance(items, list):
+        return items[:SHOWN]
+    return items
+
+
+def _counts(items: object) -> dict[str, int] | None:
+    """``{shown, total}`` of a mapping or list longer than ``SHOWN``; otherwise ``None``."""
+    if isinstance(items, dict | list) and len(items) > SHOWN:
+        return {"shown": SHOWN, "total": len(items)}
+    return None
+
+
+def _cut_summary(summary: dict[str, Any], run: str) -> dict[str, Any]:
+    """An optimization summary with at most ``SHOWN`` variables and constraints (and duals),
+    and ``cut_short`` saying how many there are and where the rest are."""
+    counts = {key: _counts(summary.get(key)) for key in ("variables", "constraints")}
+    if not any(counts.values()):
+        return summary
+    cut = {
+        key: _first(value) if key in ("variables", "constraints", "duals") else value
+        for key, value in summary.items()
+    }
+    shown = {key: count for key, count in counts.items() if count}
+    parts = [f"the first {SHOWN} of {count['total']} {key}" for key, count in shown.items()]
+    cut["cut_short"] = {
+        **shown,
+        "note": f"This answer holds {' and '.join(parts)}, in the model's order. "
+        f"GET {run}/summary and the project's export hold every value.",
+    }
+    return cut
+
+
+def _cut_finding(finding: object) -> object:
+    """An ``optimization_result`` finding whose evidence holds at most ``SHOWN`` variables and
+    tight constraints, and ``cut_short`` with how many there are."""
+    if not isinstance(finding, dict) or finding.get("rule") != "optimization_result":
+        return finding
+    evidence = finding.get("evidence")
+    if not isinstance(evidence, dict):
+        return finding
+    counts = {key: _counts(evidence.get(key)) for key in ("variables", "tight")}
+    if not any(counts.values()):
+        return finding
+    cut = {key: _first(value) if key in counts else value for key, value in evidence.items()}
+    cut["cut_short"] = {key: count for key, count in counts.items() if count}
+    return {**finding, "evidence": cut}
+
+
+def _cut_short(body: dict[str, Any], run: str) -> dict[str, Any]:
+    """The summary's answer, a large optimization's cut to ``SHOWN`` of each (#82)."""
+    summary, findings = body.get("summary"), body.get("findings")
+    cut = dict(body)
+    if isinstance(summary, dict):
+        cut["summary"] = _cut_summary(summary, run)
+    if isinstance(findings, list):
+        cut["findings"] = [_cut_finding(finding) for finding in findings]
+    return cut
+
+
 def _get_results(client: ServiceClient, arguments: Mapping[str, Any]) -> Answer:
     """The summary's answer with ``tables`` added, one request per table named (each
-    once, in the order first named); the first refusal unchanged."""
+    once, in the order first named); the first refusal unchanged. A large optimization's
+    is cut short (``_cut_short``)."""
     run = f"/v1/runs/{_segment(arguments['run_id'])}"
     summary = client.request("GET", f"{run}/summary")
     if summary.status >= _ERROR_STATUS or not isinstance(summary.body, dict):
@@ -491,7 +560,7 @@ def _get_results(client: ServiceClient, arguments: Mapping[str, Any]) -> Answer:
         if answer.status >= _ERROR_STATUS:
             return answer
         tables[name] = answer.body
-    return Answer(status=summary.status, body={**summary.body, "tables": tables})
+    return Answer(status=summary.status, body={**_cut_short(summary.body, run), "tables": tables})
 
 
 _RUN_ID = Input(
@@ -733,7 +802,10 @@ GET_RESULTS = ToolSpec(
         "when the best is told apart from the next best setting at the confidence, its "
         "paired difference excluding zero), and its metrics are the best candidate's. An "
         "optimization run's summary holds status, objective, variables and constraints "
-        "instead, and it has no tables. findings are short "
+        "instead, and it has no tables; when it has more than 50 variables or 50 "
+        "constraints, this answer holds the first 50 of each, in the model's order (and of "
+        "the optimization_result finding's evidence), and summary.cut_short gives the "
+        "totals: GET /v1/runs/{run_id}/summary holds every value. findings are short "
         "statements in plain language made from the summary by fixed rules, so the same run "
         "always gives the same findings; read them first and pass them on. Each is {rule, "
         "severity, component, scenario, text, evidence}: rule is bottleneck (the busiest "

@@ -395,13 +395,22 @@ def _settings_text(values: Mapping[str, float], model: Model) -> str:
     return ", ".join(_setting_text(name, value, model) for name, value in values.items())
 
 
+#: The most variables, and the most tight constraints, an optimization's finding names
+#: (#82, owner option A on #181); the evidence keeps every value.
+NAMED = 10
+
+
 def _values_text(values: Mapping[str, float], model: Model) -> str:
-    """A mathematical optimization's values: those not 0 (a -0 is 0), then how many are 0
-    (spec 4 "Finding rules", AKS-125)."""
+    """A mathematical optimization's values: at most ``NAMED`` of those not 0 (a -0 is 0),
+    then how many others are not, then how many are 0 (spec 4 "Finding rules", AKS-125)."""
     zeros = sum(1 for value in values.values() if value == 0)
     if values and zeros == len(values):
         return "every variable at 0"
-    text = _settings_text({name: value for name, value in values.items() if value != 0}, model)
+    not_zero = [(name, value) for name, value in values.items() if value != 0]
+    text = _settings_text(dict(not_zero[:NAMED]), model)
+    if len(not_zero) > NAMED:
+        others = len(not_zero) - NAMED
+        text += f", and {others} other{'s' if others > 1 else ''} not at 0"
     if zeros:
         text += f", and {zeros} other{'s' if zeros > 1 else ''} at 0"
     return text
@@ -499,6 +508,18 @@ def _sampled_text(search: Mapping[str, Any], *, infeasible: bool) -> str:
     return f" It is the best of {tried} {settings} tried, not a proven optimum."
 
 
+def _tight_text(tight: Sequence[str], constrained: bool) -> str:
+    """The end of the objective's sentence: at most ``NAMED`` tight constraints, then how
+    many others are tight."""
+    if not tight:
+        return "; no constraint is tight." if constrained else "."
+    named = list(tight[:NAMED])
+    if len(tight) > NAMED:
+        others = len(tight) - NAMED
+        named.append(f"{others} other constraint{'s' if others > 1 else ''}")
+    return f", with {_listed(named)} tight."
+
+
 def _program_result(summary: Mapping[str, Any], model: Model) -> list[Finding]:
     status = summary["status"]
     if status == "infeasible":
@@ -518,12 +539,9 @@ def _program_result(summary: Mapping[str, Any], model: Model) -> list[Finding]:
     ]
     objective = figures(summary["objective"], 4)
     text = f"Best found: {_values_text(ordered, model)}. The objective is {objective}"
-    if tight:
-        text += f", with {_listed(tight)} tight."
-    elif constraints:
-        text += "; no constraint is tight."
-    else:
-        text += "."
+    text += _tight_text(tight, bool(constraints))
+    if len(tight) > NAMED or sum(1 for value in ordered.values() if value != 0) > NAMED:
+        text += " Every value is in the results."
     evidence: dict[str, JsonValue] = {
         "status": status,
         "objective": summary["objective"],

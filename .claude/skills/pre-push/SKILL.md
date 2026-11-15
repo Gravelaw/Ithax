@@ -10,6 +10,7 @@ Retrospective P8 and its evidence item 5: a review round costs 7 to 25 minutes, 
 1. Merge the latest `main` into the branch. Merge, do not rebase: `git fetch origin main && git merge origin/main`. Keep the trailers on the merge commit.
    - When `docs/DECISIONS.md` conflicts, keep both entries in date order, with main's first.
    - Then confirm nothing was lost: `git diff origin/main -- docs/DECISIONS.md | grep -c "^-[^-]"` must print 0.
+   - That diff misses a line equal to one in another entry, such as `- **Dependencies added:** none.`: git pairs the lost one with its twin and shows no deletion (PR #189). So also compare counts: on the branch, the number of `## ` headings and of `- **Dependencies added:**` lines must each equal main's plus this PR's own new entries. Count each with `grep -c "^## " docs/DECISIONS.md` and `grep -c "^- \*\*Dependencies added:\*\*" docs/DECISIONS.md`, on the branch and on `git show origin/main:docs/DECISIONS.md`. `tests/test_docs.py` checks each milestone entry from 2026-11-13 on.
 2. Run `bash scripts/fast.sh` and judge it by its exit code.
 3. Read `git diff origin/main...HEAD` against each heading of `AGENTS.md` "Code Review Rules". For each class the change could reach, name the shared helper it uses, or fix it:
    - numbers: `ithax.strict_json.real_in` and `whole_in`;
