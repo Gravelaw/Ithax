@@ -52,6 +52,13 @@ The `package` CI job downloads from GitHub today. So the pins come from one of:
 
 Until one of these is done, the build cannot be run or its tests seen passing. The research note's other facts were read from the pages named above.
 
+**Pinned (2026-11-15, option A).** PR #210 gave the `package` job a lasting step, `python scripts/package_linux.py --check-appimage-tools`. It downloads both tools by their exact release URLs, prints each SHA-256, and compares it with the digest the GitHub release publishes for the asset. Once pins are recorded, it also compares with them and fails on any difference. In CI run 43752479955 (head `1751cb7`) both hashes matched their releases' published digests:
+
+- appimagetool 1.9.1: `ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0`;
+- type2-runtime `20251108`: `2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d`.
+
+The pins are the hashes CI computed, checked against the published digests, which both releases list. They are recorded in `scripts/package_linux.py` and `docs/DECISIONS.md`.
+
 ## Sources
 
 - <https://github.com/AppImage/appimagetool>, its `LICENSE` and its releases page.
