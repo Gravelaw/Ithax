@@ -1,6 +1,6 @@
 # Spec 1: Model Format and Engine Contract
 
-> Version 1.5 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 1.6 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 A model is one JSON file that passes a published schema. Every engine is a plugin that implements the same five functions. The interface, the engines and any AI assistant all work through these two contracts.
 
@@ -595,3 +595,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-14, review of PR #165 (#77): "Quantities" says the SI value is the exact product of the written number and the unit's size, so `"1e309 1/h"` is read as about 2.8e305 per second, not E141.
 - 2026-11-14, the coffee shop measures 200 h (#86, D9): the minimal example's `base` experiment has `length` 210 h, since `length` includes the 10 h warm-up, and the `summary.json` example's fidelity label reads 210 h.
 - 2026-11-14, alternate optima (#176, owner option B): "Validation issues" adds W211, a run warning that the plan shown is one of several that reach the same objective; it is listed among the `warnings` of an optimization `summary.json`, so no field is added.
+- 2026-11-14, M13 closed (#69, #72, #73, #74, #75, #76, #77, #79, #80, #81, #84, #85, #86, #132, #176 and the two hints of #83): no further change to this spec at the close. Version 1.6.

@@ -1,6 +1,6 @@
 # Spec 3: Desktop Application
 
-> Version 0.9 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 1.0 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 The app is two programs: an engine service that does all the work, and an interface that talks to it only through an API. That split is what lets a Windows interface drive Linux engines.
 
@@ -405,3 +405,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-14, negative samples (#69): the fit note says a fitted `uniform` or `triangular` whose `min` is below zero is left out by the gate, since spec 1 refuses it (E160).
 - 2026-11-14, a plan with nothing to decide (#80, D2): "Canvas behaviour", Optimization models, says a plan with spec 1 E179 shows a warning mark beside its heading and on the Diagram view's goal and limit cards, the message as the tooltip, and that a new plan starts empty.
 - 2026-11-14, the coffee shop measures 200 h (#86, D9): the pointer-only row enters a run length of 210 h and gives the measured `till.wait.mean` 267.74 s, half-width 9.05 s, 0.51 standard errors below 270 s; the package row's wait reads 267.7 s.
+- 2026-11-14, M13 closed (#69, #72, #73, #74, #75, #76, #77, #79, #80, #81, #84, #85, #86, #132, #176 and the two hints of #83): no further change to this spec at the close. Version 1.0.
