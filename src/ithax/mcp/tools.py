@@ -391,6 +391,55 @@ LIST_PROJECTS = ToolSpec(
     calls=_get("/v1/projects"),
 )
 
+
+def _rename_project(client: ServiceClient, arguments: Mapping[str, Any]) -> Answer:
+    return client.request(
+        "PATCH",
+        f"/v1/projects/{_segment(arguments['project_id'])}",
+        {"name": arguments["name"]},
+    )
+
+
+def _remove_project(client: ServiceClient, arguments: Mapping[str, Any]) -> Answer:
+    return client.request("POST", f"/v1/projects/{_segment(arguments['project_id'])}/remove")
+
+
+RENAME_PROJECT = ToolSpec(
+    name="rename_project",
+    summary=(
+        "Give a project a new name (PATCH /v1/projects/{project_id} with {name}). Only the "
+        "name the projects are listed by changes: the folder, the id and the model stay as "
+        "they are. Returns the project as list_projects lists it."
+    ),
+    inputs=(_PROJECT_ID, Input("name", "text", "The new name, not empty.", required=True)),
+    example_arguments={"project_id": _EXAMPLE_PID, "name": "Corner café"},
+    example_result=(
+        f'{{"id": "{_EXAMPLE_PID}", "name": "Corner café", "created": '
+        '"2026-11-08T09:30:00.000Z", "layout_version": 1, "model_revision": 3, "path": '
+        f'"/home/me/.local/share/ithax/projects/{_EXAMPLE_PID}", "available": true, '
+        '"opened": null, "template": "coffee_shop", "lesson_step": null}'
+    ),
+    calls=_rename_project,
+)
+
+REMOVE_PROJECT = ToolSpec(
+    name="remove_project",
+    summary=(
+        "Take a project off the list the service keeps (POST "
+        "/v1/projects/{project_id}/remove). Nothing is deleted: the project's folder and its "
+        "files are kept, and the user can open the folder again from the app. Returns {id, "
+        "path}. A project with a run queued or running is not removed (E188): cancel the run "
+        "or let it end first. Ask the user before removing a project they did not ask to "
+        "remove."
+    ),
+    inputs=(_PROJECT_ID,),
+    example_arguments={"project_id": _EXAMPLE_PID},
+    example_result=(
+        f'{{"id": "{_EXAMPLE_PID}", "path": "/home/me/.local/share/ithax/projects/{_EXAMPLE_PID}"}}'
+    ),
+    calls=_remove_project,
+)
+
 GET_MODEL = ToolSpec(
     name="get_model",
     summary=(
@@ -861,6 +910,8 @@ TOOLS: tuple[ToolSpec, ...] = (
     GET_SCHEMA,
     LIST_PROJECTS,
     CREATE_MODEL,
+    RENAME_PROJECT,
+    REMOVE_PROJECT,
     GET_MODEL,
     EDIT_MODEL,
     VALIDATE_MODEL,
