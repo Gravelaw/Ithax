@@ -3146,7 +3146,16 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
     - `ithax.model.edits.edit_schemas()` makes the schemas from `_FIELDS`, the table `check_edits` reads, so the schema and the service's check cannot drift.
   - **isError on an invalid save.** `ToolSpec.is_error` decides how a result is marked; the default is a status of 400 or above.
     - `edit_model` also marks a result whose saved batch's `issues` include an error (`refused_or_saved_with_errors`). The body is unchanged, and a warning alone does not mark it.
-    - The description says "with an error the result is marked as an error, though the batch is still saved"; it is now 4,056 characters, within 4,096.
+    - The description says "with an error the result is marked as an error, though the batch is still saved".
+  - **The allowed words** (finding 8: "the whole-model schema gives `sense: {}`, `op: {}`, `type: {}`, `budget: {}`").
+    - `ithax.model.schema.published_schema()` fills the static schema's `{}` with what the meaning pass checks. That is a `sense`, an `op` and a variable's and a parameter's `type` as `enum`s, and a search's `budget` (at least 1) and `replications` and an experiment's `replications` (at least 2) as integers.
+    - The word lists now live in `schema.py`, and `loading` uses the same tuples.
+    - `GET /v1/schema` serves it. The schema pass keeps the static schema, so its issue codes are unchanged.
+  - **The descriptions** (recommendation 10).
+    - `get_schema` names the words and shows a search (parameter, objective, constraint and the experiment's `search`) and an optimization model compactly; each fragment is the shipped template's (`how_many_machines`, `product_mix`).
+    - `get_results` defines `separated`.
+    - `edit_model` says a list entry is named by its index from 0, `'-'` adds one at the end with `set_path`, and `remove_path` closes the gap. Its rota example is trimmed to pay for it: 4,014 characters, within 4,096.
+    - The example results show `format_version` as the reader's, from `FORMAT_VERSION`.
   - **Checks.** Each fails before the change.
     - Each kind's schema: kinds, required fields, fields, no others.
     - The worked example's edits and three more fit the schema; five the service refuses do not.
@@ -3155,6 +3164,6 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Reason:** issue #98 (Reviewer B finding 8, as the issue states it): "Edits are typed only as object, enums are empty, and an invalid save returns isError false."
 - **Readings (reversible):**
   - "An invalid save" is `edit_model`'s, the tool the finding names. `create_model` is not marked: a new optimization project starts with E179 by design (D2), and the project was created.
-  - "Enums are empty": no tool input schema and no part of `GET /v1/schema` held an empty `enum`. The typed kinds, with `const` per kind, are read as the fix. The exact wording of finding 8 was asked of the orchestrating session.
-- **Spec sections updated:** spec 4 "How the server runs and answers" (Inputs, Results, the description length), with a dated line.
+  - Finding 8's wording came from the orchestrating session: the "empty enums" were the static schema's `{}`. The published schema fills them, while the schema pass keeps its structural schema so its codes stay the meaning pass's. The published schema accepts every shipped model (a test).
+- **Spec sections updated:** spec 4 "How the server runs and answers" (Inputs, Results, the descriptions); spec 3 `GET /v1/schema`; dated lines in both.
 - **Dependencies added:** none.

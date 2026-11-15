@@ -1157,3 +1157,48 @@ def test_the_edits_the_service_takes_fit_the_schema(edit: dict[str, Any]) -> Non
 def test_edits_the_service_refuses_do_not_fit_the_schema(edit: dict[str, Any]) -> None:
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(edit, edits_schema())
+
+
+# --- the descriptions Reviewer B asked for (#98, recommendation 10) ----------------------------
+
+TEMPLATES_ROOT = Path(__file__).resolve().parents[2] / "templates"
+
+
+def test_every_example_result_is_at_the_reader_s_format_version() -> None:
+    """The examples showed format_version 0.1 while a new project is written at the
+    reader's version."""
+    import re
+
+    from ithax.model.migration import FORMAT_VERSION
+
+    for spec in TOOLS:
+        for version in re.findall(r'"format_version": "([0-9.]+)"', spec.description):
+            assert version == FORMAT_VERSION, spec.name
+
+
+def test_get_schema_shows_a_search_and_an_optimization_model_compactly() -> None:
+    """Each fragment is the shipped template's own, so the example cannot drift."""
+    description = tool_named("get_schema").description
+    search = json.loads((TEMPLATES_ROOT / "how_many_machines" / "model.json").read_text())
+    plan = json.loads((TEMPLATES_ROOT / "product_mix" / "model.json").read_text())
+    for fragment in (
+        search["parameters"],
+        search["objectives"],
+        search["constraints"],
+        search["experiments"][0]["search"],
+        plan["objective"],
+        plan["constraints"][0],
+        plan["variables"][0],
+    ):
+        assert json.dumps(fragment) in description, fragment
+    for words in ("minimize or maximize", "continuous, integer or binary", "'=='"):
+        assert words in description
+
+
+def test_get_results_defines_separated() -> None:
+    assert "separated" in tool_named("get_results").description
+
+
+def test_edit_model_says_how_set_path_treats_a_list_index() -> None:
+    description = tool_named("edit_model").description
+    assert "index from 0" in description and "'-'" in description

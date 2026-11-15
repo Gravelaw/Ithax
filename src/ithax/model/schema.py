@@ -66,6 +66,41 @@ def model_schema() -> dict[str, Any]:
     return copy.deepcopy(dict(_schema()))
 
 
+#: The words of spec 1 that the meaning pass checks (``ithax.model.loading``), here so that
+#: the published schema names the same ones (#98).
+PARAMETER_TYPES = ("integer", "number", "quantity")
+SENSES = ("minimize", "maximize")
+METRIC_OPS = ("<=", ">=")
+LINEAR_OPS = ("<=", ">=", "==")
+VARIABLE_TYPES = ("continuous", "integer", "binary")
+
+# Per definition and property: what the meaning pass accepts there, for the published
+# schema. The schema pass leaves these ``{}`` so the meaning pass reports its own codes.
+_PUBLISHED: Mapping[tuple[str, str], Mapping[str, Any]] = {
+    ("parameter", "type"): {"enum": list(PARAMETER_TYPES)},
+    ("experiment", "replications"): {"type": "integer", "minimum": 2},
+    ("search", "budget"): {"type": "integer", "minimum": 1},
+    ("search", "replications"): {"type": "integer", "minimum": 2},
+    ("metric_objective", "sense"): {"enum": list(SENSES)},
+    ("metric_constraint", "op"): {"enum": list(METRIC_OPS)},
+    ("variable", "type"): {"enum": list(VARIABLE_TYPES)},
+    ("linear_objective", "sense"): {"enum": list(SENSES)},
+    ("linear_constraint", "op"): {"enum": list(LINEAR_OPS)},
+}
+
+
+def published_schema() -> dict[str, Any]:
+    """The schema ``GET /v1/schema`` serves: the model schema with the allowed words and
+    bounds the meaning pass checks (Reviewer B finding 8, #98). It refuses nothing the
+    product accepts; the schema pass keeps using ``model_schema``."""
+    schema = model_schema()
+    for (definition, key), rule in _PUBLISHED.items():
+        properties = schema["$defs"][definition]["properties"]
+        assert properties[key] == {}, (definition, key)
+        properties[key] = dict(rule)
+    return schema
+
+
 def _domain_keys() -> tuple[dict[str, str], dict[str, tuple[str, ...]]]:
     """From the schema: which domain owns each domain-only key, and each domain's keys.
 

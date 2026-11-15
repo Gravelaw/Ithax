@@ -37,6 +37,7 @@ from ithax.mcp.client import Answer, ServiceClient, ServiceUnavailable
 from ithax.mcp.limits import RunLimitReached, segment
 from ithax.model.edits import edit_schemas
 from ithax.model.issues import Issue, pointer
+from ithax.model.migration import FORMAT_VERSION
 from ithax.strict_json import is_whole, json_text
 
 __all__ = [
@@ -338,7 +339,18 @@ GET_SCHEMA = ToolSpec(
         "an item in service resumes with its remaining time after repair (preempt-resume); "
         "a schedule's capacity is 0 outside its listed shifts, and a unit busy when it "
         "falls finishes its item first; a server with a pool takes its own unit first, "
-        "then one pool unit, and its service starts when it holds both."
+        "then one pool unit, and its service starts when it holds both. The whole schema "
+        "names the allowed words: a sense is minimize or maximize; an op is '<=' or '>=', "
+        "and also '==' in an optimization model; a variable's type is continuous, integer "
+        "or binary. A search, compactly: parameters "
+        '{"tills": {"value": 1, "type": "integer", "min": 1, "max": 5}}, objectives '
+        '[{"id": "wait", "metric": "till.wait.mean", "sense": "minimize"}], constraints '
+        '[{"id": "busy", "metric": "till.utilization", "op": ">=", "value": 0.35}] and, in '
+        'an experiment, search {"objective": "wait", "budget": 10}. An optimization model '
+        '(domain optimization), compactly: variables [{"id": "chairs", "type": '
+        '"continuous", "lower": 0}, ...], objective {"sense": "maximize", "linear": '
+        '{"chairs": 45, "tables": 80}} and constraints [{"id": "wood", "linear": '
+        '{"chairs": 5, "tables": 20}, "op": "<=", "rhs": 400}, ...].'
     ),
     inputs=(
         Input(
@@ -388,7 +400,9 @@ GET_MODEL = ToolSpec(
     inputs=(_PROJECT_ID,),
     example_arguments={"project_id": _EXAMPLE_PID},
     example_result=(
-        '{"model": {"format_version": "0.1", "meta": {"name": "Coffee shop"}, "domain": '
+        '{"model": {"format_version": "'
+        + FORMAT_VERSION
+        + '", "meta": {"name": "Coffee shop"}, "domain": '
         '"process", "parameters": {}, "components": [...], "connections": [...], '
         '"experiments": [{"id": "base", "length": "8 h", "warmup": "0 s", "replications": '
         '30}], "run": {"target": "local", "fidelity": "standard"}}, "revision": 3}'
@@ -598,7 +612,9 @@ EDIT_MODEL = ToolSpec(
         "{experiment_id, id, set} and remove_scenario {experiment_id, id}; set_path {path, "
         "value} and remove_path {path}, a JSON Pointer on the whole model for /meta, /run, "
         "/objectives, /constraints, /experiments/<n>/search and, in an optimization model, "
-        "/variables, /objective, /sets and /tables; set_ui {id, ui}; set_label {id, label}. "
+        "/variables, /objective, /sets and /tables, a list entry named by its index from 0 "
+        "(set_path with '-' adds one at the end, remove_path closes the gap); set_ui {id, "
+        "ui}; set_label {id, label}. "
         "get_schema gives each block type's settings. A batch that applies is saved and "
         "returns "
         "{model, revision, issues}: the issues are the checks made on loading the model, "
@@ -611,11 +627,9 @@ EDIT_MODEL = ToolSpec(
         "changed the model meanwhile nothing is applied, and the refusal, E181, carries the "
         "current model and revision. Keep batches small. Randomness is set by an "
         "experiment's seed (set_experiment), never per component; each component draws "
-        "from its own stream. The example builds two servers sharing a pool of two staff "
-        "on a daily rota (period 24 h, capacity 0 outside the listed shifts): the day "
-        "shift, 8 h to 16 h, with two, and the night from 22:00 to 06:00 with one, split at "
-        "the period end into 22 h to 24 h and 0 h to 6 h, since a shift cannot cross the "
-        "end of its period."
+        "from its own stream. The example: two servers sharing a pool of two staff on a "
+        "daily rota; the night shift is split at the period end (22 h to 24 h, 0 h to 6 h), "
+        "since no shift crosses it."
     ),
     inputs=(
         _PROJECT_ID,
@@ -634,7 +648,9 @@ EDIT_MODEL = ToolSpec(
     ),
     example_arguments={"project_id": _EXAMPLE_PID, "edits": _EXAMPLE_EDITS, "base_revision": 0},
     example_result=(
-        '{"model": {"format_version": "0.1", "meta": {"name": "Workshop"}, "domain": '
+        '{"model": {"format_version": "'
+        + FORMAT_VERSION
+        + '", "meta": {"name": "Workshop"}, "domain": '
         '"process", "parameters": {}, "components": [{"id": "arrivals", "type": "source", '
         '...}, {"id": "staff", "type": "resource_pool", "params": {"capacity": 2}}, ...], '
         '"connections": [{"from": "arrivals.out", "to": "cutting.in"}, ...], "experiments": '
@@ -713,9 +729,11 @@ GET_RESULTS = ToolSpec(
         "half_width being t times the standard deviation over the square root of n, with t "
         "the Student t quantile at (1 + confidence) / 2 for n - 1 degrees of freedom. A "
         "plain run has the one scenario 'default'. A search run adds summary.search (status, "
-        "the best values in best.set, the objective before and after), and its metrics are "
-        "the best candidate's. An optimization run's summary holds status, objective, "
-        "variables and constraints instead, and it has no tables. findings are short "
+        "the best values in best.set, the objective before and after, and separated: true "
+        "when the best is told apart from the next best setting at the confidence, its "
+        "paired difference excluding zero), and its metrics are the best candidate's. An "
+        "optimization run's summary holds status, objective, variables and constraints "
+        "instead, and it has no tables. findings are short "
         "statements in plain language made from the summary by fixed rules, so the same run "
         "always gives the same findings; read them first and pass them on. Each is {rule, "
         "severity, component, scenario, text, evidence}: rule is bottleneck (the busiest "
