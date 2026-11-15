@@ -11,6 +11,8 @@
  * - three significant figures, never an exponent, a comma between thousands.
  */
 
+import { own } from "../canvas/own";
+
 /** Seconds in each Phase 1 time unit (spec 1 "Quantities"; `ithax.model.units.UNIT_SIZES`). */
 const SECONDS: Readonly<Record<string, number>> = { s: 1, min: 60, h: 3_600, d: 86_400 };
 
@@ -27,7 +29,7 @@ export const TIME_UNITS: readonly (readonly [string, number])[] = (["d", "h", "m
  */
 export function inUnit(si: number, unit: string): number | null {
   const rate = unit.startsWith("1/");
-  const seconds = SECONDS[rate ? unit.slice(2) : unit];
+  const seconds = own<number>(SECONDS, rate ? unit.slice(2) : unit);
   if (seconds === undefined) return null;
   const shown = rate ? si * seconds : si / seconds;
   return Number.isFinite(shown) ? shown : null;
@@ -122,9 +124,9 @@ const UNIT_WORDS: Readonly<Record<string, string>> = {
 
 /** A unit symbol in words (#96): `min` is "minutes", `1/h` "per hour", `1` "no unit". */
 export function unitWords(symbol: string): string {
-  const words = UNIT_WORDS[symbol];
+  const words = own<string>(UNIT_WORDS, symbol);
   if (words !== undefined) return words;
-  const per = symbol.startsWith("1/") ? UNIT_WORDS[symbol.slice(2)] : undefined;
+  const per = symbol.startsWith("1/") ? own<string>(UNIT_WORDS, symbol.slice(2)) : undefined;
   return per === undefined ? symbol : `per ${per.replace(/s$/, "")}`;
 }
 
@@ -141,4 +143,41 @@ export function whenText(iso: string): string {
   if (iso === "" || Number.isNaN(date.getTime())) return iso;
   const time = date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   return `${dateText(iso)}, ${time}`;
+}
+
+/** Each statistic of spec 2 "Statistic definitions" in words. */
+const STATISTICS: Readonly<Record<string, string>> = {
+  "wait.mean": "average wait",
+  utilization: "busy share",
+  throughput: "throughput",
+  "cycle_time.mean": "average time in the system",
+  availability: "availability",
+  scheduled_fraction: "scheduled share",
+  "queue_length.mean": "average queue length",
+  "queue_length.max": "longest queue",
+  "stock.mean": "average stock",
+  stockouts: "stockouts",
+  orders: "orders placed",
+  created: "items created",
+  count: "items finished",
+  discarded: "items discarded",
+  "wip.mean": "average items in the system",
+  // The time series' (spec 1 "Tables for the `process` domain").
+  queue_length: "queue length",
+  stock: "stock",
+  wip: "items in the system",
+};
+
+/**
+ * A metric's name in words (#91): the component's id, which the user chose, then its
+ * statistic, so `till.wait.mean` is "till: average wait" and `model.wip.mean` "whole model:
+ * average items in the system". A statistic not in spec 2's table is its parts in words.
+ */
+export function metricWords(metric: string): string {
+  const dot = metric.indexOf(".");
+  if (dot < 0) return metric;
+  const component = metric.slice(0, dot);
+  const statistic = metric.slice(dot + 1);
+  const words = own<string>(STATISTICS, statistic) ?? statistic.replace(/[._]/g, " ");
+  return `${component === "model" ? "whole model" : component}: ${words}`;
 }

@@ -3335,6 +3335,19 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** design-system.md "Window"; accessibility.md 1.4.10. Spec 3 is silent on the layout.
 - **Dependencies added:** none.
 
+## 2026-11-15 · M15 · Metric names in words (#91 part 2; Reviewer B finding 2)
+
+- **Decision:**
+  - `metricWords` (`ui/src/results/display.ts`) gives a metric as the component's id, which the user chose, then its statistic in words from spec 2 "Statistic definitions": `till.wait.mean` is "till: average wait", `till.utilization` "till: busy share", `exit.cycle_time.mean` "exit: average time in the system", `model.wip.mean` "whole model: average items in the system". The time series' `queue_length`, `stock` and `wip` have words too; a statistic not in the table is its parts in words.
+  - It is used for the key numbers' and the differences' row headings (the metric's name on hover), the over-time picker and its chart's axis and title, a search's trials chart and its column, the replications table's `metric` column, and the Experiment screen's objective and constraint pickers, whose values stay the names. Metric names are no longer Mono.
+  - The lookups by a name the model holds go through `own` (review of PR #46): `metricWords`, and `unitWords` and `inUnit` from #96, so `constructor` is not found on `Object.prototype`.
+- **Reason:** issue #91: metrics showed raw ids. `display.test.ts` covers the words, `till.constructor` and `unitWords("constructor")`; the Results tests find rows and charts by the words. Each failed before the change.
+- **Readings (reversible):**
+  - "Utilization" is "busy share", the word the Results chart already used ("Busy share by component").
+  - The metric's name stays one hover away, since the CSV, the summary and MCP use it.
+- **Spec sections updated:** design-system.md "Type" (Mono). Spec 3 and spec 4 name no display form for metrics.
+- **Dependencies added:** none.
+
 ## 2026-11-15 · M15 · A process model with no blocks: W204, and the Canvas holds Run back (#95; owner decision #188, option A)
 
 - **Decision:**

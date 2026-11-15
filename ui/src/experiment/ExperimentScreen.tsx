@@ -22,7 +22,7 @@ import { ModelScreen, type ModelWrites, useDraft, useSchema } from "../canvas/Mo
 import { shown, splitQuantity, TIME_UNITS } from "../canvas/model";
 import { own } from "../canvas/own";
 import { CommitInput, FieldIssues } from "../canvas/SettingFields";
-import { unitWords } from "../results/display";
+import { metricWords, unitWords } from "../results/display";
 import {
   addScenarioPlan,
   appendPlan,
@@ -585,7 +585,7 @@ function Optimization({
   types,
 }: Parts & { experiment: Experiment | undefined; types: Record<string, ComponentType> }) {
   const busy = useBusy();
-  const metrics = metricNames(model, types).map((name) => [name, name] as const);
+  const metrics = metricNames(model, types).map((name) => [name, metricWords(name)] as const);
   const objectives = listOf<MetricObjective>(model, "objectives");
   const constraints = listOf<MetricConstraint>(model, "constraints");
   const path = (key: string, index: number, field: string) => `/${key}/${index}/${field}`;
@@ -624,7 +624,6 @@ function Optimization({
                 label={`Metric of objective ${name}`}
                 value={item?.metric}
                 options={metrics}
-                mono
                 readOnly={readOnly}
                 onChoose={(value) =>
                   setAt(`set metric of ${name}`, path("objectives", index, "metric"), value)
@@ -701,7 +700,6 @@ function Optimization({
                 label={`Metric of constraint ${name}`}
                 value={item?.metric}
                 options={metrics}
-                mono
                 readOnly={readOnly}
                 onChoose={(value) =>
                   setAt(`set metric of ${name}`, path("constraints", index, "metric"), value)

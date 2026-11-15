@@ -124,7 +124,7 @@ logged(
     await page.getByRole("button", { name: "See the results" }).click();
     await expect(page.locator(".headline-card")).toBeVisible();
     await expect(page.locator(".results-footer")).toContainText("Model: Coffee shop queue");
-    await expect(page.getByRole("rowheader", { name: "till.wait.mean" })).toBeVisible();
+    await expect(page.getByRole("rowheader", { name: "till: average wait" })).toBeVisible();
 
     // The service's log: only documented routes, none refused.
     await page.close();
