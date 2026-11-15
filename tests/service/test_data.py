@@ -437,8 +437,12 @@ def test_delete_removes_the_file_and_its_entry(client: TestClient) -> None:
 def test_delete_of_a_name_not_in_the_index_is_404(client: TestClient, name: str) -> None:
     pid = project(client)
     upload(client, pid, "a.csv", b"x\n1\n")
-    refusal(client.delete(f"/v1/projects/{pid}/data/{name}"), 404, "E185")
+    response = client.delete(f"/v1/projects/{pid}/data/{name}")
+    # '..' folds to DELETE /v1/projects/{pid}: a path with routes (PATCH, #97) but no DELETE,
+    # so 405; refused with E185 either way, and nothing is removed.
+    refusal(response, 405 if name == ".." else 404, "E185")
     assert data_listing(folder_of(client, pid)) == ["a.csv", INDEX_FILE]
+    assert [entry["id"] for entry in client.get("/v1/projects").json()] == [pid]
 
 
 def test_a_file_whose_removal_fails_after_the_commit_is_logged(

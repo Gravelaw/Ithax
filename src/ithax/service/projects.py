@@ -12,19 +12,20 @@ from __future__ import annotations
 
 import copy
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ithax.model.issues import Issue
-from ithax.service.errors import malformed
+from ithax.service.errors import NOT_ALLOWED, ServiceError, malformed
 from ithax.service.paths import canonical, fully_qualified
 from ithax.service.projects_store import Domain
 from ithax.service.state import ServiceState, service_state
 from ithax.service.templates import find_template
+from ithax.strict_json import MAX_WHOLE
 
-__all__ = ["CreateProject", "OpenProject", "router"]
+__all__ = ["ChangeProject", "CreateProject", "OpenProject", "router"]
 
 router = APIRouter(prefix="/v1/projects")
 
@@ -64,6 +65,19 @@ class OpenProject(BaseModel):
     path: str
 
     _writable = field_validator("path")(lambda value: _unicode(value))
+
+
+class ChangeProject(BaseModel):
+    """The body of ``PATCH /v1/projects/{pid}`` (#97): any of a new ``name``, ``opened``
+    ``true`` (opened now), and ``lesson_step`` (a whole number from 0, ``null`` for none)."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    name: str | None = Field(default=None, min_length=1)
+    opened: Literal[True] | None = None
+    lesson_step: int | None = Field(default=None, ge=0, le=MAX_WHOLE)
+
+    _writable = field_validator("name")(lambda value: _unicode(value))
 
 
 def _absolute(path: str) -> Path:
@@ -135,6 +149,55 @@ def create_project(body: CreateProject, state: State) -> dict[str, Any]:
         return state.projects.create(body.name, body.domain or "process", folder)
     model = _template_model(state, body)
     return state.projects.create(body.name, model["domain"], folder, model)
+
+
+@router.patch("/{pid}")
+def change_project(pid: str, body: ChangeProject, state: State) -> dict[str, Any]:
+    """Rename a project, note that it was opened, or keep its lesson's step (#97)."""
+    given = body.model_fields_set
+    # 'name' and 'opened' have no null; 'lesson_step' null clears the step.
+    nulls = [key for key in ("name", "opened") if key in given and getattr(body, key) is None]
+    if not given or nulls:
+        raise malformed(
+            [
+                Issue(
+                    code="E184",
+                    component=None,
+                    path="",
+                    message="The request changes nothing: give 'name', 'opened' or 'lesson_step'.",
+                    hint="Send a new 'name', 'opened': true, or 'lesson_step' (a whole number "
+                    "from 0, or null).",
+                )
+            ]
+        )
+    state.projects.folder(pid)  # 404 with E185 for an unknown project, before any change
+    if body.name is not None:
+        state.models.rename(pid, body.name)
+    fields: tuple[str, ...] = ("opened", "lesson_step")
+    notes: dict[str, Any] = {key: getattr(body, key) for key in fields if key in given}
+    if notes:
+        state.projects.note(pid, notes)
+    return state.projects.entry(pid)
+
+
+@router.post("/{pid}/remove")
+def remove_project(pid: str, state: State) -> dict[str, Any]:
+    """Take a project off the list; its folder is kept (#97). A ``POST`` to its own path, as
+    ``/open`` is, not ``DELETE /v1/projects/{pid}``: a client that folds dot segments turns
+    ``DELETE .../data/..`` into that, which would take the project off the list."""
+    # In the project's write hold, which starting a run takes too, so no run can start
+    # between the check and the removal (review of PR #200).
+    with state.models.locked(pid):
+        unfinished = state.runs.unfinished(pid)
+        if unfinished:
+            raise ServiceError(
+                409,
+                NOT_ALLOWED,
+                f"The project '{pid}' has a run that is queued or running "
+                f"({', '.join(unfinished)}), so it is not taken off the list: its run status "
+                "and cancel need it. Cancel the run or let it end, then remove the project.",
+            )
+        return state.projects.remove(pid)
 
 
 @router.post("/open")

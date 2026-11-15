@@ -376,15 +376,17 @@ LIST_PROJECTS = ToolSpec(
     summary=(
         "List the projects the service knows, in the order they were registered (GET "
         "/v1/projects). Each is {id, name, created, layout_version, model_revision, path, "
-        "available}; id is the project_id the other tools take, and a project whose folder "
-        "cannot be read has available false."
+        "available, opened, template, lesson_step}; id is the project_id the other tools "
+        "take, and a project whose folder cannot be read has available false. opened, "
+        "template and lesson_step are the interface's notes, null until known."
     ),
     inputs=(),
     example_arguments={},
     example_result=(
         f'[{{"id": "{_EXAMPLE_PID}", "name": "Coffee shop", "created": '
         '"2026-11-08T09:30:00.000Z", "layout_version": 1, "model_revision": 3, "path": '
-        f'"/home/me/.local/share/ithax/projects/{_EXAMPLE_PID}", "available": true}}]'
+        f'"/home/me/.local/share/ithax/projects/{_EXAMPLE_PID}", "available": true, '
+        '"opened": "2026-11-08T10:02:00.000Z", "template": "coffee_shop", "lesson_step": null}]'
     ),
     calls=_get("/v1/projects"),
 )
@@ -606,7 +608,8 @@ CREATE_MODEL = ToolSpec(
     example_result=(
         f'{{"id": "{_EXAMPLE_PID}", "name": "Coffee shop", "created": '
         '"2026-11-08T09:30:00.000Z", "layout_version": 1, "model_revision": 0, "path": '
-        f'"/home/me/.local/share/ithax/projects/{_EXAMPLE_PID}", "available": true}}'
+        f'"/home/me/.local/share/ithax/projects/{_EXAMPLE_PID}", "available": true, '
+        '"opened": null, "template": "coffee_shop", "lesson_step": null}'
     ),
     calls=_create_model,
 )

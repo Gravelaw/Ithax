@@ -59,6 +59,7 @@ from ithax.service.projects_store import (
     ProjectRegistry,
     encode_json,
     read_project,
+    write_json,
 )
 from ithax.strict_json import MAX_WHOLE
 
@@ -337,6 +338,18 @@ class ModelStore:
             ) from None
         self.events.model_written(pid, revision, client)
         return revision
+
+    def rename(self, pid: str, name: str) -> None:
+        """Give project ``pid`` the name ``name`` in its ``project.json`` (#97), in the hold
+        of its writes, so a save's ``model_revision`` and the new name never overwrite each
+        other; the model and its revision are unchanged."""
+        with self.settled(pid) as (folder, record):
+            try:
+                write_json(folder / PROJECT_FILE, asdict(replace(record, name=name)))
+            except OSError:
+                raise _folder_error(
+                    f"The project folder '{folder}' cannot be written, so it was not renamed."
+                ) from None
 
     def put(self, pid: str, body: bytes, base_revision: int | None, client: str) -> Written:
         """Save the model file ``body`` when it passes the schema pass and is admitted."""

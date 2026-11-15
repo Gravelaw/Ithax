@@ -1282,3 +1282,28 @@ def test_the_finishing_hooks_ignore_runs_they_do_not_know(
     runs._finished(run)
     assert "returned without reaching a final state" in caplog.text
     run.cancel()
+
+
+# --- removing a project with a live run (review of PR #200, #97) ------------------------------
+
+
+def test_a_project_with_a_queued_or_running_run_is_not_removed(client: TestClient) -> None:
+    """Taking a project off the list while a run is queued or running would leave the run
+    going with its status and cancel at 404: 409 with E188 instead, and once the run has
+    ended the project can be removed."""
+    pid = project(client, shop())
+    first = start(client, pid)
+    second = start(client, pid)
+    waiting(client, first)
+    refused = client.post(f"/v1/projects/{pid}/remove")
+    assert refused.status_code == 409
+    body = refused.json()
+    assert body["error"]["code"] == "E188"
+    assert first in body["error"]["message"] or second in body["error"]["message"]
+    assert [item["id"] for item in client.get("/v1/projects").json()] == [pid]
+    assert client.get(f"/v1/runs/{first}").status_code == 200
+    for rid in (second, first):
+        client.post(f"/v1/runs/{rid}/cancel")
+        wait_state(client, rid, *FINAL)
+    assert client.post(f"/v1/projects/{pid}/remove").status_code == 200
+    assert client.get("/v1/projects").json() == []
