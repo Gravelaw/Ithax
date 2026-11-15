@@ -3468,6 +3468,18 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** spec 3 "Screens" (Home) and spec 4 "Learn and Build modes" (Where the lesson lives), with dated lines.
 - **Dependencies added:** none.
 
+## 2026-11-15 · M16 · The Phase 1 review's checklist (#101)
+
+- **Decision:** `docs/research/phase-1-review.md` lists every change the Phase 1 review folds into specs 0 to 4. It covers each "the Phase 1 review sets…" deferral in the specs and DECISIONS, and each owner decision of 2026-11-13 (B1 to F8), checked against the spec text at `main` c864cb9. Each row is marked already in the spec (built in M12 to M15), change needed, or needs the owner. It is the draft the owner approves (2026-11-09 B2; C10). The spec edits follow it, one PR per spec, each with a dated line and a version bump.
+- **Reason:** #101 and the guide's M16 row ("the Phase 1 review's changes are in specs 0 to 4"). The 2026-11-13 entry leaves the spec text to this review.
+- **Review of PR #208 (two findings of one class, fixed for the class):** the checklist had missed two later-phase parts of accepted decisions: B7 item 1, the `sketch` preview in Phase 2, which spec 2 still calls an owner question; and M5-23's noise-aware method in Phase 2.
+  - The sweep now covers every DECISIONS entry through 2026-11-15, every session summary's "Awaiting owner" items, and every spec line that leaves something open. The new rows are spec 2 (B7 item 1, M5-23's second part, line 18's source schedule from M4-1 and D10, B1's line 276) and spec 3 (the shell's Windows build, line 87). The new section "Later-phase parts of accepted readings" maps each E1-accepted reading's later part.
+  - `tests/test_phase_1_review.py` fails on any owner-decision item, later-phase reading, later-phase session item or open spec marker that the checklist's "Coverage" does not name. `AGENTS.md` names the class.
+- **Readings (reversible):** B6's search-suggestion threshold is set when #111 builds the estimate. The six risk rows of 2026-11-05 are accepted as written. 2026-11-09 B8 is taken as replaced by the 2026-11-13 list. D2 keeps E179 with its warning mark. The draft-and-approve step is this file, then one spec PR per spec. A later phase goes into spec text only where an owner decision names it; the later part of an E1-accepted reading goes to the Phase 2 milestone table.
+- **Awaiting owner:** #206 (the six success measures' targets, B2) and #207 (Windows natively or through WSL). Both default on 2026-11-17.
+- **Spec sections updated:** none in this change. The spec PRs follow the approved checklist.
+- **Dependencies added:** none.
+
 ## 2026-11-15 · M16 · Research: an AppImage of the Linux package (#88)
 
 - **Decision (proposed, owner to confirm):**
@@ -3476,5 +3488,5 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The output is `ithax-<version>-x86_64.AppImage` with its `.sha256`, unsigned. The archive stays.
   - Tests: extract the AppImage and compare it with the archive's tree; run the first result offline in a clean container with `APPIMAGE_EXTRACT_AND_RUN=1`; and check that two builds give the same bytes.
 - **Reason:** #88 (B5). The static type2 runtime no longer needs libfuse2, which removes the 2026-11-09 objection to an AppImage. Tauri's own AppImage is still not used, since it bundles WebKitGTK and GTK and would need the Python tree anyway. See `docs/research/m16-appimage.md`.
-- **Not yet done:** the two SHA-256 pins. `github.com` answers 403 in the agent container, and no package registry carries either file. The pins come from the `package` CI job's log, or from the owner. The build follows once they are pinned.
+- **Pins:** `github.com` answers 403 in the agent container, and no package registry carries either file. The orchestrating session chose option A on 2026-11-15: the `package` CI job downloads, prints and checks the tools (#210, its entry "The AppImage tools downloaded and checked in the package job"). The build follows in its own PR.
 - **Dependencies added:** none yet. When the build lands, appimagetool and the runtime are build-time downloads (MIT), and the runtime ships inside the AppImage.

@@ -74,3 +74,10 @@ that reads input, and say whether the shared helper was bypassed:
   actions run in one; `useCurrent` in `ui/src/components/useCurrent.ts` for an action that
   reads state when it runs, not when it was queued; a test per site lets a slower request
   finish after a newer action; PR #200 and its stack, four findings).
+- a review checklist or spec edit that leaves out part of an accepted decision: a decision
+  with a now-part and a later-phase part kept only for its first part, or an open owner
+  question in a spec that a decision has already answered. Map every owner-decision item,
+  every later-phase reading and every open spec marker to a row (check:
+  `tests/test_phase_1_review.py` fails on any item of `docs/DECISIONS.md` or the session
+  summaries, or any spec line saying "owner question", "deferred" or "Phase 1 review", that
+  `docs/research/phase-1-review.md` "Coverage" does not name; PR #208, two findings).
