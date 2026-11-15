@@ -1202,3 +1202,88 @@ def test_get_results_defines_separated() -> None:
 def test_edit_model_says_how_set_path_treats_a_list_index() -> None:
     description = tool_named("edit_model").description
     assert "index from 0" in description and "'-'" in description
+
+
+def test_get_results_gives_at_most_50_variables_and_constraints(
+    folders: tuple[Path, Path], stub: StubService
+) -> None:
+    """#82, owner option A on #181: the one exception to "a tool's result is the response
+    body". A large optimization's answer keeps the first 50 variables and constraints (with
+    their duals) in the summary's order, which is the model's, and the first 50 of its
+    finding's evidence, and says how many there are and where the rest are."""
+    names = [f"x{n:03d}" for n in range(60)]
+    rows = [f"c{n:03d}" for n in range(55)]
+    summary = {
+        "status": "optimal",
+        "objective": 1.0,
+        "variables": dict.fromkeys(names, 1.0),
+        "constraints": {row: {"tight": True, "slack": 0.0} for row in rows},
+        "duals": dict.fromkeys(rows, 0.5),
+        "warnings": [],
+    }
+    evidence = {"status": "optimal", "objective": 1.0, "variables": dict.fromkeys(names, 1.0)}
+    finding = {
+        "rule": "optimization_result",
+        "text": "Best found: ...",
+        "evidence": {**evidence, "tight": rows},
+    }
+    other = {"rule": "bottleneck", "text": "till is the bottleneck.", "evidence": {"x": 1}}
+    stub.answer(200, {"summary": summary, "findings": [finding, other], "issues": []})
+    client = ServiceClient(*folders, command=NO_START)
+
+    async def check(mcp_client: Client) -> None:
+        error, body = await call(mcp_client, "get_results", {"run_id": "r"})
+        assert not error
+        cut = body["summary"]
+        assert list(cut["variables"]) == names[:50]
+        assert list(cut["constraints"]) == rows[:50]
+        assert list(cut["duals"]) == rows[:50]
+        assert cut["cut_short"] == {
+            "variables": {"shown": 50, "total": 60},
+            "constraints": {"shown": 50, "total": 55},
+            "note": "This answer holds the first 50 of 60 variables and the first 50 of 55 "
+            "constraints, in the model's order. GET /v1/runs/r/summary and the project's "
+            "export hold every value.",
+        }
+        [cut_finding, kept] = body["findings"]
+        assert list(cut_finding["evidence"]["variables"]) == names[:50]
+        assert cut_finding["evidence"]["tight"] == rows[:50]
+        assert cut_finding["evidence"]["cut_short"] == {
+            "variables": {"shown": 50, "total": 60},
+            "tight": {"shown": 50, "total": 55},
+        }
+        assert kept == other
+        assert {key: cut[key] for key in ("status", "objective", "warnings")} == {
+            key: summary[key] for key in ("status", "objective", "warnings")
+        }
+
+    run(check, client)
+
+
+def test_get_results_of_a_small_optimization_is_the_response_body(
+    folders: tuple[Path, Path], stub: StubService
+) -> None:
+    summary = {"status": "optimal", "variables": {"a": 1.0}, "constraints": {}, "duals": {}}
+    answer = {"summary": summary, "findings": [], "issues": []}
+    stub.answer(200, answer)
+    client = ServiceClient(*folders, command=NO_START)
+
+    async def check(mcp_client: Client) -> None:
+        error, body = await call(mcp_client, "get_results", {"run_id": "r"})
+        assert not error
+        assert body == {**answer, "tables": {}}
+
+    run(check, client)
+
+
+def test_a_note_names_only_what_was_cut() -> None:
+    from ithax.mcp.tools import _cut_summary
+
+    summary = {"variables": {"a": 1.0}, "constraints": {f"c{n}": {} for n in range(51)}}
+    cut = _cut_summary(summary, "/v1/runs/r")
+    assert cut["variables"] == {"a": 1.0}
+    assert cut["cut_short"] == {
+        "constraints": {"shown": 50, "total": 51},
+        "note": "This answer holds the first 50 of 51 constraints, in the model's order. "
+        "GET /v1/runs/r/summary and the project's export hold every value.",
+    }
