@@ -311,6 +311,16 @@ def third_party_text(record: Mapping[str, Any], crates: Sequence[Mapping[str, st
     return "\n".join(lines)
 
 
+def shared_licences(record: Mapping[str, Any], crates: Sequence[Mapping[str, str]]) -> str:
+    """``share/ithax/licences.json``: the licence list with the desktop shell's crates, which
+    ``GET /v1/licences`` reads in the package for the Help screen (#89)."""
+    listed = [
+        {"name": crate["name"], "version": crate["version"], "licence": crate["license"]}
+        for crate in crates
+    ]
+    return json.dumps({**record, "crates": listed}, indent=2, ensure_ascii=False) + "\n"
+
+
 def shipped_crates(metadata: Mapping[str, Any], root_name: str) -> list[dict[str, str]]:
     """The crates the program ``root_name`` is built from, from ``cargo metadata``: those
     reached from it through normal dependencies (not build or development ones), in name
@@ -500,6 +510,7 @@ def build(out: Path, prebuilt: bool) -> Path:
             "ithax-desktop",
         )
         (stage / "THIRD-PARTY-LICENSES.txt").write_text(third_party_text(record, crates), "utf-8")
+        (share / "licences.json").write_text(shared_licences(record, crates), "utf-8")
         info = {
             "name": name,
             "version": version,

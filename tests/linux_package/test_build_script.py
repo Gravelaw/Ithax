@@ -326,6 +326,15 @@ METADATA = {
 }
 
 
+def test_the_shared_licence_list_is_the_record_with_the_crates() -> None:
+    crates = [{"name": "tauri", "version": "2.11.1", "license": "Apache-2.0 OR MIT"}]
+    shared = json.loads(build.shared_licences(record(), crates))
+    assert shared == {
+        **record(),
+        "crates": [{"name": "tauri", "version": "2.11.1", "licence": "Apache-2.0 OR MIT"}],
+    }
+
+
 def test_shipped_crates_follow_normal_dependencies_only() -> None:
     assert build.shipped_crates(METADATA, "ithax-desktop") == [
         {"name": "cc", "version": "1.2.0", "license": "see the crate"},

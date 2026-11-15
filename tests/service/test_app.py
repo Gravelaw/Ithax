@@ -56,6 +56,7 @@ AKS_119_ROUTES = {
 AKS_138_ROUTES = {("GET", "/v1/projects/{pid}/export")}
 #: Recent projects (#97): rename and notes, and taking a project off the list.
 RECENT_ROUTES = {("PATCH", "/v1/projects/{pid}"), ("POST", "/v1/projects/{pid}/remove")}
+ISSUE_89_ROUTES = {("GET", "/v1/licences")}
 
 
 def test_the_app_has_the_aks_110_to_aks_113_aks_119_and_aks_138_routes_and_nothing_else(
@@ -69,6 +70,7 @@ def test_the_app_has_the_aks_110_to_aks_113_aks_119_and_aks_138_routes_and_nothi
         | AKS_119_ROUTES
         | AKS_138_ROUTES
         | RECENT_ROUTES
+        | ISSUE_89_ROUTES
     )
 
 
@@ -80,6 +82,7 @@ def test_there_is_one_router_per_area() -> None:
     assert [router.prefix for router in ROUTERS] == [
         "/v1",
         "/v1/settings",
+        "/v1",
         "/v1",
         "/v1/templates",
         "/v1/projects",

@@ -19,6 +19,9 @@ dependencies = [
     "numpy>=2.4.6",
     "openpyxl>=3.1.5",
     "optuna>=5.0.0",
+    # Imported directly by ithax.service.licences (requirement markers, #89); it was
+    # only a transitive dependency of optuna. The version installed on 2026-11-15.
+    "packaging>=26.3",
     "pint>=0.25.3",
     "pyarrow>=26.0.1",
     # Imported directly by ithax.service (request bodies); it was only a transitive
