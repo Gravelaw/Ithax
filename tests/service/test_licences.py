@@ -218,3 +218,21 @@ def test_requirements_follow_markers_and_skip_lines_that_cannot_be_read() -> Non
     requires = ["numpy>=2", "pytest; extra == 'dev'", "not a requirement !!", "simpy"]
     assert list(_requirements(_Metadata({}, requires=requires))) == ["numpy", "simpy"]  # type: ignore[arg-type]
     assert list(_requirements(_Metadata({}))) == []  # type: ignore[arg-type]
+
+
+def test_a_licence_list_of_any_shape_is_answered(config: ServiceConfig, tmp_path: Path) -> None:
+    # Review of PR #203: an empty distribution name made the lookup raise ValueError, and
+    # the route answered 500. No content of the file may make it fail.
+    path = tmp_path / "licences.json"
+    records: list[dict[str, Any]] = [
+        {"distributions": {"": {}}},
+        {"distributions": {"": {"licence": "MIT"}, " ": 5, "numpy": None}},
+        {"distributions": ["numpy"]},
+        {"python": 5, "crates": [5, {"name": 1, "licence": 2}, {"name": "x"}]},
+        {"python": {"licence": 7, "version": platform.python_version(), "bundled": "x"}},
+    ]
+    for record in records:
+        atomic_write(path, encode_json(record))
+        body = _get(replace(config, licences_file=path))
+        assert {row["name"] for row in body["packages"]} >= {"numpy", "simpy"}
+        assert all(isinstance(row["licence"], str) for row in body["packages"])
