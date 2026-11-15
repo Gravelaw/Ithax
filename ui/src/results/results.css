@@ -66,6 +66,15 @@
   font-weight: 700;
 }
 
+/* The option a finding is about, when the run compares options (#94). */
+.finding-option {
+  padding: 0 var(--space-2);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
 .result-chart {
   display: flex;
   flex-direction: column;
