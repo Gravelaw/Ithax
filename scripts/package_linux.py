@@ -37,7 +37,7 @@ import sys
 import tarfile
 import tempfile
 import urllib.request
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -65,6 +65,60 @@ PYTHON_SHA256 = "f326b7a386bf22def82e55dc3b95d2bef8b7c938b4c98ec32dd65433e7720b5
 REMOVED_MODULES = ("_dbm",)
 
 COMMANDS = ("ithax", "ithax-launcher", "ithax-mcp")
+
+APPIMAGETOOL_RELEASE = "1.9.1"
+RUNTIME_RELEASE = "20251108"
+
+
+@dataclass(frozen=True)
+class Tool:
+    """A build tool downloaded by its exact release URL into ``dist/cache`` (#88)."""
+
+    name: str
+    url: str
+    #: The GitHub API address of its release, whose asset lists the published digest;
+    #: ``None`` for a file that is not a release asset.
+    release: str | None
+    #: Copied from the ``package`` CI job's output, which matched the release's published
+    #: digest (``docs/DECISIONS.md``); a build refuses a tool with ``None``.
+    sha256: str | None
+
+
+#: appimagetool and the type2 runtime it is given (``docs/research/m16-appimage.md``), both MIT.
+APPIMAGE_TOOLS = (
+    Tool(
+        name=f"appimagetool-{APPIMAGETOOL_RELEASE}-x86_64.AppImage",
+        url=(
+            "https://github.com/AppImage/appimagetool/releases/download/"
+            f"{APPIMAGETOOL_RELEASE}/appimagetool-x86_64.AppImage"
+        ),
+        release=(
+            "https://api.github.com/repos/AppImage/appimagetool/releases/tags/"
+            f"{APPIMAGETOOL_RELEASE}"
+        ),
+        sha256="ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0",
+    ),
+    Tool(
+        name=f"runtime-{RUNTIME_RELEASE}-x86_64",
+        url=(
+            "https://github.com/AppImage/type2-runtime/releases/download/"
+            f"{RUNTIME_RELEASE}/runtime-x86_64"
+        ),
+        release=(
+            f"https://api.github.com/repos/AppImage/type2-runtime/releases/tags/{RUNTIME_RELEASE}"
+        ),
+        sha256="2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d",
+    ),
+)
+
+#: The runtime's licence, MIT, at the runtime's release tag: the runtime ships inside every
+#: AppImage, so its licence text ships beside it.
+RUNTIME_LICENCE = Tool(
+    name=f"type2-runtime-{RUNTIME_RELEASE}-LICENSE",
+    url=f"https://raw.githubusercontent.com/AppImage/type2-runtime/{RUNTIME_RELEASE}/LICENSE",
+    release=None,
+    sha256="aa154fc9070614bbe7921f89db11efd1dba7a1f3a41685958110e2230f9c0ca1",
+)
 
 _PIN = re.compile(
     r"^(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)==(?P<version>[^\s=]+)"
@@ -377,17 +431,100 @@ def _output(command: Sequence[str | Path], cwd: Path = ROOT) -> str:
 def fetch_python(cache: Path) -> Path:
     """The pinned Python archive, downloaded into ``cache`` when not there, its SHA-256
     checked either way."""
-    cache.mkdir(parents=True, exist_ok=True)
     archive = cache / PYTHON_ARCHIVE
     if not archive.exists():
-        print(f"Downloading {PYTHON_URL}", flush=True)
-        partial = archive.with_name(archive.name + ".part")
-        with urllib.request.urlopen(PYTHON_URL, timeout=300) as response, partial.open("wb") as out:
-            shutil.copyfileobj(response, out)
-        partial.replace(archive)
+        download(PYTHON_URL, archive)
     if sha256_file(archive) != PYTHON_SHA256:
         raise BuildError(f"{archive} does not have the pinned SHA-256 {PYTHON_SHA256}")
     return archive
+
+
+def download(url: str, target: Path) -> None:
+    """``url`` saved as ``target``, through a ``.part`` file, so an interrupted download
+    never leaves a file that looks complete."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Downloading {url}", flush=True)
+    partial = target.with_name(target.name + ".part")
+    with urllib.request.urlopen(url, timeout=300) as response, partial.open("wb") as out:
+        shutil.copyfileobj(response, out)
+    partial.replace(target)
+
+
+def fetch_tool(cache: Path, tool: Tool) -> Path:
+    """``tool`` in ``cache``, downloaded when not there, its SHA-256 checked either way; a
+    tool with no pin is refused, so nothing unpinned reaches a build."""
+    if tool.sha256 is None:
+        raise BuildError(
+            f"{tool.name} has no pinned SHA-256; run --check-appimage-tools and record it"
+        )
+    path = cache / tool.name
+    if not path.exists():
+        download(tool.url, path)
+    if sha256_file(path) != tool.sha256:
+        raise BuildError(f"{path} does not have the pinned SHA-256 {tool.sha256}")
+    return path
+
+
+def asset_digest(release: Mapping[str, Any], url: str) -> str | None:
+    """The SHA-256 a GitHub release publishes for the asset ``url`` names, or ``None`` when
+    the release lists none (assets uploaded before GitHub kept digests)."""
+    asset_name = url.rsplit("/", 1)[-1]
+    for asset in release.get("assets", []):
+        if isinstance(asset, dict) and asset.get("name") == asset_name:
+            value = asset.get("digest")
+            if isinstance(value, str) and value.startswith("sha256:"):
+                return value.removeprefix("sha256:")
+    return None
+
+
+def published_digest(tool: Tool) -> str | None:
+    """The digest ``tool``'s release publishes, read from the GitHub API (with the job's
+    token when ``GITHUB_TOKEN`` is set, for the rate limit)."""
+    headers = {"Accept": "application/vnd.github+json"}
+    if tool.release is None:
+        return None
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(tool.release, headers=headers)
+    with urllib.request.urlopen(request, timeout=60) as response:
+        release: dict[str, Any] = json.load(response)
+    return asset_digest(release, tool.url)
+
+
+def check_tool(path: Path, tool: Tool, published: str | None) -> list[str]:
+    """What is wrong with the downloaded ``tool`` at ``path``; prints what was checked."""
+    actual = sha256_file(path)
+    print(f"{tool.name} sha256 {actual}")
+    problems = []
+    if published is None:
+        print(f"  {tool.release or tool.url} publishes no digest for it")
+    elif published == actual:
+        print("  matches the release's published digest")
+    else:
+        problems.append(f"{tool.name} does not match the release's published digest {published}")
+    if tool.sha256 is None:
+        print("  not pinned yet: record this hash in scripts/package_linux.py")
+    elif tool.sha256 == actual:
+        print("  matches the pin")
+    else:
+        problems.append(f"{tool.name} does not match the pin {tool.sha256}")
+    return problems
+
+
+def check_tools(cache: Path, tools: Sequence[Tool], published: Callable[[Tool], str | None]) -> int:
+    """``--check-appimage-tools``: each tool downloaded afresh by its release URL and its
+    SHA-256 printed, then compared with the release's published digest and with the pin
+    when there is one. 1 when any differs."""
+    problems = []
+    for tool in tools:
+        path = cache / "check" / tool.name
+        path.unlink(missing_ok=True)
+        download(tool.url, path)
+        problems += check_tool(path, tool, published(tool))
+    for problem in problems:
+        print(f"package_linux: {problem}", file=sys.stderr)
+    return 1 if problems else 0
 
 
 def installed_distributions(python: Path) -> dict[str, str]:
@@ -563,7 +700,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="take ui/dist and the desktop shell as built, without npm",
     )
+    parser.add_argument(
+        "--check-appimage-tools",
+        action="store_true",
+        help="download the AppImage tools, print their SHA-256 and check them; build nothing",
+    )
     arguments = parser.parse_args(argv)
+    if arguments.check_appimage_tools:
+        tools = (*APPIMAGE_TOOLS, RUNTIME_LICENCE)
+        return check_tools(arguments.out.resolve() / "cache", tools, published_digest)
     try:
         build(arguments.out.resolve(), arguments.prebuilt)
     except BuildError as error:
