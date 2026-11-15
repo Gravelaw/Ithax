@@ -142,7 +142,9 @@ def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--data-dir", type=Path, help="the user data folder, for a new service")
     parser.add_argument("--ui-dir", type=Path, help="the built interface, for a new service")
     parser.add_argument(
-        "--idle-minutes", type=float, help="the idle limit of a new service (default: its setting)"
+        "--idle-minutes",
+        type=float,
+        help="the idle limit of a new service, 0 for never (default: its setting)",
     )
     parser.add_argument(
         "--print-url",
@@ -150,8 +152,8 @@ def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
         help="print the interface's address, with its token, instead of opening a browser",
     )
     arguments = parser.parse_args(argv)
-    if arguments.idle_minutes is not None and not arguments.idle_minutes > 0:
-        parser.error("--idle-minutes must be above 0")
+    if arguments.idle_minutes is not None and not arguments.idle_minutes >= 0:
+        parser.error("--idle-minutes must be 0 (never) or above")
     return arguments
 
 

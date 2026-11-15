@@ -35,6 +35,7 @@ from ithax.service.main import (
     LOCAL_ADDRESS,
     SignalServer,
     bind_local,
+    idle_timeout_s,
     main,
     raise_again,
 )
@@ -174,8 +175,8 @@ def test_the_lock_is_released_when_the_service_exits(folders: list[str], tmp_pat
     assert not is_held(tmp_path / "config" / SERVICE_LOCK)
 
 
-@pytest.mark.parametrize("minutes", ["0", "-1"])
-def test_idle_minutes_must_be_above_zero(minutes: str) -> None:
+@pytest.mark.parametrize("minutes", ["-1", "nan"])
+def test_idle_minutes_must_be_zero_or_above(minutes: str) -> None:
     with pytest.raises(SystemExit) as stopped, contextlib.redirect_stderr(io.StringIO()):
         main(["--idle-minutes", minutes])
     assert stopped.value.code == 2
@@ -564,3 +565,21 @@ def test_a_service_killed_outright_leaves_a_file_the_next_start_replaces(tmp_pat
             second.kill()
     assert second.returncode == 0
     assert not (config_dir / SERVICE_FILE).exists()
+
+
+@pytest.mark.parametrize(
+    ("given", "stored", "expected"),
+    [
+        (None, {"idle_timeout_minutes": 0}, float("inf")),
+        (None, {"idle_timeout_minutes": 90}, 5400.0),
+        ("0", {"idle_timeout_minutes": 90}, float("inf")),
+        ("1.5", {}, 90.0),
+    ],
+)
+def test_the_idle_timeout_0_is_never(
+    tmp_path: Path, given: str | None, stored: dict[str, object], expected: float
+) -> None:
+    """0, from the setting or ``--idle-minutes``, is "never" (#87; owner decision D8)."""
+    write_settings(tmp_path, stored)
+    minutes = None if given is None else float(given)
+    assert idle_timeout_s(minutes, tmp_path / "config") == expected

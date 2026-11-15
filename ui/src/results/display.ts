@@ -11,6 +11,7 @@
  * - three significant figures, never an exponent, a comma between thousands.
  */
 
+import { readNumber } from "../canvas/model";
 import { own } from "../canvas/own";
 
 /** Seconds in each Phase 1 time unit (spec 1 "Quantities"; `ithax.model.units.UNIT_SIZES`). */
@@ -180,6 +181,39 @@ export function metricWords(metric: string): string {
   const statistic = metric.slice(dot + 1);
   const words = own<string>(STATISTICS, statistic) ?? statistic.replace(/[._]/g, " ");
   return `${component === "model" ? "whole model" : component}: ${words}`;
+}
+
+/**
+ * A value in the base unit shown in a unit of `size` base units, or `null` when that is
+ * not a finite number. Every display of a setting in a chosen unit goes through here
+ * (review of pull request 196; `units.test.ts` checks no other code scales by a unit's size).
+ */
+export function inSize(value: number, size: number): number | null {
+  const shown = value / size;
+  return Number.isFinite(shown) ? shown : null;
+}
+
+/**
+ * Typed text in a unit of `size` base units, as the value to send (review of pull request 196, two
+ * findings): it never means something else than what was typed.
+ *
+ * - Empty is `null`, the default; text that is not a number is sent as typed.
+ * - A result that is not a finite number is sent as typed, never as `null` (which the
+ *   service takes as "use the default"), so the service refuses it with E184.
+ * - A result within a float's noise of a whole number is that number (0.1 h is 6 min);
+ *   otherwise it is sent as it is, and a whole-number setting refuses it.
+ * - A non-zero entry is never sent as 0, which for the idle timeout means "never".
+ */
+export function typedInBase(text: string, size: number): unknown {
+  const trimmed = text.trim();
+  if (trimmed === "") return null;
+  const read = readNumber(trimmed);
+  if (typeof read !== "number") return read;
+  const value = read * size;
+  if (!Number.isFinite(value)) return trimmed;
+  const rounded = Math.round(value);
+  if (rounded === 0 && read !== 0) return value === 0 ? trimmed : value;
+  return Math.abs(value - rounded) <= 1e-9 * Math.max(1, Math.abs(value)) ? rounded : value;
 }
 
 /**
