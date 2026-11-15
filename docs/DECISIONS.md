@@ -3355,5 +3355,6 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Readings (reversible):**
   - "All validation errors" means the value checks: each looks at one parameter or one block's own settings and skips a reference it cannot read, so it is sound on a partial model. A check across the model would report a connection to a block that failed to build as a connection to nothing, so those still wait; the problems list shows them once the build errors are fixed.
   - `POST .../validate` returns more issues in the same shape (additive, F7); a run of such a model is refused as before.
+- **Review of PR #198:** an experiment that cannot be built is dropped from the partial model too, and E151 names a scenario value by its experiment's index, so the path shifted to the experiment before it. The partial model now keeps the file index of each entry of every list it drops (components and experiments), and one mapping restores both; a test with experiment 0 unbuildable and a scenario of experiment 1 out of range failed first.
 - **Spec sections updated:** spec 1 "Validation", with a dated line.
 - **Dependencies added:** none.

@@ -67,3 +67,17 @@ def test_a_model_that_builds_is_checked_as_before() -> None:
     document = coffee()
     document["parameters"]["tills"]["value"] = 9
     assert codes_and_paths(document) == [("E151", "/parameters/tills/value")]
+
+
+def test_an_experiment_after_one_that_cannot_be_built_keeps_its_index() -> None:
+    """Review of PR #198: experiment 0 cannot be built (its 'length' is not a time), and a
+    scenario of experiment 1 sets 'tills' above its max; the E151 names experiment 1."""
+    document = coffee()
+    second = copy.deepcopy(document["experiments"][0])
+    second["id"] = "more"
+    second["scenarios"] = [{"id": "many", "set": {"tills": 9}}]
+    document["experiments"][0]["length"] = "lots"
+    document["experiments"].append(second)
+    found = codes_and_paths(document)
+    assert ("E151", "/experiments/1/scenarios/0/set/tills") in found, found
+    assert not any(path.startswith("/experiments/0/scenarios") for _, path in found), found

@@ -321,23 +321,32 @@ def build_document(
 @dataclass(frozen=True)
 class _Partial:
     """What a ``process`` document with build errors still builds (#92): the model of the
-    components that built, and each one's index in the file."""
+    entries that built, and for each list that dropped some (``components``,
+    ``experiments``, ...) the index in the file of each entry kept."""
 
     model: Model
-    kept: tuple[int, ...]
+    kept: Mapping[str, tuple[int, ...]]
 
 
 def _in_the_file(partial: _Partial) -> tuple[Issue, ...]:
     """The value checks of a partly built model (``value_issues``), each at its place in
-    the file: ``/components/<i>`` of the partial model is the ``kept[i]``-th component."""
+    the file: ``/<list>/<i>`` of the partial model is the ``kept[list][i]``-th entry of
+    that list in the file (review of PR #198: experiments as well as components)."""
     found = []
     for issue in value_issues(partial.model):
         parts = issue.path.split("/", 3)
-        if len(parts) >= 3 and parts[1] == "components" and parts[2].isdigit():
-            parts[2] = str(partial.kept[int(parts[2])])
+        kept = partial.kept.get(parts[1]) if len(parts) >= 3 else None
+        if kept is not None and parts[2].isdigit():
+            parts[2] = str(kept[int(parts[2])])
             issue = replace(issue, path="/".join(parts))
         found.append(issue)
     return tuple(found)
+
+
+def _built(items: Sequence[_T | None]) -> tuple[tuple[_T, ...], tuple[int, ...]]:
+    """The items built, and each one's index in the file; ``None`` stands for one with an
+    issue."""
+    return _present(items), tuple(index for index, item in enumerate(items) if item is not None)
 
 
 def _build(
@@ -616,16 +625,16 @@ class _Builder:
         constraints: tuple[MetricConstraint, ...] = ()
         program: LinearProgram | None = None
         declared: IndexedProgram | None = None
-        kept: tuple[int, ...] = ()
+        kept: dict[str, tuple[int, ...]] = {}
         if domain == "process":
-            each = [self.component(index, raw) for index, raw in enumerate(document["components"])]
-            components = _present(each)
-            kept = tuple(index for index, item in enumerate(each) if item is not None)
+            components, kept["components"] = _built(
+                [self.component(index, raw) for index, raw in enumerate(document["components"])]
+            )
             connections = _present(
                 self.connection(index, raw) for index, raw in enumerate(document["connections"])
             )
-            experiments = _present(
-                self.experiment(index, raw) for index, raw in enumerate(document["experiments"])
+            experiments, kept["experiments"] = _built(
+                [self.experiment(index, raw) for index, raw in enumerate(document["experiments"])]
             )
             objectives = _present(
                 self.metric_objective(index, raw)
