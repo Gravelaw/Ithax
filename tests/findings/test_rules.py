@@ -876,3 +876,67 @@ def test_a_finding_is_frozen_and_its_dict_has_spec_4s_keys() -> None:
     ]
     with pytest.raises(AttributeError):
         found.text = "changed"  # type: ignore[misc]
+
+
+def _a_large_program(document: dict[str, Any]) -> None:
+    document["variables"] += [
+        {"id": f"v{n:02d}", "type": "continuous", "lower": 0} for n in range(1, 16)
+    ]
+    document["constraints"] += [
+        {"id": f"c{n:02d}", "linear": {f"v{n:02d}": 1}, "op": "<=", "rhs": 99} for n in range(1, 12)
+    ]
+
+
+def test_a_large_mathematical_optimization_names_at_most_ten_of_each() -> None:
+    """#82, owner option A on #181: at most 10 variables not at 0, then how many others are
+    not, and at most 10 tight constraints, then how many others are tight; the text says every
+    value is in the results, and the evidence still holds every value."""
+    run = read_run("optimization_result_program", _a_large_program)
+    summary = run[0]
+    summary["variables"].update({f"v{n:02d}": float(n) for n in range(1, 15)}, v15=0.0)
+    summary["constraints"].update(
+        {f"c{n:02d}": {"tight": True, "slack": 0.0} for n in range(1, 12)}
+    )
+    found = program_finding(summary, run)
+    listed = ", ".join(f"v{n:02d} = {n}" for n in range(1, 9))
+    tight = ", ".join(f"c{n:02d}" for n in range(1, 9))
+    assert found.text == (
+        f"Best found: chairs = 24, tables = 14, {listed}, and 6 others not at 0, and 1 other "
+        f"at 0. The objective is 2,200, with wood, labour, {tight} and 3 other constraints "
+        "tight. Every value is in the results."
+    )
+    assert found.evidence["variables"] == summary["variables"]
+    assert found.evidence["tight"] == ["wood", "labour", *(f"c{n:02d}" for n in range(1, 12))]
+
+
+def test_ten_of_each_are_named_in_full() -> None:
+    run = read_run("optimization_result_program", _a_large_program)
+    summary = run[0]
+    summary["variables"].update({f"v{n:02d}": float(n) for n in range(1, 9)})
+    summary["variables"].update({f"v{n:02d}": 0.0 for n in range(9, 16)})
+    summary["constraints"].update({f"c{n:02d}": {"tight": True, "slack": 0.0} for n in range(1, 9)})
+    summary["constraints"].update(
+        {f"c{n:02d}": {"tight": False, "slack": 1.0} for n in range(9, 12)}
+    )
+    text = program_finding(summary, run).text
+    assert text.startswith("Best found: chairs = 24, tables = 14, v01 = 1,")
+    assert "v08 = 8, and 7 others at 0. The objective" in text
+    assert text.endswith(", c07 and c08 tight.")
+    assert "others not at 0" not in text and "Every value" not in text
+
+
+def test_an_18000_variable_optimization_gives_a_short_finding() -> None:
+    """#82's case: Reviewer A's 18,000-variable run gave a 10,763-character finding."""
+
+    def large(document: dict[str, Any]) -> None:
+        document["variables"] += [
+            {"id": f"v{n:05d}", "type": "continuous", "lower": 0} for n in range(18_000)
+        ]
+
+    run = read_run("optimization_result_program", large)
+    run[0]["variables"].update({f"v{n:05d}": float(n % 7) for n in range(18_000)})
+    found = program_finding(run[0], run)
+    assert len(found.text) < 400, len(found.text)
+    assert ", and 15420 others not at 0, and 2572 others at 0." in found.text
+    variables = found.evidence["variables"]
+    assert isinstance(variables, dict) and len(variables) == 18_002

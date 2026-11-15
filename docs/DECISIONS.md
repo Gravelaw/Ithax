@@ -3253,3 +3253,18 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Reason:** the owner's decisions of 2026-11-15.
 - **Spec sections updated:** none; the guide's milestone table is changed when Phase 2's grouping is agreed.
 - **Dependencies added:** none.
+
+## 2026-11-15 · M14 · Large optimization results kept small (#82; owner decision #181)
+
+- **Decision:** the owner chose option A on #181 (2026-11-15, relayed by the orchestrating session and posted on #181). There is no `/v1` change, and `summary.json` and `GET /v1/runs/{rid}/summary` stay complete, so the interface and the export keep every value.
+  - **The finding** (`ithax.findings.rules`, `NAMED = 10`). A mathematical optimization's `optimization_result` names at most 10 variables not at 0, in the model's order, then ", and {n} others not at 0", then the count at 0 as before. It also names at most 10 tight constraints, then "and {n} other constraints tight". When either list is cut, the text ends "Every value is in the results." The evidence still holds every value.
+  - **MCP `get_results`** (`ithax.mcp.tools`, `SHOWN = 50`), spec 4's one exception to "a tool's result is the response body". When the summary has more than 50 variables or 50 constraints, the answer holds the first 50 `variables`, and the first 50 `constraints` and `duals`. `summary.cut_short` gives `{shown, total}` for what was cut, and a note says `GET .../summary` and the project's export hold every value. The `optimization_result` evidence is cut to the first 50 `variables` and `tight`, with its own `cut_short`. A smaller answer is the response body, unchanged.
+  - **Checks.** `tests/findings/test_rules.py`: the 18,000-variable case of #82 gives a finding under 400 characters (185,247 before the change); a large program names 10 of each, and exactly 10 are named in full. `tests/mcp/test_mcp_write_tools.py`: a summary of 60 variables and 55 constraints gives 50 of each with their totals; the note names only what was cut; a small optimization's answer is the body unchanged.
+- **Reason:** issue #82 (Reviewer A walkthrough: an 18,000-variable run returned an 842 kB summary and a 10,763-character finding), and the owner's answer on #181.
+- **Readings (reversible):**
+  - **Tight constraints are capped at 10 as well.** #181 names only the variables, but a large program can have as many tight constraints, so the same limit keeps the text short.
+  - **`duals` are cut with `constraints`.** They are per constraint, so they follow the constraints' cut. The finding's `tight` list follows the 50 limit, like the variables.
+  - **`cut_short` is a new key, present only when something was cut.** The summary keeps every other field unchanged.
+  - **"The model's order" is the summary's order.** The adapter writes values and slacks in the program's order, and the MCP server does not read the model.
+- **Spec sections updated:** spec 4 "Results" and "Finding rules", with a dated line.
+- **Dependencies added:** none.
