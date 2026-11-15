@@ -3586,3 +3586,24 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The branch point's SHA is recorded here once the branch is cut, in the version PR's entry.
 - **Spec sections updated:** none.
 - **Dependencies added:** none.
+
+## 2026-11-15 · M16 · `docs/DECISIONS.md` is append-only, checked in CI
+
+- **Decision:**
+  - **The check.** `scripts/decisions_append_only.py <base>` fails unless the record at the merge base of `HEAD` and `<base>` is an exact prefix of the working tree's, line by line, trailing newlines aside. It names the first base line that was changed or removed, as a GitHub annotation.
+  - **In CI.** A new job, `decisions`, in `checks.yml`, which `all-green` needs:
+    - A pull request is compared with the branch it goes into (`origin/<base_ref>`), so a PR into `release/0.1` is not compared with `main`.
+    - A push is compared with the commit before it. A push that creates a branch has no base, and passes.
+  - **Tests.** `tests/test_decisions_append_only.py` uses two fixtures from `tests/decisions_fixtures/`: one only appends, and one drops the base's last line (the #189 and #213 shape). It also tests a changed line, an entry inserted mid-file, the merge base rather than the base's tip, and the workflow wiring.
+  - **Also:** an `AGENTS.md` bullet, and a row in `CLAUDE.md`'s table of rules the tools enforce.
+- **The retroactive check, run on 2026-11-15 against `main` at the head this PR started from:**
+  - Of `git rev-list --first-parent origin/main -- docs/DECISIONS.md`, 69 commits changed the file.
+  - For each, the lines of its parent's file were counted, repeats included, against its own. No commit lost a line, so nothing is restored.
+  - 22 of those commits did not keep their parent's file as an exact prefix. Each inserted lines mid-file, an entry placed in date order or a line added inside an entry, and none removed one. From now on the check refuses that; new entries go at the end.
+  - #189's lost `Dependencies added` lines and #213's lost tail were caught on their branches and restored before they merged.
+- **Reason:** the orchestrating session's request of 2026-11-15. Lines were lost in two merges, which is the second finding of one class, so the fix is a check (guide "Review findings"). Retrospective P15 already freezes the file from Phase 2.
+- **Readings (reversible):**
+  - "Only appended lines" is read as exact-prefix. A blank line may be added after the base's last line.
+  - The pre-push skill already appends the branch's entries after main's file; it now ends with this command.
+- **Spec sections updated:** none.
+- **Dependencies added:** none.
