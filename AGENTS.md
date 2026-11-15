@@ -85,6 +85,9 @@ that reads input, and say whether the shared helper was bypassed:
   it, and does not stop what it started when it is stopped itself: a signal that leaves the
   child, or a service it outlives, running, or lets go of files they still use (helper: the
   one `stop` handler in `packaging/linux/appimage/AppRun`, set in every phase; check:
-  `test_a_signal_at_any_phase_stops_what_runs_from_the_appimage_before_apprun_ends` and
-  `test_a_signal_to_apprun_reaches_the_command_and_apprun_waits_for_it` in
-  `tests/linux_package/test_appimage_build.py`; PR #211, two findings).
+  `test_a_signal_at_any_phase_stops_what_runs_from_the_appimage_before_apprun_ends`,
+  `test_a_signal_to_apprun_reaches_the_command_and_apprun_waits_for_it` and
+  `test_a_signal_while_the_command_runs_also_stops_the_service_it_started` in
+  `tests/linux_package/test_appimage_build.py`; PR #211, three findings). Such a wrapper
+  also closes no descriptor it inherits: the AppImage runtime's keepalive pipe is one
+  (`test_apprun_keeps_every_descriptor_it_inherits`).

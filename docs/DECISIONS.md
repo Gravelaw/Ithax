@@ -3529,7 +3529,14 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
     - while the command runs, the signal goes to it;
     - while AppRun stays, the signal goes to every process running from the AppImage, and AppRun ends only after they have, with status 143 or 129.
   - The check is `test_a_signal_at_any_phase_stops_what_runs_from_the_appimage_before_apprun_ends`, for the foreground wait and the background waiter, beside the command-phase test. `AGENTS.md` names the class.
-- **Review of PR #211, third finding:** with no Docker (`ITHAX_PACKAGE_RUNNER=local`), the AppImage's offline check ran with the network open: only the archive's check put its run in `unshare -rn`. Both now take their prefix from one helper, `local_isolation` in `tests/linux_package/test_linux_package.py`. It was checked here: an outbound connection fails through it and succeeds without it.
+- **Review of PR #211, a third finding of the class:** a TERM while the command ran stopped only the command. A service it had started then kept running, and AppRun stayed as usual.
+  - AppRun now remembers the stop. Once the command has ended, the same signal goes to everything still running from the AppImage, and AppRun keeps the files until that has ended, then exits 143 or 129.
+  - Test: `test_a_signal_while_the_command_runs_also_stops_the_service_it_started`, mounted and extracted.
+  - The waiter subshell starts with its traps reset, so AppRun ignores the signals across the fork until the waiter sets the handler. This closes a window found by running the tests 25 times.
+- **CI run 43761150645 (head `1de13f2`):** the mounted test failed with "Transport endpoint is not connected". The first signal fix had saved standard input as `exec 3<&0`, and 3 was the runtime's keepalive pipe, which holds the mount.
+  - AppRun now copies standard input into a descriptor that is not open (9 down to 5), and closes nothing it inherits.
+  - Test: `test_apprun_keeps_every_descriptor_it_inherits` checks 3, 4 and 9. It failed for 3 before the fix.
+- **Review of PR #211, fourth finding:** with no Docker (`ITHAX_PACKAGE_RUNNER=local`), the AppImage's offline check ran with the network open: only the archive's check put its run in `unshare -rn`. Both now take their prefix from one helper, `local_isolation` in `tests/linux_package/test_linux_package.py`. It was checked here: an outbound connection fails through it and succeeds without it.
 - **Tests:** `tests/linux_package/test_appimage_build.py` covers the AppDir, the AppRun commands and its staying, mounted and extracted, and the appimagetool call. Under the marker `package`, `tests/linux_package/test_linux_package.py` checks:
   - the checksum, and the type 2 magic;
   - the extracted tree against the archive's;
