@@ -3347,3 +3347,13 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The metric's name stays one hover away, since the CSV, the summary and MCP use it.
 - **Spec sections updated:** design-system.md "Type" (Mono). Spec 3 and spec 4 name no display form for metrics.
 - **Dependencies added:** none.
+
+## 2026-11-15 · M15 · Every error at once (#92; Reviewer B finding 3)
+
+- **Decision:** when a `process` model has build errors (E122 and the other conversion codes), the builder keeps the model of the components that built and each one's index in the file (`_Partial`), and `load_document` runs `value_issues` on it: parameters (E151), setting ranges (E123), distribution fields (E160) and clipping (W202). Each issue's `/components/<i>` is mapped back to the component's index in the file. The checks across the model (identifiers, references, connections, reachability, loads, experiments, metrics) still run only on a model that builds. The model is still refused while any error remains, so nothing that ran before runs now.
+- **Reason:** issue #92: "Value errors hide while another block lacks required settings": the meaning pass ran only on a model that built, so fixing a missing setting revealed a second round of errors. `tests/model/test_all_errors.py` builds an E122 on block 1 with an E160 on block 0, an E123 on block 3 and an E151 on a parameter; before the change only the E122 was reported. The property tests (no input makes the loader raise) pass with the new path.
+- **Readings (reversible):**
+  - "All validation errors" means the value checks: each looks at one parameter or one block's own settings and skips a reference it cannot read, so it is sound on a partial model. A check across the model would report a connection to a block that failed to build as a connection to nothing, so those still wait; the problems list shows them once the build errors are fixed.
+  - `POST .../validate` returns more issues in the same shape (additive, F7); a run of such a model is refused as before.
+- **Spec sections updated:** spec 1 "Validation", with a dated line.
+- **Dependencies added:** none.

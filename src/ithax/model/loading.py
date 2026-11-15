@@ -106,7 +106,7 @@ from ithax.model.units import (
     read_number,
     read_quantity,
 )
-from ithax.model.validation import InstalledEngine, engine_issues, meaning_pass
+from ithax.model.validation import InstalledEngine, engine_issues, meaning_pass, value_issues
 from ithax.strict_json import is_number
 
 __all__ = [
@@ -290,9 +290,13 @@ def load_document(
     ``document`` is not changed. The model may share the JSON values of a component's
     ``ui`` and of ``run.target`` and ``run.fidelity`` with it.
     """
-    built = build_document(document, seed_source=seed_source, engines=engines)
+    built, partial = _build(document, seed_source, engines)
     if built.model is None:
-        return built
+        if partial is None:
+            return built
+        # Every error at once (#92): a block that cannot be built does not hide the value
+        # checks of the blocks that can; checks across the model wait for one that builds.
+        return LoadResult(None, (*built.issues, *_in_the_file(partial)))
     issues = (*built.issues, *meaning_pass(built.model, data))
     if any(issue.severity == "error" for issue in issues):
         return LoadResult(None, issues)
@@ -311,9 +315,39 @@ def build_document(
     (identifiers, references, connections): use ``load_document`` for a model to run.
     This step exists on its own so that building can be tested on fragments of a model.
     """
+    return _build(document, seed_source, engines)[0]
+
+
+@dataclass(frozen=True)
+class _Partial:
+    """What a ``process`` document with build errors still builds (#92): the model of the
+    components that built, and each one's index in the file."""
+
+    model: Model
+    kept: tuple[int, ...]
+
+
+def _in_the_file(partial: _Partial) -> tuple[Issue, ...]:
+    """The value checks of a partly built model (``value_issues``), each at its place in
+    the file: ``/components/<i>`` of the partial model is the ``kept[i]``-th component."""
+    found = []
+    for issue in value_issues(partial.model):
+        parts = issue.path.split("/", 3)
+        if len(parts) >= 3 and parts[1] == "components" and parts[2].isdigit():
+            parts[2] = str(partial.kept[int(parts[2])])
+            issue = replace(issue, path="/".join(parts))
+        found.append(issue)
+    return tuple(found)
+
+
+def _build(
+    document: object,
+    seed_source: SeedSource | None,
+    engines: Sequence[InstalledEngine] | None,
+) -> tuple[LoadResult, _Partial | None]:
     schema_issues = schema_pass(document)
     if schema_issues:
-        return LoadResult(None, tuple(schema_issues))
+        return LoadResult(None, tuple(schema_issues)), None
     assert isinstance(document, dict)  # the schema requires an object
     builder = _Builder(
         document,
@@ -323,8 +357,8 @@ def build_document(
     model = builder.build()
     issues = tuple(builder.issues)
     if model is None or any(issue.severity == "error" for issue in issues):
-        return LoadResult(None, issues)
-    return LoadResult(model, issues)
+        return LoadResult(None, issues), builder.partial
+    return LoadResult(model, issues), None
 
 
 def _installed_engines() -> tuple[InstalledEngine, ...]:
@@ -475,6 +509,8 @@ class _Builder:
         self.engines = engines
         self.issues: list[Issue] = []
         self.parameters: dict[str, Parameter] = {}
+        #: A ``process`` model's built part when some of it could not be built (#92).
+        self.partial: _Partial | None = None
 
     # --- issues ---
 
@@ -580,10 +616,11 @@ class _Builder:
         constraints: tuple[MetricConstraint, ...] = ()
         program: LinearProgram | None = None
         declared: IndexedProgram | None = None
+        kept: tuple[int, ...] = ()
         if domain == "process":
-            components = _present(
-                self.component(index, raw) for index, raw in enumerate(document["components"])
-            )
+            each = [self.component(index, raw) for index, raw in enumerate(document["components"])]
+            components = _present(each)
+            kept = tuple(index for index, item in enumerate(each) if item is not None)
             connections = _present(
                 self.connection(index, raw) for index, raw in enumerate(document["connections"])
             )
@@ -602,9 +639,7 @@ class _Builder:
             built = self.program()
             if built is not None:
                 declared, program = built
-        if self.issues:
-            return None
-        return Model(
+        model = Model(
             format_version=document["format_version"],
             meta=Meta(
                 name=meta["name"],
@@ -623,6 +658,11 @@ class _Builder:
             run=self.run(),
             declared=declared,
         )
+        if self.issues:
+            if domain == "process":
+                self.partial = _Partial(model, kept)
+            return None
+        return model
 
     # --- parameters ---
 
