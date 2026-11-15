@@ -108,9 +108,10 @@ class DataStore:
     def __init__(self, models: ModelStore) -> None:
         self.models = models
 
-    def _folder(self, pid: str) -> Path:
-        """The ``data/`` folder of project ``pid`` (made when it is missing)."""
-        folder = self.models.project_folder(pid) / DATA_FOLDER
+    @staticmethod
+    def _folder(root: Path) -> Path:
+        """The ``data/`` folder of the project folder ``root`` (made when it is missing)."""
+        folder = root / DATA_FOLDER
         try:
             folder.mkdir(exist_ok=True)
         except OSError:
@@ -121,19 +122,17 @@ class DataStore:
             ) from None
         return folder
 
-    def index(self, pid: str) -> DataIndex:
-        """The column index of project ``pid``."""
-        return read_data_index(self._folder(pid))
-
     def files(self, pid: str) -> list[dict[str, Any]]:
         """The imported files of project ``pid``, in the order first imported."""
-        with self.models.locked(pid):
-            return [entry.as_dict() for entry in self.index(pid).entries()]
+        with self.models.settled(pid) as (root, _record):
+            index = read_data_index(self._folder(root))
+        return [entry.as_dict() for entry in index.entries()]
 
     def check_project(self, pid: str) -> None:
         """404 with E185 or 400 with E186 unless project ``pid`` can be used; before an
         upload is read."""
-        self._folder(pid)
+        with self.models.settled(pid) as (root, _record):
+            self._folder(root)
 
     # --- importing ---------------------------------------------------------------------
 
@@ -154,8 +153,8 @@ class DataStore:
             raise _unusable("/file", unreadable.message, unreadable.hint) from None
         _check_units(table, units)
         entry = new_entry(name, raw, table, units, _now())
-        with self.models.locked(pid):
-            folder = self._folder(pid)
+        with self.models.settled(pid) as (root, _record):
+            folder = self._folder(root)
             current = read_data_index(folder)
             clash = next(
                 (
@@ -215,8 +214,8 @@ class DataStore:
 
     def delete(self, pid: str, name: str) -> list[dict[str, Any]]:
         """Removes the file ``name`` and its entry; the files that remain."""
-        with self.models.locked(pid):
-            folder = self._folder(pid)
+        with self.models.settled(pid) as (root, _record):
+            folder = self._folder(root)
             current, _entry = self._entry(folder, name)
             remaining = [entry for entry in current.entries() if entry.name != name]
             self._save(folder, [], remaining, "removed")
@@ -231,8 +230,8 @@ class DataStore:
 
     def fit(self, pid: str, name: str, column: str) -> dict[str, Any]:
         """The candidates fitted to column ``column`` of file ``name``."""
-        with self.models.locked(pid):
-            folder = self._folder(pid)
+        with self.models.settled(pid) as (root, _record):
+            folder = self._folder(root)
             _current, entry = self._entry(folder, name)
             try:
                 raw = (folder / name).read_bytes()

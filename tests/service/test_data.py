@@ -786,3 +786,57 @@ def test_a_column_that_overflows_in_seconds_is_refused_by_validate_and_by_runs(
     assert [(issue["code"], issue["path"]) for issue in body["issues"]] == expected
     runs = folder_of(client, pid) / "runs"
     assert not runs.exists() or list(runs.iterdir()) == []
+
+
+def test_validation_never_reads_data_an_import_left_unfinished_after_it_settled(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fifth review of PR #182: ``validate`` settled the folder in one hold of the project's
+    lock and read the column index in a second. An import that failed at its index rename
+    between the two left the new file beside the old index, and validation reported E162.
+    Every read of the folder is now made in the hold that settled it, so the import waits."""
+    from ithax.service.errors import ServiceError
+    from ithax.service.model_store import ModelStore
+
+    pid = project(client)
+    log = b"up_h,down_min\n1.5,20\n2,35\n0.75,10\n"
+    units = {"up_h": "h", "down_min": "min"}
+    upload(client, pid, "log.csv", log, units)
+    assert (
+        client.put(f"/v1/projects/{pid}/model", content=json.dumps(breakdown())).status_code == 200
+    )
+    store = state_of(client).data
+    real_replace, real_load = os.replace, ModelStore._load
+    refused: list[str] = []
+
+    def replace(source: Any, target: Any) -> None:
+        if Path(target).name == INDEX_FILE and threading.current_thread().name == "import":
+            raise PermissionError("denied")
+        real_replace(source, target)
+
+    def importing() -> None:
+        try:
+            store.upload(pid, "log.csv", log + b"1,5\n", units)
+        except ServiceError as error:
+            refused.append(error.code)
+
+    importer = threading.Thread(target=importing, name="import")
+
+    def load(self: ModelStore, *args: Any, **options: Any) -> Any:
+        if threading.current_thread() is not importer and not importer.is_alive():
+            importer.start()
+            importer.join(1)  # it finishes here only if the project's lock is free
+        return real_load(self, *args, **options)
+
+    monkeypatch.setattr(os, "replace", replace)
+    monkeypatch.setattr(ModelStore, "_load", load)
+    issues = client.post(f"/v1/projects/{pid}/validate").json()["issues"]
+    importer.join(30)
+    monkeypatch.setattr(os, "replace", real_replace)
+    monkeypatch.setattr(ModelStore, "_load", real_load)
+    assert refused == ["E186"]  # the import is recorded, not finished
+    assert issues == [], issues
+    # The next use finishes the import; validation then sees the changed file whole.
+    assert client.get(f"/v1/projects/{pid}/data").status_code == 200
+    assert (folder_of(client, pid) / "data" / "log.csv").read_bytes() == log + b"1,5\n"
+    assert client.post(f"/v1/projects/{pid}/validate").json()["issues"] == []

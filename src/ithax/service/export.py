@@ -102,8 +102,7 @@ def _files(folder: Path, root: Path, ended: set[str]) -> Iterator[tuple[Path, st
 def archive_project(state: ServiceState, pid: str) -> IO[bytes]:
     """The zip of project ``pid``'s folder, in a temporary file positioned at its start;
     the caller closes it."""
-    with state.models.locked(pid):
-        root = state.models.project_folder(pid)
+    with state.models.settled(pid) as (root, _record):
         ended = {run["run_id"] for run in state.runs.runs(pid) if run["state"] in FINAL_STATES}
         archive = tempfile.TemporaryFile()
         try:

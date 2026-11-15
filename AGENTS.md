@@ -43,5 +43,8 @@ that reads input, and say whether the shared helper was bypassed:
   `ValueError`, an unreadable folder's `PermissionError`, a symlink loop's `RuntimeError` on
   Python 3.11): one guard over each whole call maps `commit.FILE_ERRORS`, and
   `tests/service/test_commit.py` raises each of them from each filesystem call (PR #182,
-  fourth round);
+  fourth round); also a read of a project folder's model, `project.json` or column index made
+  in a hold of the project's lock that did not settle the folder, which can see a save left
+  half done in between (helper: `ModelStore.settled`; `tests/test_conventions.py` finds a
+  reader outside one; PR #182, fifth round);
 - interface state written from a stale draft or after a screen has closed.

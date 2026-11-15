@@ -24,6 +24,13 @@ exact conversion does not. This test finds a product, quotient or remainder with
 86400, and a unit symbol paired with such a size, anywhere else in ``src``. A line marked
 ``# unit factor:`` with its reason (a whole number of minutes from a setting, a constant) is
 allowed.
+
+A project folder's model, ``project.json`` and column index are read only inside one
+``ModelStore.settled(pid)`` hold, which finishes a recorded save under the project's lock
+before the read (fifth review of PR #182: a read in a second hold of the lock found an import
+left half done). This test finds a call of a reader in ``ithax.service`` outside a
+``with ....settled(...)`` block, other than in a helper that is itself only called inside one
+(``SETTLED_HELPERS``, checked the same way). ``projects_store`` is the settling itself.
 """
 
 import ast
@@ -239,3 +246,80 @@ def test_the_unit_factor_check_finds_hand_scaling_only() -> None:
         ]
     )
     assert unit_factors(source) == [1, 2, 3, 4]
+
+
+# --- reads of a project folder inside a settled hold (fifth review of PR #182) --------------
+
+SERVICE = SRC / "service"
+SETTLER = SERVICE / "projects_store.py"
+#: The readers of the files a commit writes.
+SETTLED_READERS = frozenset({"read_data_index", "data_index", "read_project"})
+#: Helpers given a folder from a settled hold; each is called only inside one, or from another.
+SETTLED_HELPERS = frozenset({"_record", "_raw", "_stored", "_check_revision", "_entry", "_submit"})
+
+
+def _called(node: ast.Call) -> str | None:
+    if isinstance(node.func, ast.Name):
+        return node.func.id
+    if isinstance(node.func, ast.Attribute):
+        return node.func.attr
+    return None
+
+
+def _settles(node: ast.With) -> bool:
+    return any(
+        isinstance(item.context_expr, ast.Call) and _called(item.context_expr) == "settled"
+        for item in node.items
+    )
+
+
+def unsettled_reads(source: str) -> list[int]:
+    """Lines of reader or helper calls outside a ``settled`` hold and outside a helper."""
+    found: list[int] = []
+
+    def visit(node: ast.AST, allowed: bool) -> None:
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            allowed = node.name in SETTLED_HELPERS or node.name == "settled"
+        elif isinstance(node, ast.With) and _settles(node):
+            allowed = True
+        elif isinstance(node, ast.Call) and not allowed:
+            name = _called(node)
+            # The helpers are methods (``self._stored``): a module's own ``_stored`` is not one.
+            method = isinstance(node.func, ast.Attribute)
+            if name in SETTLED_READERS or (method and name in SETTLED_HELPERS):
+                found.append(node.lineno)
+        for child in ast.iter_child_nodes(node):
+            visit(child, allowed)
+
+    visit(ast.parse(source), False)
+    return found
+
+
+def test_project_folders_are_read_inside_a_settled_hold() -> None:
+    sources = [path for path in sorted(SERVICE.rglob("*.py")) if path != SETTLER]
+    assert sources
+    found = {
+        str(path.relative_to(SRC)): lines
+        for path in sources
+        if (lines := unsettled_reads(path.read_text(encoding="utf-8")))
+    }
+    assert found == {}
+
+
+def test_the_settled_read_check_finds_a_read_outside_the_hold_only() -> None:
+    source = """
+def validate(self, pid):
+    with self.locked(pid):
+        data = self.data_index(folder)
+    with self.settled(pid) as (folder, record):
+        raw = self._raw(folder)
+    record = read_project(folder)
+
+def _stored(cls, folder):
+    return cls._raw(folder)
+
+def read_settings(path):
+    self._stored(path)
+    return _stored(path)
+"""
+    assert unsettled_reads(source) == [4, 7, 13]
