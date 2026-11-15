@@ -58,3 +58,10 @@ that reads input, and say whether the shared helper was bypassed:
   and inert, so the action does nothing (helper: `useSheet`'s `reveal` in
   `ui/src/canvas/SideSheet.tsx`, which opens it first; `SideSheet.test.ts` fails when
   `CanvasScreen.tsx` looks up an element by id itself; PR #192, two findings).
+- an answer that arrives after other requests or actions, acted on against the state known
+  when its request was sent: a read sent before or during a write that puts back the old
+  value, overlapping writes answered out of order, a completion that ends what a newer
+  action started (helper: `oneAtATime` in `ui/src/components/oneAtATime.ts`, one queue per
+  shared value, so one request is in flight and each answer is the value at its turn; the
+  settings provider sends every read and write through one; a test per site lets a fake
+  service answer what is in flight in any order; PR #200 and its stack, three findings).

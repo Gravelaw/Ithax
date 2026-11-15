@@ -7,9 +7,18 @@
  * them; `refresh` reads both again (the Settings screen, when it opens, AKS-138), so a
  * change made in the file is seen.
  */
-import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Issue, Settings, SettingsBody, SettingsChange } from "../api/types";
+import { oneAtATime } from "../components/oneAtATime";
 import { applyPreferences } from "./preferences";
 
 export interface SettingsState {
@@ -37,8 +46,13 @@ export function SettingsProvider({
   children: ReactNode;
 }) {
   const [body, setBody] = useState<SettingsBody>({ settings: initial, issues: initialIssues });
+  // Every read and write of the settings waits for the one before (review of pull request
+  // 200): with one in flight, each answer is the settings at its turn, so taking every
+  // answer in the order they arrive leaves the latest shown.
+  const queue = useRef(oneAtATime());
   const take = useCallback(
-    (result: ApiResult<SettingsBody>) => {
+    async (start: () => Promise<ApiResult<SettingsBody>>) => {
+      const result = await queue.current(start);
       if (result.kind === "ok") {
         setBody(result.data);
         applyPreferences(root, result.data.settings.interface);
@@ -48,10 +62,10 @@ export function SettingsProvider({
     [root],
   );
   const save = useCallback(
-    async (change: SettingsChange) => take(await client.putSettings(change)),
+    (change: SettingsChange) => take(() => client.putSettings(change)),
     [client, take],
   );
-  const refresh = useCallback(async () => take(await client.getSettings()), [client, take]);
+  const refresh = useCallback(() => take(() => client.getSettings()), [client, take]);
   const value = useMemo(
     () => ({ settings: body.settings, issues: body.issues, save, refresh }),
     [body, save, refresh],

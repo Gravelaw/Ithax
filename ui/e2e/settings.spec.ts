@@ -153,3 +153,27 @@ test("the idle timeout can be never, kept as 0 (#87; owner decision D8)", async 
   };
   expect(read.settings.idle_timeout_minutes).toBe(0);
 });
+
+test("ticking Never while Settings still reads the settings keeps it ticked (CI of pull request 200)", async ({
+  page,
+  service,
+}) => {
+  await service.api("PUT", "/v1/settings", { interface: { first_start_seen: true } });
+  await page.goto(service.url);
+  await expect(page.getByRole("button", { name: "Settings" })).toBeVisible();
+  // Settings' own read of the settings is slow: it reads the service at once but is
+  // answered 1.5 s later, holding the value from before "Never", which is ticked meanwhile.
+  await page.route("**/v1/settings", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const answer = await route.fetch();
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.fulfill({ response: answer });
+  });
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("checkbox", { name: "Never" }).click();
+  await expect(page.getByRole("checkbox", { name: "Never" })).toBeChecked();
+  // Once every answer is in, the box still shows the saved 0.
+  await page.waitForTimeout(2000);
+  await expect(page.getByRole("checkbox", { name: "Never" })).toBeChecked();
+  await expect(page.getByRole("textbox", { name: "Stop when idle for" })).toBeDisabled();
+});
