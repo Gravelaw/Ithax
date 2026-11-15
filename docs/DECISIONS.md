@@ -2413,6 +2413,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Reason:** owner decisions of 2026-11-13 (C10, D18, F1, F7, F8) and the orchestrating session's Phase 1a brief; Linear's free plan caps active issues at 250 (#100).
 - **Alternatives considered:** keeping a Linear key in PR titles (the tracker is retired); putting #88 (AppImage) in M14 (it is packaging, so it ships with the release).
 - **Spec sections updated:** build guide "Session rules" 2 and 5, "Conventions", "Milestones", "Session procedure" (and `CLAUDE.md` to match).
+- **Dependencies added:** none.
 
 ## 2026-11-13 · M12 · Retrospective PR 1: CI design and code-shape rules (#99; P3, P21)
 
@@ -2477,6 +2478,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Reason:** a test that fails at random blocks every merge once `all-green` is required (#136), and #135 asked for the cause to be fixed rather than the wait lengthened.
 - **Alternatives considered:** a longer wait (an orphaned shell never ends, so it could not help); killing any leftover shell in teardown (hides the race instead of removing it).
 - **Spec sections updated:** build guide "Milestones" (M12), and `CLAUDE.md`.
+- **Dependencies added:** none.
 
 ## 2026-11-14 · M12 · Owner: rule 5 adds a change of target platform; P11 stays out (#99)
 
@@ -2486,6 +2488,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Reason:** the owner's answer to the two items listed by PR #140.
 - **Alternatives considered:** none; the owner decided.
 - **Spec sections updated:** build guide rule 5 (and `CLAUDE.md`).
+- **Dependencies added:** none.
 
 ## 2026-11-14 · M12 · Retrospective PR 4: review rules for Codex, and the review-findings procedure (#99; P7)
 
@@ -2503,6 +2506,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Reason:** owner decision F2; the proposal's evidence W2 (47 findings in recurring classes over 56 PRs; #34 redesigned after the third path finding, and #45 needed five redesigns).
 - **Alternatives considered:** the proposal's heading verbatim (the current page names another); keeping `is_finite_real` (it does not exist).
 - **Spec sections updated:** build guide "Session procedure" (and `CLAUDE.md`).
+- **Dependencies added:** none.
 
 ## 2026-11-14 · M12 · Retrospective PR 3: agent hooks and the fast gate (#99; P2)
 
@@ -2602,6 +2606,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Reason:** owner decision F2; from Phase 2, saved models, template packages and assistants calling `/v1` depend on these formats.
 - **Alternatives considered:** loading `examples/` and `templates/` in place (they change with the product; a frozen copy is what catches a regression).
 - **Spec sections updated:** build guide "Conventions" (and `CLAUDE.md`).
+- **Dependencies added:** none.
 
 ## 2026-11-14 · M12 · Retrospective PR 10: warnings are errors in the tests (#99; P20)
 
@@ -2808,6 +2813,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - A new code. One more code to fixture and document, for the same remedy.
   - Clipping a fitted `min` at zero. That would offer a distribution that is not the fit.
 - **Spec sections updated:** spec 1 "Distributions", the E160 and W202 rows (a dated line); spec 3's fit note (a dated line).
+- **Dependencies added:** none.
 
 ## 2026-11-14 · M13 · The store's inventory position is the textbook one (#72; D12)
 
@@ -2824,6 +2830,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Reason:** owner decision D12 (M4-17): follow the textbook, with a benchmark.
 - **Alternatives considered:** reviewing also at a delivery. The position does not change there, so reviewing would change nothing except under a policy that orders several Q at once, which spec 2 does not have.
 - **Spec sections updated:** spec 2 "Block reference" (store), "Store", the benchmark table and "Benchmark definitions" (a dated line).
+- **Dependencies added:** none.
 
 ## 2026-11-14 · M13 · W201 covers schedules, failures and pools (#73; M4-39, M4-40)
 
@@ -2900,6 +2907,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Alternatives considered:** a load-time check for loops of zero-time blocks. It cannot see a delay drawn at 0 from a distribution, or a branch whose weights send most items out.
 - **Review of PR #160:** with several workers, an exception from one pair (the E196 `RunIssue`, or a fault) escaped `run_all` without setting the stop event or cancelling the pairs not started. Leaving the pool then waited for every other replication, so a long sibling held the run until the target's time limit (E192, not E196). `run_all` now stops the workers and cancels pending pairs before it re-raises, through the same `_stop_all` the cancel path uses. Test: `test_a_run_issue_in_one_worker_stops_the_others_quickly` (three workers, two long pairs and one loop). It fails before the fix (still running at 60 s) and passes after (about 4 s under coverage).
 - **Spec sections updated:** spec 1 "Validation issues" (E196), "Engine adapter interface" and the manifest's `error`; spec 2 "Rules that apply across blocks" ("Zero-time loops"). Each has a dated line.
+- **Dependencies added:** none.
 
 ## 2026-11-14 · M13 · Clean solver values (#76; M5-12)
 
@@ -2926,6 +2934,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - Snapping only when the snapped point stays feasible. That keeps the bounds but can still change the objective.
   - Rounding to a number of significant figures. That would change answers like 98/45.
 - **Spec sections updated:** spec 2 "Values" of the optimization `summary.json` (a dated line).
+- **Dependencies added:** none.
 ## 2026-11-14 · M13 · Fresh random numbers for search confirmation (#79; AKS-133)
 
 - **Decision:** the owner's decision of 2026-11-07 (item 6), built (`docs/research/m13-confirmation-streams.md`).
@@ -2962,6 +2971,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - E151. Its row and messages are about parameters.
   - A new code. It would have the same remedy as E123's ordering cases.
 - **Spec sections updated:** spec 1 "Validation issues", the E123 row (a dated line).
+- **Dependencies added:** none.
 
 ## 2026-11-14 · M13 · W203: a failure on a server of capacity above 1 (#84; D13, M4-34)
 
@@ -2979,6 +2989,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
 - **Reason:** issue #84 (D13, M4-34): "Warn until per-unit failures arrive in Phase 2."
 - **Reading (reversible):** the warning is at the failure's `target`, not at the server, since the failure is what does not model each unit.
 - **Spec sections updated:** spec 1 "Validation issues" (the W203 row), the meaning-pass and summary warning ranges (a dated line).
+- **Dependencies added:** none.
 
 ## 2026-11-14 · M13 · A plan with nothing to decide: E179 (#80; item 14, D2)
 
@@ -3004,6 +3015,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - A starter variable in the default plan. D2 chose "starts empty".
   - Two codes. The remedy is the same, so one code says what is missing.
 - **Spec sections updated:** spec 1 "Validation issues" (E179); spec 3 "Canvas behaviour", Optimization models; dated lines in both.
+- **Dependencies added:** none.
 
 ## 2026-11-14 · M13 · Rate units in constraints: format 0.3 (#77; M1-7)
 
@@ -3036,6 +3048,7 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
     - `tests/model/test_units.py` checks extreme magnitudes for every unit: a quantity is read exactly when its exact SI value is a finite float; `in_unit` is finite or `None`; pint agrees with `UNIT_SIZES`.
     - AGENTS.md lists the class under "Classes that recurred".
 - **Spec sections updated:** spec 1 "Quantities", "Versioning", "Metric names" and the E100 row (a dated line).
+- **Dependencies added:** none.
 
 ## 2026-11-14 · M13 · A sampled search's best is "best of N tried, not proven" (#85; M5-23)
 
@@ -3260,4 +3273,20 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Reason:** issue #90: at 1,280 × 800 the buttons followed a long step inside a card capped at 60% of the column, so they were below the card's fold. The wireframe `01b-canvas-learn.svg` draws them in view, and design-system.md "Layout" designs at 1,280 × 800. `ui/e2e/learn-layout.spec.ts` walks every step of every template's lesson at that size and checks each control is wholly in the window and inside the card; it failed before the change, at "Exit lesson".
 - **Readings (reversible):** "Exit lesson" stays a link under the buttons, as built, not on their row as the wireframe draws it.
 - **Spec sections updated:** none; the layout now matches the design.
+- **Dependencies added:** none.
+
+## 2026-11-15 · M14 · Large optimization results kept small (#82; owner decision #181)
+
+- **Decision:** the owner chose option A on #181 (2026-11-15, relayed by the orchestrating session and posted on #181). There is no `/v1` change, and `summary.json` and `GET /v1/runs/{rid}/summary` stay complete, so the interface and the export keep every value.
+  - **The finding** (`ithax.findings.rules`, `NAMED = 10`). A mathematical optimization's `optimization_result` names at most 10 variables not at 0, in the model's order, then ", and {n} others not at 0", then the count at 0 as before. It also names at most 10 tight constraints, then "and {n} other constraints tight". When either list is cut, the text ends "Every value is in the results." The evidence still holds every value.
+  - **MCP `get_results`** (`ithax.mcp.tools`, `SHOWN = 50`), spec 4's one exception to "a tool's result is the response body". When the summary has more than 50 variables or 50 constraints, the answer holds the first 50 `variables`, and the first 50 `constraints` and `duals`. `summary.cut_short` gives `{shown, total}` for what was cut, and a note says `GET .../summary` and the project's export hold every value. The `optimization_result` evidence is cut to the first 50 `variables` and `tight`, with its own `cut_short`. A smaller answer is the response body, unchanged.
+  - **Checks.** `tests/findings/test_rules.py`: the 18,000-variable case of #82 gives a finding under 400 characters (185,247 before the change); a large program names 10 of each, and exactly 10 are named in full. `tests/mcp/test_mcp_write_tools.py`: a summary of 60 variables and 55 constraints gives 50 of each with their totals; the note names only what was cut; a small optimization's answer is the body unchanged.
+- **Reason:** issue #82 (Reviewer A walkthrough: an 18,000-variable run returned an 842 kB summary and a 10,763-character finding), and the owner's answer on #181.
+- **Readings (reversible):**
+  - **Tight constraints are capped at 10 as well.** #181 names only the variables, but a large program can have as many tight constraints, so the same limit keeps the text short.
+  - **`duals` are cut with `constraints`.** They are per constraint, so they follow the constraints' cut. The finding's `tight` list follows the 50 limit, like the variables.
+  - **`cut_short` is a new key, present only when something was cut.** The summary keeps every other field unchanged.
+  - **"The model's order" is the summary's order.** The adapter writes values and slacks in the program's order, and the MCP server does not read the model.
+- **Spec sections updated:** spec 4 "Results" and "Finding rules", with a dated line.
+- **Also in this PR: lost dependency lines restored.** Merges that resolved conflicts in this file since M12 had dropped the closing `- **Dependencies added:** none.` of 13 entries: 12 from M12 and M13, and #90's in this PR's merge of main. Each line was restored from the entry's own history on main; every one was "none", so no licence record was lost. The diff against main showed no deletion, because git pairs a lost line with the same line closing the next entry. The entry for retrospective PR 11a (#148) never had the line; that PR changed no dependency file, so it now says none. `tests/test_docs.py::test_every_milestone_decision_records_its_dependencies` checks each milestone entry from 2026-11-13 on, and the pre-push skill compares heading and dependency-line counts with main's.
 - **Dependencies added:** none.
