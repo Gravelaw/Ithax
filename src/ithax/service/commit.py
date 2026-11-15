@@ -29,6 +29,11 @@ folder path) for the whole of it, from writing or reading the record to removing
 replay never removes a record that a later commit wrote (second review of PR #182). The
 service is the only writer of a project folder (the interface and the MCP server go through
 it), so a lock in the process is enough.
+
+Neither ever raises anything but ``CommitFailed`` for a folder it cannot work in: one guard
+over each whole call, from finding the lock to removing the record, maps every error in
+``FILE_ERRORS`` (fourth review of PR #182, after a NUL, an unreadable folder and a symlink
+loop each escaped one call).
 """
 
 from __future__ import annotations
@@ -44,12 +49,16 @@ from pathlib import Path
 from ithax.files import atomic_write, sync_folder, temporary_path, write_synced
 from ithax.strict_json import encode_json, read_json_object_file
 
-__all__ = ["RECORD", "CommitFailed", "Planned", "replace_in_order", "replay"]
+__all__ = ["FILE_ERRORS", "RECORD", "CommitFailed", "Planned", "replace_in_order", "replay"]
 
 #: The commit record in the folder of a commit's files, while its renames are under way.
 RECORD = ".ithax-commit.json"
 
 _log = logging.getLogger(__name__)
+
+#: What a filesystem call can raise for a folder it cannot work in: ``OSError``, ``ValueError``
+#: (a NUL in a name) and ``RuntimeError`` (a symlink loop in ``Path.resolve`` on Python 3.11).
+FILE_ERRORS: tuple[type[Exception], ...] = (OSError, ValueError, RuntimeError)
 
 # One lock per folder (by resolved path), held for a whole commit or replay.
 _locks: dict[str, threading.Lock] = {}
@@ -84,28 +93,38 @@ def _lock_of(folder: Path) -> threading.Lock:
 def replace_in_order(files: Sequence[Planned]) -> None:
     """Saves ``files`` in order as one change; ``CommitFailed`` when it is not in place."""
     folder = _one_folder(files)
-    with _lock_of(folder):
-        temporaries = [temporary_path(planned.path) for planned in files]
-        renames = [
-            (temporary.name, planned.path.name)
-            for planned, temporary in zip(files, temporaries, strict=True)
-        ]
-        try:
-            for planned in files:
-                # A rename onto a folder can never be finished, so it is refused here,
-                # before the commit point, with nothing saved.
-                if planned.path.is_dir():
-                    raise IsADirectoryError(planned.path)
-            for planned, temporary in zip(files, temporaries, strict=True):
-                write_synced(temporary, planned.data)
-            atomic_write(folder / RECORD, encode_json({"renames": [list(r) for r in renames]}))
-        except OSError:
-            _log.warning("Writing %s failed.", folder, exc_info=True)
-            for temporary in temporaries:
-                with contextlib.suppress(OSError):
-                    temporary.unlink()
-            raise CommitFailed(pending=False) from None
-        _finish(folder, renames)
+    temporaries = [temporary_path(planned.path) for planned in files]
+    try:
+        lock = _lock_of(folder)
+    except FILE_ERRORS:
+        _log.warning("The folder %s cannot be found.", folder, exc_info=True)
+        raise CommitFailed(pending=False) from None
+    with lock:
+        if not _recorded(folder, files, temporaries):
+            raise CommitFailed(pending=False)
+        _finish(folder, [(t.name, p.path.name) for p, t in zip(files, temporaries, strict=True)])
+
+
+def _recorded(folder: Path, files: Sequence[Planned], temporaries: Sequence[Path]) -> bool:
+    """Writes the temporaries and then the record (the commit point); whether it got there.
+    When it did not, the temporaries are removed and nothing was saved."""
+    renames = [[t.name, p.path.name] for p, t in zip(files, temporaries, strict=True)]
+    try:
+        for planned in files:
+            # A rename onto a folder can never be finished, so it is refused here, before
+            # the commit point, with nothing saved.
+            if planned.path.is_dir():
+                raise IsADirectoryError(planned.path)
+        for planned, temporary in zip(files, temporaries, strict=True):
+            write_synced(temporary, planned.data)
+        atomic_write(folder / RECORD, encode_json({"renames": renames}))
+    except FILE_ERRORS:
+        _log.warning("Writing %s failed.", folder, exc_info=True)
+        for temporary in temporaries:
+            with contextlib.suppress(*FILE_ERRORS):
+                temporary.unlink()
+        return False
+    return True
 
 
 def _one_folder(files: Sequence[Planned]) -> Path:
@@ -131,7 +150,7 @@ def _renames(record: Path) -> list[tuple[str, str]] | None:
     of plain file names."""
     try:
         document = read_json_object_file(record)
-    except (OSError, ValueError):
+    except FILE_ERRORS:
         return None
     renames = document.get("renames")
     if not isinstance(renames, list) or not renames:
@@ -155,7 +174,7 @@ def _finish(folder: Path, renames: Sequence[tuple[str, str]]) -> None:
                 os.replace(folder / source, folder / target)  # noqa: TID251
         sync_folder(folder)
         (folder / RECORD).unlink()
-    except (OSError, ValueError):
+    except FILE_ERRORS:
         _log.error("The change recorded in %s could not be finished.", folder, exc_info=True)
         raise CommitFailed(pending=True) from None
 
@@ -164,21 +183,27 @@ def replay(folder: Path) -> bool:
     """Finishes the change recorded in ``folder``; whether there was one. It waits for a
     commit or replay of ``folder`` under way. ``CommitFailed`` (``pending``) when the
     record cannot be read or its renames fail."""
+    try:
+        finished = _replay(folder)
+    except FILE_ERRORS:
+        # A folder that cannot be looked into is refused as a recorded change is: the one
+        # guard of the class (fourth review of PR #182).
+        _log.error("The folder %s cannot be looked into for a commit.", folder, exc_info=True)
+        raise CommitFailed(pending=True) from None
+    if finished:
+        _log.warning("A save interrupted in %s was finished.", folder)
+    return finished
+
+
+def _replay(folder: Path) -> bool:
+    """``replay`` without its guard: it may raise any of ``FILE_ERRORS``."""
     with _lock_of(folder):
         record = folder / RECORD
-        try:
-            present = record.exists()
-        except OSError:
-            # A folder that cannot be looked into is refused as a recorded change is
-            # (third review of PR #182).
-            _log.error("The commit record %s cannot be looked at.", record, exc_info=True)
-            raise CommitFailed(pending=True) from None
-        if not present:
+        if not record.exists():
             return False
         renames = _renames(record)
         if renames is None:
             _log.error("The commit record %s cannot be read.", record)
             raise CommitFailed(pending=True)
         _finish(folder, renames)
-    _log.warning("A save interrupted in %s was finished.", folder)
     return True

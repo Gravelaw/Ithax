@@ -622,3 +622,59 @@ def test_a_project_whose_record_cannot_be_looked_at_is_refused_and_listed_unavai
     monkeypatch.undo()
     coded_refusal(refused, "E186")
     assert listed["available"] is False
+
+
+@pytest.mark.parametrize(
+    "error",
+    [PermissionError("denied"), ValueError("embedded null byte"), RuntimeError("loop")],
+    ids=lambda e: type(e).__name__,
+)
+def test_a_project_whose_folder_cannot_be_looked_into_is_refused_and_listed_unavailable(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, error: Exception
+) -> None:
+    """Fourth review of PR #182: ``Path.resolve`` raised ``RuntimeError`` for a ``data``
+    symlink loop (Python 3.11) and escaped the listing. Every filesystem error of a replay is
+    now E186, and the listing still answers."""
+    pid, where = project(client)
+    real = Path.resolve
+
+    def resolve(self: Path, *args: Any, **options: Any) -> Path:
+        if self == where / "data":
+            raise error
+        return real(self, *args, **options)
+
+    monkeypatch.setattr(Path, "resolve", resolve)
+    refused = client.get(f"/v1/projects/{pid}/model")
+    listing = client.get("/v1/projects")
+    monkeypatch.setattr(Path, "resolve", real)
+    coded_refusal(refused, "E186")
+    assert listing.status_code == 200
+    [listed] = [item for item in listing.json() if item["id"] == pid]
+    assert listed["available"] is False
+
+
+def test_a_data_folder_that_links_to_itself_never_escapes_as_an_exception(
+    client: TestClient,
+) -> None:
+    """The real case: E186 where ``resolve`` refuses the loop (Python 3.11), the model where
+    it does not (3.13); never an unexpected error."""
+    import shutil
+
+    pid, where = project(client)
+    shutil.rmtree(where / "data")
+    (where / "data").symlink_to("data")
+    try:
+        (where / "data").resolve()
+        loops = False
+    except RuntimeError:
+        loops = True
+    answer = client.get(f"/v1/projects/{pid}/model")
+    listing = client.get("/v1/projects")
+    assert listing.status_code == 200
+    [listed] = [item for item in listing.json() if item["id"] == pid]
+    if loops:
+        coded_refusal(answer, "E186")
+        assert listed["available"] is False
+    else:
+        assert answer.status_code == 200
+        assert listed["available"] is True

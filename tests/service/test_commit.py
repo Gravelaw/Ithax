@@ -347,3 +347,74 @@ def test_a_record_that_cannot_be_looked_at_refuses_the_folder(
     with pytest.raises(CommitFailed) as failed:
         replay(tmp_path)
     assert failed.value.pending is True
+
+
+# --- every filesystem error refuses, never escapes (review of PR #182, fourth round) --------
+
+#: What a filesystem call can raise for a strange folder: ``OSError`` (permissions), ``ValueError``
+#: (a NUL in a name) and ``RuntimeError`` (a symlink loop in ``Path.resolve`` on Python 3.11).
+ERRORS = [PermissionError("denied"), ValueError("embedded null byte"), RuntimeError("loop")]
+
+#: Every filesystem call a replay makes, as (owner, name).
+REPLAY_CALLS = [
+    (Path, "resolve"),
+    (Path, "exists"),
+    (commit, "read_json_object_file"),
+    (os, "replace"),
+    (commit, "sync_folder"),
+    (Path, "unlink"),
+]
+
+
+def _raising(
+    where: Path, call: tuple[Any, str], error: Exception, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``call`` raises ``error`` for a path inside ``where`` and works for any other."""
+    owner, name = call
+    real = getattr(owner, name)
+
+    def fail(*args: Any, **options: Any) -> Any:
+        if args and str(args[0]).startswith(str(where)):
+            raise error
+        return real(*args, **options)
+
+    monkeypatch.setattr(owner, name, fail)
+
+
+@pytest.mark.parametrize("error", ERRORS, ids=lambda e: type(e).__name__)
+@pytest.mark.parametrize("call", REPLAY_CALLS, ids=lambda c: c[1])
+def test_any_filesystem_error_in_a_replay_refuses_the_folder(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    call: tuple[Any, str],
+    error: Exception,
+) -> None:
+    """One guard over the whole replay maps each error to ``CommitFailed(pending=True)``; a
+    replay with nothing recorded may still answer ``False`` when its probe succeeds."""
+    old_files(tmp_path)
+    (tmp_path / ".a.tmp").write_bytes(NEW[0])
+    (tmp_path / RECORD).write_text('{"renames": [[".a.tmp", "a"]]}', encoding="utf-8")
+    _raising(tmp_path, call, error, monkeypatch)
+    with pytest.raises(CommitFailed) as failed:
+        replay(tmp_path)
+    assert failed.value.pending is True
+
+
+@pytest.mark.parametrize("error", ERRORS, ids=lambda e: type(e).__name__)
+@pytest.mark.parametrize(
+    "call", [(Path, "resolve"), (Path, "is_dir"), (commit, "write_synced")], ids=lambda c: c[1]
+)
+def test_any_filesystem_error_before_the_record_saves_nothing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    call: tuple[Any, str],
+    error: Exception,
+) -> None:
+    old_files(tmp_path)
+    _raising(tmp_path, call, error, monkeypatch)
+    with pytest.raises(CommitFailed) as failed:
+        replace_in_order(two(tmp_path))
+    monkeypatch.undo()
+    assert failed.value.pending is False
+    assert names(tmp_path) == ["a", "b"]
+    assert contents(tmp_path) == OLD
