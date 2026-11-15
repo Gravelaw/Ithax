@@ -215,3 +215,17 @@ export function typedInBase(text: string, size: number): unknown {
   if (rounded === 0 && read !== 0) return value === 0 ? trimmed : value;
   return Math.abs(value - rounded) <= 1e-9 * Math.max(1, Math.abs(value)) ? rounded : value;
 }
+
+/**
+ * A metric in a sentence (#94): its statistic, then "at" its component, as in "the
+ * average wait at weld"; a whole-model metric has no place ("the average items in the
+ * system"); a name with no statistic as it is.
+ */
+export function metricPhrase(metric: string): string {
+  const dot = metric.indexOf(".");
+  if (dot < 0) return metric;
+  const component = metric.slice(0, dot);
+  const statistic = metric.slice(dot + 1);
+  const words = own<string>(STATISTICS, statistic) ?? statistic.replace(/[._]/g, " ");
+  return component === "model" ? `the ${words}` : `the ${words} at ${component}`;
+}
