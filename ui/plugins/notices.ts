@@ -10,7 +10,8 @@
  * ECharts has one, AKS-120) and the files of its `licenses/` folder (the licences of code it
  * embeds). It also copies the product's own
  * licence, the repository's `LICENSE` (GNU AGPL version 3), as `LICENSE.txt`, which the
- * first-start notice and Settings, About point to.
+ * first-start notice and Settings, About point to. The same packages, with their authors,
+ * go to `third-party.json`, which Help, "Open source licences" lists (#89).
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, sep } from "node:path";
@@ -20,7 +21,56 @@ export interface BundledPackage {
   name: string;
   version: string;
   license: string;
+  /** The people its `package.json` names, without addresses, or "not given". */
+  authors: string;
   text: string;
+}
+
+/** A person as `package.json` gives one, a string or an object. */
+type Person = string | { name?: string };
+
+/** A person's name, without the `<mail>` and `(url)` a string may add. */
+function personName(person: Person): string {
+  const name = typeof person === "string" ? person.replace(/<[^>]*>|\([^)]*\)/g, "") : person.name;
+  return (name ?? "").trim();
+}
+
+/**
+ * The holder in the first copyright line of a licence or notice text, "Meta Platforms, Inc.
+ * and affiliates." in "Copyright (c) Meta Platforms, Inc. and affiliates."; a template line
+ * with brackets, as in the Apache-2.0 appendix, is skipped. `null` when there is none.
+ */
+export function copyrightHolder(text: string): string | null {
+  for (const line of text.split("\n")) {
+    // "Copyright", then "(c)" or "©", a year or both: a line of the licence's own text
+    // ("copyright license to reproduce") has neither.
+    const match = /^\s*Copyright\s+(\([cC]\)\s*|©\s*)?(\d[\d\s,–-]*\s)?(.+)$/.exec(line);
+    const holder = match?.[3]?.trim().replace(/^,\s*/, "");
+    const marked = match?.[1] !== undefined || match?.[2] !== undefined;
+    if (holder && marked && !line.includes("[")) return holder;
+  }
+  return null;
+}
+
+/**
+ * The authors of a package: its `author`, else its `contributors`, else `maintainers`,
+ * else the copyright holder its licence or notice names (`text`), else "not given".
+ */
+export function packageAuthors(
+  manifest: {
+    author?: Person;
+    contributors?: Person[];
+    maintainers?: Person[];
+  },
+  text = "",
+): string {
+  for (const people of [[manifest.author], manifest.contributors, manifest.maintainers]) {
+    const names = (people ?? []).flatMap((person) =>
+      person === undefined || personName(person) === "" ? [] : [personName(person)],
+    );
+    if (names.length > 0) return names.join(", ");
+  }
+  return copyrightHolder(text) ?? "not given";
 }
 
 const LICENCE_FILE = /^(licen[cs]e|copying)(\.(md|txt))?$/i;
@@ -43,6 +93,9 @@ export function readPackage(root: string): BundledPackage {
     name: string;
     version: string;
     license?: string;
+    author?: Person;
+    contributors?: Person[];
+    maintainers?: Person[];
   };
   const file = readdirSync(root).find((name) => LICENCE_FILE.test(name));
   if (file === undefined) {
@@ -63,6 +116,7 @@ export function readPackage(root: string): BundledPackage {
     name: manifest.name,
     version: manifest.version,
     license: manifest.license ?? "UNKNOWN",
+    authors: packageAuthors(manifest, parts.join("\n\n")),
     text: parts.join("\n\n"),
   };
 }
@@ -80,6 +134,18 @@ export function noticesText(packages: BundledPackage[]): string {
   ].join("\n");
 }
 
+/** `third-party.json`: each package's name, version, licence and authors, by name. */
+export function packagesJson(packages: BundledPackage[]): string {
+  const sorted = [...packages].sort((a, b) => a.name.localeCompare(b.name));
+  const rows = sorted.map(({ name, version, license, authors }) => ({
+    name,
+    version,
+    licence: license,
+    authors,
+  }));
+  return `${JSON.stringify(rows, null, 2)}\n`;
+}
+
 export function notices(productLicence: string): Plugin {
   return {
     name: "ithax-notices",
@@ -95,10 +161,16 @@ export function notices(productLicence: string): Plugin {
       const outermost = [...roots].filter(
         (root) => ![...roots].some((other) => other !== root && root.startsWith(other + sep)),
       );
+      const packages = outermost.map(readPackage);
       this.emitFile({
         type: "asset",
         fileName: "THIRD-PARTY-NOTICES.txt",
-        source: noticesText(outermost.map(readPackage)),
+        source: noticesText(packages),
+      });
+      this.emitFile({
+        type: "asset",
+        fileName: "third-party.json",
+        source: packagesJson(packages),
       });
       this.emitFile({
         type: "asset",

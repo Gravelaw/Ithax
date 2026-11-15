@@ -2,7 +2,14 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { describe, expect, it } from "vitest";
-import { noticesText, packageRoot, readPackage } from "./notices";
+import {
+  copyrightHolder,
+  noticesText,
+  packageAuthors,
+  packageRoot,
+  packagesJson,
+  readPackage,
+} from "./notices";
 
 const modules = `${sep}app${sep}node_modules${sep}`;
 
@@ -30,6 +37,7 @@ describe("the notices plugin", () => {
       name: "x",
       version: "1.0.0",
       license: "MIT",
+      authors: "not given",
       text: "MIT License",
     });
     const bare = join(root, "bare");
@@ -58,10 +66,52 @@ describe("the notices plugin", () => {
 
   it("writes the notices sorted by package name", () => {
     const text = noticesText([
-      { name: "zeta", version: "1", license: "ISC", text: "Z" },
-      { name: "alpha", version: "2", license: "MIT", text: "A" },
+      { name: "zeta", version: "1", license: "ISC", authors: "Z", text: "Z" },
+      { name: "alpha", version: "2", license: "MIT", authors: "A", text: "A" },
     ]);
     expect(text.indexOf("alpha 2")).toBeLessThan(text.indexOf("zeta 1"));
     expect(text).toContain("Licence: MIT\n\nA\n");
+  });
+
+  it("names a package's authors without their addresses (pull request for issue 89)", () => {
+    expect(packageAuthors({ author: "Ann Lee <ann@example.com> (https://ann.example)" })).toBe(
+      "Ann Lee",
+    );
+    expect(packageAuthors({ author: { name: "Meta" } })).toBe("Meta");
+    expect(
+      packageAuthors({ author: "", contributors: ["Bo <b@c.d>", { name: "Cy" }, "<x@y.z>"] }),
+    ).toBe("Bo, Cy");
+    expect(packageAuthors({ maintainers: [{ name: "Dee" }] })).toBe("Dee");
+    expect(packageAuthors({})).toBe("not given");
+    expect(
+      packageAuthors({}, "MIT License\n\nCopyright (c) Meta Platforms, Inc. and affiliates."),
+    ).toBe("Meta Platforms, Inc. and affiliates.");
+  });
+
+  it("finds the copyright holder of a licence, skipping a template line", () => {
+    expect(copyrightHolder("Copyright (c) 2019-2025 webkid GmbH")).toBe("webkid GmbH");
+    expect(copyrightHolder("Copyright (c) 2017, Baidu Inc.")).toBe("Baidu Inc.");
+    expect(
+      copyrightHolder(
+        "   Copyright [yyyy] [name of copyright owner]\n\nCopyright 2017-2026 The Apache Software Foundation",
+      ),
+    ).toBe("The Apache Software Foundation");
+    expect(copyrightHolder("© 2020 Someone")).toBeNull();
+    expect(copyrightHolder("      copyright license to reproduce, prepare")).toBeNull();
+    expect(copyrightHolder("Copyright notice of the work")).toBeNull();
+    expect(copyrightHolder("The above copyright notice and this permission notice")).toBeNull();
+  });
+
+  it("lists the packages with their authors for Help, sorted by name", () => {
+    const rows = JSON.parse(
+      packagesJson([
+        { name: "zeta", version: "1", license: "ISC", authors: "Zed", text: "Z" },
+        { name: "alpha", version: "2", license: "MIT", authors: "Al", text: "A" },
+      ]),
+    );
+    expect(rows).toEqual([
+      { name: "alpha", version: "2", licence: "MIT", authors: "Al" },
+      { name: "zeta", version: "1", licence: "ISC", authors: "Zed" },
+    ]);
   });
 });
