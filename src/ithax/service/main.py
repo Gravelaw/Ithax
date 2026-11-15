@@ -19,6 +19,12 @@ down gracefully and then raises the signal again; raised there, it ended the pro
 and ``main`` raises them again once the file is removed and the lock released, so the exit
 status still says how the service was stopped (AKS-119).
 
+The graceful shutdown is bounded (#158): uvicorn waits at most ``GRACEFUL_SHUTDOWN_S`` for
+open connections and requests, then cancels them and logs how many, so no client keeps a
+stopped service alive. The first stop signal also arms ``faulthandler``: a service still
+running ``DUMP_AFTER_S`` later writes every thread's traceback to its standard error, which
+the launcher keeps in ``service.log``.
+
 Options: ``--config-dir`` and ``--data-dir`` replace the per-user folders; ``--ui-dir``
 names the built interface the service serves at ``/v1/ui/`` (default
 ``ithax.service.config.default_ui_dir``); ``--templates-dir`` the template packages it
@@ -30,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import faulthandler
 import os
 import signal
 import socket
@@ -37,6 +44,7 @@ import sys
 import time
 from collections.abc import Iterator, Sequence
 from pathlib import Path
+from types import FrameType
 from typing import TextIO
 
 import uvicorn
@@ -63,6 +71,8 @@ from ithax.service.paths import canonical
 from ithax.service.projects_store import utc_now
 
 __all__ = [
+    "DUMP_AFTER_S",
+    "GRACEFUL_SHUTDOWN_S",
     "LOCAL_ADDRESS",
     "SERVICE_LOCK",
     "STARTUP_WAIT_S",
@@ -82,6 +92,13 @@ SERVICE_LOCK = "service.lock"
 #: proposed "ready within 5 seconds" (AKS-110).
 STARTUP_WAIT_S = 10.0
 
+#: How long a stopped service waits for open connections and requests (#158).
+GRACEFUL_SHUTDOWN_S = 5
+
+#: How long after a stop signal a service still running writes every thread's traceback
+#: (#158): past the graceful shutdown, and before the 30 s a stopping test waits.
+DUMP_AFTER_S = 20.0
+
 _POLL_S = 0.1
 
 
@@ -93,6 +110,12 @@ class SignalServer(uvicorn.Server):
     def __init__(self, config: uvicorn.Config) -> None:
         super().__init__(config)
         self.caught_signals: list[int] = []
+
+    def handle_exit(self, sig: int, frame: FrameType | None) -> None:
+        if not self.should_exit:
+            # The first stop signal: show where a stop that does not end is stuck (#158).
+            faulthandler.dump_traceback_later(DUMP_AFTER_S, exit=False)
+        super().handle_exit(sig, frame)
 
     @contextlib.contextmanager
     def capture_signals(self) -> Iterator[None]:
@@ -246,6 +269,7 @@ def _serve(
                 ws="websockets-sansio",
                 lifespan="on",
                 log_level="warning",
+                timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S,
                 proxy_headers=False,
                 server_header=False,
             )
@@ -258,4 +282,6 @@ def _serve(
             server.run(sockets=[sock])
         finally:
             remove_service_file(config_dir, info)
+            # Stopped: nothing is left to show (#158).
+            faulthandler.cancel_dump_traceback_later()
     return server.caught_signals
