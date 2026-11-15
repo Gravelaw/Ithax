@@ -3318,3 +3318,16 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The `message` and `hint` texts are the service's and are not changed here; a pointer some of them quote stays until a service wording change.
 - **Spec sections updated:** spec 4 "Learn and Build modes" (The exercise), with a dated line; design-system.md "Plain words" and "Type line"; canvas-interactions.md "The problems list".
 - **Dependencies added:** none.
+
+## 2026-11-15 · M15 · The idle timeout in minutes, hours or days, or never; no setting in bytes (#87; owner decision D8; #96)
+
+- **Decision:**
+  - **"Never" is 0.** `idle_timeout_minutes` accepts 0 in `settings.json` and in `PUT /v1/settings`, and `--idle-minutes 0` in the service and the launcher; each gives an infinite idle timeout, which `Lifetime` never reaches (`IDLE_NEVER`, `IdleSettings.timeout_s`, `main.idle_timeout_s`). The range stays 1 to 10,080 minutes otherwise; the refusal's words add "or 0 for never".
+  - **Units in the interface.** `UnitField` (`ui/src/settings/UnitField.tsx`) takes the idle timeout in minutes, hours or days with a "Never" box, the run time limit in seconds, minutes or hours, and the memory limit in MB or GB. It shows a saved value in the largest unit that shows it whole, writes the typed number times the unit's size (whole when within a float's noise, so 0.1 h is 6 minutes), and a new unit re-reads the number shown, as the Experiment screen's unit pickers do. The sizes come from `TIME_UNITS`.
+- **Reason:** issue #87 and owner decision D8: "entered in minutes, hours or days; up to 7 days, or never". Issue #96's "bytes": the memory limit was typed in bytes. Tests first: `test_idle_settings.py`, `test_settings.py`, `test_main.py`, `test_lifetime.py` and `test_launch.py` (0 is never; -1 and NaN are refused), `UnitField.test.tsx`, the Settings tests and `e2e/settings.spec.ts` (hours, the refusal of 200 hours, and Never kept as 0 by a real service); each failed before the change.
+- **Readings (reversible):**
+  - "Never" is the number 0, not `null` or a word: `null` in `PUT` already means "use the default", and the compatibility test pins the field as a number, so 0 keeps every `/v1` request and response working (F7). 0 was refused before, so no stored value changes meaning.
+  - `--idle-minutes 0` is "never" too, so the desktop shell and scripts can ask for it.
+  - Unticking "Never" restores the default, 30 minutes.
+- **Spec sections updated:** spec 3 "Lifetime" and "Run monitor, Results and Settings", with a dated line.
+- **Dependencies added:** none.

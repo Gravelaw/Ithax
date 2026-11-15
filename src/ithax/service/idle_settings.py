@@ -2,8 +2,9 @@
 B5, AKS-141; key, bounds and precedence owner to confirm).
 
 ``idle_timeout_minutes`` in ``settings.json`` in the configuration folder is a whole number
-of minutes from 1 to 10,080 (7 days), read as ``max_concurrent_runs`` is (a JSON integer,
-not a ``bool`` or a number with a fraction), default 30. The service reads it when it
+of minutes from 1 to 10,080 (7 days), or 0 for "never" (#87; owner decision D8), read as
+``max_concurrent_runs`` is (a JSON integer, not a ``bool`` or a number with a fraction),
+default 30. The service reads it when it
 starts (``ithax.service.main``), unless ``--idle-minutes`` was given, so a change takes
 effect at the next start; ``GET /v1/settings`` reads it at each request.
 
@@ -18,6 +19,7 @@ never fails.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -28,6 +30,7 @@ from ithax.strict_json import read_json_file, whole_in
 
 __all__ = [
     "DEFAULT_IDLE_MINUTES",
+    "IDLE_NEVER",
     "IDLE_TIMEOUT",
     "IDLE_WORDS",
     "MAX_IDLE_MINUTES",
@@ -45,7 +48,10 @@ DEFAULT_IDLE_MINUTES = 30
 MAX_IDLE_MINUTES = 7 * 24 * 60  # unit factor: a constant
 
 #: How a message words the idle timeout's range.
-IDLE_WORDS = f"a whole number of minutes from 1 to {MAX_IDLE_MINUTES:,} (7 days)"
+IDLE_WORDS = f"a whole number of minutes from 1 to {MAX_IDLE_MINUTES:,} (7 days), or 0 for never"
+
+#: "Never" (#87; owner decision D8): the service does not exit when idle.
+IDLE_NEVER = 0
 
 _log = logging.getLogger(__name__)
 
@@ -59,7 +65,10 @@ class IdleSettings:
 
     @property
     def timeout_s(self) -> float:
-        """The idle timeout in seconds, as ``ithax.service.lifetime.Lifetime`` takes it."""
+        """The idle timeout in seconds, as ``ithax.service.lifetime.Lifetime`` takes it;
+        infinite for "never"."""
+        if self.minutes == IDLE_NEVER:
+            return math.inf
         return self.minutes * 60.0  # unit factor: whole minutes, a setting
 
 
@@ -82,7 +91,7 @@ def read_idle_settings(config_dir: Path) -> IdleSettings:
         return IdleSettings(DEFAULT_IDLE_MINUTES, ())
     if IDLE_TIMEOUT not in loaded:
         return IdleSettings(DEFAULT_IDLE_MINUTES, ())
-    minutes = whole_in(loaded[IDLE_TIMEOUT], 1, MAX_IDLE_MINUTES)
+    minutes = whole_in(loaded[IDLE_TIMEOUT], IDLE_NEVER, MAX_IDLE_MINUTES)
     if minutes is not None:
         return IdleSettings(minutes, ())
     issue = Issue(
@@ -94,8 +103,8 @@ def read_idle_settings(config_dir: Path) -> IdleSettings:
             f"its default, {DEFAULT_IDLE_MINUTES} minutes, is used."
         ),
         hint=(
-            f"Set '{IDLE_TIMEOUT}' to a whole number from 1 to {MAX_IDLE_MINUTES:,}, or "
-            "remove it to use the default."
+            f"Set '{IDLE_TIMEOUT}' to a whole number from 1 to {MAX_IDLE_MINUTES:,}, or 0 for "
+            "never, or remove it to use the default."
         ),
     )
     _log.warning("%s at '%s': %s", issue.code, issue.path, issue.message)

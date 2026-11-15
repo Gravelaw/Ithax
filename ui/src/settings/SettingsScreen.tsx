@@ -35,6 +35,7 @@ import { figures, quantity } from "../results/display";
 import { DEFAULT_PREFERENCES } from "./preferences";
 import { useSettings } from "./SettingsContext";
 import "../results/results.css";
+import { BYTES, IDLE_MINUTES, LIMIT_SECONDS, UnitField } from "./UnitField";
 
 /** Said when a change is tried while a write awaits its answer: it is not sent. */
 export const SETTINGS_WAIT = "Not saved: a change was being saved. Make the change again.";
@@ -43,7 +44,10 @@ export const AT_NEXT_START =
 export const AT_NEXT_RESULTS = "Takes effect at the next results you open.";
 export const AT_ONCE = "Takes effect at once.";
 /** The idle timeout's field (spec 3 "Lifetime"; AKS-141). */
-export const IDLE_LABEL = "Stop when idle for, in minutes";
+export const IDLE_LABEL = "Stop when idle for";
+
+/** The idle timeout's range in words (#87; owner decision D8). */
+export const IDLE_HINT = "From 1 minute to 7 days, or never. A run is never idle time.";
 
 const TIERS: readonly { value: TierName; label: string }[] = [
   { value: "low", label: "Low (4 cores, 8 GB)" },
@@ -193,21 +197,22 @@ export function SettingsScreen({ client }: { client: ApiClient }) {
             busy={busy}
             onCommit={(value) => write({ max_concurrent_runs: value } as SettingsChange)}
           />
-          <NumberField
+          <UnitField
             key={`time ${answers}`}
-            label="Time limit, in seconds"
+            label="Time limit"
             term="run_time_limit_s"
             saved={settings.run_time_limit_s}
-            plain={(value) => `= ${quantity(value, "s")}`}
+            units={LIMIT_SECONDS}
+            whole
             busy={busy}
             onCommit={(value) => write({ run_time_limit_s: value } as SettingsChange)}
           />
-          <NumberField
+          <UnitField
             key={`memory ${answers}`}
-            label="Memory limit, in bytes"
+            label="Memory limit"
             term="run_memory_limit_bytes"
             saved={settings.run_memory_limit_bytes}
-            plain={(value) => `= ${bytesText(value)}`}
+            units={BYTES}
             busy={busy}
             onCommit={(value) => write({ run_memory_limit_bytes: value } as SettingsChange)}
           />
@@ -404,12 +409,15 @@ export function SettingsScreen({ client }: { client: ApiClient }) {
         <h2 className="heading">Service</h2>
         <p>Remote access: not available in this version (only this computer can connect).</p>
         <div className="settings-fields">
-          <NumberField
+          <UnitField
             key={`idle-timeout ${answers}`}
             label={IDLE_LABEL}
             term="idle_timeout_minutes"
             saved={settings.idle_timeout_minutes}
-            plain={(value) => `= ${quantity(value * 60, "s")} (1 to 10,080)`}
+            units={IDLE_MINUTES}
+            whole
+            never
+            hint={IDLE_HINT}
             busy={busy}
             onCommit={(value) => write({ idle_timeout_minutes: value } as SettingsChange)}
           />
