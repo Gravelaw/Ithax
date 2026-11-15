@@ -329,3 +329,21 @@ def _expect_pending(files: list[Planned]) -> None:
     with pytest.raises(CommitFailed) as failed:
         replace_in_order(files)
     assert failed.value.pending is True
+
+
+def test_a_record_that_cannot_be_looked_at_refuses_the_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Third review of PR #182: ``exists`` on the record can raise (a folder that cannot be
+    read); that refuses as a recorded change does, never as an exception."""
+    real = Path.exists
+
+    def exists(self: Path, *args: Any, **options: Any) -> bool:
+        if self.name == RECORD:
+            raise PermissionError("denied")
+        return real(self, *args, **options)
+
+    monkeypatch.setattr(Path, "exists", exists)
+    with pytest.raises(CommitFailed) as failed:
+        replay(tmp_path)
+    assert failed.value.pending is True

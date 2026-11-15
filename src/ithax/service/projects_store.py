@@ -162,12 +162,14 @@ class ProjectRegistry:
         config_dir: Path,
         data_dir: Path,
         new_id: Callable[[], str] = lambda: str(uuid.uuid4()),
+        on_replayed: Callable[[str, int], None] = lambda pid, revision: None,
     ) -> None:
         # Canonical, so that the paths in projects.json do not depend on the working
         # directory or on an alias (review of PR #34).
         self.config_dir = canonical(config_dir)
         self.data_dir = canonical(data_dir)
         self._new_id = new_id
+        self._on_replayed = on_replayed
         self._lock = threading.Lock()
 
     # --- projects.json --------------------------------------------------------------
@@ -199,12 +201,13 @@ class ProjectRegistry:
         self.config_dir.mkdir(parents=True, exist_ok=True)
         write_json(self._file, projects)
 
-    @staticmethod
-    def _settle(folder: Path) -> Path:
+    def _settle(self, folder: Path) -> Path:
         """``folder``, with a recorded save there finished (module docstring); E186 when
-        one cannot be."""
+        one cannot be. A model save finished here is told to ``on_replayed`` with the
+        project's id and new revision, so its listeners hear of it (third review of PR
+        #182)."""
         try:
-            replay(folder)
+            finished = replay(folder)
             replay(folder / "data")
         except CommitFailed:
             raise _folder_error(
@@ -212,6 +215,10 @@ class ProjectRegistry:
                 "the project cannot be used until it can be written. If the folder was "
                 f"changed by hand, remove '{RECORD}' from it."
             ) from None
+        if finished:
+            record = read_project(folder)
+            if record is not None:
+                self._on_replayed(record.id, record.model_revision)
         return folder
 
     def _settled(self, folder: Path) -> ProjectRecord | None:

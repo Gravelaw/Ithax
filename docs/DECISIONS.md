@@ -3215,11 +3215,14 @@ Items marked "drop?" are dropped where agreed: M4-23, M4-38, M9-5, M9-37, M9-38,
   - **Second round** (one P1, reproduced by Codex): a replay that read record J and paused could, after another replay finished J and a later save wrote J2 and failed, remove J2, leaving the new model with the old revision and no record.
     - It is the same class again, so the fix is the class's helper: one lock per folder over the whole of every commit and replay replaces the "folder being committed" set.
     - New test `test_a_replay_and_a_later_save_in_one_folder_never_meet` forces that interleaving with a pause inside the replay. The save waits, its record stays, and the next replay finishes it whole. Before the fix the save went ahead.
+  - **Third round** (two P2s):
+    - `record.exists()` in `replay` could raise (`PermissionError`) outside the handler. It now raises `CommitFailed(pending=True)`, so the project is refused with E186 and listed as not available. Tests: `test_a_record_that_cannot_be_looked_at_refuses_the_folder`, `test_a_project_whose_record_cannot_be_looked_at_is_refused_and_listed_unavailable`.
+    - A replay that finished a save published no `model` event, so open canvases kept the old revision. The registry now takes `on_replayed(pid, revision)`, and the app sends `model_written(pid, revision, None)`: `client` `null`. Test: `test_a_save_finished_by_a_replay_is_published_to_the_project_s_listeners`. The earlier tests that called `monkeypatch.undo()` also undid the events fixture, so they now restore only `os.replace` and expect the replay's event.
 - **Reason:** issue #71 (D3, M6-34): "Done when an interrupted save leaves either the old or the new model and revision, with a test."
 - **Readings (reversible):**
   - **A redo record, not a checksum or one combined file** (`docs/research/m14-atomic-save.md`). A checksum detects but cannot repair; one file holding model and revision would change the project layout.
   - **Replay on every use**, under the folder's lock, so it never races a save in another thread.
-  - **A failed save after its record is answered E186, not 200**, though the save is decided. Its listeners are not told until a later write: a replay sends no event.
+  - **A failed save after its record is answered E186, not 200**, though the save is decided. Its listeners are told when a replay finishes it, with `client` `null` (third review).
   - **Temporaries left by a stop before the record are kept.** They are named for the process and thread, so they never meet a later save.
   - **`files.sync_folder` is now public** for the commit.
 - **Spec sections updated:** spec 3 "Revision", with dated lines.

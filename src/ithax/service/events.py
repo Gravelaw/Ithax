@@ -88,8 +88,9 @@ class ProjectEvents:
         for listener in listeners:
             listener.deliver(event)
 
-    def model_written(self, pid: str, revision: int, client: str) -> None:
-        """A write of the model of ``pid``, now at ``revision``, by ``client``."""
+    def model_written(self, pid: str, revision: int, client: str | None) -> None:
+        """A write of the model of ``pid``, now at ``revision``, by ``client``; ``None``
+        for a save a replay finished, whose writer is not known (#71)."""
         self.publish(pid, {"type": "model", "revision": revision, "client": client})
 
     def run_changed(self, pid: str, run_id: str, state: str) -> None:

@@ -121,8 +121,10 @@ def state_of(client: TestClient) -> ServiceState:
 
 
 @pytest.fixture
-def events(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, int, str]]:
-    published: list[tuple[str, int, str]] = []
+def events(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> list[tuple[str, int, str | None]]:
+    published: list[tuple[str, int, str | None]] = []
     monkeypatch.setattr(
         state_of(client).events,
         "model_written",
@@ -161,7 +163,7 @@ def coded_refusal(response: Any, *codes: str) -> None:
 @pytest.mark.parametrize(("place", "token", "warns"), CASES)
 def test_a_hostile_model_on_disk_is_refused_on_every_path(
     client: TestClient,
-    events: list[tuple[str, int, str]],
+    events: list[tuple[str, int, str | None]],
     adapter: Recorder,
     place: str,
     token: str,
@@ -199,7 +201,7 @@ def test_a_hostile_model_on_disk_is_refused_on_every_path(
 @pytest.mark.parametrize(("place", "token", "warns"), CASES)
 def test_a_hostile_put_body_is_refused(
     client: TestClient,
-    events: list[tuple[str, int, str]],
+    events: list[tuple[str, int, str | None]],
     place: str,
     token: str,
     warns: bool,
@@ -226,7 +228,7 @@ EDITS = {
 @pytest.mark.parametrize(("place", "token", "warns"), CASES)
 def test_a_hostile_edit_is_refused(
     client: TestClient,
-    events: list[tuple[str, int, str]],
+    events: list[tuple[str, int, str | None]],
     place: str,
     token: str,
     warns: bool,
@@ -259,7 +261,7 @@ def test_an_opened_folder_with_a_hostile_model_is_refused_when_read(
 
 
 def test_an_edit_result_that_cannot_be_written_is_refused(
-    client: TestClient, events: list[tuple[str, int, str]], monkeypatch: pytest.MonkeyPatch
+    client: TestClient, events: list[tuple[str, int, str | None]], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The gate also checks a batch's result, whatever the edits let through."""
     pid, where = project(client)
@@ -300,7 +302,7 @@ def test_a_project_name_that_cannot_be_written_is_e184(client: TestClient) -> No
 @pytest.mark.parametrize(("failing", "saved"), [(1, False), (2, True), (3, True)])
 def test_a_save_that_fails_at_a_rename_is_refused_then_old_or_finished(
     client: TestClient,
-    events: list[tuple[str, int, str]],
+    events: list[tuple[str, int, str | None]],
     monkeypatch: pytest.MonkeyPatch,
     failing: int,
     saved: bool,
@@ -327,7 +329,7 @@ def test_a_save_that_fails_at_a_rename_is_refused_then_old_or_finished(
         f"/v1/projects/{pid}/model/edits",
         json={"edits": [{"edit": "set_label", "id": "exit", "label": "Door"}]},
     )
-    monkeypatch.undo()
+    monkeypatch.setattr(os, "replace", real)  # the events fixture stays patched
     coded_refusal(response, "E186")
     body = response.json()
     assert "denied" not in response.text
@@ -342,10 +344,12 @@ def test_a_save_that_fails_at_a_rename_is_refused_then_old_or_finished(
     assert now["revision"] == old["revision"] + 1
     assert now["model"]["components"][-1]["label"] == "Door"
     assert not (where / RECORD).exists()
+    # Published once the replay finishes it (third review of PR #182).
+    assert events == [(pid, now["revision"], None)]
 
 
 def test_a_save_commits_with_project_json_last_then_publishes(
-    client: TestClient, events: list[tuple[str, int, str]], monkeypatch: pytest.MonkeyPatch
+    client: TestClient, events: list[tuple[str, int, str | None]], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pid, where = project(client)
     events.clear()
@@ -391,7 +395,7 @@ def test_responses_are_ascii_json_so_no_text_can_break_them() -> None:
 
 
 def test_a_project_json_whose_text_cannot_be_written_back_is_e186(
-    client: TestClient, events: list[tuple[str, int, str]]
+    client: TestClient, events: list[tuple[str, int, str | None]]
 ) -> None:
     pid, where = project(client)
     events.clear()
@@ -439,7 +443,7 @@ def test_a_save_over_no_model_that_fails_after_its_record_is_finished_on_next_us
 
 def test_a_recorded_save_that_still_cannot_be_finished_refuses_the_project_until_it_can(
     client: TestClient,
-    events: list[tuple[str, int, str]],
+    events: list[tuple[str, int, str | None]],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Review of PR #182: a replay that fails does not admit the folder; each use refuses
@@ -468,7 +472,7 @@ def test_a_recorded_save_that_still_cannot_be_finished_refuses_the_project_until
         assert RECORD in refused.json()["error"]["message"]
     [listed] = [item for item in client.get("/v1/projects").json() if item["id"] == pid]
     assert listed["available"] is False
-    monkeypatch.undo()
+    monkeypatch.setattr(os, "replace", real)  # the events fixture stays patched
     now = client.get(f"/v1/projects/{pid}/model").json()
     assert now["revision"] == 2 and now["model"]["components"][-1]["label"] == "Door"
     assert sorted(path.name for path in where.iterdir()) == [
@@ -477,7 +481,7 @@ def test_a_recorded_save_that_still_cannot_be_finished_refuses_the_project_until
         "project.json",
         "runs",
     ]
-    assert events == []
+    assert events == [(pid, 2, None)]  # published by the replay that finished it
 
 
 def test_encode_json_refuses_what_json_cannot_write() -> None:
@@ -574,3 +578,47 @@ def test_an_opened_folder_finishes_a_half_done_save_first(
         assert opened.status_code == 200, opened.text
         assert opened.json()["model_revision"] == old["revision"] + 1
         assert second.get(f"/v1/projects/{pid}/model").json()["model"] == new
+
+
+def test_a_save_finished_by_a_replay_is_published_to_the_project_s_listeners(
+    client: TestClient, events: list[tuple[str, int, str | None]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Third review of PR #182: a canvas open on the project hears of the save a replay
+    finished, at the new revision; its writer is not known, so ``client`` is null."""
+    pid, _where = project(client)
+    real = os.replace
+
+    def replace(source: Any, target: Any) -> None:
+        if Path(target).name == PROJECT_FILE:
+            raise PermissionError("denied")
+        real(source, target)
+
+    monkeypatch.setattr(os, "replace", replace)
+    refused = client.post(
+        f"/v1/projects/{pid}/model/edits",
+        json={"edits": [{"edit": "set_label", "id": "exit", "label": "Door"}]},
+    )
+    monkeypatch.setattr(os, "replace", real)  # the events fixture stays patched
+    coded_refusal(refused, "E186")
+    events.clear()
+    assert client.get(f"/v1/projects/{pid}/model").json()["revision"] == 2
+    assert events == [(pid, 2, None)]
+
+
+def test_a_project_whose_record_cannot_be_looked_at_is_refused_and_listed_unavailable(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pid, _where = project(client)
+    real = Path.exists
+
+    def exists(self: Path, *args: Any, **options: Any) -> bool:
+        if self.name == RECORD:
+            raise PermissionError("denied")
+        return real(self, *args, **options)
+
+    monkeypatch.setattr(Path, "exists", exists)
+    refused = client.get(f"/v1/projects/{pid}/model")
+    [listed] = [item for item in client.get("/v1/projects").json() if item["id"] == pid]
+    monkeypatch.undo()
+    coded_refusal(refused, "E186")
+    assert listed["available"] is False

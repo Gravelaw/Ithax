@@ -166,7 +166,14 @@ def replay(folder: Path) -> bool:
     record cannot be read or its renames fail."""
     with _lock_of(folder):
         record = folder / RECORD
-        if not record.exists():
+        try:
+            present = record.exists()
+        except OSError:
+            # A folder that cannot be looked into is refused as a recorded change is
+            # (third review of PR #182).
+            _log.error("The commit record %s cannot be looked at.", record, exc_info=True)
+            raise CommitFailed(pending=True) from None
+        if not present:
             return False
         renames = _renames(record)
         if renames is None:
