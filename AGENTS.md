@@ -58,3 +58,8 @@ that reads input, and say whether the shared helper was bypassed:
   and inert, so the action does nothing (helper: `useSheet`'s `reveal` in
   `ui/src/canvas/SideSheet.tsx`, which opens it first; `SideSheet.test.ts` fails when
   `CanvasScreen.tsx` looks up an element by id itself; PR #192, two findings).
+- a project changed on Home (opened, renamed, removed, its lesson step) without App, which
+  holds the open project and its lesson, so the project screens keep a removed project and
+  return E185, or show an old name or step (helper: App's `ProjectActions`,
+  `ui/src/app/projectActions.ts`; `projectActions.test.ts` fails when a screen calls
+  `changeProject` or `removeProject` itself; PR #201, three findings).

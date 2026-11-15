@@ -7,8 +7,9 @@
  */
 import { PencilSimpleIcon, XIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import type { ApiClient, ApiResult } from "../api/client";
+import type { ApiResult } from "../api/client";
 import type { Project } from "../api/types";
+import type { ProjectActions } from "../app/projectActions";
 import { ServiceProblem } from "../components/ServiceProblem";
 import { dateText, whenText } from "../results/display";
 
@@ -38,14 +39,13 @@ function when(project: Project): string {
 }
 
 export function RecentProjects({
-  client,
   projects,
-  onOpen,
+  actions,
   onChanged,
 }: {
-  client: ApiClient;
   projects: readonly Project[];
-  onOpen: (project: Project) => void;
+  /** The application's, which also updates the open project (review of pull request 201). */
+  actions: ProjectActions;
   /** Reads the list again after a rename or a removal. */
   onChanged: () => void;
 }) {
@@ -56,13 +56,13 @@ export function RecentProjects({
   const rename = async (project: Project, name: string) => {
     setRenaming(null);
     if (name.trim() === "" || name.trim() === project.name) return;
-    const answer = await client.changeProject(project.id, { name: name.trim() });
+    const answer = await actions.rename(project, name.trim());
     setProblem(answer.kind === "ok" ? null : answer);
     onChanged();
   };
 
   const remove = async (project: Project) => {
-    const answer = await client.removeProject(project.id);
+    const answer = await actions.remove(project);
     setProblem(answer.kind === "ok" ? null : answer);
     setRemoved(answer.kind === "ok");
     onChanged();
@@ -94,7 +94,7 @@ export function RecentProjects({
                   className="project"
                   aria-disabled={project.available ? undefined : "true"}
                   onClick={() => {
-                    if (project.available) onOpen(project);
+                    if (project.available) actions.open(project);
                   }}
                 >
                   <span className="subheading">{name}</span>

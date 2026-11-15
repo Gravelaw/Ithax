@@ -303,6 +303,94 @@ describe("the frame", () => {
     await waitFor(() => expect(steps()).toEqual([0, 1, null]));
   });
 
+  it("closes the open project and its lesson when Home removes it (review of pull request 201)", async () => {
+    const shop = { id: "coffee_shop", title: "Coffee shop queue", experiment: "base" };
+    const lesson =
+      "# Coffee shop queue\n\n## Arrive\n\nComponent: `arrivals`\n\nThey arrive.\n\n" +
+      "## Exercise: two tills\n\nComponent: `till`\n\n### Change\n\nSet it.\n\n" +
+      "### Prediction\n\n- [x] Less.\n- [ ] More.\n\n### Explanation\n\nBecause.\n";
+    const made = {
+      id: "p1",
+      name: "Coffee shop queue",
+      created: "2026-11-09T10:00:00Z",
+      layout_version: 1,
+      model_revision: 0,
+      path: "/p1",
+      available: true,
+    };
+    window.location.hash = "#/";
+    const { fake } = boot(seen);
+    new ModelService(fake);
+    let listed = [made];
+    fake
+      .answer("GET /v1/templates", [shop])
+      .answer("GET /v1/templates/coffee_shop", { template: shop, lesson, expected: [] })
+      .answer("POST /v1/projects", made)
+      .on("GET /v1/projects", () => ({ status: 200, body: listed }))
+      .on("POST /v1/projects/p1/remove", () => {
+        listed = [];
+        return { status: 200, body: { id: "p1", path: "/p1" } };
+      });
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Start the lesson Coffee shop queue" }),
+    );
+    expect(await screen.findByRole("region", { name: "Arrive" })).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Home" }));
+    expect(screen.getByRole("button", { name: "Canvas" })).not.toHaveAttribute("aria-disabled");
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Remove Coffee shop queue from the list" }),
+    );
+    // The project screens wait for a project again, and no lesson is left.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Canvas" })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+    const cleared = fake
+      .requested("PATCH", "/v1/projects/p1")
+      .filter((request) => (request.body as Record<string, unknown>).lesson_step === null);
+    expect(cleared).toEqual([]);
+    await userEvent.click(screen.getByRole("button", { name: "Canvas" }));
+    expect(screen.getByRole("heading", { name: "What would you like to do?" })).toBeVisible();
+    expect(document.querySelector(".step-card")).toBeNull();
+  });
+
+  it("renames the open project in the top bar when Home renames it (review of pull request 201)", async () => {
+    const made = {
+      id: "p1",
+      name: "Shop",
+      created: "2026-11-08T10:00:00Z",
+      layout_version: 1,
+      model_revision: 0,
+      path: "/p1",
+      available: true,
+    };
+    const { fake } = boot(seen);
+    new ModelService(fake);
+    let current = made;
+    fake
+      .answer("POST /v1/projects", made)
+      .on("GET /v1/projects", () => ({ status: 200, body: [current] }))
+      .on("PATCH /v1/projects/p1", (body) => {
+        const name = (body as { name?: string }).name;
+        if (name !== undefined) current = { ...current, name };
+        return { status: 200, body: current };
+      });
+    await userEvent.click(await screen.findByRole("button", { name: "New empty project" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Name" }), "Shop");
+    await userEvent.click(screen.getByRole("button", { name: "Create" }));
+    expect(await screen.findByRole("heading", { name: "Canvas" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Home" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Rename Shop" }));
+    const field = screen.getByRole("textbox", { name: "New name for Shop" });
+    await userEvent.clear(field);
+    await userEvent.type(field, "Corner shop{Enter}");
+    expect(await screen.findByRole("button", { name: "Rename Corner shop" })).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Canvas" }));
+    await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("Corner shop"));
+  });
+
   it("moves between regions with F6", async () => {
     boot(seen);
     await screen.findByRole("heading", { name: "What would you like to do?" });

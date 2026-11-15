@@ -15,9 +15,10 @@ import { FolderOpenIcon, GraduationCapIcon, HammerIcon, PlusIcon } from "@phosph
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ApiClient, ApiResult } from "../api/client";
 import type { Project, Template } from "../api/types";
+import type { ProjectActions } from "../app/projectActions";
 import { ServiceProblem } from "../components/ServiceProblem";
 import { useMounted } from "../components/useMounted";
-import { type Lesson, parseLesson } from "../learn/lesson";
+import { parseLesson } from "../learn/lesson";
 import { BUILD_TEMPLATES } from "./BuildForm";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { OpenProjectDialog } from "./OpenProjectDialog";
@@ -41,16 +42,14 @@ type Loaded<T> = ApiResult<T> | null;
 
 export function Home({
   client,
-  onOpen,
+  projects: actions,
   onBuild = () => undefined,
-  onLesson = () => undefined,
 }: {
   client: ApiClient;
-  onOpen: (project: Project) => void;
+  /** Every change to a project goes through the application (review of pull request 201). */
+  projects: ProjectActions;
   /** Opens the Build form. */
   onBuild?: () => void;
-  /** A project made from `template`, to open with its lesson at `step` (0 for a new one). */
-  onLesson?: (project: Project, template: Template, lesson: Lesson, step: number) => void;
 }) {
   const [projects, setProjects] = useState<Loaded<Project[]>>(null);
   // The lesson being started (one at a time), and why the last one did not start.
@@ -113,7 +112,7 @@ export function Home({
     if (earlier !== undefined) {
       setStarting(null);
       const step = Math.min(earlier.lesson_step ?? 0, lesson.steps.length);
-      onLesson(earlier, read.data.template, lesson, step);
+      actions.lesson(earlier, read.data.template, lesson, step);
       return;
     }
     const made = await client.createProject({
@@ -126,7 +125,7 @@ export function Home({
       setStartProblem(made);
       return;
     }
-    onLesson(made.data, read.data.template, lesson, 0);
+    actions.lesson(made.data, read.data.template, lesson, 0);
   };
 
   return (
@@ -236,9 +235,8 @@ export function Home({
           <p className="empty">{NO_PROJECTS}</p>
         ) : (
           <RecentProjects
-            client={client}
             projects={projects.data}
-            onOpen={onOpen}
+            actions={actions}
             onChanged={() => void load()}
           />
         )}
@@ -255,10 +253,18 @@ export function Home({
       </section>
 
       {dialog === "new" ? (
-        <NewProjectDialog client={client} onCreated={onOpen} onCancel={() => setDialog(null)} />
+        <NewProjectDialog
+          client={client}
+          onCreated={actions.open}
+          onCancel={() => setDialog(null)}
+        />
       ) : null}
       {dialog === "open" ? (
-        <OpenProjectDialog client={client} onOpened={onOpen} onCancel={() => setDialog(null)} />
+        <OpenProjectDialog
+          client={client}
+          onOpened={actions.open}
+          onCancel={() => setDialog(null)}
+        />
       ) : null}
     </div>
   );

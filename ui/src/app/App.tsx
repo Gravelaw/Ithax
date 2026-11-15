@@ -19,6 +19,7 @@ import { Home } from "../screens/Home";
 import { useSettings } from "../settings/SettingsContext";
 import { SettingsScreen } from "../settings/SettingsScreen";
 import { NAV_ITEMS, NavRail } from "./NavRail";
+import type { ProjectActions } from "./projectActions";
 import { cycleRegion } from "./regions";
 import { HOME, type Route, useRoute } from "./router";
 
@@ -31,7 +32,7 @@ export function App({ client }: { client: ApiClient }) {
   const [route, go] = useRoute();
   const { settings, save } = useSettings();
   const { start: startLesson, exit: exitLesson, learning } = useLearning();
-  useLessonStep(client, learning?.projectId ?? null, learning?.step ?? null);
+  const forgetLesson = useLessonStep(client, learning?.projectId ?? null, learning?.step ?? null);
   const [noticeOpen, setNoticeOpen] = useState(!settings.interface.first_start_seen);
   const [saveProblem, setSaveProblem] = useState<ApiResult<SettingsBody> | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -82,6 +83,42 @@ export function App({ client }: { client: ApiClient }) {
     go({ screen: data ? "data" : "canvas", projectId: made.id });
   };
 
+  /**
+   * Every change Home makes to a project, so the open project and its lesson follow it
+   * (review of pull request 201): renaming the open project renames it here, removing it
+   * closes it and its lesson.
+   */
+  const projects: ProjectActions = {
+    open: (opened) => {
+      // An ordinary open shows the model without a lesson (spec 4).
+      exitLesson();
+      open(opened);
+    },
+    lesson: (made, template, lesson, step) => {
+      startLesson({ ...newLearning(made.id, template, lesson), step });
+      open(made);
+    },
+    rename: async (target, name) => {
+      const answer = await client.changeProject(target.id, { name });
+      if (answer.kind === "ok") {
+        setProject((current) => (current?.id === target.id ? answer.data : current));
+      }
+      return answer;
+    },
+    remove: async (target) => {
+      const answer = await client.removeProject(target.id);
+      if (answer.kind === "ok") {
+        setProject((current) => (current?.id === target.id ? null : current));
+        // Its lesson ends without a write to the project the service no longer lists.
+        if (learning?.projectId === target.id) {
+          forgetLesson(target.id);
+          exitLesson();
+        }
+      }
+      return answer;
+    },
+  };
+
   const continueFromNotice = async () => {
     setNoticeOpen(false);
     const result = await save({ interface: { ...settings.interface, first_start_seen: true } });
@@ -112,16 +149,8 @@ export function App({ client }: { client: ApiClient }) {
         {route.screen === "home" ? (
           <Home
             client={client}
-            onOpen={(opened) => {
-              // An ordinary open shows the model without a lesson (spec 4).
-              exitLesson();
-              open(opened);
-            }}
+            projects={projects}
             onBuild={() => go({ screen: "build", projectId: null })}
-            onLesson={(made, template, lesson, step) => {
-              startLesson({ ...newLearning(made.id, template, lesson), step });
-              open(made);
-            }}
           />
         ) : null}
         {route.screen === "build" ? (
@@ -160,7 +189,11 @@ export function App({ client }: { client: ApiClient }) {
  * Keeps the step a lesson reached with its project (`lesson_step`, #97), so Home can resume
  * it after a reload; leaving the lesson clears it.
  */
-function useLessonStep(client: ApiClient, projectId: string | null, step: number | null) {
+function useLessonStep(
+  client: ApiClient,
+  projectId: string | null,
+  step: number | null,
+): (pid: string) => void {
   // The project whose step was last kept, and the write in flight: each write waits for the
   // one before, so the service keeps the latest step or the clearing on exit, never an
   // older step that arrived late (review of pull request 201).
@@ -178,4 +211,8 @@ function useLessonStep(client: ApiClient, projectId: string | null, step: number
       last.current = null;
     }
   }, [client, projectId, step]);
+  // A removed project's step is not cleared: the service no longer lists it.
+  return (pid: string) => {
+    if (last.current === pid) last.current = null;
+  };
 }
