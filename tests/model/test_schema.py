@@ -959,3 +959,52 @@ def test_many_broken_entries_give_one_issue_per_problem() -> None:
         ("E100", "/components/0/type"),
     ]
     assert issues[-1].path == "/components/1999/type"
+
+
+# --- the published schema: the words and bounds the meaning pass checks (#98) -----------------
+
+
+def test_the_published_schema_names_the_words_and_bounds_of_the_meaning_pass() -> None:
+    """Reviewer B finding 8: "the whole-model schema gives sense: {}, op: {}, type: {},
+    budget: {} with no allowed values". The schema pass keeps ``{}`` there, so that the
+    meaning pass reports its own codes; the schema ``GET /v1/schema`` serves names them."""
+    from ithax.model.schema import (
+        LINEAR_OPS,
+        METRIC_OPS,
+        PARAMETER_TYPES,
+        SENSES,
+        VARIABLE_TYPES,
+        published_schema,
+    )
+
+    defs = published_schema()["$defs"]
+    assert defs["metric_objective"]["properties"]["sense"] == {"enum": list(SENSES)}
+    assert defs["linear_objective"]["properties"]["sense"] == {"enum": list(SENSES)}
+    assert defs["metric_constraint"]["properties"]["op"] == {"enum": list(METRIC_OPS)}
+    assert defs["linear_constraint"]["properties"]["op"] == {"enum": list(LINEAR_OPS)}
+    assert defs["variable"]["properties"]["type"] == {"enum": list(VARIABLE_TYPES)}
+    assert defs["parameter"]["properties"]["type"] == {"enum": list(PARAMETER_TYPES)}
+    assert defs["search"]["properties"]["budget"] == {"type": "integer", "minimum": 1}
+    assert defs["search"]["properties"]["replications"] == {"type": "integer", "minimum": 2}
+    assert defs["experiment"]["properties"]["replications"] == {"type": "integer", "minimum": 2}
+    # The schema the schema pass uses is unchanged.
+    assert model_schema()["$defs"]["variable"]["properties"]["type"] == {}
+
+
+def test_every_shipped_model_fits_the_published_schema() -> None:
+    """The published schema refuses nothing the product accepts."""
+    from jsonschema import Draft202012Validator
+
+    from ithax.model.schema import published_schema
+
+    validator = Draft202012Validator(published_schema())
+    paths = [
+        *EXAMPLES,
+        *sorted(ROOT.glob("templates/*/model.json")),
+        *sorted(ROOT.glob("benchmarks/*/model.json")),
+    ]
+    assert len(paths) > 20
+    for path in paths:
+        document = json.loads(path.read_text(encoding="utf-8"))
+        errors = [error.message for error in validator.iter_errors(document)]
+        assert errors == [], (path, errors)

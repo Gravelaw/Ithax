@@ -35,7 +35,9 @@ from mcp.types import CallToolResult, TextContent, Tool
 
 from ithax.mcp.client import Answer, ServiceClient, ServiceUnavailable
 from ithax.mcp.limits import RunLimitReached, segment
+from ithax.model.edits import edit_schemas
 from ithax.model.issues import Issue, pointer
+from ithax.model.migration import FORMAT_VERSION
 from ithax.strict_json import is_whole, json_text
 
 __all__ = [
@@ -110,7 +112,8 @@ KINDS: Mapping[str, tuple[Mapping[str, Any], str, Callable[[object], bool]]] = {
         _is_texts,
     ),
     "edits": (
-        {"type": "array", "items": {"type": "object"}},
+        # Each kind typed (#98), from the table the service checks edits against.
+        {"type": "array", "items": {"oneOf": edit_schemas()}},
         f"an array of edits whose numbers are finite, nested at most {MAX_DEPTH} levels deep",
         lambda value: isinstance(value, list) and _sendable(value),
     ),
@@ -118,6 +121,22 @@ KINDS: Mapping[str, tuple[Mapping[str, Any], str, Callable[[object], bool]]] = {
 
 #: The error answer's status from which a result is marked ``isError``.
 _ERROR_STATUS = 400
+
+
+def refused(answer: Answer) -> bool:
+    """Whether a result is marked ``isError``: an answer with an error status."""
+    return answer.status >= _ERROR_STATUS
+
+
+def refused_or_saved_with_errors(answer: Answer) -> bool:
+    """``refused``, or a write saved with an error among its issues, so that the model
+    cannot run as saved (#98, Reviewer B finding 8)."""
+    if refused(answer):
+        return True
+    issues = answer.body.get("issues", []) if isinstance(answer.body, dict) else []
+    return isinstance(issues, list) and any(
+        isinstance(issue, dict) and issue.get("severity") == "error" for issue in issues
+    )
 
 
 @dataclass(frozen=True)
@@ -144,6 +163,8 @@ class ToolSpec:
     example_arguments: Mapping[str, object]
     example_result: str
     calls: Calls
+    #: Whether an answer's result is marked ``isError``.
+    is_error: Callable[[Answer], bool] = refused
 
     @property
     def description(self) -> str:
@@ -243,7 +264,7 @@ def run_tool(
         answer = spec.calls(client, given)
     except (ServiceUnavailable, RunLimitReached) as refusal:
         return result_of(refusal.body(), is_error=True)
-    return result_of(answer.body, is_error=answer.status >= _ERROR_STATUS)
+    return result_of(answer.body, is_error=spec.is_error(answer))
 
 
 _segment = segment
@@ -318,7 +339,18 @@ GET_SCHEMA = ToolSpec(
         "an item in service resumes with its remaining time after repair (preempt-resume); "
         "a schedule's capacity is 0 outside its listed shifts, and a unit busy when it "
         "falls finishes its item first; a server with a pool takes its own unit first, "
-        "then one pool unit, and its service starts when it holds both."
+        "then one pool unit, and its service starts when it holds both. The whole schema "
+        "names the allowed words: a sense is minimize or maximize; an op is '<=' or '>=', "
+        "and also '==' in an optimization model; a variable's type is continuous, integer "
+        "or binary. A search, compactly: parameters "
+        '{"tills": {"value": 1, "type": "integer", "min": 1, "max": 5}}, objectives '
+        '[{"id": "wait", "metric": "till.wait.mean", "sense": "minimize"}], constraints '
+        '[{"id": "busy", "metric": "till.utilization", "op": ">=", "value": 0.35}] and, in '
+        'an experiment, search {"objective": "wait", "budget": 10}. An optimization model '
+        '(domain optimization), compactly: variables [{"id": "chairs", "type": '
+        '"continuous", "lower": 0}, ...], objective {"sense": "maximize", "linear": '
+        '{"chairs": 45, "tables": 80}} and constraints [{"id": "wood", "linear": '
+        '{"chairs": 5, "tables": 20}, "op": "<=", "rhs": 400}, ...].'
     ),
     inputs=(
         Input(
@@ -368,7 +400,9 @@ GET_MODEL = ToolSpec(
     inputs=(_PROJECT_ID,),
     example_arguments={"project_id": _EXAMPLE_PID},
     example_result=(
-        '{"model": {"format_version": "0.1", "meta": {"name": "Coffee shop"}, "domain": '
+        '{"model": {"format_version": "'
+        + FORMAT_VERSION
+        + '", "meta": {"name": "Coffee shop"}, "domain": '
         '"process", "parameters": {}, "components": [...], "connections": [...], '
         '"experiments": [{"id": "base", "length": "8 h", "warmup": "0 s", "replications": '
         '30}], "run": {"target": "local", "fidelity": "standard"}}, "revision": 3}'
@@ -578,23 +612,24 @@ EDIT_MODEL = ToolSpec(
         "{experiment_id, id, set} and remove_scenario {experiment_id, id}; set_path {path, "
         "value} and remove_path {path}, a JSON Pointer on the whole model for /meta, /run, "
         "/objectives, /constraints, /experiments/<n>/search and, in an optimization model, "
-        "/variables, /objective, /sets and /tables; set_ui {id, ui}; set_label {id, label}. "
+        "/variables, /objective, /sets and /tables, a list entry named by its index from 0 "
+        "(set_path with '-' adds one at the end, remove_path closes the gap); set_ui {id, "
+        "ui}; set_label {id, label}. "
         "get_schema gives each block type's settings. A batch that applies is saved and "
         "returns "
         "{model, revision, issues}: the issues are the checks made on loading the model, "
-        "errors to fix before a run and warnings to read; validate_model adds the engine's "
-        "own check. An edit that cannot be applied (an unknown or duplicate "
+        "errors to fix before a run and warnings to read; with an error the result is "
+        "marked as an error, though the batch is still saved. validate_model adds the "
+        "engine's own check. An edit that cannot be applied (an unknown or duplicate "
         "component id, an unknown type, parameter or experiment, a path whose parent does "
         "not exist) is refused with E180 at /edits/<n> and nothing is saved. Send "
         "base_revision, the revision get_model or the last edit_model returned: if the user "
         "changed the model meanwhile nothing is applied, and the refusal, E181, carries the "
         "current model and revision. Keep batches small. Randomness is set by an "
         "experiment's seed (set_experiment), never per component; each component draws "
-        "from its own stream. The example builds two servers sharing a pool of two staff "
-        "on a daily rota (period 24 h, capacity 0 outside the listed shifts): the day "
-        "shift, 8 h to 16 h, with two, and the night from 22:00 to 06:00 with one, split at "
-        "the period end into 22 h to 24 h and 0 h to 6 h, since a shift cannot cross the "
-        "end of its period."
+        "from its own stream. The example: two servers sharing a pool of two staff on a "
+        "daily rota; the night shift is split at the period end (22 h to 24 h, 0 h to 6 h), "
+        "since no shift crosses it."
     ),
     inputs=(
         _PROJECT_ID,
@@ -613,7 +648,9 @@ EDIT_MODEL = ToolSpec(
     ),
     example_arguments={"project_id": _EXAMPLE_PID, "edits": _EXAMPLE_EDITS, "base_revision": 0},
     example_result=(
-        '{"model": {"format_version": "0.1", "meta": {"name": "Workshop"}, "domain": '
+        '{"model": {"format_version": "'
+        + FORMAT_VERSION
+        + '", "meta": {"name": "Workshop"}, "domain": '
         '"process", "parameters": {}, "components": [{"id": "arrivals", "type": "source", '
         '...}, {"id": "staff", "type": "resource_pool", "params": {"capacity": 2}}, ...], '
         '"connections": [{"from": "arrivals.out", "to": "cutting.in"}, ...], "experiments": '
@@ -621,6 +658,7 @@ EDIT_MODEL = ToolSpec(
         '{"target": "local", "fidelity": "standard"}}, "revision": 1, "issues": []}'
     ),
     calls=_edit_model,
+    is_error=refused_or_saved_with_errors,
 )
 
 RUN_MODEL = ToolSpec(
@@ -691,9 +729,11 @@ GET_RESULTS = ToolSpec(
         "half_width being t times the standard deviation over the square root of n, with t "
         "the Student t quantile at (1 + confidence) / 2 for n - 1 degrees of freedom. A "
         "plain run has the one scenario 'default'. A search run adds summary.search (status, "
-        "the best values in best.set, the objective before and after), and its metrics are "
-        "the best candidate's. An optimization run's summary holds status, objective, "
-        "variables and constraints instead, and it has no tables. findings are short "
+        "the best values in best.set, the objective before and after, and separated: true "
+        "when the best is told apart from the next best setting at the confidence, its "
+        "paired difference excluding zero), and its metrics are the best candidate's. An "
+        "optimization run's summary holds status, objective, variables and constraints "
+        "instead, and it has no tables. findings are short "
         "statements in plain language made from the summary by fixed rules, so the same run "
         "always gives the same findings; read them first and pass them on. Each is {rule, "
         "severity, component, scenario, text, evidence}: rule is bottleneck (the busiest "

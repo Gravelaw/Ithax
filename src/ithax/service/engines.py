@@ -24,7 +24,7 @@ from fastapi import Path as PathParameter
 
 from ithax.engines.adapter import EngineAdapter
 from ithax.model.catalogue import BlockType, SettingSpec
-from ithax.model.schema import model_schema
+from ithax.model.schema import published_schema
 from ithax.model.units import Quantity
 from ithax.service.errors import NOT_FOUND, ServiceError
 from ithax.service.state import ServiceState, service_state
@@ -116,8 +116,9 @@ def _component_types(
 
 
 def composed_schema(adapters: Mapping[str, EngineAdapter]) -> dict[str, Any]:
-    """Spec 1's schema with the installed component types under ``x-component-types``."""
-    schema = model_schema()
+    """Spec 1's schema, with the words and bounds the meaning pass checks (#98) and the
+    installed component types under ``x-component-types``."""
+    schema = published_schema()
     schema[COMPONENT_TYPES_KEY] = {
         type_name: describe_component(type_name, block, engine, domain)
         for type_name, block, engine, domain in _component_types(adapters)

@@ -90,7 +90,14 @@ from ithax.model.model import (
     TableRef,
     Term,
 )
-from ithax.model.schema import schema_pass
+from ithax.model.schema import (
+    LINEAR_OPS,
+    METRIC_OPS,
+    PARAMETER_TYPES,
+    SENSES,
+    VARIABLE_TYPES,
+    schema_pass,
+)
 from ithax.model.units import (
     Dimension,
     Quantity,
@@ -130,11 +137,12 @@ _DEFAULT_FIDELITY = "standard"
 
 # The words of the enumerated keys (spec 1 "Parameters", "Metric names"; spec 2
 # "Mathematical optimization in the model file").
-_PARAMETER_TYPES = ("integer", "number", "quantity")
-_SENSES = ("minimize", "maximize")
-_METRIC_OPS = ("<=", ">=")
-_LINEAR_OPS = ("<=", ">=", "==")
-_VARIABLE_TYPES = ("continuous", "integer", "binary")
+# The words spec 1 allows, shared with the published schema (#98).
+_PARAMETER_TYPES = PARAMETER_TYPES
+_SENSES = SENSES
+_METRIC_OPS = METRIC_OPS
+_LINEAR_OPS = LINEAR_OPS
+_VARIABLE_TYPES = VARIABLE_TYPES
 # How messages name the objective, the one owner of terms that has no 'for'.
 OBJECTIVE = "the objective"
 
