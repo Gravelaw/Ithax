@@ -3634,3 +3634,19 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The pre-push skill already appends the branch's entries after main's file; it now ends with this command.
 - **Spec sections updated:** none.
 - **Dependencies added:** none.
+
+## 2026-11-16 · M16 · Spec 4 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 4 now applies the checklist's six "change needed" rows for it and goes from version 0.9 to 0.10:
+  - the version line (2026-11-09 B2);
+  - the ten templates kept, with an eleventh and template expansion in Phase 3 (2026-11-09 B7 item 3);
+  - C6's rule among the rules for assistant access;
+  - data import through the assistant in Phase 2 (D15);
+  - the Learn walkthrough row: agents in roles every phase, plus one or two people at v0.1.0 (C1, C2);
+  - a per-phase row for the different-assistant trial (C6).
+  - The five "already in spec" rows need no change.
+- **Readings (reversible):**
+  - The version goes from 0.9 to 0.10, not to 1.0. A major step is left for a change of the spec's substance.
+  - The two remaining "owner to confirm" phrases near the templates (the thresholds kept at M10, AKS-125, and the template selection, AKS-124) are E1's build readings, which the checklist does not list. They stay.
+- **Spec sections updated:** spec 4, the version line, "Template library", "MCP server", "Limits", "Acceptance tests" and "Changes in this version".
+- **Dependencies added:** none.
