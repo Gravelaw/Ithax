@@ -3648,3 +3648,19 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Applied elsewhere:** the Windows sentences of specs 0 and 3 and the overview, and spec 0's "Success measures", change in those specs' Phase 1 review PRs (#101).
 - **Spec sections updated:** none in this PR.
 - **Dependencies added:** none.
+
+## 2026-11-16 · M16 · Spec 0 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 0 now applies its approved rows and goes from version 0.4 to 0.5.
+  - The 19 "change needed" rows of "Spec 0", each as the checklist drafts it.
+  - Its four "needs owner" rows, as the owner decided:
+    - lines 128 and 172, the success measures: the six of B2, with no numeric targets until after Phase 3 and the values so far as baselines (#206, 2026-11-16);
+    - line 82, WSL: Windows through WSL 2 until after Phase 3, then a native build (#207, 2026-11-16);
+    - line 151, the six added risks: accepted as written, "(proposed)" dropped (the checklist's reading 2).
+  - The history line (188) is kept; the new dated line is under "Changes in this version".
+- **Readings (reversible):**
+  - The success measures table gives a "Baseline so far" column instead of targets. Each value is copied from the milestone record that measured it (STATUS M6, M9, M10, M11 and M13). Cognitive load has none yet.
+  - The 2026-11-05 measures and their M10 and M11 records stay below the table, marked as history, since the owner checks list (#102) and earlier sessions cite them.
+  - The unsigned-package risk now covers the Linux package and the AppImage, which Windows users run under WSL 2. Code signing is decided before the native Windows build (B5, #207).
+- **Spec sections updated:** spec 0, the version line, "Purpose", "Scope and build order", "Platform and hardware", "AI access", "Licence and community", "Success measures", "Risks and open items" and "Changes in this version".
+- **Dependencies added:** none.
