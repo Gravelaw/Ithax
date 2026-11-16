@@ -1,0 +1,5 @@
+opensim 4.6-2026-06-22-85aaf64, L=1.0 m, g=9.80665 m/s^2, integrator accuracy 1e-10, samples every 0.001 s for 10.0 s
+small-angle period 2 pi sqrt(L/g) = 2.006409 s
+theta0 (deg), OpenSim period (s), exact period (s), relative error, max |energy drift| / initial potential energy
+10, 2.010236, 2.010236, -4.87e-12, 3.27e-06
+90, 2.368246, 2.368246, -2.17e-11, 3.27e-06

@@ -1,0 +1,8 @@
+repyability 0.19.1, surpyval 0.28
+single unit  closed=0.8000000000 repyability mean_availability=0.8000000000
+A( 10.0) closed=0.9213061319 repyability point_availability=0.9213061312 diff=-7.7e-10
+A( 50.0) closed=0.8164169997 repyability point_availability=0.8164169889 diff=-1.1e-08
+A(200.0) closed=0.8000090800 repyability point_availability=0.8000090835 diff=+3.5e-09
+parallel 1oo2 closed=0.9600000000 repyability=0.9600000000
+series       closed=0.6400000000 repyability=0.6400000000
+simulated single unit over 100000 time units, 200 runs, seed 20261116: mean fraction up 0.7998

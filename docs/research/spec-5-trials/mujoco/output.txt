@@ -1,0 +1,7 @@
+mujoco 4.0.1 numpy 2.5.5
+10 deg, RK4   dt 0.001 s: T 2.010235893 s, exact 2.010235893 s, relative error +1.04e-11
+10 deg, RK4   dt 0.0001 s: T 2.010235893 s, exact 2.010235893 s, relative error -1.32e-12
+10 deg, Euler dt 0.0001 s: T 2.010235885 s, exact 2.010235893 s, relative error -4.03e-09
+90 deg, RK4   dt 0.001 s: T 2.368246346 s, exact 2.368246346 s, relative error -1.00e-11
+90 deg, RK4   dt 0.0001 s: T 2.368246346 s, exact 2.368246346 s, relative error -1.42e-12
+90 deg, Euler dt 0.0001 s: T 2.368246346 s, exact 2.368246346 s, relative error -1.43e-12
