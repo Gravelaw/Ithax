@@ -1,6 +1,6 @@
 # Spec 4: Content, Learning and AI Access
 
-> Version 0.9 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 1.0 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 This spec covers what makes the tool usable by non-experts: ready-made templates, lessons, findings in plain language, and an MCP server so any assistant can build and run models.
 
@@ -345,3 +345,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-15, recent projects (#97): "MCP tools" says `list_projects` and `create_model` give `opened`, `template` and `lesson_step` too, the interface's notes (spec 3 `GET /v1/projects`), and their descriptions say so.
 - 2026-11-15, rename and remove (#97; C6): "MCP server" and "MCP tools" add `rename_project` and `remove_project`, the thin tools of `PATCH /v1/projects/{pid}` (its `name` only; `opened` and `lesson_step` are the interface's and have no tool) and `POST /v1/projects/{pid}/remove`.
 - 2026-11-15, resuming a lesson (#97, Reviewer B finding 10): "Learn and Build modes" (Where the lesson lives) keeps the step reached with the project, so a lesson resumes after a reload in the project made from its template, and "Start the lesson" no longer makes a new project each time.
+- 2026-11-16, M14 closed (#71, #82, #83, #98 and #158): no further change to this spec at the close. Version 1.0.
