@@ -3649,6 +3649,56 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** none in this PR.
 - **Dependencies added:** none.
 
+## 2026-11-16 · M16 · Spec 0 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 0 now applies its approved rows and goes from version 0.4 to 0.5.
+  - The 19 "change needed" rows of "Spec 0", each as the checklist drafts it.
+  - Its four "needs owner" rows, as the owner decided:
+    - lines 128 and 172, the success measures: the six of B2, with no numeric targets until after Phase 3 and the values so far as baselines (#206, 2026-11-16);
+    - line 82, WSL: Windows through WSL 2 until after Phase 3, then a native build (#207, 2026-11-16);
+    - line 151, the six added risks: accepted as written, "(proposed)" dropped (the checklist's reading 2).
+  - The history line (188) is kept; the new dated line is under "Changes in this version".
+- **Readings (reversible):**
+  - The success measures table gives a "Baseline so far" column instead of targets. Each value is copied from the milestone record that measured it (STATUS M6, M9, M10, M11 and M13). Cognitive load has none yet.
+  - The 2026-11-05 measures and their M10 and M11 records stay below the table, marked as history, since the owner checks list (#102) and earlier sessions cite them.
+  - The unsigned-package risk now covers the Linux package and the AppImage, which Windows users run under WSL 2. Code signing is decided before the native Windows build (B5, #207).
+- **Spec sections updated:** spec 0, the version line, "Purpose", "Scope and build order", "Platform and hardware", "AI access", "Licence and community", "Success measures", "Risks and open items" and "Changes in this version".
+- **Dependencies added:** none.
+
+## 2026-11-16 · M16 · Spec 1 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 1 now applies the checklist's "change needed" rows for it and goes from version 1.6 to 1.7:
+  - the version line, which drops "owner to confirm" (2026-11-09 B2);
+  - the engine licence rule: AGPL-3.0-only (B4, C7), plus F4's separate processes and the GPL-2.0-only engines they allow. "Proposed default, owner to confirm" is dropped, and the lawyer sentence stays, since F4 defers further legal review;
+  - "Versioning": format 0.x changes only additively (F7), and its behaviour as built is current, not frozen (E1);
+  - `search.objective`: several objectives come in Phase 2 (B1). This also covers 2026-11-09 B7 item 2;
+  - E190: a solve stopped with a good solution becomes `feasible` with its gap in Phase 2 (E1 M5-1, M5-10).
+  - The eight "already in spec" rows need no change. That includes D2's error-with-warning-mark reading, which the owner approved with the checklist (its reading 4).
+- **Spec sections updated:** spec 1, the version line, "Engine contract" (the licence rule), "Versioning", "Experiments" (the `search` keys), "Validation issues" (E190) and "Changes in this version".
+- **Dependencies added:** none.
+
+## 2026-11-16 · M16 · Spec 2 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 2 now applies the checklist's 14 "change needed" rows for it and goes from version 1.1 to 1.2:
+  - the version line (2026-11-09 B2);
+  - the block defaults confirmed for Phase 1 and tested again in the agent walkthroughs (2026-11-09 B3, C1);
+  - the Phase 2 objective types (B1);
+  - ranking and selection (D1, settling 2026-11-07 item 7);
+  - the warm-up check kept for 0.x (E1 M3-2);
+  - `feasible` with its gap (E1 M5-1, M5-10), and duals first (E1 M5-15);
+  - the process constructs (D10, D11), and the failure per unit (D13);
+  - the Phase 2 research items;
+  - no cap on scenarios (B6);
+  - a noise-aware search (E1 M5-23);
+  - the `sketch` fidelity (B7 item 1);
+  - the source's schedule (D10, M4-1).
+  - The five "already in spec" rows need no change.
+- **Readings (reversible):**
+  - "Confirmed for Phase 1" replaces "owner to confirm" only where 2026-11-09 B3 names it: the block defaults of "Block reference" (AKS-99, AKS-105, AKS-106) and the council's defaults of AKS-76. The other "owner to confirm" phrases in spec 2 are E1's build readings. E1 already accepts them as format 0.x's current behaviour, and the checklist does not list them one by one, so they stay as written.
+  - D1's example procedures (KN with common random numbers, Batur and Kim) are named as candidates the rule may choose, not as the choice.
+- **Spec sections updated:** spec 2, the version line, "Process block library", "Experiment manager", "Optimization", "Block reference", "Statistic definitions" (the warm-up check), "Mathematical optimization in the model file", "Simulation-based optimization", "Fidelity for process models", "Research before building" and "Changes in this version".
+- **Dependencies added:** none.
+
 ## 2026-11-16 · M16 · Spec 3 brought up to the Phase 1 review (#101)
 
 - **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 3 now applies its approved rows and goes from version 1.1 (after the M14 close, #222) to 1.2.
