@@ -2,7 +2,7 @@
 
 Run by the CI workflow `.github/workflows/spec5-trials.yml`, once on the machine that
 built the FMUs and once in a container without OpenModelica:
-    python run_fmu.py MSD_native.fmu MSD_static.fmu
+    python run_fmu.py MSD_dynamic.fmu MSD_static.fmu
 
 Known answer: m = 1 kg, c = 4 N/m, d = 0.4 N.s/m, x(0) = 1 m, v(0) = 0, so wn = 2 rad/s,
 zeta = 0.1, x(t) = exp(-zeta wn t) (cos wd t + zeta wn / wd sin wd t); x(10 s) =

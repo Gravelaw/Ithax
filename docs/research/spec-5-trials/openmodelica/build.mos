@@ -6,7 +6,8 @@ loadModel(Modelica, {"4.1.0"}); getErrorString();
 getVersion(Modelica);
 loadFile("MSD.mo"); getErrorString();
 checkModel(MSD); getErrorString();
-// The default: compiled for this machine, linked to the installed runtime libraries.
-buildModelFMU(MSD, version = "2.0", fmuType = "cs", fileNamePrefix = "MSD_native"); getErrorString();
-// Statically linked, to test whether it runs where OpenModelica is not installed.
+// Dynamically linked to the installed runtime libraries, set explicitly: the API's default
+// is platforms = {"static"} (OpenModelica scripting API, buildModelFMU).
+buildModelFMU(MSD, version = "2.0", fmuType = "cs", fileNamePrefix = "MSD_dynamic", platforms = {"dynamic"}); getErrorString();
+// Statically linked (the default), to test whether it runs where OpenModelica is not installed.
 buildModelFMU(MSD, version = "2.0", fmuType = "cs", fileNamePrefix = "MSD_static", platforms = {"static"}); getErrorString();

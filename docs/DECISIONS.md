@@ -3697,7 +3697,7 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Reason:** the orchestrating session's answer of 2026-11-16: "add the CI trial job in its own PR. Don't record the two engines as "not run" when CI can run them." The container refused adding OpenModelica's apt repository and running a conda tool.
 - **Readings (reversible):**
   - PyChrono 9.0.1 (the orchestrating session's pin), build `py312h98ab86c_406`, rather than 10.0.0, the newest; both are BSD-3-Clause.
-  - A second FMU is built with `platforms = {"static"}` to test whether a statically linked FMU runs where OpenModelica is not installed.
+  - Two FMUs are built, one with `platforms = {"dynamic"}` and one with `{"static"}` (the API's default, per OpenModelica's scripting API for `buildModelFMU`), to test which runs where OpenModelica is not installed.
   - FMPy's own dependencies are installed unpinned from PyPI: only the engines and FMPy are pinned.
 - **Spec sections updated:** none.
 - **Dependencies added:** none to the project. Downloaded in CI only, each checked by SHA-256:
