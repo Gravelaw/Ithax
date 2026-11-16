@@ -1,0 +1,15 @@
+salib=1.6.0 scipy=1.18.1 numpy=2.5.5
+analytic: mean=3.5000 var=13.8446 S1=0.3139 S2=0.4424 S3=0.0000 ST1=0.5576 ST2=0.4424 ST3=0.2437
+[SALib sobol N=1024] evaluations=5120
+  x1: S1=0.3190 (known 0.3139, conf 0.0578) ST=0.5586 (known 0.5576, conf 0.0817)
+  x2: S1=0.4443 (known 0.4424, conf 0.0558) ST=0.4454 (known 0.4424, conf 0.0410)
+  x3: S1=0.0079 (known 0.0000, conf 0.0497) ST=0.2444 (known 0.2437, conf 0.0267)
+[SALib sobol N=8192] evaluations=40960
+  x1: S1=0.3146 (known 0.3139, conf 0.0219) ST=0.5576 (known 0.5576, conf 0.0284)
+  x2: S1=0.4415 (known 0.4424, conf 0.0192) ST=0.4424 (known 0.4424, conf 0.0169)
+  x3: S1=0.0009 (known 0.0000, conf 0.0194) ST=0.2438 (known 0.2437, conf 0.0108)
+[SALib sobol] same seed repeats exactly: True
+[SALib morris r=100] evaluations=400 mu_star=[7.079, 7.875, 6.499] sigma=[6.249, 7.9, 8.97] ranking=['x2', 'x1', 'x3']
+[qmc LatinHypercube n=4096 seed=5] mean=3.4918 (known 3.5000) var=13.7968 (known 13.8446) centred discrepancy=2.55e-05 repeats=True
+[qmc Sobol scrambled n=4096 seed=5] mean=3.5001 (known 3.5000) var=13.8825 (known 13.8446) centred discrepancy=2.05e-07 repeats=True
+[plain Monte Carlo n=4096 seed=5] mean=3.4259 var=13.3933 centred discrepancy=1.04e-04
