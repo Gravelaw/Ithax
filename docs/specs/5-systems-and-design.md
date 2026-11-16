@@ -165,7 +165,7 @@ From `spec-5-people-engines.md` and `spec-5-people-methods.md`; the phase of eac
 
 From `spec-5-reliability.md`. **Proposed** for the calculators' home and entry point (Q4: where a calculator's inputs live in a project), otherwise as follows:
 
-- **Life-data fitting.** `scipy.stats` `fit` with `CensoredData` (right-censored), `floc = 0`, in-process, for the spec 1 families `exponential`, `weibull`, `lognormal`, `normal`. It extends spec 3's distribution fit, and its result can fill a `failure` block's `time_to_failure`.
+- **Life-data fitting.** `scipy.stats` `fit` with `CensoredData` (right-censored), in-process, for the spec 1 families `exponential`, `weibull`, `lognormal` and `normal`, as `src/ithax/model/fit.py` fits them today: `floc = 0` for `exponential`, `weibull` and `lognormal`, whose location is a threshold that life data starts from, and a free location for `normal`, whose location is its mean. It extends spec 3's distribution fit, and its result can fill a `failure` block's `time_to_failure`.
 - **Block diagrams.** Calculators for nested series, parallel and k-out-of-n blocks, from each block's reliability, or from its MTTF and MTTR for steady-state availability A = MTTF / (MTTF + MTTR). A diagram that does not reduce by those steps is E410 (NIST 8.1.8.6).
 - **Fault trees.** `faultree` 0.4 (BSD-3-Clause, in-process), for AND, OR and k-of-n gates: the exact top-event probability and the minimal cut sets, with the rare-event approximation and the cut-set upper bound shown beside them.
 - **Maintenance-policy comparison (Proposed, Q9).** The `failure` and `schedule` blocks cannot renew a unit before it fails, so preventive maintenance needs new settings on `failure`.
