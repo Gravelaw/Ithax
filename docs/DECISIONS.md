@@ -3677,6 +3677,28 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** spec 1, the version line, "Engine contract" (the licence rule), "Versioning", "Experiments" (the `search` keys), "Validation issues" (E190) and "Changes in this version".
 - **Dependencies added:** none.
 
+## 2026-11-16 · M16 · Spec 2 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 2 now applies the checklist's 14 "change needed" rows for it and goes from version 1.1 to 1.2:
+  - the version line (2026-11-09 B2);
+  - the block defaults confirmed for Phase 1 and tested again in the agent walkthroughs (2026-11-09 B3, C1);
+  - the Phase 2 objective types (B1);
+  - ranking and selection (D1, settling 2026-11-07 item 7);
+  - the warm-up check kept for 0.x (E1 M3-2);
+  - `feasible` with its gap (E1 M5-1, M5-10), and duals first (E1 M5-15);
+  - the process constructs (D10, D11), and the failure per unit (D13);
+  - the Phase 2 research items;
+  - no cap on scenarios (B6);
+  - a noise-aware search (E1 M5-23);
+  - the `sketch` fidelity (B7 item 1);
+  - the source's schedule (D10, M4-1).
+  - The five "already in spec" rows need no change.
+- **Readings (reversible):**
+  - "Confirmed for Phase 1" replaces "owner to confirm" only where 2026-11-09 B3 names it: the block defaults of "Block reference" (AKS-99, AKS-105, AKS-106) and the council's defaults of AKS-76. The other "owner to confirm" phrases in spec 2 are E1's build readings. E1 already accepts them as format 0.x's current behaviour, and the checklist does not list them one by one, so they stay as written.
+  - D1's example procedures (KN with common random numbers, Batur and Kim) are named as candidates the rule may choose, not as the choice.
+- **Spec sections updated:** spec 2, the version line, "Process block library", "Experiment manager", "Optimization", "Block reference", "Statistic definitions" (the warm-up check), "Mathematical optimization in the model file", "Simulation-based optimization", "Fidelity for process models", "Research before building" and "Changes in this version".
+- **Dependencies added:** none.
+
 ## 2026-11-16 · Spec 5 research · Owner decision: start spec 5 research now, in one session (#104)
 
 - **Decision (owner, 2026-11-16, relayed by the orchestrating session):** "start spec 5 research now. Keep a separate session as usual. This has to be done in a single session rather than multiple ones." Spec 5's research, its trial runs, the detailed draft (version 0.3) and its council start before M16 closes and are done by one session, from #104.
