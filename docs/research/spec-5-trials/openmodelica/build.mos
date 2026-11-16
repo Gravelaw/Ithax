@@ -1,0 +1,12 @@
+// Spec 5 trial: build MSD.mo into FMI 2.0 Co-Simulation FMUs with OpenModelica.
+// Run as `omc build.mos` in a folder holding MSD.mo; prints each step's errors.
+getVersion();
+installPackage(Modelica, "4.1.0+maint.om", exactMatch = false); getErrorString();
+loadModel(Modelica, {"4.1.0"}); getErrorString();
+getVersion(Modelica);
+loadFile("MSD.mo"); getErrorString();
+checkModel(MSD); getErrorString();
+// The default: compiled for this machine, linked to the installed runtime libraries.
+buildModelFMU(MSD, version = "2.0", fmuType = "cs", fileNamePrefix = "MSD_native"); getErrorString();
+// Statically linked, to test whether it runs where OpenModelica is not installed.
+buildModelFMU(MSD, version = "2.0", fmuType = "cs", fileNamePrefix = "MSD_static", platforms = {"static"}); getErrorString();
