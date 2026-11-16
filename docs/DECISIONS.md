@@ -3635,9 +3635,23 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** none.
 - **Dependencies added:** none.
 
+## 2026-11-16 · Owner decisions on #206 and #207, and the Phase 2 table updated
+
+- **Decision (owner, 2026-11-16, through the orchestrating session; both issues closed, and neither default applies):**
+  - **#206, the success measures.** Spec 0's "Success measures" keeps the six measures of 2026-11-09 B2, with no numeric targets. The targets are set after Phase 3. The values measured so far are baselines, not targets, and they gate neither Phase 2 nor Phase 3.
+  - **#207, Windows.** Windows is supported through WSL 2, with the Linux package or the AppImage, until after Phase 3. A native Windows build comes after Phase 3, as refactoring and API work for the libraries that have no Windows build. This replaces the answer of 2026-11-15 item 3 (an unsigned native installer with a SmartScreen note and a checksum in Phase 2): that installer, and its code signing, move to after Phase 3.
+- **Applied here:** the proposed Phase 2 milestone table, `docs/research/phase-2-milestones.md`.
+  - M24 is now "Windows through WSL 2": a documented install of the Linux package or the AppImage under WSL 2, tested in CI on a WSL runner where one is available, otherwise an owner check.
+  - The native Windows build and the success-measure targets are in "Not in Phase 2".
+  - M26's release criteria say the measures are baselines and do not gate the release.
+  - The table still awaits the owner's approval before it goes into the guide (D18).
+- **Applied elsewhere:** the Windows sentences of specs 0 and 3 and the overview, and spec 0's "Success measures", change in those specs' Phase 1 review PRs (#101).
+- **Spec sections updated:** none in this PR.
+- **Dependencies added:** none.
+
 ## 2026-11-16 · M16 · Spec 4 brought up to the Phase 1 review (#101)
 
-- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 4 now applies the checklist's six "change needed" rows for it and goes from version 0.9 to 0.10:
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 4 now applies the checklist's six "change needed" rows for it and goes from version 1.0 (after the M14 close, #222) to 1.1:
   - the version line (2026-11-09 B2);
   - the ten templates kept, with an eleventh and template expansion in Phase 3 (2026-11-09 B7 item 3);
   - C6's rule among the rules for assistant access;
@@ -3646,7 +3660,6 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - a per-phase row for the different-assistant trial (C6).
   - The five "already in spec" rows need no change.
 - **Readings (reversible):**
-  - The version goes from 0.9 to 0.10, not to 1.0. A major step is left for a change of the spec's substance.
   - The two remaining "owner to confirm" phrases near the templates (the thresholds kept at M10, AKS-125, and the template selection, AKS-124) are E1's build readings, which the checklist does not list. They stay.
 - **Spec sections updated:** spec 4, the version line, "Template library", "MCP server", "Limits", "Acceptance tests" and "Changes in this version".
 - **Dependencies added:** none.
