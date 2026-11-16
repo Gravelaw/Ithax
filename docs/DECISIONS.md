@@ -3752,3 +3752,25 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The Windows acceptance row is checked by an agent on a WSL runner where one is available, and otherwise by the owner, as M24 of the proposed Phase 2 table says.
 - **Spec sections updated:** spec 3, the version line and the warning, "Architecture", "API", "Screens", "Hardware tiers", "Packaging", "Service rules" (the launcher and the desktop shell), "Endpoints" (new projects), "Canvas behaviour", "Performance targets", "Design before building", "Research before building", "Acceptance tests" and "Changes in this version".
 - **Dependencies added:** none.
+
+## 2026-11-16 · Spec 5 research · A CI job for the trials of OpenModelica and Project Chrono (#104)
+
+- **Decision:** `.github/workflows/spec5-trials.yml` runs the two spec 5 trials that the research container could not: OpenModelica 1.27.2 builds the mass–spring–damper (`docs/research/spec-5-trials/openmodelica/MSD.mo`) into FMI 2.0 Co-Simulation FMUs that FMPy 0.3.32 runs against the analytic response, both where they were built and in a clean `python:3.12-slim-bookworm` container without OpenModelica; and PyChrono 9.0.1 runs the pendulum at 10° and 90° (`docs/research/spec-5-trials/chrono/pendulum.py`).
+  - **Triggers:** `workflow_dispatch`, and `pull_request` limited to `docs/research/spec-5-trials/**` and the workflow file.
+  - **Not a gate:** the workflow is not in `checks.yml`'s `all-green` nor in the branch ruleset.
+  - **Pinned downloads, failing closed:** every package is checked against a SHA-256 taken from its index on 2026-11-16, as #210 did for the AppImage tools. Results are uploaded as artifacts and copied into the research notes with the run ID and head SHA.
+- **Reason:** the orchestrating session's answer of 2026-11-16: "add the CI trial job in its own PR. Don't record the two engines as "not run" when CI can run them." The container refused adding OpenModelica's apt repository and running a conda tool.
+- **Readings (reversible):**
+  - PyChrono 9.0.1 (the orchestrating session's pin), build `py312h98ab86c_406`, rather than 10.0.0, the newest; both are BSD-3-Clause.
+  - Two FMUs are built, one with `platforms = {"dynamic"}` and one with `{"static"}` (the API's default, per OpenModelica's scripting API for `buildModelFMU`), to test which runs where OpenModelica is not installed.
+  - FMPy's own dependencies are installed unpinned from PyPI: only the engines and FMPy are pinned.
+- **Spec sections updated:** none.
+- **Dependencies added:** none to the project. Downloaded in CI only, each checked by SHA-256:
+
+  | Name | Version | Licence | How checked |
+  | --- | --- | --- | --- |
+  | omc, libomc, libomcsimulation, omc-common | 1.27.2-1 | GPL-3.0 or OSMC-PL 1.2 (`copyright`); runtime in FMUs BSD-new, AGPL-3.0 or OSMC-PL 1.8 (headers) | `Packages` index SHA-256; files read from the unpacked `.deb` (`docs/research/spec-5-openmodelica-fmu.md`) |
+  | omlibrary (Modelica Standard Library 3.2.3, 4.0.0, 4.1.0) | 1.27.2-1 | BSD-3-Clause | `Packages` SHA-256; `LICENSE` in the library archive |
+  | FMPy | 0.3.32 | BSD-2-Clause | PyPI SHA-256; wheel `LICENSE.txt` |
+  | micromamba | 2.0.5 | BSD-3-Clause AND MIT AND OpenSSL (conda-forge repodata) | conda-forge `repodata.json` SHA-256 |
+  | PyChrono | 9.0.1 (`py312h98ab86c_406`) | BSD-3-Clause (package metadata; projectchrono.org licence page) | projectchrono `repodata.json` SHA-256 |
