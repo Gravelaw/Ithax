@@ -9,7 +9,7 @@ Install (Python 3.12, a fresh virtual environment outside the repository):
     VIRTUAL_ENV=venv uv pip install numpy==2.5.4 scipy==1.18.1 scikit-learn==1.9.1 \
         smt==2.15.1 skops==0.16.0 skl2onnx==1.20.0 onnx==1.23.2 onnxruntime==1.32.0
 
-Run (about ten minutes on four cores):
+Run (846 s measured on four cores of a 2.1 GHz Xeon, 2026-11-16):
 
     venv/bin/python -I trial.py > output.txt
 
@@ -149,7 +149,9 @@ def metrics(y: np.ndarray, p: np.ndarray) -> dict[str, float]:
     }
 
 
-def loo_gp_fixed(gp: GaussianProcessRegressor, x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def loo_gp_fixed(
+    gp: GaussianProcessRegressor, x: np.ndarray, y: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     """Leave-one-out with the hyperparameters fitted on all runs (Jones et al. 1998)."""
     n = len(y)
     mu, sd = np.empty(n), np.empty(n)
@@ -187,9 +189,23 @@ def study_clean(fname: str, f: Any, box: np.ndarray, ns: list[int]) -> None:
     for n in ns:
         for name in MODELS:
             rows: dict[str, list[float]] = {
-                k: [] for k in ("rmse", "maxabs", "q2", "nrmse", "cv5_rmse", "cv5_q2",
-                                 "ratio5", "loo_rmse", "loo_q2", "ratio_loo",
-                                 "cov95", "loo_cov95", "loo_out3", "fit_s")
+                k: []
+                for k in (
+                    "rmse",
+                    "maxabs",
+                    "q2",
+                    "nrmse",
+                    "cv5_rmse",
+                    "cv5_q2",
+                    "ratio5",
+                    "loo_rmse",
+                    "loo_q2",
+                    "ratio_loo",
+                    "cov95",
+                    "loo_cov95",
+                    "loo_out3",
+                    "fit_s",
+                )
             }
             nwarn = 0
             for seed in SEEDS:
@@ -238,9 +254,19 @@ def study_noisy() -> None:
     ft = branin(to_box(ut, box))
     for sd_noise in (5.0, 20.0):
         for n in (20, 40, 80):
-            r: dict[str, list[float]] = {k: [] for k in (
-                "rmse_vs_f", "q2_vs_f", "q2_vs_obs", "cv5_rmse_obs", "test_rmse_obs",
-                "noise_sd_fit", "cov95_f_latent", "cov95_obs_full")}
+            r: dict[str, list[float]] = {
+                k: []
+                for k in (
+                    "rmse_vs_f",
+                    "q2_vs_f",
+                    "q2_vs_obs",
+                    "cv5_rmse_obs",
+                    "test_rmse_obs",
+                    "noise_sd_fit",
+                    "cov95_f_latent",
+                    "cov95_obs_full",
+                )
+            }
             for seed in SEEDS:
                 u = lhs(d, n, seed)
                 rng = np.random.default_rng(10_000 + seed)
@@ -274,9 +300,14 @@ def study_replicated() -> None:
     d, box = 2, BRANIN_BOX
     ut = lhs(d, N_TEST, TEST_SEED)
     ft = branin(to_box(ut, box))
-    out: dict[str, list[float]] = {"per_point_alpha_rmse": [], "per_point_alpha_q2": [],
-                                   "per_point_alpha_cov95_f": [], "white_kernel_rmse": [],
-                                   "white_kernel_q2": [], "white_kernel_cov95_f": []}
+    out: dict[str, list[float]] = {
+        "per_point_alpha_rmse": [],
+        "per_point_alpha_q2": [],
+        "per_point_alpha_cov95_f": [],
+        "white_kernel_rmse": [],
+        "white_kernel_q2": [],
+        "white_kernel_cov95_f": [],
+    }
     for seed in SEEDS:
         u = lhs(d, 20, seed)
         fx = branin(to_box(u, box))
@@ -306,15 +337,19 @@ def study_replicated() -> None:
 
 # ---------------------------------------------------------------- study 3
 def study_extrapolation() -> None:
-    print("\n=== Extrapolation: Branin GP trained on x1 in [-5, 2.5] (n=20), tested inside and outside")
+    print(
+        "\n=== Extrapolation: Branin GP trained on x1 in [-5, 2.5] (n=20), "
+        "tested inside and outside"
+    )
     d = 2
     inner = np.array([[-5.0, 2.5], [0.0, 15.0]])
     outer = np.array([[2.5, 10.0], [0.0, 15.0]])
     xi = to_box(lhs(d, N_TEST, TEST_SEED), inner)
     xo = to_box(lhs(d, N_TEST, TEST_SEED), outer)
     lo, hi = BRANIN_BOX[:, 0], BRANIN_BOX[:, 1]
-    res: dict[str, list[float]] = {k: [] for k in ("q2_in", "q2_out", "rmse_in", "rmse_out",
-                                                    "cov95_in", "cov95_out")}
+    res: dict[str, list[float]] = {
+        k: [] for k in ("q2_in", "q2_out", "rmse_in", "rmse_out", "cov95_in", "cov95_out")
+    }
     for seed in SEEDS:
         x = to_box(lhs(d, 20, seed), inner)
         with warnings.catch_warnings():
@@ -369,15 +404,19 @@ def study_portability() -> None:
     p2, _ = gp2.predict(ut, return_std=True)
     print(f"   GP refit, same seed: predictions bit-identical: {np.array_equal(p1, p2)}")
     print(f"   GP fitted kernel: {gp1.kernel_}")
-    print(f"   HGB refit, same seed: bit-identical: {np.array_equal(h1.predict(ut), h2.predict(ut))}")
+    print(
+        f"   HGB refit, same seed: bit-identical: {np.array_equal(h1.predict(ut), h2.predict(ut))}"
+    )
     # permuted training order
     perm = np.random.default_rng(1).permutation(80)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         gp3 = make_gp(d).fit(u[perm], y[perm])
     p3 = gp3.predict(ut)
-    print(f"   GP refit on permuted run order: max |diff| / range = "
-          f"{fmt(float(np.max(np.abs(p3 - p1)) / np.ptp(y)))}")
+    print(
+        f"   GP refit on permuted run order: max |diff| / range = "
+        f"{fmt(float(np.max(np.abs(p3 - p1)) / np.ptp(y)))}"
+    )
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -386,8 +425,10 @@ def study_portability() -> None:
         pk = pickle.dumps(m, protocol=5)
         sk = sio.dumps(m)
         untrusted = sio.get_untrusted_types(data=sk)
-        print(f"   {name}: pickle {len(pk)} bytes; skops {len(sk)} bytes; "
-              f"skops untrusted types: {untrusted}")
+        print(
+            f"   {name}: pickle {len(pk)} bytes; skops {len(sk)} bytes; "
+            f"skops untrusted types: {untrusted}"
+        )
         with_std = name == "GP"
         onx = None
         for opts in ([{id(m): {"return_std": True}}] if with_std else []) + [None]:
@@ -397,8 +438,10 @@ def study_portability() -> None:
                 break
             except Exception as exc:  # record the converter's failure and go on
                 kind = "with return_std" if opts else "mean only"
-                print(f"   {name}: ONNX conversion {kind} failed: {type(exc).__name__}: "
-                      f"{str(exc)[:100]}")
+                print(
+                    f"   {name}: ONNX conversion {kind} failed: {type(exc).__name__}: "
+                    f"{str(exc)[:100]}"
+                )
         if onx is None:
             continue
         ob = onx.SerializeToString()
@@ -412,7 +455,8 @@ def study_portability() -> None:
         diff = float(np.max(np.abs(outs[0].ravel() - ref)) / yr)
         extra = ""
         if with_std:
-            extra = f"; std max |diff| / range {fmt(float(np.max(np.abs(outs[1].ravel() - refs)) / yr))}"
+            std_diff = float(np.max(np.abs(outs[1].ravel() - refs)) / yr)
+            extra = f"; std max |diff| / range {fmt(std_diff)}"
         print(f"   {name}: ONNX {len(ob)} bytes; ONNX mean max |diff| / range {fmt(diff)}{extra}")
 
     # JSON of training data and fitted hyperparameters, refit without optimisation
@@ -426,19 +470,24 @@ def study_portability() -> None:
     text = json.dumps(doc)
     back = json.loads(text)
     k = gp1.kernel.clone_with_theta(np.array(back["kernel_theta_log"]))
-    g = GaussianProcessRegressor(kernel=k, alpha=back["alpha"], optimizer=None,
-                                 normalize_y=back["normalize_y"])
+    g = GaussianProcessRegressor(
+        kernel=k, alpha=back["alpha"], optimizer=None, normalize_y=back["normalize_y"]
+    )
     g.fit(np.array(back["x"]), np.array(back["y"]))
     pj, sj = g.predict(ut, return_std=True)
-    print(f"   GP as JSON (runs + hyperparameters): {len(text.encode())} bytes; refit without "
-          f"optimiser: mean bit-identical {np.array_equal(pj, p1)}, max |diff| / range "
-          f"{fmt(float(np.max(np.abs(pj - p1)) / np.ptp(y)))}, std max |diff| "
-          f"{fmt(float(np.max(np.abs(sj - s1))))}")
+    print(
+        f"   GP as JSON (runs + hyperparameters): {len(text.encode())} bytes; refit without "
+        f"optimiser: mean bit-identical {np.array_equal(pj, p1)}, max |diff| / range "
+        f"{fmt(float(np.max(np.abs(pj - p1)) / np.ptp(y)))}, std max |diff| "
+        f"{fmt(float(np.max(np.abs(sj - s1))))}"
+    )
     t0 = time.perf_counter()
     for _ in range(100):
         g.predict(ut[:1])
-    print(f"   GP single-point prediction: {fmt((time.perf_counter() - t0) / 100 * 1e3)} ms "
-          f"(this machine)")
+    print(
+        f"   GP single-point prediction: {fmt((time.perf_counter() - t0) / 100 * 1e3)} ms "
+        f"(this machine)"
+    )
 
 
 def main() -> None:

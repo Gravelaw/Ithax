@@ -20,13 +20,15 @@ import onnx
 import onnxruntime as ort
 import skl2onnx
 import sklearn
+from skl2onnx import to_onnx
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, Matern
-from skl2onnx import to_onnx
 
-print(f"scikit-learn {sklearn.__version__}, skl2onnx {skl2onnx.__version__}, "
-      f"onnx {onnx.__version__}, onnxruntime {ort.__version__}")
+print(
+    f"scikit-learn {sklearn.__version__}, skl2onnx {skl2onnx.__version__}, "
+    f"onnx {onnx.__version__}, onnxruntime {ort.__version__}"
+)
 X = np.random.default_rng(0).random((30, 2))
 y = np.sin(6 * X[:, 0]) + X[:, 1]
 
@@ -66,8 +68,13 @@ h = HistGradientBoostingRegressor(min_samples_leaf=2, random_state=0).fit(X, y)
 for dt in (np.float32, np.float64):
     try:
         out = run(h, X.astype(dt), False)
-        print(f"HGB {dt.__name__}: converted; max |diff| {np.max(np.abs(out[0].ravel() - h.predict(X))):.3g}")
+        print(
+            f"HGB {dt.__name__}: converted; "
+            f"max |diff| {np.max(np.abs(out[0].ravel() - h.predict(X))):.3g}"
+        )
     except Exception as exc:
         cause = exc.__cause__ or exc.__context__
-        print(f"HGB {dt.__name__}: FAILED {type(exc).__name__}: {str(exc)[:60]}...; "
-              f"underlying: {cause!r}")
+        print(
+            f"HGB {dt.__name__}: FAILED {type(exc).__name__}: {str(exc)[:60]}...; "
+            f"underlying: {cause!r}"
+        )
