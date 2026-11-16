@@ -1,0 +1,18 @@
+optuna=5.1.0 numpy=2.5.5 (known Branin min 0.397887)
+[in-process engine] seconds=0.1
+  optuna TPE best (40 trials, seed 1): 0.417087
+  pymoo GA best (20 x 10, seed 1): 0.44415
+  scipy Nelder-Mead best, evaluations: (0.397887357729946, 111)
+  sweep x1 at x2=2.275: [235.1022, 74.7492, 33.4777, 2.6137, 13.73, 14.2214, 2.4731]
+  LHS 64 mean, 95th percentile: (58.8884, 157.0762)
+  SALib Sobol N=64 S1, ST: ([0.3135, 0.3066], [0.7463, 0.9158])
+[file engine] seconds per evaluation=0.047
+[separate-process file engine] seconds=27.3
+  optuna TPE best (40 trials, seed 1): 0.417087
+  pymoo GA best (20 x 10, seed 1): 0.44415
+  scipy Nelder-Mead best, evaluations: (0.397887357729946, 111)
+  sweep x1 at x2=2.275: [235.1022, 74.7492, 33.4777, 2.6137, 13.73, 14.2214, 2.4731]
+  LHS 64 mean, 95th percentile: (58.8884, 157.0762)
+  SALib Sobol N=64 S1, ST: ([0.3135, 0.3066], [0.7463, 0.9158])
+same results from both engines: True
+[pymoo GA, file engine, 4 worker processes] best=0.444150 seconds=3.2 same as serial: True

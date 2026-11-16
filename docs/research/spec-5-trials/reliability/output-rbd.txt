@@ -1,0 +1,9 @@
+repyability 0.19.1, surpyval 0.28, numpy 2.5.5; Monte Carlo n=1000000, numpy default_rng seed 20261116
+series-parallel R1 R2 (1-(1-R3)(1-R4))       closed=0.8208000000 repyability=0.8208000000 diff=+0.0e+00 mc=0.820819 (|mc-closed|/se=0.05)
+2oo3, p=0.9: 3p^2-2p^3                       closed=0.9720000000 repyability=0.9720000000 diff=+0.0e+00 mc=0.972096 (|mc-closed|/se=0.58)
+  binomial sum k_of_n(0.9, 2, 3)             0.9720000000
+SIF: PT 2oo3, LS, SDV 1oo2 (series)          closed=0.9729942750 repyability=0.9729942750 diff=+0.0e+00 mc=0.973131 (|mc-closed|/se=0.85)
+  repyability minimal cut sets: [['ls'], ['pt1', 'pt2'], ['pt1', 'pt3'], ['pt2', 'pt3'], ['sdv1', 'sdv2']]
+MTTF 1oo2, lambda=0.001 (published 1500)     closed=1500.0000000000 repyability=1500.0000000000 diff=-1.8e-12
+MTTF 2oo3, lambda=0.001: 5/(6 lambda)        closed=833.3333333333 repyability=833.3333333333 diff=+0.0e+00
+R(500) 2oo3 exp: 3e^-2lt - 2e^-3lt           closed=0.6573780032 repyability=0.6573780032 diff=-1.1e-16

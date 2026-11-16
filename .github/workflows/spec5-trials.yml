@@ -1,0 +1,173 @@
+name: spec5-trials
+
+# Spec 5 research trials that the research container could not run (#104): OpenModelica
+# exports the mass-spring-damper as an FMI 2.0 Co-Simulation FMU that FMPy runs, and
+# PyChrono runs the pendulum at 10 and 90 degrees. Research, not a gate: this workflow is
+# not in checks.yml's all-green. Every download is checked against a pinned SHA-256 and
+# the job fails closed on a mismatch, as #210 did. Nothing here is a project dependency.
+# Decision: docs/DECISIONS.md, 2026-11-16, "Spec 5 research · A CI job for the trials".
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "docs/research/spec-5-trials/**"
+      - ".github/workflows/spec5-trials.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  # FMPy 0.3.32 (BSD-2-Clause), the wheel's SHA-256 as PyPI publishes it.
+  FMPY_WHEEL: fmpy-0.3.32-py3-none-any.whl
+  FMPY_URL: https://files.pythonhosted.org/packages/py3/f/fmpy/fmpy-0.3.32-py3-none-any.whl
+  FMPY_SHA256: b379deb9417b842028003a288d00c1c5f138d1580e1ff12cc6c42a98719cecf0
+
+jobs:
+  openmodelica:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      # OpenModelica 1.27.2 for Ubuntu 24.04, from the `release` component of its apt
+      # repository. The SHA-256 of each file is the one in
+      # https://build.openmodelica.org/apt/dists/noble/release/binary-amd64/Packages,
+      # read on 2026-11-16.
+      - name: Download the pinned OpenModelica packages and check their SHA-256
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/om" && cd "$RUNNER_TEMP/om"
+          base=https://build.openmodelica.org/apt/pool/contrib-noble
+          while read -r sha file; do
+            curl -fsSLO --retry 3 "$base/$file"
+            echo "$sha  $file" | sha256sum --check --strict
+          done <<'PINS'
+          9412556112cf0b9deb320b1f4b1eaafe35583fbac0d0b9f07f8a427fbf9fac77 omc_1.27.2-1_amd64.deb
+          e865df120e960f716e12440104636980cfb5b4a24e112a1ab747551d3d5742d0 libomc_1.27.2-1_amd64.deb
+          be399546f799e5239f9e6feac4739fcc2aa5df93d2ee75cafe2a1c0e049003d2 libomcsimulation_1.27.2-1_amd64.deb
+          60fcc5440971973de268e5488f2c87f8651d4d1d87d494ae00f892cab6abd666 omc-common_1.27.2-1_all.deb
+          8829b9b25cf226d283be35bec17825191c3d6a2d8c888a7660f10dcbab093701 omlibrary_1.27.2-1_all.deb
+          PINS
+      - name: Install them (dependencies from Ubuntu's own archive)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends "$RUNNER_TEMP"/om/*.deb
+          omc --version
+      - name: Licences, read from the installed files
+        run: |
+          set -euo pipefail
+          sed -n '/Start of Definition/,/End of OSMC Public License Header/p' /usr/share/doc/omc/copyright
+          echo "--- the runtime compiled into an FMU:"
+          sed -n '1,25p' /usr/include/omc/c/fmi-export/fmu2_model_interface.h
+      - name: Build the FMUs
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/build" && mkdir -p "$work"
+          cp docs/research/spec-5-trials/openmodelica/MSD.mo docs/research/spec-5-trials/openmodelica/build.mos "$work"
+          cd "$work" && omc build.mos | tee build.log
+          ls -l ./*.fmu
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install FMPy from its pinned wheel
+        run: |
+          set -euo pipefail
+          curl -fsSLo "$RUNNER_TEMP/$FMPY_WHEEL" --retry 3 "$FMPY_URL"
+          echo "$FMPY_SHA256  $RUNNER_TEMP/$FMPY_WHEEL" | sha256sum --check --strict
+          python -m pip install -q "$RUNNER_TEMP/$FMPY_WHEEL"
+      - name: Run the FMUs where they were built
+        run: |
+          cd "$RUNNER_TEMP/build"
+          python "$GITHUB_WORKSPACE/docs/research/spec-5-trials/openmodelica/run_fmu.py" MSD_dynamic.fmu MSD_static.fmu MSD_cvode.fmu | tee run-with-openmodelica.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openmodelica-trial
+          path: |
+            ${{ runner.temp }}/build/*.fmu
+            ${{ runner.temp }}/build/build.log
+            ${{ runner.temp }}/build/run-with-openmodelica.txt
+
+  # The same FMUs in a clean container with Python and FMPy only: no OpenModelica, no C
+  # compiler. This answers whether a template can ship an FMU built elsewhere.
+  fmu-without-openmodelica:
+    needs: openmodelica
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container: python:3.12-slim-bookworm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: openmodelica-trial
+          path: fmus
+      - name: Install FMPy from its pinned wheel
+        run: |
+          set -eu
+          python - <<'PY'
+          import hashlib, os, urllib.request
+          path = "/tmp/" + os.environ["FMPY_WHEEL"]
+          urllib.request.urlretrieve(os.environ["FMPY_URL"], path)
+          digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+          print(digest)
+          if digest != os.environ["FMPY_SHA256"]:
+              raise SystemExit("FMPy wheel SHA-256 mismatch")
+          PY
+          python -m pip install -q "/tmp/$FMPY_WHEEL"
+      - name: Run the FMUs without OpenModelica
+        run: |
+          cd fmus
+          python ../docs/research/spec-5-trials/openmodelica/run_fmu.py MSD_dynamic.fmu MSD_static.fmu MSD_cvode.fmu | tee run-without-openmodelica.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fmu-without-openmodelica
+          path: fmus/run-without-openmodelica.txt
+
+  pychrono:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      # The runner context is not available in a job's env, so the prefix is set here.
+      - run: echo "MAMBA_ROOT_PREFIX=$RUNNER_TEMP/mamba" >> "$GITHUB_ENV"
+      # micromamba 2.0.5 and PyChrono 9.0.1 (Python 3.12 build 406). Each SHA-256 is the one
+      # in its channel's repodata.json, read on 2026-11-16 (conda-forge linux-64 and
+      # projectchrono linux-64).
+      - name: Download micromamba and PyChrono and check their SHA-256
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/dl" "$MAMBA_ROOT_PREFIX/pkgs" && cd "$RUNNER_TEMP/dl"
+          curl -fsSLO --retry 3 https://conda.anaconda.org/conda-forge/linux-64/micromamba-2.0.5-0.tar.bz2
+          echo "bfc2e3a414d651af7508c49998a12b5cf3c7029d56c5ef37c9a3248cd7faef78  micromamba-2.0.5-0.tar.bz2" | sha256sum --check --strict
+          curl -fsSLO --retry 3 https://conda.anaconda.org/projectchrono/linux-64/pychrono-9.0.1-py312h98ab86c_406.conda
+          echo "34e513e21de680ffcb9c63333c66acf1bf448afd6bacb6b89a1fbe927979eb0d  pychrono-9.0.1-py312h98ab86c_406.conda" | sha256sum --check --strict
+          mkdir mm && tar -xjf micromamba-2.0.5-0.tar.bz2 -C mm
+          # The checked package goes into micromamba's cache, so the environment uses it.
+          cp pychrono-9.0.1-py312h98ab86c_406.conda "$MAMBA_ROOT_PREFIX/pkgs/"
+      - name: Create the environment
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/dl/mm/bin/micromamba" create -y -q -n chrono \
+            -c projectchrono -c conda-forge --override-channels \
+            python=3.12 "projectchrono::pychrono=9.0.1=py312h98ab86c_406"
+          "$RUNNER_TEMP/dl/mm/bin/micromamba" list -n chrono | grep -E "pychrono|^ *python |mkl|cuda-runtime" || true
+          sha256sum "$MAMBA_ROOT_PREFIX/pkgs/pychrono-9.0.1-py312h98ab86c_406.conda"
+      - name: Licence, as the package declares it
+        run: |
+          set -euo pipefail
+          env="$MAMBA_ROOT_PREFIX/envs/chrono"
+          grep -h '"license"' "$env"/conda-meta/pychrono-9.0.1-*.json
+          # Listed to a file first: with pipefail, `find | head` fails when head closes the pipe.
+          find "$env" -ipath '*chrono*' \( -iname 'LICENSE*' -o -iname 'COPYING*' \) > "$RUNNER_TEMP/chrono-licences.txt"
+          head -20 "$RUNNER_TEMP/chrono-licences.txt"
+          curl -fsSL https://projectchrono.org/license-chrono.txt
+      - name: Run the pendulum
+        run: |
+          "$RUNNER_TEMP/dl/mm/bin/micromamba" run -n chrono python docs/research/spec-5-trials/chrono/pendulum.py | tee "$RUNNER_TEMP/pendulum.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pychrono-trial
+          path: ${{ runner.temp }}/pendulum.txt
