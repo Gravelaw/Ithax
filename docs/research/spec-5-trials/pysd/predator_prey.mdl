@@ -1,0 +1,65 @@
+{UTF-8}
+Prey= INTEG (prey births - prey deaths, 10)
+	~	animal
+	~		|
+
+Predators= INTEG (predator births - predator deaths, 5)
+	~	animal
+	~		|
+
+prey births= alpha * Prey
+	~	animal/Year
+	~		|
+
+prey deaths= beta * Prey * Predators
+	~	animal/Year
+	~		|
+
+predator births= delta * Prey * Predators
+	~	animal/Year
+	~		|
+
+predator deaths= gamma * Predators
+	~	animal/Year
+	~		|
+
+alpha= 1
+	~	1/Year
+	~		|
+
+beta= 0.1
+	~	1/(animal*Year)
+	~		|
+
+gamma= 1.5
+	~	1/Year
+	~		|
+
+delta= 0.075
+	~	1/(animal*Year)
+	~		|
+
+********************************************************
+	.Control
+********************************************************~
+		Simulation Control Parameters
+	|
+
+FINAL TIME  = 15
+	~	Year
+	~		|
+
+INITIAL TIME  = 0
+	~	Year
+	~		|
+
+SAVEPER  = TIME STEP
+	~	Year
+	~		|
+
+TIME STEP  = 0.001
+	~	Year
+	~		|
+
+\\\---/// Sketch information - do not modify anything except names
+V300  Do not put anything below this section - it will be ignored
