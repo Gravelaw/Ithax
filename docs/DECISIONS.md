@@ -3774,3 +3774,18 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   | FMPy | 0.3.32 | BSD-2-Clause | PyPI SHA-256; wheel `LICENSE.txt` |
   | micromamba | 2.0.5 | BSD-3-Clause AND MIT AND OpenSSL (conda-forge repodata) | conda-forge `repodata.json` SHA-256 |
   | PyChrono | 9.0.1 (`py312h98ab86c_406`) | BSD-3-Clause (package metadata; projectchrono.org licence page) | projectchrono `repodata.json` SHA-256 |
+
+## 2026-11-16 · M16 · Spec 4 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 4 now applies the checklist's six "change needed" rows for it and goes from version 1.0 (after the M14 close, #222) to 1.1:
+  - the version line (2026-11-09 B2);
+  - the ten templates kept, with an eleventh and template expansion in Phase 3 (2026-11-09 B7 item 3);
+  - C6's rule among the rules for assistant access;
+  - data import through the assistant in Phase 2 (D15);
+  - the Learn walkthrough row: agents in roles every phase, plus one or two people at v0.1.0 (C1, C2);
+  - a per-phase row for the different-assistant trial (C6).
+  - The five "already in spec" rows need no change.
+- **Readings (reversible):**
+  - The two remaining "owner to confirm" phrases near the templates (the thresholds kept at M10, AKS-125, and the template selection, AKS-124) are E1's build readings, which the checklist does not list. They stay.
+- **Spec sections updated:** spec 4, the version line, "Template library", "MCP server", "Limits", "Acceptance tests" and "Changes in this version".
+- **Dependencies added:** none.
