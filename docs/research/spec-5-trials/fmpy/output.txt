@@ -1,0 +1,4 @@
+fmpy 0.3.32 numpy 2.5.5
+validation problems: []
+c=0.4: 1001 samples, x(10)=0.079115907, exact 0.079116024, max |error| 8.63e-07
+c=4.0: 1001 samples, x(10)=0.000000044, exact 0.000000043, max |error| 1.35e-07
