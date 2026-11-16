@@ -8,7 +8,7 @@ Rules applied:
 - Build guide "Known gaps" (`docs/specs/build-guide.md:40`): record each engine licence in DECISIONS with its source.
 - Build guide conventions (`:97`): record each new dependency in DECISIONS with its licence.
 
-How I checked: I downloaded the wheels from PyPI into `/tmp/claude-0/-home-user-Ithax/248edffc-5b1a-5941-acc3-1e2e2cbbc2ee/scratchpad/council-lic/`. I compared each SHA-256 with PyPI's digest (all matched) and read the licence files with `zipfile`. No downloaded code was run.
+How I checked: I downloaded the wheels from PyPI into a scratch folder outside the repository. I compared each SHA-256 with PyPI's digest (all matched) and read the licence files with `zipfile`. No downloaded code was run.
 
 ## What checks out (read from the licence file in the wheel, digest equal to the note's)
 
