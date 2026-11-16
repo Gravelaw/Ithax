@@ -1,0 +1,15 @@
+scikit-learn 1.9.1, skl2onnx 1.20.0, onnx 1.23.2, onnxruntime 1.32.0
+GP RBF (one length scale per input), normalize_y=True, mean: converted; mean max |diff| 7.61e-08
+GP RBF (one length scale per input), normalize_y=True, mean+std: FAILED TypeError: Unexpected type <class 'numpy.float64'> for input 1 of operator 'OnnxMul'. It must be an i
+GP RBF (one length scale per input), normalize_y=False, mean: converted; mean max |diff| 5.25e-08
+GP RBF (one length scale per input), normalize_y=False, mean+std: converted; mean max |diff| 5.25e-08; std max |diff| 6.95 (sklearn std range 4.42e-06 to 1e-05)
+GP Matern 5/2 (one length scale), normalize_y=True, mean: FAILED AttributeError: 'int' object has no attribute 'encode'
+GP Matern 5/2 (one length scale), normalize_y=True, mean+std: FAILED TypeError: Unexpected type <class 'numpy.float64'> for input 1 of operator 'OnnxMul'. It must be an i
+GP Matern 5/2 (one length scale), normalize_y=False, mean: FAILED AttributeError: 'int' object has no attribute 'encode'
+GP Matern 5/2 (one length scale), normalize_y=False, mean+std: FAILED AttributeError: 'int' object has no attribute 'encode'
+GP Matern 5/2 (one per input), normalize_y=True, mean: FAILED AttributeError: 'int' object has no attribute 'encode'
+GP Matern 5/2 (one per input), normalize_y=True, mean+std: FAILED TypeError: Unexpected type <class 'numpy.float64'> for input 1 of operator 'OnnxMul'. It must be an i
+GP Matern 5/2 (one per input), normalize_y=False, mean: FAILED AttributeError: 'int' object has no attribute 'encode'
+GP Matern 5/2 (one per input), normalize_y=False, mean+std: FAILED AttributeError: 'int' object has no attribute 'encode'
+HGB float32: FAILED ValueError: Unable to create node 'TreeEnsembleRegressor' with name='Tre...; underlying: TypeError('Field onnx.AttributeProto.ints: Expected an int, got a boolean.')
+HGB float64: FAILED ValueError: Unable to create node 'TreeEnsembleRegressor' with name='Tre...; underlying: TypeError('Field onnx.AttributeProto.ints: Expected an int, got a boolean.')

@@ -1,0 +1,14 @@
+basic events: {'PT1': 0.05, 'PT2': 0.05, 'PT3': 0.05, 'LS': 0.01, 'SDV1': 0.1, 'SDV2': 0.1}
+published minimal cut sets: [['LS'], ['PT1', 'PT2'], ['PT1', 'PT3'], ['PT2', 'PT3'], ['SDV1', 'SDV2']]
+exact (closed form)                Q = 0.027005725000
+exact (truth table, 64 states)     Q = 0.027005725000
+rare-event approximation           Q = 0.027500000000
+min cut set upper bound            Q = 0.027232388439
+repyability 0.19.1                 Q = 0.027005725000 diff vs exact +2.4e-17
+  cut sets: [['LS'], ['PT1', 'PT2'], ['PT1', 'PT3'], ['PT2', 'PT3'], ['SDV1', 'SDV2']]
+faultree 0.4.0                     Q = 0.027005725000 diff vs exact +2.1e-17
+  cut sets: {'cut_sets': [['LS'], ['PT1', 'PT2'], ['PT1', 'PT3'], ['PT2', 'PT3'], ['SDV1', 'SDV2']], 'complete': True, 'truncated': False, 'reason': None, 'candidates_checked': 22, 'basic_events': ['LS', 'PT1', 'PT2', 'PT3', 'SDV1', 'SDV2'], 'limits': {'max_order': 6, 'max_candidates': 10000, 'max_sets': 1000, 'max_basic_events': 32}, 'semantics': 'positive minimal cuts of a monotone fault tree'}
+  pfta output files: ['cut-sets/G_PT.tsv', 'cut-sets/G_SDV.tsv', 'cut-sets/TOP.tsv', 'events.tsv', 'figures/1.0/TOP.svg', 'figures/index.html', 'gates.tsv', 'importances/G_PT.tsv', 'importances/G_SDV.tsv', 'importances/TOP.tsv', 'models.tsv']
+  pfta TOP row: {'id': 'TOP', 'label': '', 'is_top_gate': 'True', 'is_paged': 'False', 'type': 'OR', 'inputs': 'G_PT,LS,G_SDV', 'time': '1.0', 'sample': '0', 'computed_probability': '0.027005725000000005', 'computed_intensity': '0.0', 'computed_rate': '0.0'}
+pfta 0.4.0 (subprocess)            Q = 0.027005725000 diff vs exact +2.4e-17
+  cut sets: ['LS', 'PT1.PT2', 'PT1.PT3', 'PT2.PT3', 'SDV1.SDV2']
