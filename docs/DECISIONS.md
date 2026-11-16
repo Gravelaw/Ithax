@@ -3805,3 +3805,22 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The "Technology choices were not re-researched" limit is not in the checklist and is left as written.
 - **Spec sections updated:** overview, "What is here", "Choices made without asking", "Limits of these drafts", and a new "Changes in this version".
 - **Dependencies added:** none.
+
+## 2026-11-16 · Owner approved the Phase 2 milestone table (D18)
+
+- **Decision:** the owner approved the Phase 2 milestone table on 2026-11-16 (D18), as it stands on `main` at ccd98c6 after #219 (`docs/research/phase-2-milestones.md`), relayed by the orchestrating session. Its rows M17 to M26 are now in the build guide's "Milestones", copied verbatim, with each row's "Done when" as written there.
+  - M17: Phase 2 setup and research.
+  - M18: simulation statistics.
+  - M19: process constructs.
+  - M20: optimization.
+  - M21: data and interface.
+  - M22: the remote (SSH) run target.
+  - M23: spec 5 models.
+  - M24: Windows through WSL 2.
+  - M25: MCP hardening.
+  - M26: the Phase 2 release.
+- **Check:** `tests/test_phase_2_milestones.py` now also fails when the guide's M17 to M26 rows differ from the approved table, so a later change has to be made to both.
+- **Readings (reversible):** the orchestrating session's message named "CLAUDE.md's Milestones table". The table is in the build guide, and `CLAUDE.md` points to it, so the rows go there and `CLAUDE.md` is unchanged.
+- **Next:** issues are filed per item, as sub-issues of the Phase 2 epic, with `phase:2` labels. M17 product work waits until M16's checks pass (rule 2): the owner checks (#102) and the v0.1.0 tag (#103).
+- **Spec sections updated:** build guide, "Milestones".
+- **Dependencies added:** none.

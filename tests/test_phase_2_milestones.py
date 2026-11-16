@@ -70,3 +70,15 @@ def test_no_milestone_closes_by_listing_or_a_catch_all() -> None:
     rows = milestone_rows()
     for phrase in ("and the rest", "listed for the owner", "rows of"):
         assert phrase not in rows, f'a milestone row says "{phrase}"; name each item instead'
+
+
+GUIDE = ROOT / "docs" / "specs" / "build-guide.md"
+
+
+def test_the_guide_holds_the_approved_phase_2_rows_unchanged() -> None:
+    """The owner approved the table on 2026-11-16 (D18); the guide's M17 to M26 rows are
+    that table, so a change to one must be made to both."""
+    guide = [line for line in GUIDE.read_text("utf-8").splitlines() if MILESTONE_ROW.match(line)]
+    phase_2 = [line for line in guide if int(line.split("|")[1].strip()[1:]) >= 17]
+    assert phase_2 == milestone_rows().splitlines()
+    assert [line.split("|")[1].strip() for line in phase_2] == [f"M{n}" for n in range(17, 27)]
