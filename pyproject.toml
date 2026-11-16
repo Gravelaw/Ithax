@@ -123,7 +123,7 @@ known-third-party = ["mcp"]
 "scripts/**" = ["TID251"]
 # Research trial scripts (docs/research/spec-5-trials/): run once in a scratch environment,
 # not product code; they call engines' own generators and JSON, not the house helpers.
-"docs/research/**" = ["ANN", "TID251"]
+"docs/research/spec-5-trials/**" = ["ANN", "TID251"]
 
 [tool.mypy]
 python_version = "3.11"
