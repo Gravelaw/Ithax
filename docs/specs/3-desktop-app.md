@@ -1,6 +1,6 @@
 # Spec 3: Desktop Application
 
-> Version 1.0 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 1.1 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
 
 The app is two programs: an engine service that does all the work, and an interface that talks to it only through an API. That split is what lets a Windows interface drive Linux engines.
 
@@ -434,3 +434,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-15, review of PR #211 (#88): "Packaging" (Linux, AppImage) says a signal that stops `AppRun` is passed on to its command.
 - 2026-11-15, review of PR #211 (#88), second finding: "Packaging" (Linux, AppImage) says a signal while `AppRun` stays stops what runs from the AppImage before `AppRun` ends.
 - 2026-11-15, review of PR #211 (#88), third finding and CI run 43761150645: "Packaging" (Linux, AppImage) says a stop while the command runs also stops what it started, and that `AppRun` keeps the descriptors it inherits.
+- 2026-11-16, M14 closed (#71, #82, #83, #98 and #158): no further change to this spec at the close. Version 1.1.

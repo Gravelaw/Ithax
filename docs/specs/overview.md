@@ -4,7 +4,7 @@ Nov 6, 2026 · @Akshay
 
 ## What is here
 
-Seven build specs, one per tab, plus a build guide for coding sessions. Each spec carries its own version and status line under its title; spec 0 is at 0.5, and specs 1 to 4 are at 1.7, 1.2, 1.1 and 0.10, after the review of Phase 1 that the owner approved on 2026-11-16 (#101); specs 5 to 7 are at 0.2 after the review of 2026-11-05. The repository copy is the source of truth (2026-11-09 B2); sessions never write to the Claude Docs. Specs 1 to 4 have a binding "Detailed specification" section each. Each ends with acceptance tests that an AI coding tool can be held to. Spec 0, the product brief, is a separate doc.
+Seven build specs, one per tab, plus a build guide for coding sessions. Each spec carries its own version and status line under its title; spec 0 is at 0.5, and specs 1 to 4 are at 1.7, 1.2, 1.2 and 1.1, after the review of Phase 1 that the owner approved on 2026-11-16 (#101); specs 5 to 7 are at 0.2 after the review of 2026-11-05. The repository copy is the source of truth (2026-11-09 B2); sessions never write to the Claude Docs. Specs 1 to 4 have a binding "Detailed specification" section each. Each ends with acceptance tests that an AI coding tool can be held to. Spec 0, the product brief, is a separate doc.
 
 | Spec | Covers | Phase | Build after |
 | --- | --- | --- | --- |

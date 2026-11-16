@@ -3635,10 +3635,24 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** none.
 - **Dependencies added:** none.
 
+## 2026-11-16 · Owner decisions on #206 and #207, and the Phase 2 table updated
+
+- **Decision (owner, 2026-11-16, through the orchestrating session; both issues closed, and neither default applies):**
+  - **#206, the success measures.** Spec 0's "Success measures" keeps the six measures of 2026-11-09 B2, with no numeric targets. The targets are set after Phase 3. The values measured so far are baselines, not targets, and they gate neither Phase 2 nor Phase 3.
+  - **#207, Windows.** Windows is supported through WSL 2, with the Linux package or the AppImage, until after Phase 3. A native Windows build comes after Phase 3, as refactoring and API work for the libraries that have no Windows build. This replaces the answer of 2026-11-15 item 3 (an unsigned native installer with a SmartScreen note and a checksum in Phase 2): that installer, and its code signing, move to after Phase 3.
+- **Applied here:** the proposed Phase 2 milestone table, `docs/research/phase-2-milestones.md`.
+  - M24 is now "Windows through WSL 2": a documented install of the Linux package or the AppImage under WSL 2, tested in CI on a WSL runner where one is available, otherwise an owner check.
+  - The native Windows build and the success-measure targets are in "Not in Phase 2".
+  - M26's release criteria say the measures are baselines and do not gate the release.
+  - The table still awaits the owner's approval before it goes into the guide (D18).
+- **Applied elsewhere:** the Windows sentences of specs 0 and 3 and the overview, and spec 0's "Success measures", change in those specs' Phase 1 review PRs (#101).
+- **Spec sections updated:** none in this PR.
+- **Dependencies added:** none.
+
 ## 2026-11-16 · M16 · The overview brought up to the Phase 1 review (#101)
 
 - **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). `docs/specs/overview.md` now applies the checklist's six rows for it:
-  - the source-of-truth sentence drops "owner to confirm" (2026-11-09 B2), and the spec versions are those after the review (spec 0 0.5; specs 1 to 4 at 1.7, 1.2, 1.1 and 0.10);
+  - the source-of-truth sentence drops "owner to confirm" (2026-11-09 B2), and the spec versions are those after the review (spec 0 0.5; specs 1 to 4 at 1.7, 1.2, 1.2 and 1.1, specs 3 and 4 having been bumped once by the M14 close, #222);
   - specs 1 to 4 are Phase 1, closed as Phase 1a. Phase 3a is named, and F3 places new items from specs 5 to 7;
   - the Windows row, as the owner decided on 2026-11-16 (#207): WSL 2 until after Phase 3, then a native build;
   - F3's method for specs 5 to 7 (with 2026-11-09 B9);
