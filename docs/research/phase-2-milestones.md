@@ -13,7 +13,7 @@ Drafted on 2026-11-15 at `main` d28f91e.
   - optimization across engines;
   - the remote (SSH) run target (A1).
 - **Decided by the owner:**
-  - Windows (F5), unsigned at first with a SmartScreen note and a checksum (2026-11-15, item 3);
+  - Windows (F5) through WSL 2, with the Linux package or the AppImage, until after Phase 3 (owner decision of 2026-11-16 on #207, which replaces the native installer of 2026-11-15 item 3);
   - objective types and several objectives (B1);
   - early ranking and selection (D1);
   - live key numbers (D4);
@@ -39,6 +39,8 @@ Not in Phase 2:
 - probabilistic calendars and multitasking (D11, Phase 3);
 - 3D and field imports (D6, Phase 3);
 - graphics detection on Windows and macOS (D7, Phase 4);
+- a native Windows build, with its installer and code signing: after Phase 3, as refactoring and API work for the libraries that have no Windows build (#207);
+- numeric targets for spec 0's six success measures: set after Phase 3; until then the measured values are baselines, not gates (#206);
 - the cluster target (A1, Phase 4).
 
 ## Proposed milestones
@@ -54,13 +56,13 @@ Numbering continues the guide's, so Phase 2 starts at M17. Each row's "Done when
 | M21 | Data and interface | 3 | Wider table formats with a progress bar, for example Parquet (D6). The import reads other encodings, delimiters, a sheet choice and non-ASCII names (M6-54, M6-55), and changes a column's unit without importing again (M6-53, M9-61). The Run monitor shows live key numbers and a search's candidates (D4; M6-48, M9-79, M9-80). Indexed models are edited in the Table and Diagram views (D14; M9-56, M10-38). The edits gain removing a field and a setting (M6-28, M9-24), a rename shown as one change (M9-44), and plain words for an edit's paths (M10-53). The interface follow-ups:<br>• a last-edited time on Home (M9-14);<br>• a data event on the project's events, and one session per project shared by its screens (M9-65, M9-66);<br>• the "{n} combinations" line with B6's run count (M9-71);<br>• code splitting for the charts and the bundle size (M9-74, M9-95, M9-105);<br>• sorting, filtering and "Use" in the trials table (M9-81);<br>• the dot strip, the interval-shrinkage chart and the canvas overlay (M9-84);<br>• embedded fonts and charts in the PDF (M9-88);<br>• the shell's capabilities, plugins and folder picker (M11-32);<br>• the palette's filters and sorting (M9 design review, choice 12). |
 | M22 | Remote (SSH) run target | 1, 3, 4 | The `remote` target (A1) runs a model on another machine over SSH, tested against a local sshd (spec 1's Phase 2 acceptance row). `run_model` takes a `target` (M7-13). A run-time issue crosses SSH (the M13 command-line worker). E172 no longer refuses `remote`. |
 | M23 | Spec 5 models | 5 | The models of spec 5 as detailed at M17, each engine wrapped, never written: agent-based, system dynamics, physical systems and multibody, people and workforce, optimization across engines. Every model type has benchmarks and a template. M17's council may split this row into several milestones. |
-| M24 | Windows | 0, 3 | A Windows installer (F5), native or through WSL as #207 decides, holds the interface, the service and the engines. It is unsigned, with a SmartScreen note and a checksum (2026-11-15, item 3), and reaches a first result in under ten minutes (spec 3's Windows row). The shell's Windows build uses WebView2. |
+| M24 | Windows through WSL 2 | 0, 3 | A documented install of the Linux package or the AppImage under WSL 2 on Windows (F5; #207) reaches a first template result. It is tested in CI on a WSL runner where one is available; otherwise the same steps are an owner check on a Windows machine. |
 | M25 | MCP hardening | 4 | Every Phase 2 feature has its thin API and MCP tool with a parity test (C6). A data import tool exists for assistants that can send files (D15; M7-19). The MCP server runs over Streamable HTTP as well as stdio (M7-1). Every route declares its `response_model` (P17). A trial with a different assistant is recorded under `docs/research/mcp/`. |
-| M26 | Phase 2 release | 0 to 5 | Agent walkthroughs in student and business-analyst roles pass (C1). The performance budgets hold (C4). The Phase 2 review's changes are in the specs. The owner checks are done, and v0.2.0 is tagged by the owner. |
+| M26 | Phase 2 release | 0 to 5 | Agent walkthroughs in student and business-analyst roles pass (C1). The performance budgets hold (C4). Spec 0's success measures are recorded as baselines; they have no numeric targets before Phase 3 and do not gate this release (#206). The Phase 2 review's changes are in the specs. The owner checks are done, and v0.2.0 is tagged by the owner. |
 
 ## Readings (reversible)
 
-1. **Order.** The Phase 1 parts that Phase 2 deepens come first (M18 to M21): they build on code that exists and has benchmarks. The remote target (M22) comes before spec 5's engines (M23), so that new engines are built able to run remotely. Windows (M24) comes after the engines, so that its installer packages them once.
+1. **Order.** The Phase 1 parts that Phase 2 deepens come first (M18 to M21): they build on code that exists and has benchmarks. The remote target (M22) comes before spec 5's engines (M23), so that new engines are built able to run remotely. Windows through WSL 2 (M24) comes after the engines, so that its install steps cover them once.
 2. **Spec 5 is one row** (M23) until its council has detailed it. B9 settles scope and phases during that detailing, so splitting it now would be guessing.
 3. **The interface follow-ups are one milestone** (M21), not spread across the others. Each is small, and together they touch the same screens.
 4. **C6** is met by M25, the second-to-last milestone.

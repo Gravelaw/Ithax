@@ -3635,6 +3635,48 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** none.
 - **Dependencies added:** none.
 
+## 2026-11-16 · Owner decisions on #206 and #207, and the Phase 2 table updated
+
+- **Decision (owner, 2026-11-16, through the orchestrating session; both issues closed, and neither default applies):**
+  - **#206, the success measures.** Spec 0's "Success measures" keeps the six measures of 2026-11-09 B2, with no numeric targets. The targets are set after Phase 3. The values measured so far are baselines, not targets, and they gate neither Phase 2 nor Phase 3.
+  - **#207, Windows.** Windows is supported through WSL 2, with the Linux package or the AppImage, until after Phase 3. A native Windows build comes after Phase 3, as refactoring and API work for the libraries that have no Windows build. This replaces the answer of 2026-11-15 item 3 (an unsigned native installer with a SmartScreen note and a checksum in Phase 2): that installer, and its code signing, move to after Phase 3.
+- **Applied here:** the proposed Phase 2 milestone table, `docs/research/phase-2-milestones.md`.
+  - M24 is now "Windows through WSL 2": a documented install of the Linux package or the AppImage under WSL 2, tested in CI on a WSL runner where one is available, otherwise an owner check.
+  - The native Windows build and the success-measure targets are in "Not in Phase 2".
+  - M26's release criteria say the measures are baselines and do not gate the release.
+  - The table still awaits the owner's approval before it goes into the guide (D18).
+- **Applied elsewhere:** the Windows sentences of specs 0 and 3 and the overview, and spec 0's "Success measures", change in those specs' Phase 1 review PRs (#101).
+- **Spec sections updated:** none in this PR.
+- **Dependencies added:** none.
+
+## 2026-11-16 · M16 · Spec 0 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 0 now applies its approved rows and goes from version 0.4 to 0.5.
+  - The 19 "change needed" rows of "Spec 0", each as the checklist drafts it.
+  - Its four "needs owner" rows, as the owner decided:
+    - lines 128 and 172, the success measures: the six of B2, with no numeric targets until after Phase 3 and the values so far as baselines (#206, 2026-11-16);
+    - line 82, WSL: Windows through WSL 2 until after Phase 3, then a native build (#207, 2026-11-16);
+    - line 151, the six added risks: accepted as written, "(proposed)" dropped (the checklist's reading 2).
+  - The history line (188) is kept; the new dated line is under "Changes in this version".
+- **Readings (reversible):**
+  - The success measures table gives a "Baseline so far" column instead of targets. Each value is copied from the milestone record that measured it (STATUS M6, M9, M10, M11 and M13). Cognitive load has none yet.
+  - The 2026-11-05 measures and their M10 and M11 records stay below the table, marked as history, since the owner checks list (#102) and earlier sessions cite them.
+  - The unsigned-package risk now covers the Linux package and the AppImage, which Windows users run under WSL 2. Code signing is decided before the native Windows build (B5, #207).
+- **Spec sections updated:** spec 0, the version line, "Purpose", "Scope and build order", "Platform and hardware", "AI access", "Licence and community", "Success measures", "Risks and open items" and "Changes in this version".
+- **Dependencies added:** none.
+
+## 2026-11-16 · M16 · Spec 1 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 1 now applies the checklist's "change needed" rows for it and goes from version 1.6 to 1.7:
+  - the version line, which drops "owner to confirm" (2026-11-09 B2);
+  - the engine licence rule: AGPL-3.0-only (B4, C7), plus F4's separate processes and the GPL-2.0-only engines they allow. "Proposed default, owner to confirm" is dropped, and the lawyer sentence stays, since F4 defers further legal review;
+  - "Versioning": format 0.x changes only additively (F7), and its behaviour as built is current, not frozen (E1);
+  - `search.objective`: several objectives come in Phase 2 (B1). This also covers 2026-11-09 B7 item 2;
+  - E190: a solve stopped with a good solution becomes `feasible` with its gap in Phase 2 (E1 M5-1, M5-10).
+  - The eight "already in spec" rows need no change. That includes D2's error-with-warning-mark reading, which the owner approved with the checklist (its reading 4).
+- **Spec sections updated:** spec 1, the version line, "Engine contract" (the licence rule), "Versioning", "Experiments" (the `search` keys), "Validation issues" (E190) and "Changes in this version".
+- **Dependencies added:** none.
+
 ## 2026-11-16 · M16 · Spec 2 brought up to the Phase 1 review (#101)
 
 - **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 2 now applies the checklist's 14 "change needed" rows for it and goes from version 1.1 to 1.2:
