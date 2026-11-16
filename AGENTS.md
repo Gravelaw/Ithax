@@ -91,6 +91,13 @@ that reads input, and say whether the shared helper was bypassed:
   `tests/test_phase_2_milestones.py` fails on any "Phase 2 table" row, or any code under
   "What Phase 2 holds", that no row of `docs/research/phase-2-milestones.md` names, and on
   "and the rest" in a row; PR #214, two findings).
+- in a spec, a time grid or a dependency graph left with a gap: a statistic or sample that falls
+  between grid points (a recording interval that does not divide the run's length, a warm-up
+  off the grid), or a graph whose cycle rule misses a case (flows as well as auxiliaries,
+  initial values as well as rates, joints as well as chains). When a spec defines a grid, every
+  time that bounds a run or a statistic must lie on it; when it defines references between
+  parts, name every graph they form, its cycle rule and its issue code (spec 5 v0.3, PR #241,
+  four findings in two rounds).
 - a wrapper or entry point that runs a command as its child (not by `exec`), or stays after
   it, and does not stop what it started when it is stopped itself: a signal that leaves the
   child, or a service it outlives, running, or lets go of files they still use (helper: the

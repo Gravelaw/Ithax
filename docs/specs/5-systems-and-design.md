@@ -49,6 +49,7 @@ The next free minor format version after M19's and M20's (Proposed, Q4), additiv
 **Experiments.**
 
 - `length` as spec 1. `time_step`, a time quantity, is required for `agent`, `system_dynamics` and `multibody`. `length` must be a whole multiple of `time_step` (E407); `record_interval` must be a whole multiple of `time_step` and divide `length` (E401), so the last recorded sample is at `length`. Both are checked exactly on the written decimals and the units' sizes, never on floats. When `record_interval` is absent it is k × `time_step`, where k is the smallest divisor of `length` / `time_step` with k × `time_step` ≥ `length` / 200.
+- Every time that bounds a run or its statistics lies on the recording grid, so no statistic needs a value between samples: `length` (E407), `record_interval` (E401) and, for agents, `warmup`, which must be a whole multiple of `record_interval` (E401).
 - `agent`: `replications`, `seed`, `confidence` and `warmup` as spec 1. The warm-up check W210 is not applied to agent runs, whose populations are meant to change; `warmup` only starts the statistics.
 - `system_dynamics`, `physical`, `multibody` are deterministic. `replications` and `warmup` are not allowed (E100); a run has one replication, numbered 0. `seed` stays allowed, and drawn when absent, because a study's sampler is seeded from it.
 - `scenarios` work as in spec 1 in every domain. Spec 2's `search` stays process-only until Q4 settles how a deterministic model is searched (no replications, so no confirmation stage).
@@ -61,13 +62,14 @@ The next free minor format version after M19's and M20's (Proposed, Q4), additiv
 
 | Code | Pass | Meaning |
 | --- | --- | --- |
-| E401 | meaning | `record_interval` is not a whole multiple of `time_step`, or does not divide `length` |
+| E401 | meaning | `record_interval` is not a whole multiple of `time_step`, or does not divide `length`; or an agent `warmup` is not a whole multiple of `record_interval` |
 | E402 | meaning | A population's `initial` counts do not sum to its `count`, or name a state it lacks; a transition names a state its population lacks |
 | E403 | meaning | An expression names something that is not a stock, flow, auxiliary or `$parameter` |
 | E404 | meaning | An expression does not parse |
-| E405 | meaning | Flows and auxiliaries depend on each other, or one on itself, in a loop with no stock between |
+| E405 | meaning | A loop in what must be evaluated before it is known: flows and auxiliaries with no stock between, or stocks' `initial` expressions |
 | E406 | meaning | A physical connection joins connectors of different kinds |
 | E407 | meaning | `length` is not a whole multiple of `time_step` |
+| E408 | meaning | Multibody joints do not form a tree from `world`: a body that is the `child` of no joint or of more than one, or a loop of joints |
 | E410 | calculator | A block diagram does not reduce by series, parallel and k-out-of-n steps |
 | E421 | meaning | Chained models form a cycle |
 | E430 | study | A surrogate's run budget is below the larger of 5 per input and 10 |
@@ -109,7 +111,7 @@ The `timeseries` table holds each measure at every `record_interval` from 0 to `
 
 | Type | Settings | Behaviour |
 | --- | --- | --- |
-| `stock` | `initial` (expression) | A level, integrated from its flows |
+| `stock` | `initial` (expression) | A level, integrated from its flows; `initial` is evaluated once, before the first step |
 | `flow` | `from`, `to` (stock ids, either may be `null` for outside the model), `rate` (expression, per `time_unit`) | Drains `from` and fills `to` |
 | `auxiliary` | `equation` (expression) | A named value computed each step |
 
@@ -117,7 +119,7 @@ The `timeseries` table holds each measure at every `record_interval` from 0 to `
   - Operands: numbers in spec 1's JSON number grammar; the ids of stocks, flows and auxiliaries; parameters written `$id`; and `time`, in `time_unit` from 0. `time` and the function names are reserved identifiers (E112) in this domain.
   - Operators, loosest first: `+` and `-`; `*` and `/`; unary `-`; `^`, which binds to the right. Parentheses group.
   - Functions: `min(a, b)`, `max(a, b)`, `exp(a)`, `ln(a)`, `abs(a)` and `if_then_else(c, a, b)`. The condition `c` is one comparison, `<`, `<=`, `>`, `>=`, `==` or `!=`, between two expressions; comparisons appear nowhere else.
-  - Errors: an unknown name is E403, a syntax error E404, and a loop through flows and auxiliaries (a flow's `rate` or an auxiliary's `equation` that needs itself, directly or through other flows and auxiliaries) without a stock between is E405: a stock's value is known at the start of each step, so it breaks a loop, and nothing else does.
+  - Errors: an unknown name is E403, a syntax error E404, and a loop in what must be evaluated before it is known is E405. Two graphs are checked. (1) In each step, a flow's `rate` and an auxiliary's `equation` may not need themselves, directly or through other flows and auxiliaries; a stock's value is known at the start of the step, so a stock breaks such a loop. (2) Before the first step, stocks' `initial` expressions, and the flows and auxiliaries they name, are evaluated in dependency order; there no stock is yet known, so any loop through `initial` expressions is E405, stocks included.
   - Not in Phase 2: lookup tables and delays (Open).
 - **Engine.** The adapter writes the model in PySD's input format in `engine/` (XMILE 1.0 is proposed; the trial ran Vensim `.mdl`, so M23 confirms XMILE on the benchmarks first, else writes `.mdl`). PySD translates and runs it with `run(time_step=…, saveper=…)`. Never pass the step through `params`: PySD 3.14.3 ignored it there in the trial. PySD integrates by Euler only, so the answer depends on `time_step`, which the label states.
 
@@ -140,7 +142,7 @@ On MuJoCo, after a trial matched the pendulum benchmark to about 1e-11 (`spec-5-
 | `joint` | `kind` (`hinge` or `slide`), `parent` (body id or `world`), `child` (body id), `anchor` (three m), `axis` (three numbers), optional `initial`, `stiffness`, `damping` |
 | `world` | `gravity` (three m/s² values, default 0, 0, −9.80665) |
 
-The adapter writes MJCF in `engine/`; the integrator is `RK4` at `time_step`. Metrics `<joint>.position`, `<joint>.velocity`, `<body>.x`, `.y`, `.z`, with the statistics above. Contacts, closed loops, conveyors and vehicles: Phase 3.
+Joints form a tree from `world`: every body is the `child` of exactly one joint, and no joint chain returns to a body above it (E408; closed loops are Phase 3). The adapter writes MJCF in `engine/`; the integrator is `RK4` at `time_step`. Metrics `<joint>.position`, `<joint>.velocity`, `<body>.x`, `.y`, `.z`, with the statistics above. Contacts, closed loops, conveyors and vehicles: Phase 3.
 
 ## People in models
 
