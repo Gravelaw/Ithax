@@ -129,10 +129,10 @@ jobs:
   pychrono:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
-    env:
-      MAMBA_ROOT_PREFIX: ${{ runner.temp }}/mamba
     steps:
       - uses: actions/checkout@v4
+      # The runner context is not available in a job's env, so the prefix is set here.
+      - run: echo "MAMBA_ROOT_PREFIX=$RUNNER_TEMP/mamba" >> "$GITHUB_ENV"
       # micromamba 2.0.5 and PyChrono 9.0.1 (Python 3.12 build 406). Each SHA-256 is the one
       # in its channel's repodata.json, read on 2026-11-16 (conda-forge linux-64 and
       # projectchrono linux-64).
