@@ -15,11 +15,12 @@ Read on 2026-11-16, from the OpenModelica apt repository for Ubuntu 24.04 (`http
 - **Modelica Standard Library.** The `omlibrary` package (1.27.2, SHA-256 `8829b9b2…3701`) holds the Modelica Standard Library 3.2.3, 4.0.0 and 4.1.0 (`version="4.1.0"` in `Modelica/package.mo`), BSD-3-Clause, "Copyright (c) 1998-2024, Modelica Association and contributors" (its `LICENSE`).
 - **FMI versions.** The user's guide (v1.28.0-dev-1948, read 2026-11-16, "Functional Mock-up Interface"):
   - FMI 1.0 is "Deprecated, will be removed after OpenModelica 1.28.0 is released";
-  - FMI 2.0 is supported for Model Exchange and Co-Simulation, and the default export makes both;
+  - FMI 2.0 is supported for Model Exchange and Co-Simulation;
   - FMI 3.0 is "experimental".
 
   The 1.27.2 runtime agrees: `usr/include/omc/c/fmi-export/` holds `fmu1_model_interface` and `fmu2_model_interface` and nothing for FMI 3.
-- **Solvers inside a Co-Simulation FMU.** CVODE by default, or forward Euler with `--fmiFlags=s:euler`; "Forward Euler does an Euler step of `communicationStepSize` in `fmi2DoStep`." The guide says that on the platform OpenModelica runs on, the FMU links the SUNDIALS libraries installed there.
+- **Defaults disagree between two pages.** The scripting API's signature of `buildModelFMU` (read 2026-11-16) gives `version = "2.0"`, `fmuType = "me"`, `platforms = {"static"}` (everything statically linked; `"dynamic"` links the runtime dynamically) and `method = "<default>"`, "<default> = dassl", for the integrator in a Co-Simulation FMU. The FMI page of the user's guide says the default export makes both interface types and names CVODE as the default integrator. Ithax therefore states `version`, `fmuType` and `platforms` explicitly, and the CI trial records which integrator the FMU carries.
+- **Solvers inside a Co-Simulation FMU** (the user's guide). CVODE, or forward Euler with `--fmiFlags=s:euler`; "Forward Euler does an Euler step of `communicationStepSize` in `fmi2DoStep`." The guide says that on the platform OpenModelica runs on, the FMU links the SUNDIALS libraries installed there.
 - **Source-code FMUs.** OpenModelica exports source-code FMUs built with CMake; an empty `platforms` setting gives a source-code-only FMU. `platforms` also takes `native` or a host triple such as `x86_64-linux-gnu`.
 - **What `omc` needs.** The `omc` package depends on `clang`, `cmake`, `build-essential`, `libexpat1-dev`, `liblapack-dev`, `zip`, `unzip` and the OpenModelica libraries: exporting an FMU compiles C code, so a C toolchain must be installed where FMUs are built.
 - **Linux and WSL 2.** Ubuntu and Debian packages from the apt repository above (suites from `bionic` to `noble` and Debian `buster` to `bookworm` are listed). WSL 2 runs Ubuntu, so the same apt steps apply. Only the compiler's command line is needed; OMEdit, the graphical editor, is not.
@@ -29,13 +30,13 @@ Read on 2026-11-16, from the OpenModelica apt repository for Ubuntu 24.04 (`http
 - `https://build.openmodelica.org/apt/dists/noble/release/binary-amd64/Packages` and the pool listing `https://build.openmodelica.org/apt/pool/contrib-noble/`, read 2026-11-16.
 - Unpacked packages: `omc_1.27.2-1_amd64.deb`, `libomcsimulation_1.27.2-1_amd64.deb` (SHA-256 `be399546…49003d2`), `omc-common_1.27.2-1_all.deb` (SHA-256 `60fcc544…6abd666`), `omlibrary_1.27.2-1_all.deb`.
 - OMPython 4.1.0 wheel, `ompython-4.1.0.dist-info/licenses/LICENSE` (SHA-256 of the wheel `151f5e07…a534`, equal to PyPI's).
-- OpenModelica User's Guide, "Functional Mock-up Interface - FMI", <https://openmodelica.org/doc/OpenModelicaUsersGuide/latest/fmitlm.html>, read 2026-11-16.
+- OpenModelica User's Guide, "Functional Mock-up Interface - FMI", <https://openmodelica.org/doc/OpenModelicaUsersGuide/latest/fmitlm.html>, and "Scripting API", `buildModelFMU`, <https://openmodelica.org/doc/OpenModelicaUsersGuide/latest/scripting_api.html>, read 2026-11-16.
 
 ## Decision
 
 Proposed (owner to confirm):
 
-- **FMI 2.0 Co-Simulation** is the export format for Phase 2, with CVODE inside the FMU. Model Exchange is not used: Co-Simulation keeps the integrator inside the FMU, so FMPy only steps it, and a Model Exchange FMU would make FMPy's integrator part of the answer as well. FMI 3.0 is revisited when OpenModelica's export is no longer experimental.
+- **FMI 2.0 Co-Simulation** is the export format for Phase 2, with `version`, `fmuType` and `platforms` always given, never left to their defaults. Model Exchange is not used: Co-Simulation keeps the integrator inside the FMU, so FMPy only steps it, and a Model Exchange FMU would make FMPy's integrator part of the answer as well. FMI 3.0 is revisited when OpenModelica's export is no longer experimental.
 - **Ithax writes Modelica, OpenModelica compiles it.** The adapter writes a `.mo` file in its run folder from the model file's components, which name Modelica Standard Library 4.1.0 classes, and calls `omc` with a `.mos` script that runs `buildModelFMU(..., version = "2.0", fmuType = "cs")`. `omc` runs as a separate process (GPL-3.0 under F4); `Capabilities.licence` `GPL-3.0-only OR OSMC-PL-1.2` for the build step, `invocation` `process`.
 - **Built FMUs are cached** in the project, keyed by the SHA-256 of the generated `.mo` file and the OpenModelica version, so a model that has not changed is not compiled again, and a template can ship its FMU (BSD-3-Clause runtime) for a machine without OpenModelica.
 - **Standard library.** Modelica Standard Library 4.1.0 only, in Phase 2.
