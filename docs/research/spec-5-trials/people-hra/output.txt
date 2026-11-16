@@ -1,0 +1,6 @@
+SPAR-H, NUREG/CR-6883 section 2.5.1
+example 1 (diagnosis, PSFs 10, 20, 2): unadjusted 4.0000 (report: 4.0), adjusted 0.8016 (report: 0.81)
+example 2 (action, PSFs 0.8, 0.8, 0.1): unadjusted 6.400e-05 (report: 6.4E-5), adjusted 6.4060e-05 (report: 6.41E-5)
+HEART, Wikipedia example (secondary source)
+effects from the formula: 0.2714 (page: 0.27)
+printed effects multiplied: 0.2714 (page: 0.27)

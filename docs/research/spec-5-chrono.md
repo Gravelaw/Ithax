@@ -32,15 +32,44 @@ Read on 2026-11-16.
 
 Proposed (owner to confirm):
 
-- **Project Chrono is not started in M23 without a trial.** Its licence (BSD-3-Clause) is compatible, and it is maintained, but it could not be run here, and MuJoCo could (see the open question). Run as a separate process in its own conda environment: its dependencies (CUDA, MKL, Open MPI) are large and proprietary in part, and should not enter Ithax's own environment. `Capabilities.licence` `BSD-3-Clause`, `invocation` `process`, `distribution` empty (not a PyPI distribution).
+- **Project Chrono is not started in M23 without a trial.** Its licence (BSD-3-Clause) is compatible, and it is maintained, but its CI trial passed in one setting of twelve (Tested), and MuJoCo passed in all six of its settings (see the open question). Run as a separate process in its own conda environment: its dependencies (CUDA, MKL, Open MPI) are large and proprietary in part, and should not enter Ithax's own environment. `Capabilities.licence` `BSD-3-Clause`, `invocation` `process`, `distribution` empty (not a PyPI distribution).
 - **Spec 5 version 0.3 details the multibody section on MuJoCo**, as a proposal awaiting the owner's answer to the question below; the benchmark values are closed forms either way.
 - **Benchmark values** (L = 1 m, g = 9.80665 m/s², computed by `docs/research/spec-5-trials/benchmarks/expected_values.py`): period 2.010235893 s at 10° and 2.368246346 s at 90° (ratios to the small-angle period 1.001907188 and 1.180340599).
 
 Open questions:
 
 - **Blocking (an engine choice the spec names):** a 536 MB engine with CUDA and MKL for a pendulum is a heavy install. MuJoCo 4.0.1 (Apache-2.0, on PyPI with manylinux wheels) ran the pendulum benchmark in this session to a relative error of about 1e-11 (`spec-5-mujoco.md`). Options: (a) MuJoCo replaces Chrono as spec 5's multibody engine; (b) Chrono stays, as an optional engine installed through conda, after a trial in CI; (c) both, MuJoCo first and Chrono later for contact-rich or vehicle models MuJoCo does not cover. Recommended: (a), with (c) left open for Phase 3.
-- **Reversible:** whether the CPU-only use of the package works without a GPU. Test in the trial.
+- **Answered by the CI trial:** the package runs without a GPU for the modules the pendulum uses (Tested).
 
 ## Tested
 
-Not run. The session's permission rules refused running a conda tool (micromamba from conda-forge, although its SHA-256 matched conda-forge's index), the container has no Docker daemon, and PyChrono is not on PyPI. The package was downloaded and its metadata read without installing it, as above. The pendulum trial (10° and 90° against the values above) remains to be done: in a CI job that installs the pinned package from the `projectchrono` channel, or by the owner.
+Not in the research container: the session's permission rules refused running a conda tool there (micromamba, although its SHA-256 matched conda-forge's index), the container has no Docker daemon, and PyChrono is not on PyPI. The pendulum was run in CI instead, by the `pychrono` job of `spec5-trials.yml` (#228):
+
+- micromamba 2.0.5 and `pychrono-9.0.1-py312h98ab86c_406.conda` from the `projectchrono` channel, each checked against a pinned SHA-256, failing closed. The job pins 9.0.1, as approved for it, not the newest 10.0.0; 10.0.0 was not run.
+- The licence as the installed package declares it was printed in the log: BSD-3-Clause, as under Finding.
+- `docs/research/spec-5-trials/chrono/pendulum.py`: a 1 kg body with an inertia of 1e-9 kg m² about its centre, on a revolute joint 1 m above it, released at rest; the period over ten periods of upward zero crossings. Three time steppers, two steps each.
+
+Run 43938942488, head `e94ef9b` (copied from the job log; run 43935773704 at head `d98f5d7`, with the same script, gave the same pattern of passes and failures):
+
+| Amplitude | Time stepper, step | Period (s) | Relative error | Within 1e-6 |
+| --- | --- | --- | --- | --- |
+| 10° | Euler implicit linearized (default), 1 ms | failed: no crossing in 40 s | | no |
+| 10° | Euler implicit linearized, 0.1 ms | failed: no crossing in 40 s | | no |
+| 10° | Euler implicit projected, 1 ms | failed: 1 crossing in 40 s | | no |
+| 10° | Euler implicit projected, 0.1 ms | 3.029092654 | +5.07e-01 | no |
+| 10° | HHT, 1 ms | 2.010238304 | +1.20e-06 | no |
+| 10° | HHT, 0.1 ms | failed: minimum step size reached | | no |
+| 90° | Euler implicit linearized, 1 ms | 2.368256571 | +4.32e-06 | no |
+| 90° | Euler implicit linearized, 0.1 ms | 2.368246453 | +4.53e-08 | yes |
+| 90° | Euler implicit projected, 1 ms | 2.327115794 | −1.74e-02 | no |
+| 90° | Euler implicit projected, 0.1 ms | 2.363512098 | −2.00e-03 | no |
+| 90° | HHT, 1 ms | failed: minimum step size reached | | no |
+| 90° | HHT, 0.1 ms | failed: minimum step size reached | | no |
+
+What the run shows:
+
+- **PyChrono installs and runs on a runner without a GPU**, which answers the reversible question above for the CPU-only modules used here.
+- **One setting of twelve passed.** The default stepper at 0.1 ms reproduces the 90° period to 4.5e-8, so the engine can meet the gate. The failures at 10° and with HHT are most likely the trial's model and not Chrono: an inertia of 1e-9 kg m² makes the system badly conditioned. A body with a physical inertia, with the exact period computed for a compound pendulum, was not tried.
+- **Compared with MuJoCo**, which passed all six of its settings to about 1e-11 on a point mass (`spec-5-mujoco.md`), Chrono needs more care in setting up the same benchmark. This supports the recommendation of option (a), with Chrono left for Phase 3.
+
+The Decision section is revised to cite this trial.

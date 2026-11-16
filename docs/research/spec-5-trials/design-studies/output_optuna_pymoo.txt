@@ -1,0 +1,22 @@
+optuna=5.1.0 pymoo=0.6.2 numpy=2.5.5
+branin at the three published minima: [0.397887, 0.397887, 0.397887] (published 0.397887)
+[optuna TPE branin] budget=50 seed=1 best=0.417087 gap=1.92e-02 at (9.4828, 2.4695) distance to nearest minimum=0.0583
+[optuna TPE branin] budget=50 seed=2 best=0.419572 gap=2.17e-02 at (-3.1835, 12.2609) distance to nearest minimum=0.0442
+[optuna TPE branin] budget=50 seed=3 best=0.435196 gap=3.73e-02 at (3.1202, 2.4791) distance to nearest minimum=0.2052
+[optuna TPE branin] budget=100 seed=1 best=0.417087 gap=1.92e-02 at (9.4828, 2.4695) distance to nearest minimum=0.0583
+[optuna TPE branin] budget=100 seed=2 best=0.419572 gap=2.17e-02 at (-3.1835, 12.2609) distance to nearest minimum=0.0442
+[optuna TPE branin] budget=100 seed=3 best=0.405632 gap=7.74e-03 at (9.4181, 2.5562) distance to nearest minimum=0.0815
+[optuna TPE branin] budget=200 seed=1 best=0.399147 gap=1.26e-03 at (9.4286, 2.5127) distance to nearest minimum=0.0379
+[optuna TPE branin] budget=200 seed=2 best=0.399705 gap=1.82e-03 at (-3.1342, 12.2178) distance to nearest minimum=0.0577
+[optuna TPE branin] budget=200 seed=3 best=0.399725 gap=1.84e-03 at (9.4427, 2.4731) distance to nearest minimum=0.0180
+[optuna TPE branin] seed 1 budget 100 repeats exactly: True
+[optuna TPE 200 branin s.t. x1 >= 5, seed 1] best=0.398902 at (9.4146, 2.4891) feasible=True (known 0.397887 at (9.42478, 2.475))
+[pymoo GA 20x10 branin s.t. x1 >= 5, seed 1] best=0.406066 at (9.4623, 2.4690) feasible=True (known 0.397887 at (9.42478, 2.475))
+[pymoo NSGA-II zdt1] generations=20 seed=1 evaluations=2000 IGD=0.50462 seconds=0.1
+[pymoo NSGA-II zdt1] generations=20 seed=2 evaluations=2000 IGD=0.56906 seconds=0.1
+[pymoo NSGA-II zdt1] generations=200 seed=1 evaluations=20000 IGD=0.00555 seconds=0.9
+[pymoo NSGA-II zdt1] generations=200 seed=2 evaluations=20000 IGD=0.00564 seconds=1.0
+[pymoo NSGA-II zdt1] seed 1, 50 generations repeats exactly: True
+[optuna NSGAIISampler zdt1] trials=2000 seed=1 IGD=0.52389 seconds=2.9
+[optuna NSGAIISampler zdt1] trials=2000 seed=2 IGD=0.64142 seconds=3.2
+[optuna NSGAIISampler zdt1] trials=20000 seed=1 IGD=0.05699 seconds=61.0
