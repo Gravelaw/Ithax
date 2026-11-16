@@ -3634,3 +3634,18 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The pre-push skill already appends the branch's entries after main's file; it now ends with this command.
 - **Spec sections updated:** none.
 - **Dependencies added:** none.
+
+## 2026-11-16 · M16 · Spec 3 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 3 now applies its approved rows and goes from version 1.0 to 1.1.
+  - The "change needed" rows: the version line (2026-11-09 B2); D6, B6 and D4 on the screens; B3 and F6 on the hardware tiers; D7; D14; F7 on the API; C4 and F6 on the performance targets; C5; C1 and C2; and the stale E179 default (#80).
+  - The stale fact: format 0.3 since #77.
+  - The Windows rows (lines 7, 23, 73, 87, 318 and 332 as surveyed), as the owner decided on 2026-11-16 (#207): Windows runs the Linux package or the AppImage under WSL 2 until after Phase 3. Phase 2 documents and tests that install. A native version, its installer, its code signing (B5) and the shell's WebView2 build come after Phase 3. This replaces the native installer of 2026-11-15 item 3. The WSL research item is kept, as a WSL 2 install item for Phase 2.
+  - The B5 row (the AppImage) needed nothing more: #211 added the AppImage to "Packaging".
+  - The six "already in spec" rows need no change.
+- **Readings (reversible):**
+  - B6's search threshold is written as the checklist's reading 1 proposes it: an estimated time above the run time limit (default 10 minutes), or more than 20 scenarios. #111 sets it when it builds the estimate.
+  - The performance targets stay proposals. Per #206, their measured values are baselines, not gates, until targets are set after Phase 3.
+  - The Windows acceptance row is checked by an agent on a WSL runner where one is available, and otherwise by the owner, as M24 of the proposed Phase 2 table says.
+- **Spec sections updated:** spec 3, the version line and the warning, "Architecture", "API", "Screens", "Hardware tiers", "Packaging", "Service rules" (the launcher and the desktop shell), "Endpoints" (new projects), "Canvas behaviour", "Performance targets", "Design before building", "Research before building", "Acceptance tests" and "Changes in this version".
+- **Dependencies added:** none.
