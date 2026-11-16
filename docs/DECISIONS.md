@@ -3623,8 +3623,8 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
     - A push is compared with the commit before it. A push that creates a branch has no base, and passes.
   - **Tests.** `tests/test_decisions_append_only.py` uses two fixtures from `tests/decisions_fixtures/`: one only appends, and one drops the base's last line (the #189 and #213 shape). It also tests a changed line, an entry inserted mid-file, the merge base rather than the base's tip, and the workflow wiring.
   - **Also:** an `AGENTS.md` bullet, and a row in `CLAUDE.md`'s table of rules the tools enforce.
-- **The retroactive check, run on 2026-11-15 against `main` at the head this PR started from:**
-  - Of `git rev-list --first-parent origin/main -- docs/DECISIONS.md`, 69 commits changed the file.
+- **The retroactive check, run on 2026-11-16 against `main` at `e347679` (#214's squash):**
+  - Of `git rev-list --first-parent origin/main -- docs/DECISIONS.md`, 71 commits changed the file.
   - For each, the lines of its parent's file were counted, repeats included, against its own. No commit lost a line, so nothing is restored.
   - 22 of those commits did not keep their parent's file as an exact prefix. Each inserted lines mid-file, an entry placed in date order or a line added inside an entry, and none removed one. From now on the check refuses that; new entries go at the end.
   - #189's lost `Dependencies added` lines and #213's lost tail were caught on their branches and restored before they merged.
