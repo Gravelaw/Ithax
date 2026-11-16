@@ -46,10 +46,10 @@ def describe(path: str) -> None:
             )
 
 
-def run(path: str) -> bool:
+def run(path: str, step: float = 0.01) -> bool:
     try:
         res = fmpy.simulate_fmu(
-            path, stop_time=10.0, output_interval=0.01, relative_tolerance=1e-8, output=["x", "v"]
+            path, stop_time=10.0, output_interval=step, relative_tolerance=1e-8, output=["x", "v"]
         )
     except Exception as error:  # report, do not hide: the trial records what happened
         print(f"  simulate_fmu failed: {type(error).__name__}: {error}")
@@ -58,7 +58,7 @@ def run(path: str) -> bool:
     err = float(np.max(np.abs(x - exact(t))))
     ok = err <= 1e-5
     print(
-        f"  {len(t)} samples, x(10) = {x[-1]:.9f} m, exact {exact(t)[-1]:.9f} m, "
+        f"  step {step:g} s: {len(t)} samples, x(10) = {x[-1]:.9f} m, exact {exact(t)[-1]:.9f} m, "
         f"max |error| {err:.2e} m, within 1e-5: {ok}"
     )
     return ok
@@ -74,6 +74,9 @@ def main() -> None:
             continue
         describe(path)
         results.append(run(path))
+        # A tenfold smaller communication step: an error that falls about tenfold points to a
+        # first-order method stepping at the communication interval (forward Euler).
+        run(path, 0.001)
     print("all within 1e-5:", all(results))
 
 

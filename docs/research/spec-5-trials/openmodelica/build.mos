@@ -11,3 +11,8 @@ checkModel(MSD); getErrorString();
 buildModelFMU(MSD, version = "2.0", fmuType = "cs", fileNamePrefix = "MSD_dynamic", platforms = {"dynamic"}); getErrorString();
 // Statically linked (the default), to test whether it runs where OpenModelica is not installed.
 buildModelFMU(MSD, version = "2.0", fmuType = "cs", fileNamePrefix = "MSD_static", platforms = {"static"}); getErrorString();
+// The user's guide documents the Co-Simulation integrator as a flag; CI run 43935773704
+// showed the default FMUs behaving like forward Euler at the communication step, so this
+// build asks for CVODE explicitly.
+setCommandLineOptions("--fmiFlags=s:cvode"); getErrorString();
+buildModelFMU(MSD, version = "2.0", fmuType = "cs", fileNamePrefix = "MSD_cvode", platforms = {"static"}); getErrorString();

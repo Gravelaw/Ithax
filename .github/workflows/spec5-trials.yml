@@ -82,7 +82,7 @@ jobs:
       - name: Run the FMUs where they were built
         run: |
           cd "$RUNNER_TEMP/build"
-          python "$GITHUB_WORKSPACE/docs/research/spec-5-trials/openmodelica/run_fmu.py" MSD_dynamic.fmu MSD_static.fmu | tee run-with-openmodelica.txt
+          python "$GITHUB_WORKSPACE/docs/research/spec-5-trials/openmodelica/run_fmu.py" MSD_dynamic.fmu MSD_static.fmu MSD_cvode.fmu | tee run-with-openmodelica.txt
       - uses: actions/upload-artifact@v4
         with:
           name: openmodelica-trial
@@ -120,7 +120,7 @@ jobs:
       - name: Run the FMUs without OpenModelica
         run: |
           cd fmus
-          python ../docs/research/spec-5-trials/openmodelica/run_fmu.py MSD_dynamic.fmu MSD_static.fmu | tee run-without-openmodelica.txt
+          python ../docs/research/spec-5-trials/openmodelica/run_fmu.py MSD_dynamic.fmu MSD_static.fmu MSD_cvode.fmu | tee run-without-openmodelica.txt
       - uses: actions/upload-artifact@v4
         with:
           name: fmu-without-openmodelica
