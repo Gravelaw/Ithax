@@ -203,5 +203,8 @@ def test_the_parsers_find_the_known_cases() -> None:
     assert {"2026-11-13 D18", "2026-11-13 F9 to F19", "2026-11-07 Item 7"} <= owner_keys()
     assert {"DECISIONS AKS-123 reading 2", "DECISIONS AKS-108 Left"} <= reading_keys()
     assert {"M9-44", "M10-30"} <= session_keys()
-    spec_2 = (SPECS / SPEC_FILES["spec 2"]).read_text("utf-8")
-    assert any("sketch" in line for line in open_lines(spec_2))
+    # Spec 2's line as surveyed (version 1.1); its spec PR answered it, so the probe is
+    # the line itself, not the live spec.
+    surveyed = "Phase 1 accepts `standard` only. A `sketch` preview level is an owner question."
+    assert open_lines(surveyed) == [surveyed]
+    assert open_lines("A `sketch` preview fidelity is Phase 2 (2026-11-09 B7 item 1).") == []
