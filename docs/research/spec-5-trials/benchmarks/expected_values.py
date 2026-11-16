@@ -1,11 +1,11 @@
 """Spec 5 benchmarks: the exact expected values, computed from closed forms.
 
-Install: any venv with scipy and numpy (scipy 1.16, numpy 2.5 used).
+Install: any venv with scipy and numpy (scipy 1.18.1 and numpy 2.5.5 used; see output.txt).
 Run: <venv>/bin/python expected_values.py > output.txt
 
 Each value comes from a formula, solved with scipy's root finder or special functions,
 never from a simulation. Sources are named in docs/specs/5-systems-and-design.md
-"Benchmarks" and docs/research/spec-5-benchmarks.md.
+"Benchmarks" and the research note of each domain (docs/research/spec-5-*.md).
 """
 
 import math

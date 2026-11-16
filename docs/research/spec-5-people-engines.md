@@ -138,6 +138,7 @@ All PyPI facts from `https://pypi.org/pypi/<pkg>/json`, read 2026-11-16. Licence
 
 Proposed defaults (owner to confirm):
 
+- **Correction from the council (2026-11-16, `docs/research/spec-5-council/licences.md`, F2):** JuPedSim's native library compiles in CGAL packages that CGAL distributes under the GPL (2D Arrangements, 2D Boolean Set-Operations, 2D Triangulations), and its wheel carries no notices for CGAL, Boost, {fmt} or pybind11. So the combined licence is not only LGPL-3.0-or-later; GPL-3.0 is compatible with AGPL-3.0, but a legal check comes before any use. Spec 5 v0.3 proposes pedestrians for Phase 3 (#237).
 - **(b) Crowds: JuPedSim as the pedestrian engine**, in-process (LGPL-3.0-or-later),
   installed without its viewer dependencies (`--no-deps` plus numpy, shapely, deprecated,
   pinned by the environment manager). Mesa stays for crowds as general agents (customers,
