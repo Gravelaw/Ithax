@@ -48,7 +48,7 @@ The next free minor format version after M19's and M20's (Proposed, Q4), additiv
 
 **Experiments.**
 
-- `length` as spec 1. `time_step`, a time quantity, is required for `agent`, `system_dynamics` and `multibody`. `length` must be a whole multiple of `time_step` (E407), and so must `record_interval` (E401); both are checked exactly on the written decimals and the units' sizes, never on floats. When `record_interval` is absent it is the smallest multiple of `time_step` that is at least `length` / 200.
+- `length` as spec 1. `time_step`, a time quantity, is required for `agent`, `system_dynamics` and `multibody`. `length` must be a whole multiple of `time_step` (E407); `record_interval` must be a whole multiple of `time_step` and divide `length` (E401), so the last recorded sample is at `length`. Both are checked exactly on the written decimals and the units' sizes, never on floats. When `record_interval` is absent it is k × `time_step`, where k is the smallest divisor of `length` / `time_step` with k × `time_step` ≥ `length` / 200.
 - `agent`: `replications`, `seed`, `confidence` and `warmup` as spec 1. The warm-up check W210 is not applied to agent runs, whose populations are meant to change; `warmup` only starts the statistics.
 - `system_dynamics`, `physical`, `multibody` are deterministic. `replications` and `warmup` are not allowed (E100); a run has one replication, numbered 0. `seed` stays allowed, and drawn when absent, because a study's sampler is seeded from it.
 - `scenarios` work as in spec 1 in every domain. Spec 2's `search` stays process-only until Q4 settles how a deterministic model is searched (no replications, so no confirmation stage).
@@ -61,11 +61,11 @@ The next free minor format version after M19's and M20's (Proposed, Q4), additiv
 
 | Code | Pass | Meaning |
 | --- | --- | --- |
-| E401 | meaning | `record_interval` is not a whole multiple of `time_step` |
+| E401 | meaning | `record_interval` is not a whole multiple of `time_step`, or does not divide `length` |
 | E402 | meaning | A population's `initial` counts do not sum to its `count`, or name a state it lacks; a transition names a state its population lacks |
 | E403 | meaning | An expression names something that is not a stock, flow, auxiliary or `$parameter` |
 | E404 | meaning | An expression does not parse |
-| E405 | meaning | Auxiliaries depend on each other in a loop with no stock between |
+| E405 | meaning | Flows and auxiliaries depend on each other, or one on itself, in a loop with no stock between |
 | E406 | meaning | A physical connection joins connectors of different kinds |
 | E407 | meaning | `length` is not a whole multiple of `time_step` |
 | E410 | calculator | A block diagram does not reduce by series, parallel and k-out-of-n steps |
@@ -117,7 +117,7 @@ The `timeseries` table holds each measure at every `record_interval` from 0 to `
   - Operands: numbers in spec 1's JSON number grammar; the ids of stocks, flows and auxiliaries; parameters written `$id`; and `time`, in `time_unit` from 0. `time` and the function names are reserved identifiers (E112) in this domain.
   - Operators, loosest first: `+` and `-`; `*` and `/`; unary `-`; `^`, which binds to the right. Parentheses group.
   - Functions: `min(a, b)`, `max(a, b)`, `exp(a)`, `ln(a)`, `abs(a)` and `if_then_else(c, a, b)`. The condition `c` is one comparison, `<`, `<=`, `>`, `>=`, `==` or `!=`, between two expressions; comparisons appear nowhere else.
-  - Errors: an unknown name is E403, a syntax error E404, and an auxiliary loop without a stock is E405.
+  - Errors: an unknown name is E403, a syntax error E404, and a loop through flows and auxiliaries (a flow's `rate` or an auxiliary's `equation` that needs itself, directly or through other flows and auxiliaries) without a stock between is E405: a stock's value is known at the start of each step, so it breaks a loop, and nothing else does.
   - Not in Phase 2: lookup tables and delays (Open).
 - **Engine.** The adapter writes the model in PySD's input format in `engine/` (XMILE 1.0 is proposed; the trial ran Vensim `.mdl`, so M23 confirms XMILE on the benchmarks first, else writes `.mdl`). PySD translates and runs it with `run(time_step=…, saveper=…)`. Never pass the step through `params`: PySD 3.14.3 ignored it there in the trial. PySD integrates by Euler only, so the answer depends on `time_step`, which the label states.
 
