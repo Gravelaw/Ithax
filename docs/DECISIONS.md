@@ -3715,3 +3715,35 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The PyPI name `pychrono` is an unrelated package; any install instruction for Chrono names the conda channel.
 - **Spec sections updated:** none in this PR; spec 5 version 0.3 follows in its own PR.
 - **Dependencies added:** none. No engine is a project dependency.
+
+## 2026-11-16 · Spec 5 research · Spec 5 version 0.3, detailed and reviewed by a council (#104)
+
+- **Decision (proposed; the owner reviews it during development, F3):** `docs/specs/5-systems-and-design.md` is detailed as version 0.3 from the research notes `docs/research/spec-5-*.md`, their trials and a council of four reviewers (`docs/research/spec-5-council.md`). Each section states whether it is Specified, Proposed or Open:
+  - **Specified:** the agent-based domain (Mesa, well mixed), the system dynamics domain (PySD), and their statistics.
+  - **Proposed:** multibody on MuJoCo; design studies; surrogates; chaining; reliability calculators; people. Each waits on one of ten owner decisions, Q1 to Q10, filed as "Owner decision" issues.
+  - **Open:** physical systems, until OpenModelica's CI trial (#228) has run.
+- **Licences of the libraries spec 5 proposes to import in-process** (council finding F1; spec 1 "Engine licence rule"). Each was read on 2026-11-16 from the licence file in the pinned wheel, whose SHA-256 matched PyPI's digest. Read by the research notes and again by the council's licence reviewer:
+
+  | Name | Version | Licence | File read | Use |
+  | --- | --- | --- | --- | --- |
+  | SALib | 1.6.0 | MIT | `licenses/LICENSE.md` | sensitivity, screening |
+  | pymoo | 0.6.2 | Apache-2.0 | `licenses/LICENSE` | NSGA-II |
+  | moocore (pymoo's) | 0.3.2 | LGPL-2.1-or-later | `licenses/COPYRIGHTS` | pymoo dependency |
+  | scikit-learn | 1.9.1 | BSD-3-Clause (bundles libgomp, GPL-3.0-or-later WITH GCC-exception-3.1) | `licenses/COPYING` | surrogates |
+  | faultree | 0.4.0 | BSD-3-Clause | `licenses/LICENSE` | fault trees |
+  | dd (faultree's) | 0.6.0 | BSD-3-Clause, with CUDD BSD-3-Clause and glibc LGPL-2.1 notices | wheel licence files | faultree dependency |
+
+  All are compatible with AGPL-3.0 for a combined work. None is added as a dependency here: each is added, with this record, by the milestone that builds its feature. Their own dependencies are not all read yet (matplotlib's fonts, `portion`, `regex`; `docs/research/spec-5-council.md`), and are read before any is bundled.
+- **Readings (reversible), each in the spec:**
+  - Deterministic domains keep `seed` and drop `replications` and `warmup`.
+  - Agent randomness comes from one stream per replication, `@agents`, with competing risks for transitions out of one state.
+  - Stream keys outside the identifier pattern (`@agents`, `@study`), so they never collide with a component id.
+  - Statistics `final`, `max`, `min`, `time_of_max` and `mean` (trapezoid), from `warmup`.
+  - Physical units spelled as the units library reads them (`N*s/m`), and no `degC`.
+  - The system dynamics `time_unit` is top-level, and parameters in expressions are written `$id`.
+  - The surrogate's leave-one-out error comes from refits, not Ithax's own algebra (rule 7).
+  - In Phase 2, chaining passes scalars only.
+  - Each adapter ships one template, as the Phase 2 table says.
+  - The predator–prey benchmark is restated in days, since system dynamics allows no year unit.
+- **Spec sections updated:** spec 5, all sections; version 0.3.
+- **Dependencies added:** none.
