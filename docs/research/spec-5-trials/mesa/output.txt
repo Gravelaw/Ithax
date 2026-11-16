@@ -1,0 +1,4 @@
+mesa 3.5.2 numpy 2.5.5
+deterministic final size (N - S_inf): 800.2040 (of which 10 infected at the start)
+30 replications, dt 0.1 day: mean final size 796.03 +/- 9.18 (95%), sd 24.59, min 740, max 839
+repeat of replication 0 with the same seed equal: True

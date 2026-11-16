@@ -1,0 +1,12 @@
+b = ln(0.8)/ln(2) = -0.3219 (slide: -.3219)
+unit, computed, published (rounded), match after rounding
+1, 1000.00, 1000, True
+2, 800.00, 800, True
+3, 702.10, 702, True
+4, 640.00, 640, True
+5, 595.64, 596, True
+10, 476.51, 477, True
+50, 283.83, 284, True
+100, 227.06, 227, True
+500, 135.25, 135, True
+1000, 108.20, 108, True

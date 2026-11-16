@@ -1,6 +1,6 @@
 # Spec 4: Content, Learning and AI Access
 
-> Version 1.0 · working copy in the repository (source of truth, owner to confirm) · changes are listed under "Changes in this version".
+> Version 1.1 · working copy in the repository (the source of truth) · changes are listed under "Changes in this version".
 
 This spec covers what makes the tool usable by non-experts: ready-made templates, lessons, findings in plain language, and an MCP server so any assistant can build and run models.
 
@@ -28,7 +28,7 @@ Each template is a model file, a short lesson, the expected results and one exer
 | Staff rota | Integer programming | Business | optimization domain | people |
 | How many machines? | Simulation-based optimization | Both | simulation-based search | machines |
 
-Phase 1 covers machines and people as resources, materials as stock, and movement as transport time. Physical movement, material behaviour and physics arrive in Phases 2 and 3. A template's model may extend the example file of the same name.
+Phase 1 covers machines and people as resources, materials as stock, and movement as transport time. Physical movement, material behaviour and physics arrive in Phases 2 and 3. A template's model may extend the example file of the same name. Phase 1 keeps these ten templates; an eleventh, forklift or AGV transport, and template expansion in general come in Phase 3 (2026-11-09 B7 item 3).
 
 ## Learn and Build modes
 
@@ -86,6 +86,7 @@ Rules for assistant access:
 - **Same validation.** Assistant-built models pass the same checks as hand-built ones.
 - **Visible to the user.** Models an assistant creates open on the canvas, where the user can inspect and change them.
 - **Bounded runs.** Run time and memory limits apply to every run.
+- **Every feature, with parity.** Each feature ships with a thin API and MCP tool and a parity test, and the last or second-to-last milestone of every phase is MCP hardening plus a trial with a different assistant (owner decision C6, 2026-11-13).
 
 ## Detailed specification
 
@@ -258,7 +259,7 @@ How the server runs and answers (AKS-115, owner to confirm; research notes `docs
 - The MCP server itself allows at most two unfinished runs per project that it started, tracked in memory; a third request returns an error object. How it is checked (AKS-134, owner to confirm): the MCP server keeps, for each `project_id` given to `run_model`, the `run_id` of every run it started for it (a `202` answer), from its own start; runs started by the interface, a script or another MCP server do not count. At each `run_model` it asks the service for each of them (`GET /v1/runs/{rid}`): a run is unfinished while the service says `queued` or `running`; a run the service no longer finds (404) is forgotten, and any other refusal, or no service (E193), is the result and no run is started. With two unfinished, the result is marked `isError` and holds `{error: {code: "E194", message}, issues, run_ids}`: one E194 issue at `/project_id` (spec 1) and the ids of the unfinished runs, which `get_run_status` follows; nothing is sent to the service. The check and the start are made one at a time, so two calls at once cannot both pass it.
 - Default run limits: 10 minutes and half of system memory, adjustable in settings. These are the service's `run_time_limit_s` and `run_memory_limit_bytes` (spec 3 "Service rules", Run queue), which bound every run whichever client starts it; a run beyond them fails with E192 (spec 1). The MCP server sets no limit of its own (AKS-134).
 - The MCP server reads and writes only inside project folders. How it is met (AKS-134, owner to confirm): no tool reads or writes a file at all; every tool is requests to the service, which reads and writes the project's folder (spec 3 "Project folder") and its own files. The MCP server's one file read is `service.json` in the configuration folder, to find the service (spec 3 "Discovery"); that is discovery, not a tool's read, and it writes no file. `create_model` takes no `path`, and `POST /v1/projects/open`, which registers a folder named by its path, is not a tool (spec 3). `tests/mcp/test_mcp_confinement.py` runs `python -m ithax.mcp` as its own process with an audit hook (`sys.addaudithook`) recording every file the process opens, lists, creates, renames or removes while each of the thirteen tools is called, and finds only the interpreter reading its own modules, the null device opened read-only (the SDK's stdio transport points standard input at it while it serves the protocol on a private copy), and `service.json`.
-- No data import tool (AKS-134). An assistant has no file to send, so the MCP server has no tool for the data endpoints; data files are imported through the interface or `POST /v1/projects/{pid}/data`, within spec 3's limits (a request of at most 64 MiB plus 64 KiB, a file of at most 64 MiB, an `.xlsx` of at most 512 MiB unpacked, at most 1,048,576 records and 10,000,000 cells; E189 beyond them). A model written through `edit_model` may name an imported file in an `empirical` `data` reference.
+- No data import tool (AKS-134). An assistant has no file to send, so the MCP server has no tool for the data endpoints (data import through the assistant is Phase 2, owner decision D15, 2026-11-13); data files are imported through the interface or `POST /v1/projects/{pid}/data`, within spec 3's limits (a request of at most 64 MiB plus 64 KiB, a file of at most 64 MiB, an `.xlsx` of at most 512 MiB unpacked, at most 1,048,576 records and 10,000,000 cells; E189 beyond them). A model written through `edit_model` may name an imported file in an `empirical` `data` reference.
 
 ### Assistant acceptance case
 
@@ -286,11 +287,12 @@ Complete these and record the findings, with sources, in a short note in the rep
 | Test | Milestone | Checked by | Evidence |
 | --- | --- | --- | --- |
 | Every template reproduces its expected values, with at least one `theory` or `benchmark` source | M10 | agent | `tests/templates/test_templates.py` (marker `template`): all ten templates (three AKS-122, three AKS-139, the AKS-123 transport plan and the three AKS-140 optimization templates) and their exercises, with the findings each run gives at the default thresholds (AKS-125); that the interface opens the three AKS-140 templates, `ui/e2e/templates.spec.ts` |
-| A first-time user completes one Learn walkthrough without outside help (one outside tester; fallback as in spec 3) | M10 | owner | The walkthrough runs end to end in `ui/e2e/learn.spec.ts` (AKS-124: the coffee shop by pointer, the product mix from the keyboard); the outside tester is the owner's |
+| A first-time user completes one Learn walkthrough without outside help: agents in student and business-analyst roles as a gate in every phase, plus one or two people at v0.1.0 (owner decisions C1 and C2, 2026-11-13; check 2 of `docs/release/v0.1.0-owner-checks.md`) | M10; every phase | agent; owner for the people at v0.1.0 | The walkthrough runs end to end in `ui/e2e/learn.spec.ts` (AKS-124: the coffee shop by pointer, the product mix from the keyboard); the outside tester is the owner's |
 | Each finding rule fires on its `_fires` fixture and is silent on its `_silent` fixture | M8 | agent | `tests/findings`; end to end through the service, `tests/service/test_summary_findings.py` (AKS-135) |
 | A Build-mode user without data reaches a completed run changing only parameters | M9/M10 | agent via the end-to-end test | `ui/e2e/build.spec.ts`, "a Build-mode user without data reaches a completed run changing only parameters" (AKS-124): the form's first answer and "No, I will estimate" make the coffee shop, the parameter `tills` is the only change (the saved model equals the template's except `meta` and that value), the run is done and Results shown, and the service's request log holds only documented `/v1` routes, none refused (`tests/service/request_log.py`). At M9, `ui/e2e/pointer-only.spec.ts` reached a completed run of the coffee shop by pointer, without data, from a new project (spec 3 acceptance, AKS-121) |
 | The scripted MCP case passes | M7 | agent | `tests/mcp/test_coffee_shop_scripted.py` |
 | A real-assistant transcript meets the acceptance case | M7 | owner, or agent if an MCP-capable assistant is available | `docs/research/spec-4-mcp-trial-<date>.md`; met by the agent in `docs/research/spec-4-mcp-trial-2026-11-08.md` |
+| A trial with an assistant other than the previous phase's meets the acceptance case, after MCP hardening (C6) | The last or second-to-last milestone of every phase | owner, or agent if a different MCP-capable assistant is available | A transcript under `docs/research/mcp/`, named for the assistant and date; for Phase 1, check 6 of `docs/release/v0.1.0-owner-checks.md` |
 | No MCP tool reads or writes outside the project folder | M7 | agent | `tests/mcp/test_mcp_confinement.py` |
 
 ## Changes in this version
@@ -346,3 +348,4 @@ Complete these and record the findings, with sources, in a short note in the rep
 - 2026-11-15, rename and remove (#97; C6): "MCP server" and "MCP tools" add `rename_project` and `remove_project`, the thin tools of `PATCH /v1/projects/{pid}` (its `name` only; `opened` and `lesson_step` are the interface's and have no tool) and `POST /v1/projects/{pid}/remove`.
 - 2026-11-15, resuming a lesson (#97, Reviewer B finding 10): "Learn and Build modes" (Where the lesson lives) keeps the step reached with the project, so a lesson resumes after a reload in the project made from its template, and "Start the lesson" no longer makes a new project each time.
 - 2026-11-16, M14 closed (#71, #82, #83, #98 and #158): no further change to this spec at the close. Version 1.0.
+- 2026-11-16, the Phase 1 review (#101; the owner approved the checklist `docs/research/phase-1-review.md` on 2026-11-16): the version line drops "owner to confirm" (2026-11-09 B2); "Template library" keeps the ten templates and puts an eleventh and template expansion in Phase 3 (2026-11-09 B7 item 3); "MCP server" adds C6's rule; "Limits" says data import through the assistant is Phase 2 (D15); the Learn walkthrough row is done by agents in roles every phase plus one or two people at v0.1.0 (C1, C2), and a row adds the different-assistant trial of every phase (C6). Version 1.1.
