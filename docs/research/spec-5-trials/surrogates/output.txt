@@ -276,3 +276,4 @@ numpy 2.5.4, scipy 1.18.1, scikit-learn 1.9.1
    cov95_out  median 1 [min 1, max 1]
 
 === Cross-check with SMT KRG (squared exponential, defaults, seed 0), n = 10d
+   Branin q2 median 0.9952 [min 0.9637, max 0.9985]
