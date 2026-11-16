@@ -221,3 +221,58 @@ numpy 2.5.4, scipy 1.18.1, scikit-learn 1.9.1
    noise_sd_fit    median 4.312 [min 2.948, max 5.145]
    cov95_f_latent  median 0.9385 [min 0.848, max 0.994]
    cov95_obs_full  median 0.9155 [min 0.775, max 0.972]
+-- noise sd=5.0 n=80
+   rmse_vs_f       median 3.07 [min 2.843, max 4.987]
+   q2_vs_f         median 0.9966 [min 0.9911, max 0.9971]
+   q2_vs_obs       median 0.9875 [min 0.9813, max 0.9888]
+   cv5_rmse_obs    median 6.354 [min 5.278, max 8.03]
+   test_rmse_obs   median 5.935 [min 5.622, max 7.191]
+   noise_sd_fit    median 4.597 [min 4.052, max 5.407]
+   cov95_f_latent  median 0.977 [min 0.925, max 0.996]
+   cov95_obs_full  median 0.944 [min 0.909, max 0.973]
+-- noise sd=20.0 n=20
+   rmse_vs_f       median 20.55 [min 18.79, max 33.83]
+   q2_vs_f         median 0.8483 [min 0.5892, max 0.8733]
+   q2_vs_obs       median 0.7326 [min 0.4913, max 0.7615]
+   cv5_rmse_obs    median 39.09 [min 29.79, max 77.61]
+   test_rmse_obs   median 29.17 [min 26.9, max 39.38]
+   noise_sd_fit    median 12.68 [min 0.005958, max 19.71]
+   cov95_f_latent  median 0.899 [min 0.751, max 0.99]
+   cov95_obs_full  median 0.8245 [min 0.659, max 0.977]
+-- noise sd=20.0 n=40
+   rmse_vs_f       median 16.59 [min 14.06, max 22.37]
+   q2_vs_f         median 0.9012 [min 0.8203, max 0.9291]
+   q2_vs_obs       median 0.7817 [min 0.7081, max 0.8216]
+   cv5_rmse_obs    median 30.39 [min 23.71, max 40.94]
+   test_rmse_obs   median 26.16 [min 23.92, max 30.49]
+   noise_sd_fit    median 17.81 [min 9.556, max 20.31]
+   cov95_f_latent  median 0.913 [min 0.847, max 0.959]
+   cov95_obs_full  median 0.908 [min 0.776, max 0.949]
+-- noise sd=20.0 n=80
+   rmse_vs_f       median 10.36 [min 8.974, max 13.67]
+   q2_vs_f         median 0.9615 [min 0.9329, max 0.9711]
+   q2_vs_obs       median 0.8399 [min 0.7985, max 0.8508]
+   cv5_rmse_obs    median 24.52 [min 20.37, max 28.28]
+   test_rmse_obs   median 22.54 [min 21.68, max 24.78]
+   noise_sd_fit    median 19.23 [min 16.55, max 22.14]
+   cov95_f_latent  median 0.954 [min 0.884, max 0.981]
+   cov95_obs_full  median 0.942 [min 0.914, max 0.975]
+
+=== Replicated noisy Branin (stochastic-kriging style): 20 points x 5 replications,
+    noise sd = 2 + 0.1*f(x) (heteroscedastic); GP on point means with alpha_i = s_i^2/5
+   per_point_alpha_rmse     median 8.888 [min 5.594, max 22.62]
+   per_point_alpha_q2       median 0.9716 [min 0.8164, max 0.9888]
+   per_point_alpha_cov95_f  median 0.9645 [min 0.746, max 1]
+   white_kernel_rmse        median 9.211 [min 5.585, max 21.01]
+   white_kernel_q2          median 0.9695 [min 0.8415, max 0.9888]
+   white_kernel_cov95_f     median 0.9125 [min 0.565, max 1]
+
+=== Extrapolation: Branin GP trained on x1 in [-5, 2.5] (n=20), tested inside and outside
+   q2_in      median 0.9994 [min 0.9976, max 0.9999]
+   q2_out     median 0.7121 [min -0.2967, max 0.8361]
+   rmse_in    median 1.171 [min 0.5609, max 2.316]
+   rmse_out   median 29.1 [min 21.96, max 61.76]
+   cov95_in   median 1 [min 0.994, max 1]
+   cov95_out  median 1 [min 1, max 1]
+
+=== Cross-check with SMT KRG (squared exponential, defaults, seed 0), n = 10d
