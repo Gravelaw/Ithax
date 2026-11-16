@@ -3665,6 +3665,18 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** spec 0, the version line, "Purpose", "Scope and build order", "Platform and hardware", "AI access", "Licence and community", "Success measures", "Risks and open items" and "Changes in this version".
 - **Dependencies added:** none.
 
+## 2026-11-16 · M16 · Spec 1 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 1 now applies the checklist's "change needed" rows for it and goes from version 1.6 to 1.7:
+  - the version line, which drops "owner to confirm" (2026-11-09 B2);
+  - the engine licence rule: AGPL-3.0-only (B4, C7), plus F4's separate processes and the GPL-2.0-only engines they allow. "Proposed default, owner to confirm" is dropped, and the lawyer sentence stays, since F4 defers further legal review;
+  - "Versioning": format 0.x changes only additively (F7), and its behaviour as built is current, not frozen (E1);
+  - `search.objective`: several objectives come in Phase 2 (B1). This also covers 2026-11-09 B7 item 2;
+  - E190: a solve stopped with a good solution becomes `feasible` with its gap in Phase 2 (E1 M5-1, M5-10).
+  - The eight "already in spec" rows need no change. That includes D2's error-with-warning-mark reading, which the owner approved with the checklist (its reading 4).
+- **Spec sections updated:** spec 1, the version line, "Engine contract" (the licence rule), "Versioning", "Experiments" (the `search` keys), "Validation issues" (E190) and "Changes in this version".
+- **Dependencies added:** none.
+
 ## 2026-11-16 · Spec 5 research · Owner decision: start spec 5 research now, in one session (#104)
 
 - **Decision (owner, 2026-11-16, relayed by the orchestrating session):** "start spec 5 research now. Keep a separate session as usual. This has to be done in a single session rather than multiple ones." Spec 5's research, its trial runs, the detailed draft (version 0.3) and its council start before M16 closes and are done by one session, from #104.
