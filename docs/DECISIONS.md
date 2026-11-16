@@ -3586,3 +3586,14 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The branch point's SHA is recorded here once the branch is cut, in the version PR's entry.
 - **Spec sections updated:** none.
 - **Dependencies added:** none.
+
+## 2026-11-15 · M16 · v0.1.0's version PR, on `release/0.1` (#103)
+
+- **Decision:** the version is set to 0.1.0 on `release/0.1`, in the six places `docs/release/v0.1.0.md` lists: `__version__` is `0.1.0`, and the shell's `Cargo.toml`, `Cargo.lock` (`ithax-desktop`), `tauri.conf.json`, `package.json` and `package-lock.json` (two entries) say `0.1.0`. `CHANGELOG.md`'s 0.1.0 heading takes a date. The package's docstring now says which branch carries which version.
+- **Branch point:** `release/0.1` was cut on 2026-11-15 from `main` at `e3f76d47fd64c99a2af492074b2b5cf0d298a7df` (#213's squash), read with `git ls-remote origin refs/heads/release/0.1` after the push.
+- **Reason:** `docs/release/v0.1.0.md`, "The version PR"; owner decision F7.
+- **Readings (reversible):**
+  - The changelog's date is 2026-11-15, the day of this PR. The owner checks (#102) are not done, so the tag day is not known. If the tag comes later, a PR into `release/0.1` moves the date, as `docs/release/v0.1.0.md` says.
+  - `uv.lock` carries no version for `ithax` (its version is dynamic, read from `__version__`), so it does not change.
+- **Spec sections updated:** none.
+- **Dependencies added:** none.

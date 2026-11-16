@@ -14,7 +14,7 @@ Python package (owner decision F7, 2026-11-13).
 
 ## [Unreleased]
 
-## [0.1.0] - not yet released
+## [0.1.0] - 2026-11-15
 
 The first release: Phase 1 (milestones M1 to M11) and Phase 1a (M12 to M16). It runs on Linux
 on x86_64 and needs no network once downloaded. The owner tags and publishes it (owner
