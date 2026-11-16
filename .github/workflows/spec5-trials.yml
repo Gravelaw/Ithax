@@ -160,7 +160,9 @@ jobs:
           set -euo pipefail
           env="$MAMBA_ROOT_PREFIX/envs/chrono"
           grep -h '"license"' "$env"/conda-meta/pychrono-9.0.1-*.json
-          find "$env" -ipath '*chrono*' \( -iname 'LICENSE*' -o -iname 'COPYING*' \) | head -20
+          # Listed to a file first: with pipefail, `find | head` fails when head closes the pipe.
+          find "$env" -ipath '*chrono*' \( -iname 'LICENSE*' -o -iname 'COPYING*' \) > "$RUNNER_TEMP/chrono-licences.txt"
+          head -20 "$RUNNER_TEMP/chrono-licences.txt"
           curl -fsSL https://projectchrono.org/license-chrono.txt
       - name: Run the pendulum
         run: |
