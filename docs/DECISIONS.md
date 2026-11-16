@@ -3649,6 +3649,110 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** none in this PR.
 - **Dependencies added:** none.
 
+## 2026-11-16 · M16 · Spec 0 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 0 now applies its approved rows and goes from version 0.4 to 0.5.
+  - The 19 "change needed" rows of "Spec 0", each as the checklist drafts it.
+  - Its four "needs owner" rows, as the owner decided:
+    - lines 128 and 172, the success measures: the six of B2, with no numeric targets until after Phase 3 and the values so far as baselines (#206, 2026-11-16);
+    - line 82, WSL: Windows through WSL 2 until after Phase 3, then a native build (#207, 2026-11-16);
+    - line 151, the six added risks: accepted as written, "(proposed)" dropped (the checklist's reading 2).
+  - The history line (188) is kept; the new dated line is under "Changes in this version".
+- **Readings (reversible):**
+  - The success measures table gives a "Baseline so far" column instead of targets. Each value is copied from the milestone record that measured it (STATUS M6, M9, M10, M11 and M13). Cognitive load has none yet.
+  - The 2026-11-05 measures and their M10 and M11 records stay below the table, marked as history, since the owner checks list (#102) and earlier sessions cite them.
+  - The unsigned-package risk now covers the Linux package and the AppImage, which Windows users run under WSL 2. Code signing is decided before the native Windows build (B5, #207).
+- **Spec sections updated:** spec 0, the version line, "Purpose", "Scope and build order", "Platform and hardware", "AI access", "Licence and community", "Success measures", "Risks and open items" and "Changes in this version".
+- **Dependencies added:** none.
+
+## 2026-11-16 · M16 · Spec 1 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 1 now applies the checklist's "change needed" rows for it and goes from version 1.6 to 1.7:
+  - the version line, which drops "owner to confirm" (2026-11-09 B2);
+  - the engine licence rule: AGPL-3.0-only (B4, C7), plus F4's separate processes and the GPL-2.0-only engines they allow. "Proposed default, owner to confirm" is dropped, and the lawyer sentence stays, since F4 defers further legal review;
+  - "Versioning": format 0.x changes only additively (F7), and its behaviour as built is current, not frozen (E1);
+  - `search.objective`: several objectives come in Phase 2 (B1). This also covers 2026-11-09 B7 item 2;
+  - E190: a solve stopped with a good solution becomes `feasible` with its gap in Phase 2 (E1 M5-1, M5-10).
+  - The eight "already in spec" rows need no change. That includes D2's error-with-warning-mark reading, which the owner approved with the checklist (its reading 4).
+- **Spec sections updated:** spec 1, the version line, "Engine contract" (the licence rule), "Versioning", "Experiments" (the `search` keys), "Validation issues" (E190) and "Changes in this version".
+- **Dependencies added:** none.
+
+## 2026-11-16 · M16 · Spec 2 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 2 now applies the checklist's 14 "change needed" rows for it and goes from version 1.1 to 1.2:
+  - the version line (2026-11-09 B2);
+  - the block defaults confirmed for Phase 1 and tested again in the agent walkthroughs (2026-11-09 B3, C1);
+  - the Phase 2 objective types (B1);
+  - ranking and selection (D1, settling 2026-11-07 item 7);
+  - the warm-up check kept for 0.x (E1 M3-2);
+  - `feasible` with its gap (E1 M5-1, M5-10), and duals first (E1 M5-15);
+  - the process constructs (D10, D11), and the failure per unit (D13);
+  - the Phase 2 research items;
+  - no cap on scenarios (B6);
+  - a noise-aware search (E1 M5-23);
+  - the `sketch` fidelity (B7 item 1);
+  - the source's schedule (D10, M4-1).
+  - The five "already in spec" rows need no change.
+- **Readings (reversible):**
+  - "Confirmed for Phase 1" replaces "owner to confirm" only where 2026-11-09 B3 names it: the block defaults of "Block reference" (AKS-99, AKS-105, AKS-106) and the council's defaults of AKS-76. The other "owner to confirm" phrases in spec 2 are E1's build readings. E1 already accepts them as format 0.x's current behaviour, and the checklist does not list them one by one, so they stay as written.
+  - D1's example procedures (KN with common random numbers, Batur and Kim) are named as candidates the rule may choose, not as the choice.
+- **Spec sections updated:** spec 2, the version line, "Process block library", "Experiment manager", "Optimization", "Block reference", "Statistic definitions" (the warm-up check), "Mathematical optimization in the model file", "Simulation-based optimization", "Fidelity for process models", "Research before building" and "Changes in this version".
+- **Dependencies added:** none.
+
+## 2026-11-16 · Spec 5 research · Owner decision: start spec 5 research now, in one session (#104)
+
+- **Decision (owner, 2026-11-16, relayed by the orchestrating session):** "start spec 5 research now. Keep a separate session as usual. This has to be done in a single session rather than multiple ones." Spec 5's research, its trial runs, the detailed draft (version 0.3) and its council start before M16 closes and are done by one session, from #104.
+- **Reason:** the owner's instruction. It is an exception to guide rule 2 (the next milestone starts only when the current one's checks pass): this work is research and specification only, with no product code, so it does not build on M16's unfinished work.
+- **Spec sections updated:** none in this PR.
+- **Dependencies added:** none.
+
+## 2026-11-16 · Spec 5 research · Engine confirmation: Mesa, PySD, FMPy, OpenModelica, Project Chrono, MuJoCo (#104)
+
+- **Decision (proposed, owner to confirm; one note each under `docs/research/spec-5-*.md`):**
+  - **Mesa 3.5.2** for agent-based models: Apache-2.0, in-process. Needs Python 3.12 or later.
+  - **PySD 3.14.3** for system dynamics: MIT, in-process. Fixed-step Euler only, so every result states its step.
+  - **FMPy 0.3.32** runs FMI 2.0 FMUs: BSD-2-Clause. FMUs are loaded only in the run worker, never in the service.
+  - **OpenModelica 1.27.2** builds FMI 2.0 Co-Simulation FMUs from Modelica Standard Library 4.1.0: GPL-3.0 or OSMC-PL 1.2, as a separate process (F4). The runtime inside an FMU is BSD-new, AGPL-3.0 or OSMC-PL 1.8 at the user's choice, so a template may ship an FMU. FMI 3.0 export is experimental and not used.
+  - **Project Chrono 10.0.0** (BSD-3-Clause) is not started without a trial. **MuJoCo 4.0.1** (Apache-2.0, on PyPI) is proposed in its place for multibody; that choice is an owner question.
+- **Engine licences against AGPL-3.0** (guide "Known gaps", engine licences; spec 1 "Engine licence rule"). Each was read from the licence file of a pinned package on 2026-11-16, whose SHA-256 matched its index:
+
+  | Engine | Version | Licence | Read from | Invocation |
+  | --- | --- | --- | --- | --- |
+  | Mesa | 3.5.2 | Apache-2.0 | wheel `licenses/LICENSE` | in-process |
+  | PySD | 3.14.3 | MIT | wheel `LICENSE` | in-process |
+  | FMPy | 0.3.32 | BSD-2-Clause (bundles CVODE, BSD-3-Clause) | wheel `licenses/LICENSE.txt` | in-process; the FMU in the run worker |
+  | OpenModelica | 1.27.2 | GPL-3.0 or OSMC-PL 1.2; runtime BSD-new, AGPL-3.0 or OSMC-PL 1.8 | `.deb` `copyright` files and runtime headers | process |
+  | Modelica Standard Library | 4.1.0 | BSD-3-Clause | `omlibrary` `LICENSE` | data for OpenModelica |
+  | Project Chrono (PyChrono) | 10.0.0 | BSD-3-Clause; depends on CUDA (NVIDIA EULA) and MKL (Intel Simplified Software Licence) | projectchrono.org licence page and the conda package's `info/index.json` | process, if used |
+  | MuJoCo | 4.0.1 | Apache-2.0 | installed `licenses/LICENSE` | in-process |
+
+- **Trials run** (scratch environments outside the repository; scripts and outputs in `docs/research/spec-5-trials/`):
+  - Mesa: agent-based SIR, mean final size 796.03 ± 9.18 against 800.2040.
+  - PySD: SIR final size and peak, and the predator–prey invariant, at three steps each, with first-order convergence.
+  - FMPy: a hand-written FMI 2.0 mass–spring–damper FMU, largest error 8.63e-07 against the analytic response.
+  - MuJoCo: the pendulum at 10° and 90°, relative error about 1e-11.
+- **Not run:** OpenModelica and Project Chrono. This session's permission rules refused adding OpenModelica's apt repository and running a conda tool, and the container has no Docker daemon. Their packages were downloaded and read, not installed. What remains is in each note's "Tested".
+- **Readings (reversible):**
+  - Research trial scripts under `docs/research/spec-5-trials/` are exempt from ruff's `ANN` and `TID251`, as `scripts/**` is from `TID251` (`pyproject.toml`). They run once in a scratch environment and are not product code; formatting and the other lint rules still apply.
+  - The PyPI name `pychrono` is an unrelated package; any install instruction for Chrono names the conda channel.
+- **Spec sections updated:** none in this PR; spec 5 version 0.3 follows in its own PR.
+- **Dependencies added:** none. No engine is a project dependency.
+
+## 2026-11-16 · M16 · Spec 3 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 3 now applies its approved rows and goes from version 1.1 (after the M14 close, #222) to 1.2.
+  - The "change needed" rows: the version line (2026-11-09 B2); D6, B6 and D4 on the screens; B3 and F6 on the hardware tiers; D7; D14; F7 on the API; C4 and F6 on the performance targets; C5; C1 and C2; and the stale E179 default (#80).
+  - The stale fact: format 0.3 since #77.
+  - The Windows rows (lines 7, 23, 73, 87, 318 and 332 as surveyed), as the owner decided on 2026-11-16 (#207): Windows runs the Linux package or the AppImage under WSL 2 until after Phase 3. Phase 2 documents and tests that install. A native version, its installer, its code signing (B5) and the shell's WebView2 build come after Phase 3. This replaces the native installer of 2026-11-15 item 3. The WSL research item is kept, as a WSL 2 install item for Phase 2.
+  - The B5 row (the AppImage) needed nothing more: #211 added the AppImage to "Packaging".
+  - The six "already in spec" rows need no change.
+- **Readings (reversible):**
+  - B6's search threshold is written as the checklist's reading 1 proposes it: an estimated time above the run time limit (default 10 minutes), or more than 20 scenarios. #111 sets it when it builds the estimate.
+  - The performance targets stay proposals. Per #206, their measured values are baselines, not gates, until targets are set after Phase 3.
+  - The Windows acceptance row is checked by an agent on a WSL runner where one is available, and otherwise by the owner, as M24 of the proposed Phase 2 table says.
+- **Spec sections updated:** spec 3, the version line and the warning, "Architecture", "API", "Screens", "Hardware tiers", "Packaging", "Service rules" (the launcher and the desktop shell), "Endpoints" (new projects), "Canvas behaviour", "Performance targets", "Design before building", "Research before building", "Acceptance tests" and "Changes in this version".
+- **Dependencies added:** none.
+
 ## 2026-11-16 · M16 · Spec 4 brought up to the Phase 1 review (#101)
 
 - **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 4 now applies the checklist's six "change needed" rows for it and goes from version 1.0 (after the M14 close, #222) to 1.1:
