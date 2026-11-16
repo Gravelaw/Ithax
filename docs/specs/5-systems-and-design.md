@@ -22,7 +22,7 @@ Phase 2 adds four more ways of modelling and one layer above all engines: design
 | --- | --- | --- | --- | --- | --- |
 | `agent` | Populations of individuals following rules: customers, an epidemic | Mesa 3.5 (Apache-2.0); needs Python 3.12 or later | in-process | Populations and rules | Specified, well-mixed only; Proposed for its Python floor (Q2) |
 | `system_dynamics` | Stocks, flows and feedback loops: cash, workforce, market adoption | PySD 3.14 (MIT) | in-process | Stock-and-flow diagram | Specified |
-| `physical` | Connected components that obey physical laws: masses, springs, circuits, heat flow | OpenModelica 1.27 builds an FMI 2.0 Co-Simulation FMU (a separate process); FMPy 0.3 (BSD-2-Clause) runs it in the run worker | process and in-process | Component diagram with physical connectors | Open: OpenModelica's trial is in CI (#228); Q6 |
+| `physical` | Connected components that obey physical laws: masses, springs, circuits, heat flow | OpenModelica 1.27 builds an FMI 2.0 Co-Simulation FMU (a separate process); FMPy 0.3 (BSD-2-Clause) runs it in the run worker | process and in-process | Component diagram with physical connectors | Open: the CVODE FMU passed in CI (#228); its SUNDIALS libraries and Q6 remain |
 | `multibody` | Rigid bodies and joints: linkages, pendulums | MuJoCo 4.0 (Apache-2.0) proposed in place of Project Chrono | in-process | Bodies and joints; plots in Phase 2, the 3D preview with spec 6's viewer in Phase 3 | Proposed (Q1) |
 
 Each adapter follows the spec 1 contract (`capabilities`, `validate`, `translate`, `run`, `collect`) with its five methods unchanged. A model holds data only: no adapter takes Python, Modelica or XML text from a model file, and each writes its engine's input inside `engine/`. In-process engines may be imported because their licences are recorded in `docs/DECISIONS.md` (spec 1 "Engine licence rule", F4). Sources: `spec-5-mesa.md`, `spec-5-pysd.md`, `spec-5-fmpy.md`, `spec-5-openmodelica-fmu.md`, `spec-5-chrono.md`, `spec-5-mujoco.md`.
@@ -125,12 +125,13 @@ The `timeseries` table holds each measure at every `record_interval` from 0 to `
 
 ### Physical systems (Open: OpenModelica's trial, Q6)
 
-What the research supports, to be confirmed by the CI trial (#228):
+What the research and the CI trial (#228, run 43938942488 at head `e94ef9b`; `spec-5-openmodelica-fmu.md`) support:
 
 - Component types name Modelica Standard Library 4.1.0 classes from a fixed catalogue: translational, rotational, electrical and lumped thermal elements. Each setting is the class's parameter with its unit; initial values are settings.
 - Connections are undirected, between connectors of the same kind (E406).
-- The adapter writes `model.mo` and a `.mos` script calling `buildModelFMU(..., version = "2.0", fmuType = "cs", platforms = {...})` with every argument stated, since the API's defaults (`fmuType = "me"`, `platforms = {"static"}`, dassl) differ from the user's guide. FMUs are cached in the project, keyed by the generated file's SHA-256 and the OpenModelica version. FMPy runs the FMU only in the run worker.
-- To settle before it is specified: the trial's result in CI, which integrator the FMU carries, whether a statically built FMU runs without OpenModelica, what a shipped FMU contains (SUNDIALS, LAPACK, library code; its notices), and Q6.
+- The adapter writes `model.mo` and a `.mos` script that sets `--fmiFlags=s:cvode` and calls `buildModelFMU(..., version = "2.0", fmuType = "cs", platforms = {"static"})` with every argument stated, since the API's defaults (`fmuType = "me"`, `platforms = {"static"}`) differ from the user's guide. Without the flag, the trial's FMU stepped with forward Euler at the communication step (largest error 3.87e-2 m at 0.01 s); with it, CVODE (relative tolerance 1e-6) gave 2.08e-7 m. The label names CVODE and its tolerance. FMUs are cached in the project, keyed by the generated file's SHA-256 and the OpenModelica version. FMPy runs the FMU only in the run worker.
+- The mass–spring–damper benchmark of the export passes when x stays within 1e-5 m of the closed form over 10 s at a communication step of 0.01 s, with CVODE.
+- To settle before it is specified: why the CVODE FMU ran in a clean container although `ldd` lists its SUNDIALS libraries as not found; what a shipped FMU contains (SUNDIALS, LAPACK, library code; its notices); and Q6.
 
 ### Multibody (Proposed, Q1)
 
@@ -227,7 +228,7 @@ Expected values are closed forms computed by `docs/research/spec-5-trials/benchm
 | SIR final size and peak | `system_dynamics` | N 1000, I0 1, β 0.5/d, γ 0.25/d; `time_unit` d, `time_step` 1/64 d, 200 d | final size 797.154100; peak 153.926660 | within 0.5 and 0.25 persons (trial: +0.2171, +0.1434) | Brauer (2008) §2.4 | M23 |
 | SIR final size, agents | `agent` | N 1000, I0 10, same rates, `time_step` 0.1 d, 200 d, 100 replications, seed 12345 | final size 800.203968 | mean within 3 standard errors (proposed; the trial ran 30 replications: 796.03 ± 9.18, 0.93 standard errors below) | as above | M23 |
 | Predator and prey | `system_dynamics` | per day: α 1/365, β 0.1/365, γ 1.5/365, δ 0.075/365; x0 10, y0 5; `time_step` 0.0365 d, 5,475 d | V = δx − γ ln x + βy − α ln y, constant: −0.010447440 with these per-day rates (−3.813315552 with per-year rates; the time scale is the only change) | largest relative drift over the run below 1e-3 (trial in years at step 0.0001 year: 2.85e-4) | Hirsch, Smale and Devaney (2013) §11.2 | M23 |
-| Mass, spring and damper | `physical` | m 1 kg, k 4 N/m, c 0.4 N·s/m, x0 1 m, v0 0 | x(10 s) = 0.079116024 m; damped period 3.157419417 s | within 1e-5 m over 10 s at relative tolerance 1e-8 (FMPy on a hand-written FMU: 8.63e-7; OpenModelica in CI) | Thomson and Dahleh (1998) §2.6 | when specified |
+| Mass, spring and damper | `physical` | m 1 kg, k 4 N/m, c 0.4 N·s/m, x0 1 m, v0 0 | x(10 s) = 0.079116024 m; damped period 3.157419417 s | within 1e-5 m over 10 s (FMPy on a hand-written FMU at relative tolerance 1e-8: 8.63e-7 m; OpenModelica's CVODE FMU at its tolerance 1e-6, step 0.01 s: 2.08e-7 m, CI run 43938942488) | Thomson and Dahleh (1998) §2.6 | when specified |
 | Pendulum, 10° and 90° | `multibody` | L 1 m, g 9.80665 m/s², 1 kg with inertia 1e-12 kg·m², RK4, `time_step` 1 ms, 30 s | T = 2.010235893 s and 2.368246346 s | relative 1e-6 (MuJoCo: about 1e-11) | Thornton and Marion (2004) §4.4 | when specified |
 | Branin | studies | Optuna TPE, 200 evaluations, seed 1 | 0.397887 | within 0.01 (trial: 0.399147 to 0.399725 over three seeds) | Surjanovic and Bingham | when specified |
 | ZDT1, 30 variables | studies | pymoo NSGA-II, population 100, 20,000 evaluations | front f2 = 1 − √f1 | IGD below 0.01 (trial: 0.00555, 0.00564) | Zitzler, Deb and Thiele (2000) | when specified |
@@ -244,7 +245,7 @@ Expected values are closed forms computed by `docs/research/spec-5-trials/benchm
 
 Done on 2026-11-16 (#104); each item has a note under `docs/research/spec-5-*.md` with Question, Finding, Sources, Decision and Tested. Still to do before the Open and Proposed sections can be specified:
 
-- **OpenModelica and PyChrono trials** in CI (#228): the mass–spring–damper FMU built by OpenModelica 1.27.2 and run with FMPy, also where OpenModelica is not installed; the PyChrono 9.0.1 pendulum.
+- **The CVODE FMU's SUNDIALS libraries** (above). The CI trials of #228 are done: OpenModelica's CVODE FMU passed, also without OpenModelica installed; the PyChrono 9.0.1 pendulum passed in one setting of twelve (`spec-5-chrono.md`).
 - **XMILE** run through PySD on the system dynamics benchmarks.
 - **Licences not yet read:** JuPedSim's bundled CGAL, Boost and {fmt}; OpenSim's Ipopt, CasADi, MUMPS and METIS; the dependencies of dependencies listed in `docs/research/spec-5-council.md` (matplotlib's fonts, `portion`, `regex`).
 - **Sources not yet read:** HEART's primary tables; RULA and REBA's original papers.
