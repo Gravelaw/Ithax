@@ -56,6 +56,18 @@ def test_the_desktop_shell_has_the_products_version() -> None:
         assert read_json_object_file(path)["version"] == expected, path
 
 
+def test_the_shells_lock_files_have_the_products_version() -> None:
+    """#103: a version change also changes the two lock files (``docs/release/v0.1.0.md``)."""
+    expected = semver(ithax.__version__)
+    lock = tomllib.loads((DESKTOP / "src-tauri" / "Cargo.lock").read_text(encoding="utf-8"))
+    shell = [item for item in lock["package"] if item["name"] == "ithax-desktop"]
+    assert [item["version"] for item in shell] == [expected]
+    npm = read_json_object_file(DESKTOP / "package-lock.json")
+    packages = npm["packages"]
+    assert isinstance(packages, dict)
+    assert [npm["version"], packages[""]["version"]] == [expected, expected]
+
+
 @pytest.mark.parametrize("name", SUBPACKAGES)
 def test_subpackage_imports(name: str) -> None:
     assert importlib.import_module(name).__name__ == name
