@@ -52,6 +52,7 @@ spec your issue names.
 | Numbers checked with `strict_json.is_whole`, `is_number`, `whole_in`, `real_in` | `tests/test_conventions.py` |
 | No input makes a loader raise; problems are issue objects with a code | `tests/properties/` (routes: review) |
 | A model file that loads keeps loading; `/v1` responses keep their fields | `tests/compat/` |
+| `docs/DECISIONS.md` only grows at its end | CI job `decisions` |
 | Layers: model < engines < runs, templates, findings < service < mcp, launcher | review |
 | Warnings are errors; functions stay short | pytest `filterwarnings`, `tests/test_function_length.py` |
 | Format, lint, types | hooks in `.claude/settings.json`, then `scripts/check.sh` |

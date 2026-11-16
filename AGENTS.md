@@ -74,6 +74,11 @@ that reads input, and say whether the shared helper was bypassed:
   actions run in one; `useCurrent` in `ui/src/components/useCurrent.ts` for an action that
   reads state when it runs, not when it was queued; a test per site lets a slower request
   finish after a newer action; PR #200 and its stack, four findings).
+- a change to `docs/DECISIONS.md` other than new lines at its end: a merge whose conflict was
+  resolved by hand and dropped main's last lines, an entry inserted by date mid-file, or an
+  old entry edited. The file is the frozen Phase 1 log; only append, and record a correction
+  as a new entry (check: the CI job `decisions`, `scripts/decisions_append_only.py`, fails
+  when the base's file is not an exact prefix of the change's; PR #189 and PR #213 lost lines).
 - a review checklist or spec edit that leaves out part of an accepted decision: a decision
   with a now-part and a later-phase part kept only for its first part, or an open owner
   question in a spec that a decision has already answered. Map every owner-decision item,

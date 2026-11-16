@@ -194,11 +194,28 @@ jobs:
             dist/ithax-*-x86_64.AppImage.sha256
           retention-days: 14
 
+  # docs/DECISIONS.md is append-only (the Phase 1 log, frozen from Phase 2 by P15): lines were
+  # lost from it in two merges, #189 and #213. A pull request is compared with its merge base
+  # with the branch it goes into; a push with the commit before it.
+  decisions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: python scripts/decisions_append_only.py "$BASE"
+
   # The one check that branch protection requires (P4). A skipped or cancelled job counts
   # as a failure here, so a red or missing job can never be merged past.
   all-green:
     if: always()
-    needs: [checks, interface, desktop, package]
+    needs: [checks, interface, desktop, package, decisions]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

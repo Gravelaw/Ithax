@@ -20,6 +20,7 @@ Retrospective P8 and its evidence item 5: a review round costs 7 to 25 minutes, 
      against the same counts of `git show origin/main:docs/DECISIONS.md`. A line diff
      (`grep -c "^-[^-]"`) cannot show a dropped line whose text appears elsewhere in the file.
    - That diff misses a line equal to one in another entry, such as `- **Dependencies added:** none.`: git pairs the lost one with its twin and shows no deletion (PR #189). So also compare counts: on the branch, the number of `## ` headings and of `- **Dependencies added:**` lines must each equal main's plus this PR's own new entries. Count each with `grep -c "^## " docs/DECISIONS.md` and `grep -c "^- \*\*Dependencies added:\*\*" docs/DECISIONS.md`, on the branch and on `git show origin/main:docs/DECISIONS.md`. `tests/test_docs.py` checks each milestone entry from 2026-11-13 on.
+   - Last, run `python scripts/decisions_append_only.py origin/main`: it fails unless main's file is an exact prefix of the branch's. CI runs it as the job `decisions`.
 2. Run `bash scripts/fast.sh` and judge it by its exit code.
 3. Read `git diff origin/main...HEAD` against each heading of `AGENTS.md` "Code Review Rules". For each class the change could reach, name the shared helper it uses, or fix it:
    - numbers: `ithax.strict_json.real_in` and `whole_in`;
