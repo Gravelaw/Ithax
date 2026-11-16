@@ -3649,6 +3649,22 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Spec sections updated:** none in this PR.
 - **Dependencies added:** none.
 
+## 2026-11-16 · M16 · Spec 0 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 0 now applies its approved rows and goes from version 0.4 to 0.5.
+  - The 19 "change needed" rows of "Spec 0", each as the checklist drafts it.
+  - Its four "needs owner" rows, as the owner decided:
+    - lines 128 and 172, the success measures: the six of B2, with no numeric targets until after Phase 3 and the values so far as baselines (#206, 2026-11-16);
+    - line 82, WSL: Windows through WSL 2 until after Phase 3, then a native build (#207, 2026-11-16);
+    - line 151, the six added risks: accepted as written, "(proposed)" dropped (the checklist's reading 2).
+  - The history line (188) is kept; the new dated line is under "Changes in this version".
+- **Readings (reversible):**
+  - The success measures table gives a "Baseline so far" column instead of targets. Each value is copied from the milestone record that measured it (STATUS M6, M9, M10, M11 and M13). Cognitive load has none yet.
+  - The 2026-11-05 measures and their M10 and M11 records stay below the table, marked as history, since the owner checks list (#102) and earlier sessions cite them.
+  - The unsigned-package risk now covers the Linux package and the AppImage, which Windows users run under WSL 2. Code signing is decided before the native Windows build (B5, #207).
+- **Spec sections updated:** spec 0, the version line, "Purpose", "Scope and build order", "Platform and hardware", "AI access", "Licence and community", "Success measures", "Risks and open items" and "Changes in this version".
+- **Dependencies added:** none.
+
 ## 2026-11-16 · Spec 5 research · Owner decision: start spec 5 research now, in one session (#104)
 
 - **Decision (owner, 2026-11-16, relayed by the orchestrating session):** "start spec 5 research now. Keep a separate session as usual. This has to be done in a single session rather than multiple ones." Spec 5's research, its trial runs, the detailed draft (version 0.3) and its council start before M16 closes and are done by one session, from #104.
@@ -3683,7 +3699,7 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - MuJoCo: the pendulum at 10° and 90°, relative error about 1e-11.
 - **Not run:** OpenModelica and Project Chrono. This session's permission rules refused adding OpenModelica's apt repository and running a conda tool, and the container has no Docker daemon. Their packages were downloaded and read, not installed. What remains is in each note's "Tested".
 - **Readings (reversible):**
-  - Research trial scripts under `docs/research/` are exempt from ruff's `ANN` and `TID251`, as `scripts/**` is from `TID251` (`pyproject.toml`). They run once in a scratch environment and are not product code; formatting and the other lint rules still apply.
+  - Research trial scripts under `docs/research/spec-5-trials/` are exempt from ruff's `ANN` and `TID251`, as `scripts/**` is from `TID251` (`pyproject.toml`). They run once in a scratch environment and are not product code; formatting and the other lint rules still apply.
   - The PyPI name `pychrono` is an unrelated package; any install instruction for Chrono names the conda channel.
 - **Spec sections updated:** none in this PR; spec 5 version 0.3 follows in its own PR.
 - **Dependencies added:** none. No engine is a project dependency.
