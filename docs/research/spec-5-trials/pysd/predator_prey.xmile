@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spec 5 trial: the Lotka-Volterra model of predator_prey.mdl, written in XMILE 1.0 by hand. -->
+<xmile version="1.0" xmlns="http://docs.oasis-open.org/xmile/ns/XMILE/v1.0">
+  <header>
+    <vendor>Ithax research</vendor>
+    <product version="0.1">spec 5 trial</product>
+  </header>
+  <sim_specs method="Euler" time_units="Year">
+    <start>0</start>
+    <stop>15</stop>
+    <dt>0.001</dt>
+  </sim_specs>
+  <model>
+    <variables>
+      <stock name="Prey">
+        <eqn>10</eqn>
+        <inflow>prey_births</inflow>
+        <outflow>prey_deaths</outflow>
+        <units>animal</units>
+      </stock>
+      <stock name="Predators">
+        <eqn>5</eqn>
+        <inflow>predator_births</inflow>
+        <outflow>predator_deaths</outflow>
+        <units>animal</units>
+      </stock>
+      <flow name="prey births">
+        <eqn>alpha * Prey</eqn>
+      </flow>
+      <flow name="prey deaths">
+        <eqn>beta * Prey * Predators</eqn>
+      </flow>
+      <flow name="predator births">
+        <eqn>delta * Prey * Predators</eqn>
+      </flow>
+      <flow name="predator deaths">
+        <eqn>gamma * Predators</eqn>
+      </flow>
+      <aux name="alpha"><eqn>1</eqn></aux>
+      <aux name="beta"><eqn>0.1</eqn></aux>
+      <aux name="gamma"><eqn>1.5</eqn></aux>
+      <aux name="delta"><eqn>0.075</eqn></aux>
+    </variables>
+  </model>
+</xmile>
