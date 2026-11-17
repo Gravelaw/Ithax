@@ -74,3 +74,30 @@ that reads input, and say whether the shared helper was bypassed:
   actions run in one; `useCurrent` in `ui/src/components/useCurrent.ts` for an action that
   reads state when it runs, not when it was queued; a test per site lets a slower request
   finish after a newer action; PR #200 and its stack, four findings).
+- a change to `docs/DECISIONS.md` other than new lines at its end: a merge whose conflict was
+  resolved by hand and dropped main's last lines, an entry inserted by date mid-file, or an
+  old entry edited. The file is the frozen Phase 1 log; only append, and record a correction
+  as a new entry (check: the CI job `decisions`, `scripts/decisions_append_only.py`, fails
+  when the base's file is not an exact prefix of the change's; PR #189 and PR #213 lost lines).
+- a review checklist or spec edit that leaves out part of an accepted decision: a decision
+  with a now-part and a later-phase part kept only for its first part, or an open owner
+  question in a spec that a decision has already answered. Map every owner-decision item,
+  every later-phase reading and every open spec marker to a row (check:
+  `tests/test_phase_1_review.py` fails on any item of `docs/DECISIONS.md` or the session
+  summaries, or any spec line saying "owner question", "deferred" or "Phase 1 review", that
+  `docs/research/phase-1-review.md` "Coverage" does not name; PR #208, two findings). The
+  same holds for a plan built from the checklist: name each item in a row, not through a
+  catch-all, and never let a milestone close by listing an accepted item (check:
+  `tests/test_phase_2_milestones.py` fails on any "Phase 2 table" row, or any code under
+  "What Phase 2 holds", that no row of `docs/research/phase-2-milestones.md` names, and on
+  "and the rest" in a row; PR #214, two findings).
+- a wrapper or entry point that runs a command as its child (not by `exec`), or stays after
+  it, and does not stop what it started when it is stopped itself: a signal that leaves the
+  child, or a service it outlives, running, or lets go of files they still use (helper: the
+  one `stop` handler in `packaging/linux/appimage/AppRun`, set in every phase, which
+  remembers a stop; check: the table
+  `test_a_signal_in_any_phase_stops_everything_from_the_appimage_before_apprun_ends` in
+  `tests/linux_package/test_appimage_build.py`, every phase against TERM, INT and HUP, with
+  and without a service started; PR #211, three findings). Such a wrapper also closes no
+  descriptor it inherits: the AppImage runtime's keepalive pipe is one
+  (`test_apprun_keeps_every_descriptor_it_inherits`).

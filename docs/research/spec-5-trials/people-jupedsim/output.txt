@@ -1,0 +1,17 @@
+jupedsim 1.4.2, N=150, dt=0.01 s, seed=1
+model, door width b (m), crossed, left, evacuation time (s), flow (1/s), specific flow (1/(m s)), wall time (s)
+CollisionFreeSpeedModel time_gap=1.0, 0.8, 11, 139, 600.00, nan, nan, 81.2
+CollisionFreeSpeedModel time_gap=1.0, 1.0, 150, 0, 155.39, 0.979, 0.979, 11.5
+CollisionFreeSpeedModel time_gap=1.0, 1.2, 150, 0, 121.39, 1.272, 1.060, 8.9
+CollisionFreeSpeedModel time_gap=1.0, 1.6, 150, 0, 84.22, 1.896, 1.185, 5.5
+CollisionFreeSpeedModel time_gap=1.0, 2.0, 150, 0, 70.84, 2.278, 1.139, 4.7
+CollisionFreeSpeedModel time_gap=0.5, 0.8, 73, 77, 600.00, 1.035, 1.294, 42.5
+CollisionFreeSpeedModel time_gap=0.5, 1.0, 150, 0, 96.24, 1.616, 1.616, 6.3
+CollisionFreeSpeedModel time_gap=0.5, 1.2, 150, 0, 78.14, 2.057, 1.714, 4.9
+CollisionFreeSpeedModel time_gap=0.5, 1.6, 150, 0, 56.29, 2.942, 1.839, 3.8
+CollisionFreeSpeedModel time_gap=0.5, 2.0, 150, 0, 47.80, 3.479, 1.739, 3.3
+GeneralizedCentrifugalForceModel, 0.8, engine error: Point (11.981395384046817, 4.599649402795668) is outside of accessible area
+GeneralizedCentrifugalForceModel, 1.0, engine error: Point (13.062202493257509, 5.5001199646624235) is outside of accessible area
+GeneralizedCentrifugalForceModel, 1.2, engine error: Point (10.000216586371355, 3.4137580398789944) is outside of accessible area
+GeneralizedCentrifugalForceModel, 1.6, engine error: Point (10.00006620000991, 6.6343345765937585) is outside of accessible area
+GeneralizedCentrifugalForceModel, 2.0, engine error: Point (10.00015573523701, 6.39038713429686) is outside of accessible area

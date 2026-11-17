@@ -3467,3 +3467,360 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Review of PR #201:** (1) the time was noted only when a project was opened from Recent projects or a lesson resumed; New, Open a project folder, the Build form and a new lesson opened without it. It is now noted in the application's one `open` and in `built`, which every way of opening goes through. (2) The lesson's step was written without waiting, so a late write could overwrite a later step or Exit's clearing, and a start wrote its first step twice. Each write now waits for the one before (a queue in `useLessonStep`), and the last project is a ref, so no write is repeated. `App.test.tsx` holds a step's write and shows Exit's clearing sent only after it, and the new project's open noted; it failed without the change. (3) Removing the open project left it open in App, so the project screens stayed enabled and returned E185: the third finding of one class, a project changed on Home without App, which holds the open project and its lesson. Fixed for the class: every change Home makes to a project (open, lesson, rename, remove) goes through App's `ProjectActions` (`ui/src/app/projectActions.ts`). Removing the open project closes it and its lesson, without a write to the removed project, and renaming it renames it in the top bar. `App.test.tsx` checks both and failed without the change; `projectActions.test.ts` fails when a screen calls `changeProject` or `removeProject` itself; `AGENTS.md` has the class. (4) The removal's completion read the lesson captured when it was sent, so a lesson started in another project meanwhile was ended: the second finding, with PR #200's settings read, of the class "an answer acted on against the state known when its request was sent". The completion now reads the current lesson (`useCurrent`, `ui/src/components/useCurrent.ts`); the open project is cleared and renamed by functional updates. `App.test.tsx` holds project A's removal while project B's lesson starts and failed without the change. (5) Four more findings of the same class followed (a resume and a removal during its template's read, two renames answered out of order, list reads after two removals answered out of order, and a list read while a step's write was pending, so a lesson resumed a step back). Fixed structurally, as for the settings: every read and write of project state is an action of one queue in App (`useProjectQueue`, `oneAtATime`), run to completion before the next: Home's list, a lesson's resume or start with its template, New, Open a project folder, the Build form, open, rename, remove, the route's reload and each lesson step. Only `projectApi` (`ui/src/app/projectActions.ts`) calls the project requests, and an action receives it from `run`; `projectActions.test.ts` fails on any other call in `app/` or `screens/`. While an action is pending, Home disables open, rename, remove and the lesson buttons and says "Saving your projects…" in a status line. A lesson's action reads the list again before choosing the project and its step. `App.test.tsx` has one test per finding, each failing without the queue. (6) A lesson's action took a list it could not read as empty and made a duplicate project; it now shows the list's problem and makes nothing (`Home.test.tsx`, failing without the change). (7) Its pair, a failed write taken as saved: a refused lesson-step write was dropped, so a resume could restore an older step, and so was a refused opened-time note. Both now go through `useUnsaved` (`ui/src/app/unsaved.tsx`): a refused write is kept by what it saves and said in the top bar with "Try again", which sends it again through the queue; a later write of the same thing that succeeds clears it. `App.test.tsx` refuses each and failed without the change. (8) A retry sent the step captured when its write failed, so "Try again" pressed after a newer step or Exit was queued saved the older step. Each step write now sends the step wanted for its project when it runs, and a removed project's retry is dropped; `App.test.tsx` holds step 2's write, presses Try again on step 1's and failed without the change. The opened note's retry sends the same value each time. (9) A removed project's failed writes stayed in the top bar, and each "Try again" went to the removed project. Removing a project now drops every write kept for it (`useUnsaved`'s forget) and its wanted step, whichever lesson is open; `App.test.tsx` refuses its notes, removes it and failed without the change. (10) Dropping the kept writes did not cancel a retry already queued: "Try again" pressed during the removal ran after it. A background write now checks, when it runs, that its project was not removed in this session (App's removed set, cleared when the project is opened again); the lesson step's write checks its wanted step, which removal drops. `App.test.tsx` presses Try again during a held removal and failed without the change.
 - **Spec sections updated:** spec 3 "Screens" (Home) and spec 4 "Learn and Build modes" (Where the lesson lives), with dated lines.
 - **Dependencies added:** none.
+
+## 2026-11-15 · M16 · The Phase 1 review's checklist (#101)
+
+- **Decision:** `docs/research/phase-1-review.md` lists every change the Phase 1 review folds into specs 0 to 4. It covers each "the Phase 1 review sets…" deferral in the specs and DECISIONS, and each owner decision of 2026-11-13 (B1 to F8), checked against the spec text at `main` c864cb9. Each row is marked already in the spec (built in M12 to M15), change needed, or needs the owner. It is the draft the owner approves (2026-11-09 B2; C10). The spec edits follow it, one PR per spec, each with a dated line and a version bump.
+- **Reason:** #101 and the guide's M16 row ("the Phase 1 review's changes are in specs 0 to 4"). The 2026-11-13 entry leaves the spec text to this review.
+- **Review of PR #208 (two findings of one class, fixed for the class):** the checklist had missed two later-phase parts of accepted decisions: B7 item 1, the `sketch` preview in Phase 2, which spec 2 still calls an owner question; and M5-23's noise-aware method in Phase 2.
+  - The sweep now covers every DECISIONS entry through 2026-11-15, every session summary's "Awaiting owner" items, and every spec line that leaves something open. The new rows are spec 2 (B7 item 1, M5-23's second part, line 18's source schedule from M4-1 and D10, B1's line 276) and spec 3 (the shell's Windows build, line 87). The new section "Later-phase parts of accepted readings" maps each E1-accepted reading's later part.
+  - `tests/test_phase_1_review.py` fails on any owner-decision item, later-phase reading, later-phase session item or open spec marker that the checklist's "Coverage" does not name. `AGENTS.md` names the class.
+- **Readings (reversible):** B6's search-suggestion threshold is set when #111 builds the estimate. The six risk rows of 2026-11-05 are accepted as written. 2026-11-09 B8 is taken as replaced by the 2026-11-13 list. D2 keeps E179 with its warning mark. The draft-and-approve step is this file, then one spec PR per spec. A later phase goes into spec text only where an owner decision names it; the later part of an E1-accepted reading goes to the Phase 2 milestone table.
+- **Awaiting owner:** #206 (the six success measures' targets, B2) and #207 (Windows natively or through WSL). Both default on 2026-11-17.
+- **Spec sections updated:** none in this change. The spec PRs follow the approved checklist.
+- **Dependencies added:** none.
+
+## 2026-11-15 · M16 · Research: an AppImage of the Linux package (#88)
+
+- **Decision (proposed, owner to confirm):**
+  - Build the AppImage with appimagetool 1.9.1 and type2-runtime `20251108`, both MIT, downloaded once into `dist/cache`, checked against pinned SHA-256s, with the runtime given by `--runtime-file`.
+  - The staged package folder is the AppDir, plus `AppRun` (which runs `bin/ithax`, or `bin/ithax-mcp` and `bin/ithax-launcher` when asked), `ithax.desktop` and `ithax.png`.
+  - The output is `ithax-<version>-x86_64.AppImage` with its `.sha256`, unsigned. The archive stays.
+  - Tests: extract the AppImage and compare it with the archive's tree; run the first result offline in a clean container with `APPIMAGE_EXTRACT_AND_RUN=1`; and check that two builds give the same bytes.
+- **Reason:** #88 (B5). The static type2 runtime no longer needs libfuse2, which removes the 2026-11-09 objection to an AppImage. Tauri's own AppImage is still not used, since it bundles WebKitGTK and GTK and would need the Python tree anyway. See `docs/research/m16-appimage.md`.
+- **Pins:** `github.com` answers 403 in the agent container, and no package registry carries either file. The orchestrating session chose option A on 2026-11-15: the `package` CI job downloads, prints and checks the tools (#210, its entry "The AppImage tools downloaded and checked in the package job"). The build follows in its own PR.
+- **Dependencies added:** none yet. When the build lands, appimagetool and the runtime are build-time downloads (MIT), and the runtime ships inside the AppImage.
+
+## 2026-11-15 · M16 · The AppImage tools downloaded and checked in the package job (#88)
+
+- **Decision:** `scripts/package_linux.py` names appimagetool 1.9.1 and type2-runtime `20251108` by their exact release URLs (`APPIMAGE_TOOLS`). Each has a pinned SHA-256, `None` until recorded.
+  - `--check-appimage-tools` downloads both afresh into `dist/cache/check` and prints each SHA-256. It then compares each with the digest its GitHub release publishes for the asset, where the release lists one, and with the pin once there is one. Any mismatch exits 1. The `package` CI job runs it before the build, so it stays as a check.
+  - The runtime's `LICENSE` is a third pinned download (`RUNTIME_LICENCE`), from `raw.githubusercontent.com` at the runtime's tag `20251108`. The runtime ships inside every AppImage, so upstream's own text ships beside it rather than a copy typed here. It is not a release asset, so its pin alone checks it.
+  - `fetch_tool` is what the AppImage build will use. It refuses a tool with no pin, and a cached or downloaded file whose SHA-256 differs from the pin, so nothing unpinned reaches a build (fail closed).
+- **Reason:** `docs/research/m16-appimage.md` "Not tested here": `github.com` is closed to the agent container, so the pins are taken from the CI job's output (option A, the orchestrating session's choice of 2026-11-15, made a lasting check). The Python archive's download now shares `download`.
+- **Readings (reversible):** the published checksum is the GitHub API's asset `digest`. Whether either release also ships a checksum file could not be seen from here, and the job's output shows which releases list a digest. A tool whose release lists none is checked against its pin alone.
+- **Spec sections updated:** none; spec 3 "Packaging" gains the AppImage with the build.
+- **Pins:** taken from the `package` job (132929274232) of CI run 43752479955 on head `1751cb7f1e50fed3f20be736d92400ef07837ef8`, which printed each SHA-256 and "matches the release's published digest" for both. The hashes were computed in CI and compared with the GitHub release's asset digest; both releases list one.
+  - `appimagetool-x86_64.AppImage` 1.9.1: `ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0`.
+  - `runtime-x86_64` 20251108: `2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d`.
+  - The runtime's `LICENSE` at tag `20251108`: `aa154fc9070614bbe7921f89db11efd1dba7a1f3a41685958110e2230f9c0ca1`. It was printed by the `package` job (132943168885) of CI run 43757002802 on head `21acb359ff450255db542d3a5b667e80cae09ac9`, and the same hash was computed in the agent container from the same URL, which `raw.githubusercontent.com` serves there. It is a raw file, not a release asset, so no digest is published for it; its text is the MIT licence, "Copyright (c) 2004-23 probonopd".
+- **Dependencies added:** two build tools, downloaded by the build into `dist/cache` (not Python packages). Their licences were read on 2026-11-15 from each project's `LICENSE` (`docs/research/m16-appimage.md`):
+  - appimagetool 1.9.1, MIT ("Copyright (c) 2004-25 Simon Peter and the AppImage Team"). It builds the AppImage and does not ship in it. Checked by its pinned SHA-256 and the release's published digest.
+  - type2-runtime `20251108`, MIT ("Copyright (c) 2004-23 probonopd"). It ships inside every AppImage, so the AppImage build adds it to `THIRD-PARTY-LICENSES.txt` and the licence list. Checked the same way.
+
+## 2026-11-15 · M16 · The AppImage of the Linux package (#88)
+
+- **Decision:** `scripts/package_linux.py` also builds `dist/ithax-<version>-x86_64.AppImage` and its `.sha256`, after the archive and from the same staged folder (`docs/research/m16-appimage.md`).
+  - `make_appdir` adds four files at the folder's top: `packaging/linux/appimage/AppRun`, `ithax.desktop`, the icon `ithax.png` (the package's `share/ithax.png`), and `LICENSE.type2-runtime.txt`, the runtime's pinned licence. It also adds the runtime to `THIRD-PARTY-LICENSES.txt`.
+  - appimagetool runs with `--no-appstream`, `--runtime-file` set to the pinned runtime, `APPIMAGE_EXTRACT_AND_RUN=1` (it is an AppImage and needs no FUSE that way) and the commit's time as `SOURCE_DATE_EPOCH`. Every tool is fetched and checked before the long part of the build.
+  - `AppRun` runs `bin/ithax`, or `bin/ithax-mcp` and `bin/ithax-launcher` for `mcp` and `launcher`, and then stays while any process runs from the AppImage's files. Mounted, it stays in the background with its output closed, so the caller gets its answer at once. Extracted with `APPIMAGE_EXTRACT_AND_RUN` (and no `NO_CLEANUP`), it stays in the foreground.
+- **Reason:** B5 (2026-11-13). The runtime keeps the files only while AppRun's processes need them. Read in `src/runtime/runtime.c` at tag `20251108`, fetched from `raw.githubusercontent.com` on 2026-11-15: a FUSE mount ends when no process holds the read end of its keepalive pipe; an extracted copy is removed once AppRun exits, unless `NO_CLEANUP` is set. The service the launcher starts is detached and started with its descriptors closed, so without the wait it would lose its files as soon as the launcher returned.
+- **Readings (reversible):**
+  - The extracted tree must equal the archive's folder, except for the four added files, `.DirIcon` (appimagetool's) and the longer `THIRD-PARTY-LICENSES.txt`.
+  - The runtime is listed in `THIRD-PARTY-LICENSES.txt` of the AppImage, not on the Help page's licences list. It is the AppImage's container format, not a part of the app that `GET /v1/licences` describes.
+  - AppRun checks every 2 s whether a process still runs from the AppImage, through `/proc/<pid>/exe`.
+  - The archive stays, for an installed menu entry and commands, and for machines that have no FUSE.
+- **Review of PR #211:** AppRun ran its command as a child but did not pass signals on, so stopping AppRun by its PID left `mcp` or the shell running. `bin/ithax-mcp` had used `exec`, so nothing was left behind there.
+  - Now the command runs in the background with AppRun's standard input. TERM and HUP are passed on, and INT is passed on as TERM: dash starts a background command with INT ignored and cannot undo it. AppRun waits for the command to end. The traps are set before the command starts.
+  - Tests: each of the three signals, and standard input reaching the command.
+- **Review of PR #211, second finding (the same class, so fixed for the class):** in the extracted case, AppRun reset its traps once the command returned. A TERM during its foreground wait then ended AppRun while the service still ran, and the runtime would remove the files under it. The background waiter had no handler either.
+  - One handler, `stop`, is now set in every phase, and set again in the waiter's subshell, which starts with the traps reset:
+    - before the command starts, AppRun ends;
+    - while the command runs, the signal goes to it;
+    - while AppRun stays, the signal goes to every process running from the AppImage, and AppRun ends only after they have, with status 143 or 129.
+  - The check is `test_a_signal_at_any_phase_stops_what_runs_from_the_appimage_before_apprun_ends`, for the foreground wait and the background waiter, beside the command-phase test. `AGENTS.md` names the class.
+- **Review of PR #211, a third finding of the class:** a TERM while the command ran stopped only the command. A service it had started then kept running, and AppRun stayed as usual.
+  - AppRun now remembers the stop. Once the command has ended, the same signal goes to everything still running from the AppImage, and AppRun keeps the files until that has ended, then exits 143 or 129.
+  - Test: `test_a_signal_while_the_command_runs_also_stops_the_service_it_started`, mounted and extracted.
+  - The waiter subshell starts with its traps reset, so AppRun ignores the signals across the fork until the waiter sets the handler. This closes a window found by running the tests 25 times.
+- **The check for the class:** one table-driven test, `test_a_signal_in_any_phase_stops_everything_from_the_appimage_before_apprun_ends`, replaces the three per-phase signal tests. It runs 21 cases.
+  - The phases are: before the command, the command alone, the command after it has started the service (each mounted and extracted), the foreground stay and the background waiter. Each runs against TERM, INT and HUP.
+  - In each case nothing from the AppImage is left, the service saw the signal and ended, and AppRun ends only after that, with 143 for TERM and INT or 129 for HUP.
+  - Two deliberate breaks of AppRun failed it: without the remembered stop, 6 cases failed; with no handler in the waiter, 3 failed.
+- **Readings (reversible):**
+  - The background waiter cannot take INT. dash starts a background process with INT ignored, past undoing, and without a terminal there is no job control to avoid it. So the waiter ignores INT, and the service keeps its files; the table asserts exactly that. Only an explicit `kill` reaches the waiter: it has no terminal, and Ctrl+C goes to AppRun, which is in the foreground.
+  - The phase before the command lasts microseconds, so for the tests `ITHAX_APPRUN_HOLD`, when it names a file, holds AppRun there, after the handler is set, until the file is removed. It changes nothing when unset.
+  - The orchestrating session also proposed a bounded wait followed by KILL. It did not ask for it when it accepted the remembered stop. The service stops on TERM within a bound already: spec 3 "One service per user", a 5 s bounded stop.
+- **CI run 43761150645 (head `1de13f2`):** the mounted test failed with "Transport endpoint is not connected". The first signal fix had saved standard input as `exec 3<&0`, and 3 was the runtime's keepalive pipe, which holds the mount.
+  - AppRun now copies standard input into a descriptor that is not open (9 down to 5), and closes nothing it inherits.
+  - Test: `test_apprun_keeps_every_descriptor_it_inherits` checks 3, 4 and 9. It failed for 3 before the fix.
+- **Review of PR #211, fourth finding:** with no Docker (`ITHAX_PACKAGE_RUNNER=local`), the AppImage's offline check ran with the network open: only the archive's check put its run in `unshare -rn`. Both now take their prefix from one helper, `local_isolation` in `tests/linux_package/test_linux_package.py`. It was checked here: an outbound connection fails through it and succeeds without it.
+- **Tests:** `tests/linux_package/test_appimage_build.py` covers the AppDir, the AppRun commands and its staying, mounted and extracted, and the appimagetool call. Under the marker `package`, `tests/linux_package/test_linux_package.py` checks:
+  - the checksum, and the type 2 magic;
+  - the extracted tree against the archive's;
+  - the same bytes from a second build;
+  - a first result offline in a clean `ubuntu:24.04` container (`clean_appimage.sh`);
+  - a first result mounted with FUSE on the CI runner, for which the `package` job installs `fuse3`.
+- **Spec sections updated:** spec 3 "Packaging" (Linux, the AppImage) and its acceptance table (an M16 row), with a dated line.
+- **Dependencies added:** none beyond the pinned tools of the entry above; `fuse3` is a CI system package for the mounted test, not shipped.
+
+## 2026-11-15 · M16 · The owner checks before v0.1.0, listed (#102)
+
+- **Decision:** `docs/release/v0.1.0-owner-checks.md` lists the checks that are the owner's before v0.1.0, each with its source, how to do it and where to record it. None is done by a session.
+  - #102 named three: the pointer-only test by hand (C5), one or two people outside the project (C1, C2), and the trademark and name-clash search (C8).
+  - The list adds four that the specs and DECISIONS leave to the owner:
+    - the low-tier confirmation of the measured performance targets (AKS-82; spec 0, 2 and 3 rows marked "owner confirms");
+    - the AppImage on a real desktop (B5; CI tests it only in a container and on the runner);
+    - a trial with a different assistant (C6; spec 4's row "owner, or agent if an MCP-capable assistant is available");
+    - whether v0.1.0 is a public release, which decides whether the trademark search and spec 0's lawyer review must come first.
+- **Reason:** #102, the guide's M16 row ("the owner checks are done") and the orchestrating session's brief: list the owner checks, do not do them.
+- **Readings (reversible):**
+  - Windows, the three timed testers of C3 and spec 0's "Real use" measure are left out, with the reason given in the file. They are Phase 2, Phase 3, and after the release.
+  - `docs/research/usability.md`'s tester script still named `lcsim`, renamed Ithax at M12 (#70). It now names `ithax` and the AppImage, so the owner can follow it as written.
+- **Spec sections updated:** none.
+- **Dependencies added:** none.
+
+## 2026-11-15 · M16 · v0.1.0 is released from a branch, `release/0.1` (#103)
+
+- **Decision:** v0.1.0 is made on a release branch, option A, which the orchestrating session chose on 2026-11-15. `docs/release/v0.1.0.md` gives the steps:
+  - `release/0.1` is cut from `main` after #212 and this PR have merged.
+  - It takes only the version PR (0.1.0, the changelog dated) and cherry-picks of fixes merged to `main` first, each by a PR the orchestrating session merges under the usual gate.
+  - `main` moves to `0.2.0.dev0` in a PR of its own, right after the cut.
+  - The owner tags the branch's head and creates the GitHub release; sessions stop before both.
+- **Reason:** the owner tags only after the #102 checks, and Phase 2 goes on in `main` meanwhile (owner decisions, 2026-11-15, item 2). A branch keeps the released commit free of Phase 2 work, and keeps Phase 2 builds from saying 0.1.0.
+- **Also in this PR:**
+  - `CHANGELOG.md`, in Keep a Changelog form, with F7's 0.x promise and the 0.1.0 entry.
+  - `checks` now also runs on a push to `release/*`, so the commit to be tagged has its own run. `pull_request` already runs for any base branch, in both workflows.
+- **Readings (reversible):**
+  - The ruleset on `main` may not cover `release/*`, and a session cannot change rulesets. The release steps ask the owner to add the branch to it, or to protect it.
+  - The branch point's SHA is recorded here once the branch is cut, in the version PR's entry.
+- **Spec sections updated:** none.
+- **Dependencies added:** none.
+
+## 2026-11-15 · M16 · `release/0.1` cut; `main` moves to 0.2.0.dev0 (#103)
+
+- **Decision:**
+  - **The branch point.** `release/0.1` was cut on 2026-11-15 from `main` at `e3f76d47fd64c99a2af492074b2b5cf0d298a7df` (#213's squash), read with `git ls-remote origin refs/heads/release/0.1` after the push. The version PR into it, #215, records the same SHA on the branch.
+  - **The version on `main`.** It is the next release's development version, `0.2.0.dev0`, in semver's spelling `0.2.0-dev.0` in the shell. That covers the six places of `docs/release/v0.1.0.md`, so Phase 2 builds never say 0.1.0. The package docstring says which branch carries which version.
+  - **A check for the lock files.** `tests/test_package.py` now also checks that `Cargo.lock`'s `ithax-desktop` and `package-lock.json`'s two entries carry the version. Before, a version change could leave them behind unnoticed.
+- **Reason:** `docs/release/v0.1.0.md`, "The release branch": `main` moves right after the cut, in a PR of its own.
+- **Readings (reversible):**
+  - 0.2.0, not 0.1.1: Phase 2 adds features, and F7's 0.x promise allows only additive changes, which is a minor version. 0.1.x is for fixes cherry-picked to `release/0.1`.
+  - A checkout's editable install keeps the old version in its metadata until `uv sync --reinstall-package ithax` runs; `test_the_version_is_real` fails until then. CI installs fresh.
+- **Spec sections updated:** none.
+- **Dependencies added:** none.
+
+## 2026-11-15 · M16 · A proposed Phase 2 milestone table
+
+- **Decision (proposed, for the owner's approval):** `docs/research/phase-2-milestones.md` proposes ten Phase 2 milestones, M17 to M26:
+  - M17 setup and research, with spec 5's research session and council;
+  - M18 simulation statistics; M19 process constructs; M20 optimization; M21 data and interface;
+  - M22 the remote target; M23 spec 5's models; M24 Windows;
+  - M25 MCP hardening; M26 the release.
+
+  Each row holds the Phase 2 items the owner decisions name, and the later-phase parts of accepted readings that `docs/research/phase-1-review.md` assigns to the Phase 2 table.
+- **Reason:** owner decisions of 2026-11-15, item 1: the orchestrating session proposes the grouping, and it applies unless the owner objects within a day. The guide's milestone table is changed only once the owner approves (D18), in a PR of its own.
+- **Readings (reversible):** the order, spec 5 kept as one row until its council, the interface follow-ups grouped in one milestone, and C6 met by M25. Each is in the file's "Readings".
+- **Spec sections updated:** none.
+- **Dependencies added:** none.
+
+## 2026-11-15 · M16 · `docs/DECISIONS.md` is append-only, checked in CI
+
+- **Decision:**
+  - **The check.** `scripts/decisions_append_only.py <base>` fails unless the record at the merge base of `HEAD` and `<base>` is an exact prefix of the working tree's, line by line, trailing newlines aside. It names the first base line that was changed or removed, as a GitHub annotation.
+  - **In CI.** A new job, `decisions`, in `checks.yml`, which `all-green` needs:
+    - A pull request is compared with the branch it goes into (`origin/<base_ref>`), so a PR into `release/0.1` is not compared with `main`.
+    - A push is compared with the commit before it. A push that creates a branch has no base, and passes.
+  - **Tests.** `tests/test_decisions_append_only.py` uses two fixtures from `tests/decisions_fixtures/`: one only appends, and one drops the base's last line (the #189 and #213 shape). It also tests a changed line, an entry inserted mid-file, the merge base rather than the base's tip, and the workflow wiring.
+  - **Also:** an `AGENTS.md` bullet, and a row in `CLAUDE.md`'s table of rules the tools enforce.
+- **The retroactive check, run on 2026-11-16 against `main` at `e347679` (#214's squash):**
+  - Of `git rev-list --first-parent origin/main -- docs/DECISIONS.md`, 71 commits changed the file.
+  - For each, the lines of its parent's file were counted, repeats included, against its own. No commit lost a line, so nothing is restored.
+  - 22 of those commits did not keep their parent's file as an exact prefix. Each inserted lines mid-file, an entry placed in date order or a line added inside an entry, and none removed one. From now on the check refuses that; new entries go at the end.
+  - #189's lost `Dependencies added` lines and #213's lost tail were caught on their branches and restored before they merged.
+- **Reason:** the orchestrating session's request of 2026-11-15. Lines were lost in two merges, which is the second finding of one class, so the fix is a check (guide "Review findings"). Retrospective P15 already freezes the file from Phase 2.
+- **Readings (reversible):**
+  - "Only appended lines" is read as exact-prefix. A blank line may be added after the base's last line.
+  - The pre-push skill already appends the branch's entries after main's file; it now ends with this command.
+- **Spec sections updated:** none.
+- **Dependencies added:** none.
+
+## 2026-11-16 · Owner decisions on #206 and #207, and the Phase 2 table updated
+
+- **Decision (owner, 2026-11-16, through the orchestrating session; both issues closed, and neither default applies):**
+  - **#206, the success measures.** Spec 0's "Success measures" keeps the six measures of 2026-11-09 B2, with no numeric targets. The targets are set after Phase 3. The values measured so far are baselines, not targets, and they gate neither Phase 2 nor Phase 3.
+  - **#207, Windows.** Windows is supported through WSL 2, with the Linux package or the AppImage, until after Phase 3. A native Windows build comes after Phase 3, as refactoring and API work for the libraries that have no Windows build. This replaces the answer of 2026-11-15 item 3 (an unsigned native installer with a SmartScreen note and a checksum in Phase 2): that installer, and its code signing, move to after Phase 3.
+- **Applied here:** the proposed Phase 2 milestone table, `docs/research/phase-2-milestones.md`.
+  - M24 is now "Windows through WSL 2": a documented install of the Linux package or the AppImage under WSL 2, tested in CI on a WSL runner where one is available, otherwise an owner check.
+  - The native Windows build and the success-measure targets are in "Not in Phase 2".
+  - M26's release criteria say the measures are baselines and do not gate the release.
+  - The table still awaits the owner's approval before it goes into the guide (D18).
+- **Applied elsewhere:** the Windows sentences of specs 0 and 3 and the overview, and spec 0's "Success measures", change in those specs' Phase 1 review PRs (#101).
+- **Spec sections updated:** none in this PR.
+- **Dependencies added:** none.
+
+## 2026-11-16 · M16 · Spec 0 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 0 now applies its approved rows and goes from version 0.4 to 0.5.
+  - The 19 "change needed" rows of "Spec 0", each as the checklist drafts it.
+  - Its four "needs owner" rows, as the owner decided:
+    - lines 128 and 172, the success measures: the six of B2, with no numeric targets until after Phase 3 and the values so far as baselines (#206, 2026-11-16);
+    - line 82, WSL: Windows through WSL 2 until after Phase 3, then a native build (#207, 2026-11-16);
+    - line 151, the six added risks: accepted as written, "(proposed)" dropped (the checklist's reading 2).
+  - The history line (188) is kept; the new dated line is under "Changes in this version".
+- **Readings (reversible):**
+  - The success measures table gives a "Baseline so far" column instead of targets. Each value is copied from the milestone record that measured it (STATUS M6, M9, M10, M11 and M13). Cognitive load has none yet.
+  - The 2026-11-05 measures and their M10 and M11 records stay below the table, marked as history, since the owner checks list (#102) and earlier sessions cite them.
+  - The unsigned-package risk now covers the Linux package and the AppImage, which Windows users run under WSL 2. Code signing is decided before the native Windows build (B5, #207).
+- **Spec sections updated:** spec 0, the version line, "Purpose", "Scope and build order", "Platform and hardware", "AI access", "Licence and community", "Success measures", "Risks and open items" and "Changes in this version".
+- **Dependencies added:** none.
+
+## 2026-11-16 · M16 · Spec 1 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 1 now applies the checklist's "change needed" rows for it and goes from version 1.6 to 1.7:
+  - the version line, which drops "owner to confirm" (2026-11-09 B2);
+  - the engine licence rule: AGPL-3.0-only (B4, C7), plus F4's separate processes and the GPL-2.0-only engines they allow. "Proposed default, owner to confirm" is dropped, and the lawyer sentence stays, since F4 defers further legal review;
+  - "Versioning": format 0.x changes only additively (F7), and its behaviour as built is current, not frozen (E1);
+  - `search.objective`: several objectives come in Phase 2 (B1). This also covers 2026-11-09 B7 item 2;
+  - E190: a solve stopped with a good solution becomes `feasible` with its gap in Phase 2 (E1 M5-1, M5-10).
+  - The eight "already in spec" rows need no change. That includes D2's error-with-warning-mark reading, which the owner approved with the checklist (its reading 4).
+- **Spec sections updated:** spec 1, the version line, "Engine contract" (the licence rule), "Versioning", "Experiments" (the `search` keys), "Validation issues" (E190) and "Changes in this version".
+- **Dependencies added:** none.
+
+## 2026-11-16 · M16 · Spec 2 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 2 now applies the checklist's 14 "change needed" rows for it and goes from version 1.1 to 1.2:
+  - the version line (2026-11-09 B2);
+  - the block defaults confirmed for Phase 1 and tested again in the agent walkthroughs (2026-11-09 B3, C1);
+  - the Phase 2 objective types (B1);
+  - ranking and selection (D1, settling 2026-11-07 item 7);
+  - the warm-up check kept for 0.x (E1 M3-2);
+  - `feasible` with its gap (E1 M5-1, M5-10), and duals first (E1 M5-15);
+  - the process constructs (D10, D11), and the failure per unit (D13);
+  - the Phase 2 research items;
+  - no cap on scenarios (B6);
+  - a noise-aware search (E1 M5-23);
+  - the `sketch` fidelity (B7 item 1);
+  - the source's schedule (D10, M4-1).
+  - The five "already in spec" rows need no change.
+- **Readings (reversible):**
+  - "Confirmed for Phase 1" replaces "owner to confirm" only where 2026-11-09 B3 names it: the block defaults of "Block reference" (AKS-99, AKS-105, AKS-106) and the council's defaults of AKS-76. The other "owner to confirm" phrases in spec 2 are E1's build readings. E1 already accepts them as format 0.x's current behaviour, and the checklist does not list them one by one, so they stay as written.
+  - D1's example procedures (KN with common random numbers, Batur and Kim) are named as candidates the rule may choose, not as the choice.
+- **Spec sections updated:** spec 2, the version line, "Process block library", "Experiment manager", "Optimization", "Block reference", "Statistic definitions" (the warm-up check), "Mathematical optimization in the model file", "Simulation-based optimization", "Fidelity for process models", "Research before building" and "Changes in this version".
+- **Dependencies added:** none.
+
+## 2026-11-16 · Spec 5 research · Owner decision: start spec 5 research now, in one session (#104)
+
+- **Decision (owner, 2026-11-16, relayed by the orchestrating session):** "start spec 5 research now. Keep a separate session as usual. This has to be done in a single session rather than multiple ones." Spec 5's research, its trial runs, the detailed draft (version 0.3) and its council start before M16 closes and are done by one session, from #104.
+- **Reason:** the owner's instruction. It is an exception to guide rule 2 (the next milestone starts only when the current one's checks pass): this work is research and specification only, with no product code, so it does not build on M16's unfinished work.
+- **Spec sections updated:** none in this PR.
+- **Dependencies added:** none.
+
+## 2026-11-16 · Spec 5 research · Engine confirmation: Mesa, PySD, FMPy, OpenModelica, Project Chrono, MuJoCo (#104)
+
+- **Decision (proposed, owner to confirm; one note each under `docs/research/spec-5-*.md`):**
+  - **Mesa 3.5.2** for agent-based models: Apache-2.0, in-process. Needs Python 3.12 or later.
+  - **PySD 3.14.3** for system dynamics: MIT, in-process. Fixed-step Euler only, so every result states its step.
+  - **FMPy 0.3.32** runs FMI 2.0 FMUs: BSD-2-Clause. FMUs are loaded only in the run worker, never in the service.
+  - **OpenModelica 1.27.2** builds FMI 2.0 Co-Simulation FMUs from Modelica Standard Library 4.1.0: GPL-3.0 or OSMC-PL 1.2, as a separate process (F4). The runtime inside an FMU is BSD-new, AGPL-3.0 or OSMC-PL 1.8 at the user's choice, so a template may ship an FMU. FMI 3.0 export is experimental and not used.
+  - **Project Chrono 10.0.0** (BSD-3-Clause) is not started without a trial. **MuJoCo 4.0.1** (Apache-2.0, on PyPI) is proposed in its place for multibody; that choice is an owner question.
+- **Engine licences against AGPL-3.0** (guide "Known gaps", engine licences; spec 1 "Engine licence rule"). Each was read from the licence file of a pinned package on 2026-11-16, whose SHA-256 matched its index:
+
+  | Engine | Version | Licence | Read from | Invocation |
+  | --- | --- | --- | --- | --- |
+  | Mesa | 3.5.2 | Apache-2.0 | wheel `licenses/LICENSE` | in-process |
+  | PySD | 3.14.3 | MIT | wheel `LICENSE` | in-process |
+  | FMPy | 0.3.32 | BSD-2-Clause (bundles CVODE, BSD-3-Clause) | wheel `licenses/LICENSE.txt` | in-process; the FMU in the run worker |
+  | OpenModelica | 1.27.2 | GPL-3.0 or OSMC-PL 1.2; runtime BSD-new, AGPL-3.0 or OSMC-PL 1.8 | `.deb` `copyright` files and runtime headers | process |
+  | Modelica Standard Library | 4.1.0 | BSD-3-Clause | `omlibrary` `LICENSE` | data for OpenModelica |
+  | Project Chrono (PyChrono) | 10.0.0 | BSD-3-Clause; depends on CUDA (NVIDIA EULA) and MKL (Intel Simplified Software Licence) | projectchrono.org licence page and the conda package's `info/index.json` | process, if used |
+  | MuJoCo | 4.0.1 | Apache-2.0 | installed `licenses/LICENSE` | in-process |
+
+- **Trials run** (scratch environments outside the repository; scripts and outputs in `docs/research/spec-5-trials/`):
+  - Mesa: agent-based SIR, mean final size 796.03 ± 9.18 against 800.2040.
+  - PySD: SIR final size and peak, and the predator–prey invariant, at three steps each, with first-order convergence.
+  - FMPy: a hand-written FMI 2.0 mass–spring–damper FMU, largest error 8.63e-07 against the analytic response.
+  - MuJoCo: the pendulum at 10° and 90°, relative error about 1e-11.
+- **Not run:** OpenModelica and Project Chrono. This session's permission rules refused adding OpenModelica's apt repository and running a conda tool, and the container has no Docker daemon. Their packages were downloaded and read, not installed. What remains is in each note's "Tested".
+- **Readings (reversible):**
+  - Research trial scripts under `docs/research/spec-5-trials/` are exempt from ruff's `ANN` and `TID251`, as `scripts/**` is from `TID251` (`pyproject.toml`). They run once in a scratch environment and are not product code; formatting and the other lint rules still apply.
+  - The PyPI name `pychrono` is an unrelated package; any install instruction for Chrono names the conda channel.
+- **Spec sections updated:** none in this PR; spec 5 version 0.3 follows in its own PR.
+- **Dependencies added:** none. No engine is a project dependency.
+
+## 2026-11-16 · M16 · Spec 3 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 3 now applies its approved rows and goes from version 1.1 (after the M14 close, #222) to 1.2.
+  - The "change needed" rows: the version line (2026-11-09 B2); D6, B6 and D4 on the screens; B3 and F6 on the hardware tiers; D7; D14; F7 on the API; C4 and F6 on the performance targets; C5; C1 and C2; and the stale E179 default (#80).
+  - The stale fact: format 0.3 since #77.
+  - The Windows rows (lines 7, 23, 73, 87, 318 and 332 as surveyed), as the owner decided on 2026-11-16 (#207): Windows runs the Linux package or the AppImage under WSL 2 until after Phase 3. Phase 2 documents and tests that install. A native version, its installer, its code signing (B5) and the shell's WebView2 build come after Phase 3. This replaces the native installer of 2026-11-15 item 3. The WSL research item is kept, as a WSL 2 install item for Phase 2.
+  - The B5 row (the AppImage) needed nothing more: #211 added the AppImage to "Packaging".
+  - The six "already in spec" rows need no change.
+- **Readings (reversible):**
+  - B6's search threshold is written as the checklist's reading 1 proposes it: an estimated time above the run time limit (default 10 minutes), or more than 20 scenarios. #111 sets it when it builds the estimate.
+  - The performance targets stay proposals. Per #206, their measured values are baselines, not gates, until targets are set after Phase 3.
+  - The Windows acceptance row is checked by an agent on a WSL runner where one is available, and otherwise by the owner, as M24 of the proposed Phase 2 table says.
+- **Spec sections updated:** spec 3, the version line and the warning, "Architecture", "API", "Screens", "Hardware tiers", "Packaging", "Service rules" (the launcher and the desktop shell), "Endpoints" (new projects), "Canvas behaviour", "Performance targets", "Design before building", "Research before building", "Acceptance tests" and "Changes in this version".
+- **Dependencies added:** none.
+
+## 2026-11-16 · Spec 5 research · A CI job for the trials of OpenModelica and Project Chrono (#104)
+
+- **Decision:** `.github/workflows/spec5-trials.yml` runs the two spec 5 trials that the research container could not: OpenModelica 1.27.2 builds the mass–spring–damper (`docs/research/spec-5-trials/openmodelica/MSD.mo`) into FMI 2.0 Co-Simulation FMUs that FMPy 0.3.32 runs against the analytic response, both where they were built and in a clean `python:3.12-slim-bookworm` container without OpenModelica; and PyChrono 9.0.1 runs the pendulum at 10° and 90° (`docs/research/spec-5-trials/chrono/pendulum.py`).
+  - **Triggers:** `workflow_dispatch`, and `pull_request` limited to `docs/research/spec-5-trials/**` and the workflow file.
+  - **Not a gate:** the workflow is not in `checks.yml`'s `all-green` nor in the branch ruleset.
+  - **Pinned downloads, failing closed:** every package is checked against a SHA-256 taken from its index on 2026-11-16, as #210 did for the AppImage tools. Results are uploaded as artifacts and copied into the research notes with the run ID and head SHA.
+- **Reason:** the orchestrating session's answer of 2026-11-16: "add the CI trial job in its own PR. Don't record the two engines as "not run" when CI can run them." The container refused adding OpenModelica's apt repository and running a conda tool.
+- **Readings (reversible):**
+  - PyChrono 9.0.1 (the orchestrating session's pin), build `py312h98ab86c_406`, rather than 10.0.0, the newest; both are BSD-3-Clause.
+  - Two FMUs are built, one with `platforms = {"dynamic"}` and one with `{"static"}` (the API's default, per OpenModelica's scripting API for `buildModelFMU`), to test which runs where OpenModelica is not installed.
+  - FMPy's own dependencies are installed unpinned from PyPI: only the engines and FMPy are pinned.
+- **Spec sections updated:** none.
+- **Dependencies added:** none to the project. Downloaded in CI only, each checked by SHA-256:
+
+  | Name | Version | Licence | How checked |
+  | --- | --- | --- | --- |
+  | omc, libomc, libomcsimulation, omc-common | 1.27.2-1 | GPL-3.0 or OSMC-PL 1.2 (`copyright`); runtime in FMUs BSD-new, AGPL-3.0 or OSMC-PL 1.8 (headers) | `Packages` index SHA-256; files read from the unpacked `.deb` (`docs/research/spec-5-openmodelica-fmu.md`) |
+  | omlibrary (Modelica Standard Library 3.2.3, 4.0.0, 4.1.0) | 1.27.2-1 | BSD-3-Clause | `Packages` SHA-256; `LICENSE` in the library archive |
+  | FMPy | 0.3.32 | BSD-2-Clause | PyPI SHA-256; wheel `LICENSE.txt` |
+  | micromamba | 2.0.5 | BSD-3-Clause AND MIT AND OpenSSL (conda-forge repodata) | conda-forge `repodata.json` SHA-256 |
+  | PyChrono | 9.0.1 (`py312h98ab86c_406`) | BSD-3-Clause (package metadata; projectchrono.org licence page) | projectchrono `repodata.json` SHA-256 |
+
+## 2026-11-16 · M16 · Spec 4 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 4 now applies the checklist's six "change needed" rows for it and goes from version 1.0 (after the M14 close, #222) to 1.1:
+  - the version line (2026-11-09 B2);
+  - the ten templates kept, with an eleventh and template expansion in Phase 3 (2026-11-09 B7 item 3);
+  - C6's rule among the rules for assistant access;
+  - data import through the assistant in Phase 2 (D15);
+  - the Learn walkthrough row: agents in roles every phase, plus one or two people at v0.1.0 (C1, C2);
+  - a per-phase row for the different-assistant trial (C6).
+  - The five "already in spec" rows need no change.
+- **Readings (reversible):**
+  - The two remaining "owner to confirm" phrases near the templates (the thresholds kept at M10, AKS-125, and the template selection, AKS-124) are E1's build readings, which the checklist does not list. They stay.
+- **Spec sections updated:** spec 4, the version line, "Template library", "MCP server", "Limits", "Acceptance tests" and "Changes in this version".
+- **Dependencies added:** none.
+
+## 2026-11-16 · M16 · The overview brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). `docs/specs/overview.md` now applies the checklist's six rows for it:
+  - the source-of-truth sentence drops "owner to confirm" (2026-11-09 B2), and the spec versions are those after the review (spec 0 0.5; specs 1 to 4 at 1.7, 1.2, 1.2 and 1.1, specs 3 and 4 having been bumped once by the M14 close, #222);
+  - specs 1 to 4 are Phase 1, closed as Phase 1a. Phase 3a is named, and F3 places new items from specs 5 to 7;
+  - the Windows row, as the owner decided on 2026-11-16 (#207): WSL 2 until after Phase 3, then a native build;
+  - F3's method for specs 5 to 7 (with 2026-11-09 B9);
+  - C4 and #206 for the performance targets;
+  - the stale "Only a prototype has been run" limit, rewritten as built.
+- **Readings (reversible):**
+  - The overview had no "Changes in this version" section and no version line. It gains the section, with this dated line, but no version line, since no version was ever given to it.
+  - Its spec versions assume the five spec PRs of this review (#220, #221, #223, #224, #225) merge first. This PR is the last of the six.
+  - The "Technology choices were not re-researched" limit is not in the checklist and is left as written.
+- **Spec sections updated:** overview, "What is here", "Choices made without asking", "Limits of these drafts", and a new "Changes in this version".
+- **Dependencies added:** none.
+
+## 2026-11-16 · Owner approved the Phase 2 milestone table (D18)
+
+- **Decision:** the owner approved the Phase 2 milestone table on 2026-11-16 (D18), as it stands on `main` at ccd98c6 after #219 (`docs/research/phase-2-milestones.md`), relayed by the orchestrating session. Its rows M17 to M26 are now in the build guide's "Milestones", copied verbatim, with each row's "Done when" as written there.
+  - M17: Phase 2 setup and research.
+  - M18: simulation statistics.
+  - M19: process constructs.
+  - M20: optimization.
+  - M21: data and interface.
+  - M22: the remote (SSH) run target.
+  - M23: spec 5 models.
+  - M24: Windows through WSL 2.
+  - M25: MCP hardening.
+  - M26: the Phase 2 release.
+- **Check:** `tests/test_phase_2_milestones.py` now also fails when the guide's M17 to M26 rows differ from the approved table, so a later change has to be made to both.
+- **Readings (reversible):** the orchestrating session's message named "CLAUDE.md's Milestones table". The table is in the build guide, and `CLAUDE.md` points to it, so the rows go there and `CLAUDE.md` is unchanged.
+- **Next:** issues are filed per item, as sub-issues of the Phase 2 epic, with `phase:2` labels. M17 product work waits until M16's checks pass (rule 2): the owner checks (#102) and the v0.1.0 tag (#103).
+- **Spec sections updated:** build guide, "Milestones".
+- **Dependencies added:** none.

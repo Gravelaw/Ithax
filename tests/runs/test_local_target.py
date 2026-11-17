@@ -353,12 +353,17 @@ def test_cancelling_again_does_not_postpone_the_forced_stop(tmp_path: Path) -> N
     run = local.create(file_bytes(coffee_shop()), "base")
     thread = execute_in_thread(run)
     wait_for(lambda: (run.engine_folder / RUN_RECORD).exists())
+    # The bound is set from the cap, not from the grace: if a repeat postponed the forced
+    # stop, cancels 0.1 s apart (closer than the 0.5 s grace) would keep the worker alive
+    # until the loop's 30 s cap. A correct stop takes the grace and the stop, about 0.6 s
+    # alone and 4.9 s seen on a loaded CI runner (PR 214, run 43772603520), so 10 s leaves
+    # that margin twice over and still fails the bug by 20 s.
     first = time.monotonic()
-    while thread.is_alive() and time.monotonic() - first < 6:
-        run.cancel()  # every 0.1 s, closer together than the grace
+    while thread.is_alive() and time.monotonic() - first < 30:
+        run.cancel()
         thread.join(timeout=0.1)
     assert not thread.is_alive()
-    assert time.monotonic() - first < 3
+    assert time.monotonic() - first < 10
     assert run.state == "cancelled"
 
 

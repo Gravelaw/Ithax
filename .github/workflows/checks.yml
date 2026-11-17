@@ -9,7 +9,7 @@ on:
   # pr-title.yml, so a title edit never publishes a skipped, and so passing, code check.
   pull_request:
   push:
-    branches: [main]
+    branches: [main, "release/*"]
 
 # Least privilege: jobs only read the repository.
 permissions:
@@ -144,6 +144,7 @@ jobs:
   # the pinned Python and wheels), then installed from the archive in a clean ubuntu:24.04
   # container, online and with --network none, to a first template result, and its shell
   # driven to Home under Xvfb (pytest marker package, which scripts/check.sh leaves out).
+  # The AppImage (#88) the same, and mounted with FUSE (fuse3) on the runner itself.
   package:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -154,7 +155,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
             libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
-            webkit2gtk-driver xvfb
+            webkit2gtk-driver xvfb fuse3
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -175,6 +176,12 @@ jobs:
             ui/package-lock.json
             desktop/package-lock.json
       - run: cargo install tauri-driver --version 2.1.0 --locked
+      # The AppImage tools (#88, docs/research/m16-appimage.md): downloaded by their exact
+      # release URLs, their SHA-256 printed and checked against each release's published
+      # digest and, once recorded, the pin in scripts/package_linux.py; a mismatch fails.
+      - run: python scripts/package_linux.py --check-appimage-tools
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - run: python scripts/package_linux.py
       - run: pytest -m package
       - uses: actions/upload-artifact@v4
@@ -183,13 +190,32 @@ jobs:
           path: |
             dist/ithax-*-linux-x86_64.tar.gz
             dist/ithax-*-linux-x86_64.tar.gz.sha256
+            dist/ithax-*-x86_64.AppImage
+            dist/ithax-*-x86_64.AppImage.sha256
           retention-days: 14
+
+  # docs/DECISIONS.md is append-only (the Phase 1 log, frozen from Phase 2 by P15): lines were
+  # lost from it in two merges, #189 and #213. A pull request is compared with its merge base
+  # with the branch it goes into; a push with the commit before it.
+  decisions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: python scripts/decisions_append_only.py "$BASE"
 
   # The one check that branch protection requires (P4). A skipped or cancelled job counts
   # as a failure here, so a red or missing job can never be merged past.
   all-green:
     if: always()
-    needs: [checks, interface, desktop, package]
+    needs: [checks, interface, desktop, package, decisions]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

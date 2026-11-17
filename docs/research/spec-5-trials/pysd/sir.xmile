@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spec 5 trial: the SIR model of sir.mdl, written in XMILE 1.0 by hand. -->
+<xmile version="1.0" xmlns="http://docs.oasis-open.org/xmile/ns/XMILE/v1.0">
+  <header>
+    <vendor>Ithax research</vendor>
+    <product version="0.1">spec 5 trial</product>
+  </header>
+  <sim_specs method="Euler" time_units="Day">
+    <start>0</start>
+    <stop>200</stop>
+    <dt>0.0625</dt>
+  </sim_specs>
+  <model>
+    <variables>
+      <stock name="Susceptible">
+        <eqn>Population - Initial_infected</eqn>
+        <outflow>infection_rate</outflow>
+        <units>person</units>
+      </stock>
+      <stock name="Infected">
+        <eqn>Initial_infected</eqn>
+        <inflow>infection_rate</inflow>
+        <outflow>recovery_rate</outflow>
+        <units>person</units>
+      </stock>
+      <stock name="Recovered">
+        <eqn>0</eqn>
+        <inflow>recovery_rate</inflow>
+        <units>person</units>
+      </stock>
+      <flow name="infection rate">
+        <eqn>beta * Susceptible * Infected / Population</eqn>
+        <units>person/Day</units>
+      </flow>
+      <flow name="recovery rate">
+        <eqn>gamma * Infected</eqn>
+        <units>person/Day</units>
+      </flow>
+      <aux name="Population">
+        <eqn>1000</eqn>
+        <units>person</units>
+      </aux>
+      <aux name="Initial infected">
+        <eqn>1</eqn>
+        <units>person</units>
+      </aux>
+      <aux name="beta">
+        <eqn>0.5</eqn>
+        <units>1/Day</units>
+      </aux>
+      <aux name="gamma">
+        <eqn>0.25</eqn>
+        <units>1/Day</units>
+      </aux>
+    </variables>
+  </model>
+</xmile>

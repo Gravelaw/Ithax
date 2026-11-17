@@ -18,14 +18,14 @@ What script do the three outside testers follow, what is timed, and what can a s
 
 For the owner, before each tester (not timed):
 
-1. On a Linux machine (Phase 1 is Linux first), from M11: put the package (`lcsim-<version>-linux-x86_64.tar.gz` and its `.sha256` file) in the tester's Downloads folder; the tester installs it as the README's "Install on Linux" says, timed as part of step 1 (owner to confirm; candidate bucket Phase 1a). Before M11 the product was installed from source: `python3 -m venv .venv`, `.venv/bin/pip install .`, then in `ui/` `npm ci` and `npm run build`.
-2. From M11 `install.sh` adds lcsim to the desktop's applications and links the command `lcsim`; before M11, make a desktop shortcut or a one-line script that runs `.venv/bin/python -m lcsim.launcher` from the repository folder.
-3. Remove `~/.config/lcsim` and `~/.local/share/lcsim` (or the platform's folders) so the tester sees the first start.
+1. On a Linux machine (Phase 1 is Linux first), from M11: put the package (`ithax-<version>-linux-x86_64.tar.gz` and its `.sha256` file, or since M16 the AppImage `ithax-<version>-x86_64.AppImage` and its `.sha256` file) in the tester's Downloads folder; the tester installs it as the README's "Install on Linux" says, timed as part of step 1 (owner to confirm; candidate bucket Phase 1a). Before M11 the product was installed from source: `python3 -m venv .venv`, `.venv/bin/pip install .`, then in `ui/` `npm ci` and `npm run build`.
+2. From M11 `install.sh` adds Ithax to the desktop's applications and links the command `ithax` (the AppImage needs no install: made executable, it starts with a double-click); before M11, make a desktop shortcut or a one-line script that runs `.venv/bin/python -m ithax.launcher` from the repository folder.
+3. Remove `~/.config/ithax` and `~/.local/share/ithax` (or the platform's folders; the names were `lcsim` before #70) so the tester sees the first start.
 4. Give the tester only this sheet. Do not help; note where they hesitate and what they say.
 
 For the tester (timed from step 1 to step 7; write the time at each step):
 
-1. **Start the clock.** From M11: install the app from the Downloads folder as the README says, then start it from the applications menu (or `lcsim`). Before M11: start the app from the shortcut.
+1. **Start the clock.** From M11: install the app from the Downloads folder as the README says, then start it from the applications menu (or `ithax`), or make the AppImage executable and double-click it. Before M11: start the app from the shortcut.
 2. Read the welcome notice and press **Continue**.
 3. On Home, press **Learn**.
 4. In the gallery, find "Coffee shop queue" and press **Start the lesson**.

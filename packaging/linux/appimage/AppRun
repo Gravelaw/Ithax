@@ -1,0 +1,149 @@
+#!/bin/sh
+# AppRun: the AppImage's entry point (#88; docs/research/m16-appimage.md). The AppImage is
+# the package folder with this file at its top: with no argument, or options, it starts the
+# app as bin/ithax does; "mcp" runs the MCP server and "launcher" the launcher, with the
+# arguments after them passed on.
+#
+# The service a command starts outlives it, and runs from this AppImage's files, which the
+# runtime keeps only while AppRun's processes need them (type2-runtime 20251108,
+# src/runtime/runtime.c): mounted with FUSE, until no process holds the mount's keepalive
+# pipe, which the service, started with its descriptors closed, does not; extracted with
+# APPIMAGE_EXTRACT_AND_RUN, until AppRun exits, unless NO_CLEANUP is set. So AppRun waits
+# while any process runs from here: in the background when mounted, where the waiter holds
+# the pipe and the command's caller gets its answer at once; else in the foreground.
+set -eu
+here=$(dirname "$(readlink -f "$0")")
+case "${1:-}" in
+    mcp)
+        shift
+        command="$here/bin/ithax-mcp"
+        ;;
+    launcher)
+        shift
+        command="$here/bin/ithax-launcher"
+        ;;
+    *)
+        command="$here/bin/ithax"
+        ;;
+esac
+
+# The processes running from here, the AppImage's files.
+running_pids() {
+    for exe in /proc/[0-9]*/exe; do
+        case $(readlink "$exe" 2>/dev/null || true) in
+            "$here"/*)
+                pid=${exe#/proc/}
+                echo "${pid%/exe}"
+                ;;
+        esac
+    done
+}
+
+running() {
+    [ -n "$(running_pids)" ]
+}
+
+stay() {
+    while running; do
+        sleep "${ITHAX_APPRUN_POLL_S:-2}"
+    done
+}
+
+# One handler for every signal that stops AppRun, in each of its phases, so that nothing
+# AppRun started is left running from the AppImage's files after AppRun lets them go
+# (reviews of pull request 211, twice):
+# - before the command starts, AppRun just ends;
+# - while it runs, the signal is passed on to it, and AppRun waits for it to end; then the
+#   same signal goes to anything the command started that still runs from here, such as the
+#   service, and AppRun waits for that too, instead of staying as usual (review of pull
+#   request 211, third finding);
+# - after it, while AppRun stays (in the foreground, or as the background waiter), the
+#   signal goes to every process still running from here, and AppRun stays on until they
+#   have ended, so the files are not removed or unmounted under them.
+# The shell starts a background command with INT ignored, which it cannot undo, so INT
+# (Ctrl+C) is passed on as TERM, on which every command stops.
+phase=start
+child=
+stopping=
+stop_running() {
+    for pid in $(running_pids); do
+        kill -"$1" "$pid" 2>/dev/null || true
+    done
+}
+stop() {
+    case $phase in
+        start) exit "$2" ;;
+        command)
+            stopping=$1
+            stopped_status=$2
+            kill -"$1" "$child" 2>/dev/null || true
+            ;;
+        stay)
+            status=$2
+            stop_running "$1"
+            ;;
+    esac
+}
+handle_signals() {
+    trap 'stop TERM 143' TERM INT
+    trap 'stop HUP 129' HUP
+}
+
+# The command runs as a child, so AppRun can stay after it. A command started in the
+# background reads /dev/null unless given its standard input explicitly, so it gets a copy
+# taken first: the MCP server speaks over it. The copy goes in a descriptor that is not
+# open, since every one AppRun inherits is kept: the runtime's keepalive pipe, which holds
+# the mount, is among them, often as 3 (CI run 43761150645). The handler is set before the
+# command starts, so a signal arriving as it starts is not lost.
+handle_signals
+# For the tests only: with ITHAX_APPRUN_HOLD naming a file, AppRun writes "held" to it and
+# waits, before the command starts, until the file is gone, so a signal can be sent in this
+# phase (tests/linux_package/test_appimage_build.py).
+if [ -n "${ITHAX_APPRUN_HOLD:-}" ]; then
+    echo held > "$ITHAX_APPRUN_HOLD"
+    while [ -e "$ITHAX_APPRUN_HOLD" ]; do
+        sleep 0.05
+    done
+fi
+spare=
+for fd in 9 8 7 6 5; do
+    if [ ! -e "/proc/$$/fd/$fd" ]; then
+        spare=$fd
+        break
+    fi
+done
+if [ -z "$spare" ]; then
+    echo "AppRun: no free descriptor from 5 to 9 for the command's standard input" >&2
+    exit 1
+fi
+eval "exec $spare<&0"
+eval "\"\$command\" \"\$@\" <&$spare $spare<&- &"
+child=$!
+phase=command
+eval "exec $spare<&-"
+status=0
+wait "$child" || status=$?
+# A trapped signal ends the wait early; wait again until the command has ended.
+while kill -0 "$child" 2>/dev/null; do
+    wait "$child" || status=$?
+done
+phase=stay
+if [ -n "$stopping" ]; then
+    # Stopped while the command ran: what it started is stopped too, and AppRun keeps the
+    # files, mounted or extracted, until it has ended.
+    exec </dev/null >/dev/null 2>&1
+    status=$stopped_status
+    stop_running "$stopping"
+    stay
+elif [ -n "${APPIMAGE_EXTRACT_AND_RUN:-}" ] && [ -z "${NO_CLEANUP:-}" ]; then
+    # Nothing more is written to the caller; it sees the end of the output now.
+    exec </dev/null >/dev/null 2>&1
+    stay
+else
+    # A subshell starts with its traps reset but keeps what is ignored: the signals are
+    # ignored across the fork, so none ends the waiter before it sets the handler again.
+    trap '' TERM INT HUP
+    # It cannot take INT: dash starts a background process with INT ignored, past undoing.
+    (handle_signals && exec </dev/null >/dev/null 2>&1 && stay && exit "$status") &
+fi
+exit "$status"

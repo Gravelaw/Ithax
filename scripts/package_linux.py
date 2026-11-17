@@ -15,7 +15,10 @@ It makes ``dist/ithax-<version>-linux-x86_64.tar.gz`` and its checksum file
    recorded as compatible;
 5. the interface and templates under ``python/share/ithax``, the shell in ``lib/``, the
    commands and install scripts of ``packaging/linux``, the licence texts;
-6. one archive in a fixed order, with fixed owners and the commit's time on every file.
+6. one archive in a fixed order, with fixed owners and the commit's time on every file;
+7. the AppImage ``dist/ithax-<version>-x86_64.AppImage`` and its ``.sha256`` (#88): the same
+   folder with ``packaging/linux/appimage``'s ``AppRun`` and desktop file, the icon and the
+   runtime's licence at its top, made by the pinned appimagetool with the pinned runtime.
 
 Only the standard library is used, so any Python 3.11 or later runs it. Downloads need the
 network; the archive it makes needs none to install or run.
@@ -37,7 +40,7 @@ import sys
 import tarfile
 import tempfile
 import urllib.request
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -47,6 +50,7 @@ PACKAGING = ROOT / "packaging" / "linux"
 LOCK = PACKAGING / "requirements.lock"
 BUILD_CONSTRAINTS = PACKAGING / "build-constraints.txt"
 LICENCES = PACKAGING / "licences.json"
+APPIMAGE = PACKAGING / "appimage"
 
 PYTHON_RELEASE = "20261020"
 PYTHON_VERSION = "3.13.16"
@@ -65,6 +69,60 @@ PYTHON_SHA256 = "f326b7a386bf22def82e55dc3b95d2bef8b7c938b4c98ec32dd65433e7720b5
 REMOVED_MODULES = ("_dbm",)
 
 COMMANDS = ("ithax", "ithax-launcher", "ithax-mcp")
+
+APPIMAGETOOL_RELEASE = "1.9.1"
+RUNTIME_RELEASE = "20251108"
+
+
+@dataclass(frozen=True)
+class Tool:
+    """A build tool downloaded by its exact release URL into ``dist/cache`` (#88)."""
+
+    name: str
+    url: str
+    #: The GitHub API address of its release, whose asset lists the published digest;
+    #: ``None`` for a file that is not a release asset.
+    release: str | None
+    #: Copied from the ``package`` CI job's output, which matched the release's published
+    #: digest (``docs/DECISIONS.md``); a build refuses a tool with ``None``.
+    sha256: str | None
+
+
+#: appimagetool and the type2 runtime it is given (``docs/research/m16-appimage.md``), both MIT.
+APPIMAGE_TOOLS = (
+    Tool(
+        name=f"appimagetool-{APPIMAGETOOL_RELEASE}-x86_64.AppImage",
+        url=(
+            "https://github.com/AppImage/appimagetool/releases/download/"
+            f"{APPIMAGETOOL_RELEASE}/appimagetool-x86_64.AppImage"
+        ),
+        release=(
+            "https://api.github.com/repos/AppImage/appimagetool/releases/tags/"
+            f"{APPIMAGETOOL_RELEASE}"
+        ),
+        sha256="ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0",
+    ),
+    Tool(
+        name=f"runtime-{RUNTIME_RELEASE}-x86_64",
+        url=(
+            "https://github.com/AppImage/type2-runtime/releases/download/"
+            f"{RUNTIME_RELEASE}/runtime-x86_64"
+        ),
+        release=(
+            f"https://api.github.com/repos/AppImage/type2-runtime/releases/tags/{RUNTIME_RELEASE}"
+        ),
+        sha256="2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d",
+    ),
+)
+
+#: The runtime's licence, MIT, at the runtime's release tag: the runtime ships inside every
+#: AppImage, so its licence text ships beside it.
+RUNTIME_LICENCE = Tool(
+    name=f"type2-runtime-{RUNTIME_RELEASE}-LICENSE",
+    url=f"https://raw.githubusercontent.com/AppImage/type2-runtime/{RUNTIME_RELEASE}/LICENSE",
+    release=None,
+    sha256="aa154fc9070614bbe7921f89db11efd1dba7a1f3a41685958110e2230f9c0ca1",
+)
 
 _PIN = re.compile(
     r"^(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)==(?P<version>[^\s=]+)"
@@ -377,17 +435,146 @@ def _output(command: Sequence[str | Path], cwd: Path = ROOT) -> str:
 def fetch_python(cache: Path) -> Path:
     """The pinned Python archive, downloaded into ``cache`` when not there, its SHA-256
     checked either way."""
-    cache.mkdir(parents=True, exist_ok=True)
     archive = cache / PYTHON_ARCHIVE
     if not archive.exists():
-        print(f"Downloading {PYTHON_URL}", flush=True)
-        partial = archive.with_name(archive.name + ".part")
-        with urllib.request.urlopen(PYTHON_URL, timeout=300) as response, partial.open("wb") as out:
-            shutil.copyfileobj(response, out)
-        partial.replace(archive)
+        download(PYTHON_URL, archive)
     if sha256_file(archive) != PYTHON_SHA256:
         raise BuildError(f"{archive} does not have the pinned SHA-256 {PYTHON_SHA256}")
     return archive
+
+
+def download(url: str, target: Path) -> None:
+    """``url`` saved as ``target``, through a ``.part`` file, so an interrupted download
+    never leaves a file that looks complete."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Downloading {url}", flush=True)
+    partial = target.with_name(target.name + ".part")
+    with urllib.request.urlopen(url, timeout=300) as response, partial.open("wb") as out:
+        shutil.copyfileobj(response, out)
+    partial.replace(target)
+
+
+def fetch_tool(cache: Path, tool: Tool) -> Path:
+    """``tool`` in ``cache``, downloaded when not there, its SHA-256 checked either way; a
+    tool with no pin is refused, so nothing unpinned reaches a build."""
+    if tool.sha256 is None:
+        raise BuildError(
+            f"{tool.name} has no pinned SHA-256; run --check-appimage-tools and record it"
+        )
+    path = cache / tool.name
+    if not path.exists():
+        download(tool.url, path)
+    if sha256_file(path) != tool.sha256:
+        raise BuildError(f"{path} does not have the pinned SHA-256 {tool.sha256}")
+    return path
+
+
+def asset_digest(release: Mapping[str, Any], url: str) -> str | None:
+    """The SHA-256 a GitHub release publishes for the asset ``url`` names, or ``None`` when
+    the release lists none (assets uploaded before GitHub kept digests)."""
+    asset_name = url.rsplit("/", 1)[-1]
+    for asset in release.get("assets", []):
+        if isinstance(asset, dict) and asset.get("name") == asset_name:
+            value = asset.get("digest")
+            if isinstance(value, str) and value.startswith("sha256:"):
+                return value.removeprefix("sha256:")
+    return None
+
+
+def published_digest(tool: Tool) -> str | None:
+    """The digest ``tool``'s release publishes, read from the GitHub API (with the job's
+    token when ``GITHUB_TOKEN`` is set, for the rate limit)."""
+    headers = {"Accept": "application/vnd.github+json"}
+    if tool.release is None:
+        return None
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(tool.release, headers=headers)
+    with urllib.request.urlopen(request, timeout=60) as response:
+        release: dict[str, Any] = json.load(response)
+    return asset_digest(release, tool.url)
+
+
+def check_tool(path: Path, tool: Tool, published: str | None) -> list[str]:
+    """What is wrong with the downloaded ``tool`` at ``path``; prints what was checked."""
+    actual = sha256_file(path)
+    print(f"{tool.name} sha256 {actual}")
+    problems = []
+    if published is None:
+        print(f"  {tool.release or tool.url} publishes no digest for it")
+    elif published == actual:
+        print("  matches the release's published digest")
+    else:
+        problems.append(f"{tool.name} does not match the release's published digest {published}")
+    if tool.sha256 is None:
+        print("  not pinned yet: record this hash in scripts/package_linux.py")
+    elif tool.sha256 == actual:
+        print("  matches the pin")
+    else:
+        problems.append(f"{tool.name} does not match the pin {tool.sha256}")
+    return problems
+
+
+def check_tools(cache: Path, tools: Sequence[Tool], published: Callable[[Tool], str | None]) -> int:
+    """``--check-appimage-tools``: each tool downloaded afresh by its release URL and its
+    SHA-256 printed, then compared with the release's published digest and with the pin
+    when there is one. 1 when any differs."""
+    problems = []
+    for tool in tools:
+        path = cache / "check" / tool.name
+        path.unlink(missing_ok=True)
+        download(tool.url, path)
+        problems += check_tool(path, tool, published(tool))
+    for problem in problems:
+        print(f"package_linux: {problem}", file=sys.stderr)
+    return 1 if problems else 0
+
+
+def appimage_name(version: str) -> str:
+    return f"ithax-{version}-x86_64.AppImage"
+
+
+def make_appdir(stage: Path, runtime_licence: Path) -> None:
+    """The package folder ``stage`` made an AppDir (#88): ``AppRun``, the desktop file and
+    the icon at its top, and the runtime's licence, which ships inside every AppImage."""
+    shutil.copyfile(APPIMAGE / "AppRun", stage / "AppRun")
+    (stage / "AppRun").chmod(0o755)
+    shutil.copyfile(APPIMAGE / "ithax.desktop", stage / "ithax.desktop")
+    shutil.copyfile(stage / "share" / "ithax.png", stage / "ithax.png")
+    shutil.copyfile(runtime_licence, stage / "LICENSE.type2-runtime.txt")
+    with (stage / "THIRD-PARTY-LICENSES.txt").open("a", encoding="utf-8") as notices:
+        notices.write(
+            f"\nThe AppImage's runtime: type2-runtime {RUNTIME_RELEASE}, MIT, its licence in"
+            " LICENSE.type2-runtime.txt (https://github.com/AppImage/type2-runtime).\n"
+        )
+
+
+def appimage_command(
+    tool: Path, runtime: Path, appdir: Path, target: Path, mtime: int
+) -> tuple[list[str], dict[str, str]]:
+    """The appimagetool call and its environment: the pinned runtime, no AppStream check,
+    the commit's time for the squashfs, and no FUSE needed (it extracts itself)."""
+    command = [str(tool), "--no-appstream", "--runtime-file", str(runtime), str(appdir)]
+    environment = {
+        **os.environ,
+        "APPIMAGE_EXTRACT_AND_RUN": "1",
+        "SOURCE_DATE_EPOCH": str(mtime),
+        "ARCH": "x86_64",
+    }
+    return [*command, str(target)], environment
+
+
+def write_appimage(appdir: Path, target: Path, mtime: int, cache: Path) -> Path:
+    """``target`` built from ``appdir`` with the pinned appimagetool and runtime, and its
+    ``.sha256`` beside it; the checksum file's path."""
+    tool = fetch_tool(cache, APPIMAGE_TOOLS[0])
+    tool.chmod(0o755)
+    runtime = fetch_tool(cache, APPIMAGE_TOOLS[1])
+    command, environment = appimage_command(tool, runtime, appdir, target, mtime)
+    target.unlink(missing_ok=True)
+    _run(command, env=environment)
+    return write_checksum(target)
 
 
 def installed_distributions(python: Path) -> dict[str, str]:
@@ -426,6 +613,10 @@ def build(out: Path, prebuilt: bool) -> Path:
 
     out.mkdir(parents=True, exist_ok=True)
     python_archive = fetch_python(out / "cache")
+    # Every pinned tool is fetched and checked before the long part of the build.
+    runtime_licence = fetch_tool(out / "cache", RUNTIME_LICENCE)
+    for tool in APPIMAGE_TOOLS:
+        fetch_tool(out / "cache", tool)
     with tempfile.TemporaryDirectory(dir=out) as scratch:
         stage = Path(scratch) / name
         stage.mkdir()
@@ -550,8 +741,13 @@ def build(out: Path, prebuilt: bool) -> Path:
         )
         archive = out / f"{name}.tar.gz"
         write_archive(stage, archive, mtime)
+        make_appdir(stage, runtime_licence)
+        set_times(stage, mtime)
+        appimage = out / appimage_name(version)
+        appimage_checksum = write_appimage(stage, appimage, mtime, out / "cache")
     checksum = write_checksum(archive)
     print(f"Wrote {archive} ({archive.stat().st_size / 1e6:.0f} MB) and {checksum.name}")
+    print(f"Wrote {appimage} ({appimage.stat().st_size / 1e6:.0f} MB) and {appimage_checksum.name}")
     return archive
 
 
@@ -563,7 +759,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="take ui/dist and the desktop shell as built, without npm",
     )
+    parser.add_argument(
+        "--check-appimage-tools",
+        action="store_true",
+        help="download the AppImage tools, print their SHA-256 and check them; build nothing",
+    )
     arguments = parser.parse_args(argv)
+    if arguments.check_appimage_tools:
+        tools = (*APPIMAGE_TOOLS, RUNTIME_LICENCE)
+        return check_tools(arguments.out.resolve() / "cache", tools, published_digest)
     try:
         build(arguments.out.resolve(), arguments.prebuilt)
     except BuildError as error:

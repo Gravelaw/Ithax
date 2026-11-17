@@ -1,0 +1,8 @@
+scipy 1.18.1
+SIR N=1000 I0=1 beta=0.5 gamma=0.25: R0 2, S_inf 202.845900, final size N-S_inf 797.154100, peak I 153.926660 at S = 500
+SIR N=1000 I0=10 beta=0.5 gamma=0.25: R0 2, S_inf 199.796032, final size N-S_inf 800.203968, peak I 158.451578 at S = 500
+Lotka-Volterra a=1.0 b=0.1 g=1.5 d=0.075 x0=10.0 y0=5.0: V = d x - g ln x + b y - a ln y = -3.813315552; equilibrium x=20, y=10
+Mass-spring-damper m=1.0 c=0.4 k=4.0 x0=1.0 v0=0: wn 2 rad/s, zeta 0.1, wd 1.989974874 rad/s, damped period 3.157419417 s, x(10 s) = 0.079116024
+Pendulum L=1.0 m g=9.80665 m/s^2 amplitude 10 deg: T = 4 sqrt(L/g) K(sin(theta0/2)) = 2.010235893 s (small-angle 2.006409293 s, ratio 1.001907188)
+Pendulum L=1.0 m g=9.80665 m/s^2 amplitude 90 deg: T = 4 sqrt(L/g) K(sin(theta0/2)) = 2.368246346 s (small-angle 2.006409293 s, ratio 1.180340599)
+RBD: R1 R2 (1-(1-R3)(1-R4)) with 0.95, 0.90, 0.80, 0.80 = 0.820800; 2-out-of-3 with R=0.9: 3R^2-2R^3 = 0.972000

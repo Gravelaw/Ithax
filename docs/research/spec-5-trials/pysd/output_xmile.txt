@@ -1,0 +1,9 @@
+pysd 3.14.3
+SIR known: final size 797.154100, peak infected 153.926660
+  XMILE dt 0.25: final size 800.675577 (error +3.5215), peak 156.222521 (error +2.2959); largest difference from .mdl 0.0e+00
+  XMILE dt 0.0625: final size 798.024919 (error +0.8708), peak 154.501338 (error +0.5747); largest difference from .mdl 0.0e+00
+  XMILE dt 0.015625: final size 797.371216 (error +0.2171), peak 154.070058 (error +0.1434); largest difference from .mdl 0.0e+00
+Lotka-Volterra known: V constant = -3.813315552
+  XMILE dt 0.01: V(15) -3.691465025, max relative drift 3.20e-02; largest difference from .mdl 0.0e+00
+  XMILE dt 0.001: V(15) -3.802332132, max relative drift 2.88e-03; largest difference from .mdl 0.0e+00
+  XMILE dt 0.0001: V(15) -3.812228382, max relative drift 2.85e-04; largest difference from .mdl 0.0e+00
