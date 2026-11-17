@@ -12,6 +12,7 @@ spec 5: within 1e-5 m over 10 s.
 
 import math
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -36,10 +37,16 @@ def describe(path: str) -> None:
         f"model exchange {md.modelExchange is not None}"
     )
     with zipfile.ZipFile(path) as z, tempfile.TemporaryDirectory() as tmp:
-        libs = [n for n in z.namelist() if n.startswith("binaries/") and n.endswith(".so")]
-        print(f"  binaries: {libs}")
-        for name in libs:
-            z.extract(name, tmp)
+        # Every file under binaries/, not only names ending in .so: the CVODE FMU ships
+        # libsundials_*.so.5 beside the model (CI run 43938942488 missed them).
+        files = [n for n in z.namelist() if n.startswith("binaries/") and not n.endswith("/")]
+        print(f"  binaries: {files}")
+        z.extractall(tmp, members=files)  # together, so a RUNPATH of $ORIGIN resolves
+        notices = [n for n in z.namelist() if re.search(r"licen[cs]e|copying|notice", n, re.I)]
+        print(f"  licence or notice files in the FMU: {notices or 'none'}")
+        for name in files:
+            if ".so" not in name:
+                continue
             ldd = subprocess.run(["ldd", f"{tmp}/{name}"], capture_output=True, text=True)
             print(
                 f"  ldd {name}:\n    " + (ldd.stdout or ldd.stderr).strip().replace("\n", "\n    ")
