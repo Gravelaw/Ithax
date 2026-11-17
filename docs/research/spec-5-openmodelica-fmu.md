@@ -44,7 +44,8 @@ Proposed (owner to confirm):
 Open questions:
 
 - **Blocking (a target platform):** a machine without a C toolchain and OpenModelica cannot build an FMU. Options: (a) building physical models needs OpenModelica installed (documented, apt under Linux and WSL 2), and running a shipped FMU needs only FMPy; (b) Ithax bundles OpenModelica in its package. Recommended: (a); (b) makes the Linux package much larger.
-- **Reversible, partly tested:** FMUs built with `platforms = {"static"}` ran in a clean container without OpenModelica (Tested). The CVODE FMU still names SUNDIALS libraries that `ldd` cannot find there; this is explained before templates ship FMUs.
+- **Answered (2026-11-17):** FMUs built with `platforms = {"static"}` ran in a clean container without OpenModelica, and the CVODE FMU carries its own SUNDIALS libraries (Tested). What remains before a template ships one is its notices: see the next point.
+- **Before templates ship FMUs:** a CVODE FMU contains SUNDIALS 5.4.0 binaries and headers under BSD-3-Clause, whose notice must go with a binary copy, and it contains no licence or notice file. A template that ships one adds SUNDIALS's `LICENSE` and `NOTICE`, and the notice of the OpenModelica runtime in its `sources/`, to the template's notices. Whether to ship FMUs in templates at all is part of owner decision #236.
 
 ## Tested
 
@@ -67,11 +68,23 @@ In CI, workflow `spec5-trials.yml` (#228), because OpenModelica could not be ins
 What the runs show:
 
 - **The default Co-Simulation integrator is not CVODE in 1.27.2.** Without the flag, the error falls tenfold when the communication step falls tenfold, as a first-order method's does, which matches the guide's description of forward Euler at the communication step. With `--fmiFlags=s:cvode` the FMU logs "CVODE linear multistep method CV_BDF" and "relative error tolerance 1.000000e-06" and passes. Both pages read under Finding were therefore wrong for this version in one respect: neither the API's "dassl" nor the guide's "CVODE" is what an FMU gets by default.
-- **The FMUs ran on a machine without OpenModelica.** `ldd` lists only `libm` and `libc` for the default FMUs. For `MSD_cvode` it lists `libsundials_cvode.so.5` and `libsundials_nvecserial.so.5` as "not found", yet the FMU loaded and gave the CVODE result in the clean container. Why it loaded was not established.
+- **The FMUs ran on a machine without OpenModelica.** `ldd` lists only `libm` and `libc` for the default FMUs. For `MSD_cvode` it listed `libsundials_cvode.so.5` and `libsundials_nvecserial.so.5` as "not found", yet the FMU loaded and gave the CVODE result in the clean container. The reason, found on 2026-11-17 (below): the FMU ships those libraries, and the trial looked at a copy of the model library on its own.
 - **Licences** were read from the installed files in the job log, and agree with Finding.
 
 The Decision section is revised accordingly:
 
 - The adapter always sets `--fmiFlags=s:cvode` before `buildModelFMU`, and the label names CVODE and its tolerance.
 - A benchmark of the export passes only with CVODE: x(10) within 1e-5 m at a communication step of 0.01 s.
-- Before a template ships a CVODE FMU, the missing SUNDIALS libraries are explained, and the FMU is run on a clean machine in CI, as the second job does.
+- Before a template ships a CVODE FMU, its notices are added (Decision), and the FMU is run on a clean machine in CI, as the second job does.
+
+**What the CVODE FMU contains** (2026-11-17). The `openmodelica-trial` artifact of run 43938942488 was downloaded (SHA-256 `caf01eb5…19af2`, equal to the digest in the job log) and read with Python's `zipfile` and `readelf`:
+
+| FMU | Files | Under `binaries/linux64/` | Licence or notice files |
+| --- | --- | --- | --- |
+| `MSD_cvode` | 303 | `MSD_cvode.so`; `libsundials_cvode.so.5` and `libsundials_nvecserial.so.5`, with their `.5.4.0` copies | none |
+| `MSD_static` | 273 | `MSD_static.so` | none |
+| `MSD_dynamic` | 273 | `MSD_dynamic.so` | none |
+
+- `MSD_cvode.so` needs `libsundials_cvode.so.5` and `libsundials_nvecserial.so.5` and has `RUNPATH` `$ORIGIN`, so it loads them from its own folder. `run_fmu.py` selected names ending in `.so` and ran `ldd` on the model library alone, which is why they showed as "not found". The script now extracts every file under `binaries/` together and lists notice files.
+- The SUNDIALS headers in `sources/sundials/` say "Copyright (c) 2002-2020, Lawrence Livermore National Security and Southern Methodist University … See the top-level LICENSE and NOTICE files for details. SPDX-License-Identifier: BSD-3-Clause". Neither file is in the FMU.
+- The revised `run_fmu.py` was run on these three FMUs in the research container, a third machine without OpenModelica, with FMPy 0.3.32 and Python 3.12.3. `ldd` resolved both SUNDIALS libraries inside the FMU. The results were equal to the CI runs to every printed digit: 3.87e-2 m and 3.71e-3 m for the default FMUs, and 2.08e-7 m and 8.67e-8 m for the CVODE FMU.
