@@ -27,7 +27,9 @@ Phase 2 adds four more ways of modelling and one layer above all engines: design
 | `physical` | Connected components that obey physical laws: masses, springs, circuits, heat flow | OpenModelica 1.27 builds an FMI 2.0 Co-Simulation FMU (a separate process); FMPy 0.3 (BSD-2-Clause) runs it in the run worker | process and in-process | Component diagram with physical connectors | Specified (#228, #236, #277) |
 | `multibody` | Rigid bodies and joints: linkages, pendulums | MuJoCo 4.0 (Apache-2.0), in place of Project Chrono (#231) | in-process | Bodies and joints; plots in Phase 2, the 3D preview with spec 6's viewer in Phase 3 | Specified (#231) |
 
-Each adapter follows the spec 1 contract (`capabilities`, `validate`, `translate`, `run`, `collect`) with its five methods unchanged. A model holds data only: no adapter takes Python, Modelica or XML text from a model file, and each writes its engine's input inside `engine/`. In-process engines may be imported because their licences are recorded in `docs/DECISIONS.md` (spec 1 "Engine licence rule", F4). Sources: `spec-5-mesa.md`, `spec-5-pysd.md`, `spec-5-fmpy.md`, `spec-5-openmodelica-fmu.md`, `spec-5-chrono.md`, `spec-5-mujoco.md`.
+Each adapter follows the spec 1 contract (`capabilities`, `validate`, `translate`, `run`, `collect`) with its five methods unchanged. A model holds data only: no adapter takes Python, Modelica or XML text from a model file, and each writes its engine's input inside `engine/`. In-process engines may be imported because their licences are recorded in `docs/DECISIONS.md` (spec 1 "Engine licence rule", F4).
+
+**Names in an engine's input.** An adapter never writes a component id as an engine name. It writes `c_<id>` in the generated Modelica, XMILE or MJCF, and maps each name back to its id when it collects. A user's id therefore cannot collide with a name the engine gives a meaning: Modelica keywords (`der`, `end`, `model`, `connect`), XMILE built-ins, which XMILE matches without regard to case (`dt`, `starttime`, `stoptime`, function names), or MuJoCo's own body `world`. Each adapter's tests build a model whose ids are those words and check that it runs. Sources: `spec-5-mesa.md`, `spec-5-pysd.md`, `spec-5-fmpy.md`, `spec-5-openmodelica-fmu.md`, `spec-5-chrono.md`, `spec-5-mujoco.md`.
 
 Additions the adapters need outside the five methods (Specified, #234 items 1 to 5; each additive, each landing with its milestone with a compat test):
 
@@ -147,10 +149,10 @@ On MuJoCo, after a trial matched the pendulum benchmark to about 1e-11 (`spec-5-
 | Type | Settings |
 | --- | --- |
 | `body` | `mass` (kg), `inertia` (three kg·m² values about the centre of mass; a point mass uses small values, the benchmark 1e-12), `centre` (three m values in the body frame) |
-| `joint` | `kind` (`hinge` or `slide`), `parent` (body id or `world`), `child` (body id), `anchor` (three m), `axis` (three numbers), optional `initial`, `stiffness`, `damping` |
+| `joint` | `kind` (`hinge` or `slide`), `parent` (body id, or `world` for the fixed frame), `child` (body id), `anchor` (three m), `axis` (three numbers), optional `initial`, `stiffness`, `damping` |
 | `world` | `gravity` (three m/s² values, default 0, 0, −9.80665) |
 
-Joints form a tree from `world`: every body is the `child` of exactly one joint, and no joint chain returns to a body above it (E408; closed loops are Phase 3). The adapter writes MJCF in `engine/`; the integrator is `RK4` at `time_step`. Metrics `<joint>.position`, `<joint>.velocity`, `<body>.x`, `.y`, `.z`, with the statistics above. Contacts, closed loops, conveyors and vehicles: Phase 3.
+`world` is reserved in this domain: no component may use it as its id (E112, as spec 1 reserves `model`), so `parent: "world"` always means the fixed frame and never a body. Joints form a tree from `world`: every body is the `child` of exactly one joint, and no joint chain returns to a body above it (E408; closed loops are Phase 3). The adapter writes MJCF in `engine/`; the integrator is `RK4` at `time_step`. Metrics `<joint>.position`, `<joint>.velocity`, `<body>.x`, `.y`, `.z`, with the statistics above. Contacts, closed loops, conveyors and vehicles: Phase 3.
 
 ## People in models
 
@@ -182,7 +184,7 @@ From `spec-5-reliability.md`; M24. **Proposed** for the calculators' home and en
 
 **Chaining (Specified, #235; M23).** One model's output becomes another's input: a system model sets the cycle time used by a process model. From `spec-5-cosimulation.md`:
 
-- **One file** (#235). A chain is a model file with `domain: "chain"` that holds its member models and the links between them, so it runs from one file. A member is not itself a chain (E422). The keys are written at M23 with a compat test.
+- **One file** (#235). A chain is a model file with `domain: "chain"` that holds its member models and the links between them, so it runs from one file. A member is not itself a chain (E422). The keys are written at M23 with a compat test. A word that the links give a fixed meaning is reserved under E112, as `world` is in multibody, so it can never also be a member's or a component's id.
 - A chain is a directed acyclic graph of models. The manager runs them in order, each as an ordinary run with its own adapter, run folder and manifest, so no adapter changes. `/v1` shows one chain run that lists its member runs.
 - In Phase 2 a link passes a scalar: a metric from the upstream `summary.json` (statistic `mean` for a replicated run) into a downstream parameter, whose unit must fit (E152). Time series pass once a downstream domain has a time-varying input (M19's source schedules, or system dynamics lookups).
 - A cycle is E421, naming the models: Ithax never iterates whole runs to a fixed point (rule 7).
@@ -300,6 +302,7 @@ Ten blocking questions (guide rule 5) were filed on 2026-11-16 as "Owner decisio
 - Specified: physical systems (#228, #236, #277: CVODE, the FMU's SUNDIALS and its notices, OpenModelica on request, only Ithax-built FMUs), multibody on MuJoCo (#231), chaining as one `chain` file (#235, with E422), the workforce settings (#237), the calculators' answers (#238) and the surrogates' rules (#238), the format and contract additions (#234, items 1 to 5), and the design-study libraries (#233).
 - Still Proposed, decided when each milestone starts: where studies, surrogates and calculators live, and their routes (#234, item 6).
 - Experiments: the step rules apply to the stepped domains only. A `physical` experiment has no `time_step`; its `record_interval` is the FMU's communication step, which must divide `length`, by default `length` / 200 (Codex review of #241).
+- Names: `world` is reserved as a component id in multibody (E112), so `parent: "world"` is never a body. Adapters write `c_<id>` as engine names, never the id, so engine keywords cannot collide with ids. A chain's fixed words are reserved the same way (Codex review of #241; the second finding of the reserved-name class, after the council's stream-key finding S6).
 - Milestones follow #240's split: M23 system dynamics, agents and chaining; M24 reliability, calculators and workforce; M25 physical and multibody; M26 studies and surrogates; M27 to M29 Windows, MCP hardening and the release. Maintenance-policy settings are M19 (#239).
 - Python 3.12 is the floor (#232). XMILE is the system dynamics input, with PySD's two warnings filtered (#278). Licences from #279: JuPedSim's GPL CGAL packages, OpenSim's EPL-2.0 Ipopt, pymoo and SALib without matplotlib. Benchmarks for NIOSH and SPAR-H and acceptance rows for workforce and maintenance policies added.
 

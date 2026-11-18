@@ -3964,3 +3964,22 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   - The mass–spring–damper benchmark states `record_interval` 0.01 s, the step its trial ran at (CI run 43938942488).
 - **Spec sections updated:** spec 5, "Model file for the new domains" (Experiments, E401, E407), "Benchmarks", "Changes in this version".
 - **Dependencies added:** none.
+
+## 2026-11-18 · Spec 5 research · Reading: reserved words and user identifiers, fixed as a class (Codex review of #241)
+
+- **Finding:** Codex review of #241 at `0366184`, thread comment 4609913474.
+  - A body could be named `world`, while `parent: "world"` also means the fixed frame. A joint on that body could not be told apart from one grounded to the world, and E408 could report a false self-loop.
+  - This is the second finding of its class in this PR. The first was the council's S6: stream keys shaped like component ids.
+  - So the whole class is fixed here (guide "Review findings").
+- **Readings (reversible):**
+  - `world` is reserved as a component id in multibody (E112), so `parent: "world"` always means the fixed frame.
+  - Adapters write `c_<id>` as engine names in the generated Modelica, XMILE or MJCF, never the id, and map names back when they collect. Modelica keywords, XMILE built-ins (matched without regard to case: `dt`, `starttime`, `stoptime`) and MuJoCo's `world` body therefore cannot collide with an id. Each adapter's tests use those words as ids.
+  - A chain's link keys, written at M23, reserve any fixed word under E112.
+  - The other places swept already avoid the class:
+    - system dynamics reserves `time` and its function names;
+    - agent states are names within one population;
+    - metric names and stream keys follow spec 1 or lie outside its identifier pattern (`@agents`, `@study`);
+    - physical connectors are named by the Modelica class, not by the user.
+- **Check:** an `AGENTS.md` review bullet for the class, naming both findings.
+- **Spec sections updated:** spec 5, "New engine adapters", "Multibody", "Combining engines", "Changes in this version"; `AGENTS.md`.
+- **Dependencies added:** none.
