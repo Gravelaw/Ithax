@@ -3983,3 +3983,14 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Check:** an `AGENTS.md` review bullet for the class, naming both findings.
 - **Spec sections updated:** spec 5, "New engine adapters", "Multibody", "Combining engines", "Changes in this version"; `AGENTS.md`.
 - **Dependencies added:** none.
+
+## 2026-11-18 · M17 · Default applied: adopt P25's guide text (#251)
+
+- **Decision (default applied):** option A. #251 was not answered by 2026-11-18, the date its default applies. The guide takes P25's three parts as P25 words them (`docs/retrospective/proposed-agent-setup.md` P25):
+  1. **A fix-only stabilisation step**, in "Milestones": "A milestone closes in two steps. Its feature PRs merge first; then one stabilisation ticket runs the full gate, the benchmarks and the scheduled fuzzing on `main`, and accepts only fixes, each under about 100 changed lines, until all are green. The session summary is written at the end of that ticket."
+  2. **The maintainer's spec check**, in "Merge readiness": "Before the PR is reported ready, the maintainer reads the spec sections for the areas the diff touches and lists in the PR any behaviour that differs from them." The orchestrating session is the maintainer.
+  3. **A "Not verified" heading** in every PR body and session summary. It lists what was not run or not checked, or says "Nothing".
+- **Why:** it is the text the owner approved as part of the Phase 2 table's M17 row. The stabilisation step would have caught the red `main` after M9 (W4) before M10 began.
+- **Not done here:** this entry records the decision only. The M17 chore #252 puts the text into `docs/specs/build-guide.md`, and makes the PR template, the summary headings in the guide and `CLAUDE.md`, and the `close-milestone` skill match, with a test for the "Not verified" heading.
+- **Spec sections updated:** none here; the build guide changes in #252.
+- **Dependencies added:** none.
