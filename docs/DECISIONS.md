@@ -3824,3 +3824,162 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Next:** issues are filed per item, as sub-issues of the Phase 2 epic, with `phase:2` labels. M17 product work waits until M16's checks pass (rule 2): the owner checks (#102) and the v0.1.0 tag (#103).
 - **Spec sections updated:** build guide, "Milestones".
 - **Dependencies added:** none.
+
+## 2026-11-16 · Spec 5 research · Spec 5 version 0.3, detailed and reviewed by a council (#104)
+
+- **Decision (proposed; the owner reviews it during development, F3):** `docs/specs/5-systems-and-design.md` is detailed as version 0.3 from the research notes `docs/research/spec-5-*.md`, their trials and a council of four reviewers (`docs/research/spec-5-council.md`). Each section states whether it is Specified, Proposed or Open:
+  - **Specified:** the agent-based domain (Mesa, well mixed), the system dynamics domain (PySD), and their statistics.
+  - **Proposed:** multibody on MuJoCo; design studies; surrogates; chaining; reliability calculators; people. Each waits on one of ten owner decisions, Q1 to Q10, filed as "Owner decision" issues.
+  - **Open:** physical systems, until OpenModelica's CI trial (#228) has run.
+- **Licences of the libraries spec 5 proposes to import in-process** (council finding F1; spec 1 "Engine licence rule"). Each was read on 2026-11-16 from the licence file in the pinned wheel, whose SHA-256 matched PyPI's digest. Read by the research notes and again by the council's licence reviewer:
+
+  | Name | Version | Licence | File read | Use |
+  | --- | --- | --- | --- | --- |
+  | SALib | 1.6.0 | MIT | `licenses/LICENSE.md` | sensitivity, screening |
+  | pymoo | 0.6.2 | Apache-2.0 | `licenses/LICENSE` | NSGA-II |
+  | moocore (pymoo's) | 0.3.2 | LGPL-2.1-or-later | `licenses/COPYRIGHTS` | pymoo dependency |
+  | scikit-learn | 1.9.1 | BSD-3-Clause (bundles libgomp, GPL-3.0-or-later WITH GCC-exception-3.1) | `licenses/COPYING` | surrogates |
+  | faultree | 0.4.0 | BSD-3-Clause | `licenses/LICENSE` | fault trees |
+  | dd (faultree's) | 0.6.0 | BSD-3-Clause, with CUDD BSD-3-Clause and glibc LGPL-2.1 notices | wheel licence files | faultree dependency |
+
+  All are compatible with AGPL-3.0 for a combined work. None is added as a dependency here: each is added, with this record, by the milestone that builds its feature. Their own dependencies are not all read yet (matplotlib's fonts, `portion`, `regex`; `docs/research/spec-5-council.md`), and are read before any is bundled.
+- **Readings (reversible), each in the spec:**
+  - Deterministic domains keep `seed` and drop `replications` and `warmup`.
+  - Agent randomness comes from one stream per replication, `@agents`, with competing risks for transitions out of one state.
+  - Stream keys outside the identifier pattern (`@agents`, `@study`), so they never collide with a component id.
+  - Statistics `final`, `max`, `min`, `time_of_max` and `mean` (trapezoid), from `warmup`.
+  - Physical units spelled as the units library reads them (`N*s/m`), and no `degC`.
+  - The system dynamics `time_unit` is top-level, and parameters in expressions are written `$id`.
+  - The surrogate's leave-one-out error comes from refits, not Ithax's own algebra (rule 7).
+  - In Phase 2, chaining passes scalars only.
+  - Each adapter ships one template, as the Phase 2 table says.
+  - The predator–prey benchmark is restated in days, since system dynamics allows no year unit.
+- **Spec sections updated:** spec 5, all sections; version 0.3.
+- **Dependencies added:** none.
+
+## 2026-11-18 · Spec 5 research · Default applied: MuJoCo replaces Project Chrono as the multibody engine (#231)
+
+- **Decision (default applied):** option A. #231 was not answered by 2026-11-18, the date its default applies. MuJoCo 4.0 (Apache-2.0, in-process) is spec 5's multibody engine, and Phase 2 multibody shows plots only. The 3D preview, contacts, conveyors and vehicles are Phase 3, where Project Chrono stays open for vehicles and contact-rich models (option C).
+- **Evidence:** MuJoCo 4.0.1 matched the pendulum benchmark to about 1e-11 (`docs/research/spec-5-mujoco.md`). PyChrono 9.0.1 passed one setting of twelve in CI (#228, run 43938942488; `spec-5-chrono.md`), and is conda-only with CUDA and MKL.
+- **Spec sections updated:** spec 5, "New engine adapters", "Multibody" (now Specified), "Scope", "Owner decisions".
+- **Dependencies added:** none; MuJoCo is added by the milestone that builds the adapter (M25).
+
+## 2026-11-18 · Spec 5 research · Default applied: Ithax's minimum Python becomes 3.12 (#232)
+
+- **Decision (default applied):** option A. #232 was not answered by 2026-11-18. Ithax's minimum Python becomes 3.12, because Mesa 3.5 requires it, and 3.11 leaves the CI matrix. The Linux package already ships Python 3.13.
+- **Not done here:** `pyproject.toml`, the CI matrix and `CLAUDE.md` still say 3.11. They change in their own change, reported to the orchestrating session.
+- **Spec sections updated:** spec 5, "New engine adapters", "Agent-based models", "Owner decisions".
+- **Dependencies added:** none.
+
+## 2026-11-18 · Spec 5 research · Default applied: no OpenMDAO or Dakota; pymoo for NSGA-II (#233)
+
+- **Decision (default applied):** option A. #233 was not answered by 2026-11-18. Design studies use `scipy.stats.qmc` for designs, SALib for sensitivity, Optuna TPE and `scipy.optimize` for one objective, and pymoo for NSGA-II, both here and in M20 (B1). OpenMDAO and Dakota are not used.
+- **Evidence:** pymoo's NSGA-II reached IGD 0.0056 on ZDT1 at 20,000 evaluations, against 0.057 for Optuna's sampler (`docs/research/spec-5-design-studies.md`). pymoo and SALib ran all three study trials without matplotlib (#279, `spec-5-transitive-licences.md`), so they are bundled without it. Their licences are in the 2026-11-16 entry "Spec 5 version 0.3".
+- **Spec sections updated:** spec 5, "Design studies", "Benchmarks" (ZDT1 at M20), "Owner decisions"; the overview's engine line follows in its own change.
+- **Dependencies added:** none; each library is added by the milestone that builds its feature.
+
+## 2026-11-18 · Spec 5 research · Default applied: format and contract additions, items 1 to 5 now (#234)
+
+- **Decision (default applied):** option B. #234 was not answered by 2026-11-18. Items 1 to 5 are accepted, and each lands with its milestone, with a compat test:
+  - the next free minor format version after M19's and M20's;
+  - parameter units;
+  - physical units, Kelvin only;
+  - deterministic experiments, with `search` process-only;
+  - `Results.method`, `Capabilities.build_tools`, catalogues per domain with `metrics_from`, and the new domains in `POST /v1/projects`.
+
+  Item 6, where studies, surrogates and calculators live and their routes, comes back for a decision when each milestone starts (M24 for calculators, M26 for studies and surrogates).
+- **Spec sections updated:** spec 5, the state legend, "New engine adapters", "Model file for the new domains", "Design studies", "Surrogate models", "Reliability and maintenance", "Service and MCP", "Owner decisions".
+- **Dependencies added:** none.
+
+## 2026-11-18 · Spec 5 research · Default applied: a chain is one file with its member runs as ordinary runs (#235)
+
+- **Decision (default applied):** option A. #235 was not answered by 2026-11-18. A chain is a model file with `domain: "chain"` that holds its member models and links, so it runs from one file. Each member runs as an ordinary run with its own folder and manifest, and `/v1` shows one chain run that lists its member runs.
+- **Reading (reversible):** E422 refuses a member that is itself a chain, and a link to a model, metric, statistic or parameter the chain lacks. The file's keys are written at M23 with a compat test.
+- **Spec sections updated:** spec 5, "Combining engines" (chaining now Specified), "Model file" (E422), "Service and MCP", "Owner decisions".
+- **Dependencies added:** none.
+
+## 2026-11-18 · Spec 5 research · Default applied: what the package bundles, and OpenModelica on request (#236)
+
+- **Decision (default applied):** option A. #236 was not answered by 2026-11-18.
+  - The Linux package bundles the pure-Python engines (PySD, Mesa, MuJoCo, FMPy and the study libraries), each with its notices in the licences list.
+  - OpenModelica is installed on request, with documented apt steps for Linux and WSL 2. Without it, physical models run only from FMUs Ithax built and cached.
+  - A project accepts only FMUs Ithax built.
+- **Evidence:** the CVODE FMU carries SUNDIALS 5.4.0, found through `RUNPATH $ORIGIN`, so it runs without OpenModelica (#277; CI runs 43938942488 and 44013052146). It ships no licence or notice file, so a template or package that ships one adds SUNDIALS's `LICENSE` and `NOTICE`. `portion` (LGPL-3.0-or-later) and `regex` (`Apache-2.0 AND CNRI-Python`) enter `packaging/linux/licences.json` "compatible" only by a recorded decision when PySD is bundled (#279).
+- **Spec sections updated:** spec 5, "Physical systems" (now Specified), "Design studies" (packaging), "Acceptance tests" (WSL 2 row), "Owner decisions".
+- **Dependencies added:** none.
+
+## 2026-11-18 · Spec 5 research · Default applied: workforce settings in Phase 2; pedestrians and biomechanics in Phase 3 (#237)
+
+- **Decision (default applied):** option A. #237 was not answered by 2026-11-18.
+  - Phase 2, in M24 under #240's split: the learning curve on `server` and absenteeism on `resource_pool`, as spec 2 extensions with benchmarks.
+  - Phase 3: fatigue, skill matching, pedestrians and OpenSim.
+  - Pedestrians use JuPedSim, after a legal check of its CGAL code, next to spec 6's geometry.
+- **Evidence for the Phase 3 items** (#279, `spec-5-transitive-licences.md`):
+  - JuPedSim compiles in CGAL packages under GPL-3.0-or-later.
+  - OpenSim's Ipopt 3.14.16 is EPL-2.0 with no Secondary License named, so OpenSim runs as a separate process.
+- **Spec sections updated:** spec 5, "Scope", "People in models", "Acceptance tests" (workforce row), "Owner decisions".
+- **Dependencies added:** none.
+
+## 2026-11-18 · Spec 5 research · Default applied: the calculators' and surrogates' answers (#238)
+
+- **Decision (default applied):** each recommendation. #238 was not answered by 2026-11-18.
+  - NIOSH is computed by the formulas, as the manual says, and tested against the printed example-1 limits within 2%.
+  - SPAR-H applies the adjustment by the worksheets' rule, three or more negative factors, so example 2 gives 6.40E-5. The printed 6.41E-5 and example 1's 0.81 (the formula gives 0.8016) are recorded beside the test.
+  - HEART, RULA and REBA are held until a lawyer confirms Ithax may ship their tables.
+  - Surrogates show the leave-one-out RMSE from scikit-learn refits, and refuse a budget below the larger of 5 runs per input and 10 (E430). Outside the trained range they answer with "outside the trained range: not validated".
+- **Spec sections updated:** spec 5, "People in models" (d), "Surrogate models", "Benchmarks" (NIOSH and SPAR-H rows), "Acceptance tests", "Owner decisions".
+- **Dependencies added:** none.
+
+## 2026-11-18 · Spec 5 research · Default applied: preventive replacement settings on `failure`, in M19 (#239)
+
+- **Decision (default applied):** option A. #239 was not answered by 2026-11-18. `failure` gains optional settings: a preventive replacement interval or age, with its own duration. It is a spec 2 and model format change that only adds, built with D13's failure process per unit in M19.
+- **Test:** the age-replacement cost-rate formula, against a published worked example still to be found before M19.
+- **Spec sections updated:** spec 5, "Reliability and maintenance", "Acceptance tests" (M19 row), "Research before building", "Owner decisions". Spec 2 changes at M19.
+- **Dependencies added:** none.
+
+## 2026-11-18 · Spec 5 research · Default applied: M23 is split (#240)
+
+- **Decision (default applied):** option A. #240 was not answered by 2026-11-18. M23 is split, and the later rows are renumbered:
+
+  | Milestone | Content |
+  | --- | --- |
+  | M23 | system dynamics, agents and chaining |
+  | M24 | reliability, calculators and workforce |
+  | M25 | physical and multibody models |
+  | M26 | design studies and surrogates |
+  | M27 | Windows through WSL 2 |
+  | M28 | MCP hardening |
+  | M29 | the Phase 2 release |
+- **Not done here:** the build guide's "Milestones" table and `docs/research/phase-2-milestones.md` still show M23 to M26 in the old order. `tests/test_phase_2_milestones.py` ties the two, so both change together in their own change, reported to the orchestrating session. Spec 5 uses the new numbers.
+- **Spec sections updated:** spec 5, "Benchmarks" (milestones), "Acceptance tests", "Service and MCP", "Owner decisions".
+- **Dependencies added:** none.
+
+## 2026-11-18 · Spec 5 research · Reading: a physical experiment's sampling grid (Codex review of #241)
+
+- **Finding:** Codex review of #241 at `c1653fa`, thread comment 4609860775. The `record_interval` default and both divisibility checks were defined through `time_step`, which only the stepped domains require. A `physical` experiment that gave `length` alone therefore had no sampling grid.
+- **Reading (reversible):**
+  - The step rules (E407, the `time_step` part of E401, the k × `time_step` default) apply to `agent`, `system_dynamics` and `multibody` only.
+  - A `physical` experiment has no `time_step` (E100), because CVODE inside the FMU chooses its own steps.
+  - Its `record_interval` is the FMU's communication step: FMPy's `output_interval`, at which it steps the FMU and records outputs. It must divide `length` (E401). When absent, it is `length` / 200, the coarsest grid the stepped default allows.
+  - The mass–spring–damper benchmark states `record_interval` 0.01 s, the step its trial ran at (CI run 43938942488).
+- **Spec sections updated:** spec 5, "Model file for the new domains" (Experiments, E401, E407), "Benchmarks", "Changes in this version".
+- **Dependencies added:** none.
+
+## 2026-11-18 · Spec 5 research · Reading: reserved words and user identifiers, fixed as a class (Codex review of #241)
+
+- **Finding:** Codex review of #241 at `0366184`, thread comment 4609913474.
+  - A body could be named `world`, while `parent: "world"` also means the fixed frame. A joint on that body could not be told apart from one grounded to the world, and E408 could report a false self-loop.
+  - This is the second finding of its class in this PR. The first was the council's S6: stream keys shaped like component ids.
+  - So the whole class is fixed here (guide "Review findings").
+- **Readings (reversible):**
+  - `world` is reserved as a component id in multibody (E112), so `parent: "world"` always means the fixed frame.
+  - Adapters write `c_<id>` as engine names in the generated Modelica, XMILE or MJCF, never the id, and map names back when they collect. Modelica keywords, XMILE built-ins (matched without regard to case: `dt`, `starttime`, `stoptime`) and MuJoCo's `world` body therefore cannot collide with an id. Each adapter's tests use those words as ids.
+  - A chain's link keys, written at M23, reserve any fixed word under E112.
+  - The other places swept already avoid the class:
+    - system dynamics reserves `time` and its function names;
+    - agent states are names within one population;
+    - metric names and stream keys follow spec 1 or lie outside its identifier pattern (`@agents`, `@study`);
+    - physical connectors are named by the Modelica class, not by the user.
+- **Check:** an `AGENTS.md` review bullet for the class, naming both findings.
+- **Spec sections updated:** spec 5, "New engine adapters", "Multibody", "Combining engines", "Changes in this version"; `AGENTS.md`.
+- **Dependencies added:** none.
