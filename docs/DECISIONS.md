@@ -3775,6 +3775,56 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
   | micromamba | 2.0.5 | BSD-3-Clause AND MIT AND OpenSSL (conda-forge repodata) | conda-forge `repodata.json` SHA-256 |
   | PyChrono | 9.0.1 (`py312h98ab86c_406`) | BSD-3-Clause (package metadata; projectchrono.org licence page) | projectchrono `repodata.json` SHA-256 |
 
+## 2026-11-16 · M16 · Spec 4 brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). Spec 4 now applies the checklist's six "change needed" rows for it and goes from version 1.0 (after the M14 close, #222) to 1.1:
+  - the version line (2026-11-09 B2);
+  - the ten templates kept, with an eleventh and template expansion in Phase 3 (2026-11-09 B7 item 3);
+  - C6's rule among the rules for assistant access;
+  - data import through the assistant in Phase 2 (D15);
+  - the Learn walkthrough row: agents in roles every phase, plus one or two people at v0.1.0 (C1, C2);
+  - a per-phase row for the different-assistant trial (C6).
+  - The five "already in spec" rows need no change.
+- **Readings (reversible):**
+  - The two remaining "owner to confirm" phrases near the templates (the thresholds kept at M10, AKS-125, and the template selection, AKS-124) are E1's build readings, which the checklist does not list. They stay.
+- **Spec sections updated:** spec 4, the version line, "Template library", "MCP server", "Limits", "Acceptance tests" and "Changes in this version".
+- **Dependencies added:** none.
+
+## 2026-11-16 · M16 · The overview brought up to the Phase 1 review (#101)
+
+- **Decision:** the owner approved the Phase 1 review checklist, 2026-11-16 (`docs/research/phase-1-review.md`, every row; relayed by the orchestrating session). `docs/specs/overview.md` now applies the checklist's six rows for it:
+  - the source-of-truth sentence drops "owner to confirm" (2026-11-09 B2), and the spec versions are those after the review (spec 0 0.5; specs 1 to 4 at 1.7, 1.2, 1.2 and 1.1, specs 3 and 4 having been bumped once by the M14 close, #222);
+  - specs 1 to 4 are Phase 1, closed as Phase 1a. Phase 3a is named, and F3 places new items from specs 5 to 7;
+  - the Windows row, as the owner decided on 2026-11-16 (#207): WSL 2 until after Phase 3, then a native build;
+  - F3's method for specs 5 to 7 (with 2026-11-09 B9);
+  - C4 and #206 for the performance targets;
+  - the stale "Only a prototype has been run" limit, rewritten as built.
+- **Readings (reversible):**
+  - The overview had no "Changes in this version" section and no version line. It gains the section, with this dated line, but no version line, since no version was ever given to it.
+  - Its spec versions assume the five spec PRs of this review (#220, #221, #223, #224, #225) merge first. This PR is the last of the six.
+  - The "Technology choices were not re-researched" limit is not in the checklist and is left as written.
+- **Spec sections updated:** overview, "What is here", "Choices made without asking", "Limits of these drafts", and a new "Changes in this version".
+- **Dependencies added:** none.
+
+## 2026-11-16 · Owner approved the Phase 2 milestone table (D18)
+
+- **Decision:** the owner approved the Phase 2 milestone table on 2026-11-16 (D18), as it stands on `main` at ccd98c6 after #219 (`docs/research/phase-2-milestones.md`), relayed by the orchestrating session. Its rows M17 to M26 are now in the build guide's "Milestones", copied verbatim, with each row's "Done when" as written there.
+  - M17: Phase 2 setup and research.
+  - M18: simulation statistics.
+  - M19: process constructs.
+  - M20: optimization.
+  - M21: data and interface.
+  - M22: the remote (SSH) run target.
+  - M23: spec 5 models.
+  - M24: Windows through WSL 2.
+  - M25: MCP hardening.
+  - M26: the Phase 2 release.
+- **Check:** `tests/test_phase_2_milestones.py` now also fails when the guide's M17 to M26 rows differ from the approved table, so a later change has to be made to both.
+- **Readings (reversible):** the orchestrating session's message named "CLAUDE.md's Milestones table". The table is in the build guide, and `CLAUDE.md` points to it, so the rows go there and `CLAUDE.md` is unchanged.
+- **Next:** issues are filed per item, as sub-issues of the Phase 2 epic, with `phase:2` labels. M17 product work waits until M16's checks pass (rule 2): the owner checks (#102) and the v0.1.0 tag (#103).
+- **Spec sections updated:** build guide, "Milestones".
+- **Dependencies added:** none.
+
 ## 2026-11-16 · Spec 5 research · Spec 5 version 0.3, detailed and reviewed by a council (#104)
 
 - **Decision (proposed; the owner reviews it during development, F3):** `docs/specs/5-systems-and-design.md` is detailed as version 0.3 from the research notes `docs/research/spec-5-*.md`, their trials and a council of four reviewers (`docs/research/spec-5-council.md`). Each section states whether it is Specified, Proposed or Open:
