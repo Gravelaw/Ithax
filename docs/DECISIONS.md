@@ -3994,3 +3994,22 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Not done here:** this entry records the decision only. The M17 chore #252 puts the text into `docs/specs/build-guide.md`, and makes the PR template, the summary headings in the guide and `CLAUDE.md`, and the `close-milestone` skill match, with a test for the "Not verified" heading.
 - **Spec sections updated:** none here; the build guide changes in #252.
 - **Dependencies added:** none.
+
+## 2026-11-18 · M17 · The guide's Phase 2 table renumbered for #240's split of M23
+
+- **Decision:** applies the default of #240, recorded on 2026-11-18 ("Default applied: M23 is split"), to the build guide's "Milestones" and to `docs/research/phase-2-milestones.md`. The two change together, because `tests/test_phase_2_milestones.py` keeps them equal.
+
+  | Milestone | Content |
+  | --- | --- |
+  | M23 | spec 5: system dynamics, agents and chaining |
+  | M24 | spec 5: reliability, calculators and workforce |
+  | M25 | spec 5: physical and multibody models |
+  | M26 | spec 5: design studies and surrogates |
+  | M27 | Windows through WSL 2 (was M24) |
+  | M28 | MCP hardening (was M25) |
+  | M29 | the Phase 2 release (was M26) |
+- **Row text:** each new spec 5 row names what spec 5 v0.3 specifies for it and the decisions it rests on (#231, #233 to #238, #277). Rows M27 to M29 keep their approved text unchanged. M17's P17 item now says the routes are "finished in M28".
+- **Check:** `tests/test_phase_2_milestones.py` now expects the guide's Phase 2 rows to run M17 to M29.
+- **Issues:** the orchestrating session retitles the issues that name the old numbers.
+- **Spec sections updated:** build guide, "Milestones"; `docs/research/phase-2-milestones.md`, the table and readings 1, 2 and 4.
+- **Dependencies added:** none.
