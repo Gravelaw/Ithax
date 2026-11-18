@@ -50,7 +50,9 @@ The next free minor format version after M19's and M20's (#234), additive: a fil
 
 **Experiments.**
 
-- `length` as spec 1. `time_step`, a time quantity, is required for `agent`, `system_dynamics` and `multibody`. `length` must be a whole multiple of `time_step` (E407); `record_interval` must be a whole multiple of `time_step` and divide `length` (E401), so the last recorded sample is at `length`. Both are checked exactly on the written decimals and the units' sizes, never on floats. When `record_interval` is absent it is k × `time_step`, where k is the smallest divisor of `length` / `time_step` with k × `time_step` ≥ `length` / 200.
+- `length` as spec 1. Every check below is exact, on the written decimals and the units' sizes, never on floats.
+- **Stepped domains** (`agent`, `system_dynamics`, `multibody`). `time_step`, a time quantity, is required. `length` must be a whole multiple of `time_step` (E407). `record_interval` must be a whole multiple of `time_step` and divide `length` (E401), so the last recorded sample is at `length`. When `record_interval` is absent it is k × `time_step`, where k is the smallest divisor of `length` / `time_step` with k × `time_step` ≥ `length` / 200.
+- **`physical`.** `time_step` is not allowed (E100): CVODE inside the FMU chooses its own steps. `record_interval` is the FMU's communication step, the interval at which FMPy steps the FMU and records its outputs (`output_interval`). It must divide `length` (E401). When absent it is `length` / 200.
 - Every time that bounds a run or its statistics lies on the recording grid, so no statistic needs a value between samples: `length` (E407), `record_interval` (E401) and, for agents, `warmup`, which must be a whole multiple of `record_interval` (E401).
 - `agent`: `replications`, `seed`, `confidence` and `warmup` as spec 1. The warm-up check W210 is not applied to agent runs, whose populations are meant to change; `warmup` only starts the statistics.
 - `system_dynamics`, `physical`, `multibody` are deterministic. `replications` and `warmup` are not allowed (E100); a run has one replication, numbered 0. `seed` stays allowed, and drawn when absent, because a study's sampler is seeded from it.
@@ -64,13 +66,13 @@ The next free minor format version after M19's and M20's (#234), additive: a fil
 
 | Code | Pass | Meaning |
 | --- | --- | --- |
-| E401 | meaning | `record_interval` is not a whole multiple of `time_step`, or does not divide `length`; or an agent `warmup` is not a whole multiple of `record_interval` |
+| E401 | meaning | `record_interval` does not divide `length`, or, in a stepped domain, is not a whole multiple of `time_step`; or an agent `warmup` is not a whole multiple of `record_interval` |
 | E402 | meaning | A population's `initial` counts do not sum to its `count`, or name a state it lacks; a transition names a state its population lacks |
 | E403 | meaning | An expression names something that is not a stock, flow, auxiliary or `$parameter` |
 | E404 | meaning | An expression does not parse |
 | E405 | meaning | A loop in what must be evaluated before it is known: flows and auxiliaries with no stock between, or stocks' `initial` expressions |
 | E406 | meaning | A physical connection joins connectors of different kinds |
-| E407 | meaning | `length` is not a whole multiple of `time_step` |
+| E407 | meaning | In a stepped domain, `length` is not a whole multiple of `time_step` |
 | E408 | meaning | Multibody joints do not form a tree from `world`: a body that is the `child` of no joint or of more than one, or a loop of joints |
 | E410 | calculator | A block diagram does not reduce by series, parallel and k-out-of-n steps |
 | E421 | meaning | Chained models form a cycle |
@@ -235,7 +237,7 @@ Expected values are closed forms computed by `docs/research/spec-5-trials/benchm
 | SIR final size and peak | `system_dynamics` | N 1000, I0 1, β 0.5/d, γ 0.25/d; `time_unit` d, `time_step` 1/64 d, 200 d | final size 797.154100; peak 153.926660 | within 0.5 and 0.25 persons (trial: +0.2171, +0.1434) | Brauer (2008) §2.4 | M23 |
 | SIR final size, agents | `agent` | N 1000, I0 10, same rates, `time_step` 0.1 d, 200 d, 100 replications, seed 12345 | final size 800.203968 | mean within 3 standard errors (proposed; the trial ran 30 replications: 796.03 ± 9.18, 0.93 standard errors below) | as above | M23 |
 | Predator and prey | `system_dynamics` | per day: α 1/365, β 0.1/365, γ 1.5/365, δ 0.075/365; x0 10, y0 5; `time_step` 0.0365 d, 5,475 d | V = δx − γ ln x + βy − α ln y, constant: −0.010447440 with these per-day rates (−3.813315552 with per-year rates; the time scale is the only change) | largest relative drift over the run below 1e-3 (trial in years at step 0.0001 year: 2.85e-4) | Hirsch, Smale and Devaney (2013) §11.2 | M23 |
-| Mass, spring and damper | `physical` | m 1 kg, k 4 N/m, c 0.4 N·s/m, x0 1 m, v0 0 | x(10 s) = 0.079116024 m; damped period 3.157419417 s | within 1e-5 m over 10 s (FMPy on a hand-written FMU at relative tolerance 1e-8: 8.63e-7 m; OpenModelica's CVODE FMU at its tolerance 1e-6, step 0.01 s: 2.08e-7 m, CI run 43938942488) | Thomson and Dahleh (1998) §2.6 | M25 |
+| Mass, spring and damper | `physical` | m 1 kg, k 4 N/m, c 0.4 N·s/m, x0 1 m, v0 0; `length` 10 s, `record_interval` 0.01 s | x(10 s) = 0.079116024 m; damped period 3.157419417 s | within 1e-5 m over 10 s (FMPy on a hand-written FMU at relative tolerance 1e-8: 8.63e-7 m; OpenModelica's CVODE FMU at its tolerance 1e-6, step 0.01 s: 2.08e-7 m, CI run 43938942488) | Thomson and Dahleh (1998) §2.6 | M25 |
 | Pendulum, 10° and 90° | `multibody` | L 1 m, g 9.80665 m/s², 1 kg with inertia 1e-12 kg·m², RK4, `time_step` 1 ms, 30 s | T = 2.010235893 s and 2.368246346 s | relative 1e-6 (MuJoCo: about 1e-11) | Thornton and Marion (2004) §4.4 | M25 |
 | Branin | studies | Optuna TPE, 200 evaluations, seed 1 | 0.397887 | within 0.01 (trial: 0.399147 to 0.399725 over three seeds) | Surjanovic and Bingham | M26 |
 | ZDT1, 30 variables | studies | pymoo NSGA-II, population 100, 20,000 evaluations | front f2 = 1 − √f1 | IGD below 0.01 (trial: 0.00555, 0.00564) | Zitzler, Deb and Thiele (2000) | M20 |
@@ -297,6 +299,7 @@ Ten blocking questions (guide rule 5) were filed on 2026-11-16 as "Owner decisio
 
 - Specified: physical systems (#228, #236, #277: CVODE, the FMU's SUNDIALS and its notices, OpenModelica on request, only Ithax-built FMUs), multibody on MuJoCo (#231), chaining as one `chain` file (#235, with E422), the workforce settings (#237), the calculators' answers (#238) and the surrogates' rules (#238), the format and contract additions (#234, items 1 to 5), and the design-study libraries (#233).
 - Still Proposed, decided when each milestone starts: where studies, surrogates and calculators live, and their routes (#234, item 6).
+- Experiments: the step rules apply to the stepped domains only. A `physical` experiment has no `time_step`; its `record_interval` is the FMU's communication step, which must divide `length`, by default `length` / 200 (Codex review of #241).
 - Milestones follow #240's split: M23 system dynamics, agents and chaining; M24 reliability, calculators and workforce; M25 physical and multibody; M26 studies and surrogates; M27 to M29 Windows, MCP hardening and the release. Maintenance-policy settings are M19 (#239).
 - Python 3.12 is the floor (#232). XMILE is the system dynamics input, with PySD's two warnings filtered (#278). Licences from #279: JuPedSim's GPL CGAL packages, OpenSim's EPL-2.0 Ipopt, pymoo and SALib without matplotlib. Benchmarks for NIOSH and SPAR-H and acceptance rows for workforce and maintenance policies added.
 

@@ -3953,3 +3953,14 @@ Relayed by the orchestrating session on 2026-11-15, and also recorded on #103 an
 - **Not done here:** the build guide's "Milestones" table and `docs/research/phase-2-milestones.md` still show M23 to M26 in the old order. `tests/test_phase_2_milestones.py` ties the two, so both change together in their own change, reported to the orchestrating session. Spec 5 uses the new numbers.
 - **Spec sections updated:** spec 5, "Benchmarks" (milestones), "Acceptance tests", "Service and MCP", "Owner decisions".
 - **Dependencies added:** none.
+
+## 2026-11-18 · Spec 5 research · Reading: a physical experiment's sampling grid (Codex review of #241)
+
+- **Finding:** Codex review of #241 at `c1653fa`, thread comment 4609860775. The `record_interval` default and both divisibility checks were defined through `time_step`, which only the stepped domains require. A `physical` experiment that gave `length` alone therefore had no sampling grid.
+- **Reading (reversible):**
+  - The step rules (E407, the `time_step` part of E401, the k × `time_step` default) apply to `agent`, `system_dynamics` and `multibody` only.
+  - A `physical` experiment has no `time_step` (E100), because CVODE inside the FMU chooses its own steps.
+  - Its `record_interval` is the FMU's communication step: FMPy's `output_interval`, at which it steps the FMU and records outputs. It must divide `length` (E401). When absent, it is `length` / 200, the coarsest grid the stepped default allows.
+  - The mass–spring–damper benchmark states `record_interval` 0.01 s, the step its trial ran at (CI run 43938942488).
+- **Spec sections updated:** spec 5, "Model file for the new domains" (Experiments, E401, E407), "Benchmarks", "Changes in this version".
+- **Dependencies added:** none.
